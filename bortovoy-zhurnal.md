@@ -40,5 +40,36 @@
 - https://github.com/dedvmedved-dot/aither-project (private)
 - SSH Deploy Key: ~/.ssh/id_ed25519_aither
 
+## 2026-07-03 14:00 — Анализ ТР и выбор ОС
+
+### Технические решения
+- **ТР №1 (Aither Architecture)**: Платформа Token-as-a-Service, 2× сервер, 4× Quadro RTX 6000, K3s + vLLM, Double-Entry биллинг (2998 строк)
+- **ТР №2 (Портал Aither v6.0)**: Portal BFF (Fastify) + React SPA + Portal DB (PostgreSQL), OAuth, YooKassa/CloudPayments
+
+### Выбор версии RED OS
+
+| Параметр | RED OS 7.3.6 | RED OS 8.0.2 |
+|---|---|---|
+| Ядро Linux | 6.1.128 | **6.12.21** |
+| NVIDIA driver | 535.113 | **570.144** |
+| Docker | 24.x | **28.1** |
+| Kubernetes | 1.28 | **1.32** |
+| PostgreSQL | 15.x | **17.5** |
+
+**Рекомендация: RED OS 8.0.2** — новейший драйвер NVIDIA 570.144, ядро 6.12 для GPU Operator, Docker 28.1 + K8s 1.32.
+
+ISO: `redos-8-20250711.4-Everything-x86_64-DVD1.iso` (6.1 GB)
+
+Альтернатива: RED OS 7.3.6 (`redos-MUROM-7.3.6-20250715.0-Everything-x86_64-DVD1.iso`, 5.1 GB) — если 8.0 несовместима.
+
+### Задачи
+- [x] Изучить оба ТР
+- [x] Выбрать версию RED OS
+- [x] Проверить доступность ISO-образов
+- [ ] Получить admin-доступ к BMC
+- [ ] Инвентаризация аппаратного обеспечения
+- [ ] Настройка удалённого управления питанием
+- [ ] Mount ISO → развёртывание RED OS 8.0
+
 ---
 *Журнал ведётся ассистентом Hermes в хронологическом порядке*
