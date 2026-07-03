@@ -30,11 +30,11 @@
 
 | Слот | Модель | VRAM | Интерконнект |
 |---|---|---|---|
-| GPU-0 | NVIDIA Quadro RTX 6000 | 24 GB GDDR6 | NVLink Bridge |
-| GPU-1 | NVIDIA Quadro RTX 6000 | 24 GB GDDR6 | NVLink Bridge |
-| **ИТОГО** | **2× RTX 6000** | **48 GB** | **NVLink (50 GB/s)** |
+| GPU-0 | NVIDIA Quadro RTX 6000 | 24 GB GDDR6 | Нет |
+| GPU-1 | NVIDIA Quadro RTX 6000 | 24 GB GDDR6 | Нет |
+| **ИТОГО** | **2× RTX 6000** | **48 GB** | **Без NVLink** |
 
-NVLink между двумя GPU даёт единое адресное пространство 48 GB — критично для моделей > 24 GB.
+⚠️ NVLink отсутствует. Каждая карта изолирована (24 GB VRAM). Для моделей > 24 GB — tensor parallelism (шардинг) или квантование.
 
 ## Память
 
