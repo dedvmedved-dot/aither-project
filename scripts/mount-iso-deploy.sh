@@ -4,7 +4,7 @@
 
 set -e
 
-ISO_URL="http://10.129.100.235:8080/redos-8-20250711.4-Everything-x86_64-DVD1.iso"
+ISO_URL="http://10.129.100.235:8888/redos8.iso"
 
 BMC=("10.129.40.50" "10.129.40.51")
 AUTH="techvirt:fhtfdh2!RF78"

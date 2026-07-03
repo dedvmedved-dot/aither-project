@@ -96,5 +96,22 @@ ISO: `redos-8-20250711.4-Everything-x86_64-DVD1.iso` (6.1 GB)
 - Все Redfish-эндпоинты теперь доступны (200 OK)
 - 2026-07-03 14:47 — запущена полная инвентаризация обоих BMC
 
+### 2026-07-03 15:55 — Подготовка Kickstart и блокировка BMC
+- ✅ ISO RedOS 8.0.2 скачан на VPS2: `/var/www/iso/redos8.iso` (5.7 GB)
+- ✅ HTTP-сервер на VPS2:8888 (python3 http.server), раздаёт ISO + Kickstart
+- ✅ Kickstart-файлы: `ks-node01.cfg` (10.129.13.171) и `ks-node02.cfg` (10.129.13.172)
+- ❌ BMC доступ потерян: `techvirt` → `Invalid username or password`. Пароль изменён.
+- ❌ Redfish API недоступен → монтирование ISO через API невозможно
+- 📋 **Ожидание:** новые креды от BMC для продолжения развёртывания
+- 📋 Kickstart включает: разметку (M.2 под ОС, SSD под данные), K8s-модули, firewalld, chrony
+
+### Kickstart-схема разметки
+| Устройство | Файловая система | Назначение |
+|-----------|-----------------|------------|
+| nvme0n1 (M.2 480GB) | XFS | `/`, `/var`, `/var/lib/docker`, swap |
+| sda (2×1.7TB SSD, RAID1) | XFS | `/data/fast` — быстрые данные |
+| sdb (10×3.5TB SSD, RAID10) | XFS | `/data/bulk` — холодные данные |
+
 ---
+
 *Журнал ведётся ассистентом Hermes в хронологическом порядке*
