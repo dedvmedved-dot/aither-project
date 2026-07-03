@@ -1,0 +1,162 @@
+digraph Topology {
+    rankdir=TB;
+    splines=polyline;
+    nodesep=0.4; ranksep=0.6;
+    fontname="DejaVu Sans";
+    
+    labelloc="t";
+    label="Топология сети Aither Project\\n21.06.2026 — Актуальное состояние";
+    fontsize=14;
+
+    // Node defaults
+    node [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=7, penwidth=1.0];
+    edge [fontname="DejaVu Sans", fontsize=6, color="#37474F", arrowsize=0.7, penwidth=0.8];
+    
+    // ═══════════════════════════════════════════════
+    // CLIENT LAYER
+    // ═══════════════════════════════════════════════
+    subgraph cluster_clients {
+        label="Рабочая станция";
+        style="filled,rounded";
+        fillcolor="#E3F2FD";
+        color="#1565C0";
+        fontsize=12;
+        
+        skhome [label="skhome01\nUbuntu 24.04 WS\n192.168.0.107\n\nSSH → VPS1/VPS2", fillcolor="#BBDEFB", color="#0D47A1", width=1.8];
+    }
+    
+    // ═══════════════════════════════════════════════
+    // VPS LAYER
+    // ═══════════════════════════════════════════════
+    subgraph cluster_vps {
+        label="VPS-инфраструктура";
+        style="filled,rounded";
+        fillcolor="#FFF3E0";
+        color="#E65100";
+        fontsize=12;
+        
+        // VPS1
+        subgraph cluster_vps1 {
+            label="VPS1 (основной)\nHetzner · 170.168.91.95";
+            style="filled,rounded,dashed";
+            fillcolor="#FFECB3";
+            color="#F57C00";
+            fontsize=10;
+            
+            vps1 [label="VPS1\nHermes v0.18\nGateway: активен\n\n📋 cron: pak-rca, hermes-sync\n🔄 socat :9443→BMC50\n🔄 socat :9444→BMC51", fillcolor="#FFE0B2", color="#BF360C", width=1.8];
+            
+            vps1_tun0 [label="tun0\nCisco815\n192.168.99.160/32\nMTU 1406\nDocker openconnect", fillcolor="#FFCC80", color="#E65100", width=1.8];
+            vps1_tun2 [label="tun2\nHuaweiHP\n❌ НЕ АКТИВЕН", fillcolor="#FFCC80", color="#E65100", width=1.8, fontcolor="#9E9E9E"];
+            
+            // WG on VPS1
+            vps1_wg0 [label="wg0: 10.99.0.2/24\nМост VPS1↔VPS2\nПорт 46353", fillcolor="#C8E6C9", color="#2E7D32", width=1.8];
+            vps1_wg1 [label="wg1: 10.99.0.3/32\nТуннель к BMC\nПорт 45418\nPeer→VPS2:53587", fillcolor="#C8E6C9", color="#2E7D32", width=1.8];
+        }
+        
+        // VPS2
+        subgraph cluster_vps2 {
+            label="VPS2 (резервный)\n130.17.1.90";
+            style="filled,rounded,dashed";
+            fillcolor="#FFECB3";
+            color="#F57C00";
+            fontsize=10;
+            
+            vps2 [label="VPS2\nHermes v0.18\nGateway: стоп (watchdog)\n\n📋 cron: hermes-sync, watchdog\n🌐 HTTP :8888 → ISO+Kickstart", fillcolor="#FFE0B2", color="#BF360C", width=1.8];
+            
+            vps2_tun2 [label="tun2\nHuaweiHP\n10.129.100.235/24\nПорт 443\nopenconnect", fillcolor="#FFCC80", color="#E65100", width=1.8];
+            
+            // WG on VPS2
+            vps2_wg0 [label="wg0: 10.99.0.1/24\nМост VPS2↔VPS1\nПорт 46353", fillcolor="#C8E6C9", color="#2E7D32", width=1.8];
+            vps2_wg1 [label="wg1: 10.99.0.2/32\nТуннель от VPS1\nПорт 53587\nPeer→VPS1:45418", fillcolor="#C8E6C9", color="#2E7D32", width=1.8];
+        }
+    }
+    
+    // ═══════════════════════════════════════════════
+    // TEST ZONES
+    // ═══════════════════════════════════════════════
+    subgraph cluster_zones {
+        label="Тестовые зоны";
+        style="filled,rounded";
+        fillcolor="#E8F5E9";
+        color="#2E7D32";
+        fontsize=12;
+        
+        zone_cisco [label="Зона 1: Cisco815\nЧерез VPS1 (tun0)\nСеть 10.129.0.0/16\n10.129.10-12", fillcolor="#C8E6C9", color="#1B5E20", width=1.8];
+        zone_huawei [label="Зона 2: HuaweiHP\nЧерез VPS2 (tun2)\nСеть 10.129.0.0/16\n10.129.40.0/24 (BMC)\n10.129.13.0/24 (VLAN 308)", fillcolor="#C8E6C9", color="#1B5E20", width=1.8];
+    }
+    
+    // ═══════════════════════════════════════════════
+    // HARDWARE LAYER
+    // ═══════════════════════════════════════════════
+    subgraph cluster_hardware {
+        label="Серверное оборудование";
+        style="filled,rounded";
+        fillcolor="#FCE4EC";
+        color="#C62828";
+        fontsize=12;
+        
+        bmc50 [label="BMC 1 (10.129.40.50)\nYADRO VEGMAN S320\nOpenBMC v1.10.4\nЛогин: techvirt\nHTTPS :443", fillcolor="#F8BBD0", color="#880E4F", width=1.8];
+        bmc51 [label="BMC 2 (10.129.40.51)\nYADRO VEGMAN S320\nOpenBMC v1.10.4\nЛогин: techvirt\nHTTPS :443", fillcolor="#F8BBD0", color="#880E4F", width=1.8];
+        
+        node01 [label="Node01 (будущий)\n10.129.13.171\nVLAN 308\nYADRO VEGMAN S320\n2× Xeon 6258R 28C\n768 GB RAM\n2× RTX 6000 (24GB)\n~39 TB SSD", fillcolor="#FFCDD2", color="#B71C1C", width=1.8];
+        node02 [label="Node02 (будущий)\n10.129.13.172\nVLAN 308\nYADRO VEGMAN S320\n2× Xeon 6258R 28C\n768 GB RAM\n2× RTX 6000 (24GB)\n~39 TB SSD", fillcolor="#FFCDD2", color="#B71C1C", width=1.8];
+    }
+    
+    // ═══════════════════════════════════════════════
+    // STORAGE/REPOS
+    // ═══════════════════════════════════════════════
+    subgraph cluster_repos {
+        label="Репозитории и артефакты";
+        style="filled,rounded";
+        fillcolor="#EDE7F6";
+        color="#4527A0";
+        fontsize=12;
+        
+        github [label="GitHub\nhttps://github.com/dedvmedved-dot/\n\n📁 aither-project\n📁 hermes-sync (private)", fillcolor="#D1C4E9", color="#311B92", width=1.8];
+        iso [label="ISO RedOS 8.0.2\nVPS2:/var/www/iso/\nHTTP :8888\n\n📄 redos8.iso (5.7 GB)\n📄 ks-node01.cfg\n📄 ks-node02.cfg", fillcolor="#D1C4E9", color="#311B92", width=1.8];
+    }
+    
+    // ═══════════════════════════════════════════════
+    // EDGES
+    // ═══════════════════════════════════════════════
+    
+    // User → VPS (SSH)
+    skhome -> vps1 [label="SSH:22", color="#1565C0", penwidth=1.5];
+    skhome -> vps2 [label="SSH:22", color="#1565C0", penwidth=1.5];
+    
+    // WireGuard bridge VPS1↔VPS2
+    vps1_wg0 -> vps2_wg0 [dir=both, label="WG мост\n10.99.0.0/24\n0.05 ms", color="#2E7D32", penwidth=1.8, style="bold"];
+    
+    // WireGuard tunnel VPS1→VPS2 (BMC access)
+    vps1_wg1 -> vps2_wg1 [dir=both, label="WG BMC-туннель\nVPS1:45418↔VPS2:53587\nМаршрут 10.129.40.0/24", color="#2E7D32", penwidth=1.5];
+    
+    // VPN tunnels
+    vps1 -> vps1_tun0 [dir=none, style=invis];
+    vps1_tun0 -> zone_cisco [label="Cisco AnyConnect\nexpect+Docker", color="#FF6F00", penwidth=1.2, minlen=2];
+    
+    vps2 -> vps2_tun2 [dir=none, style=invis];
+    vps2_tun2 -> zone_huawei [label="openconnect\nHTTPS:443", color="#FF6F00", penwidth=1.2, minlen=2];
+    
+    // VPS2 → BMC (via HuaweiHP tunnel)
+    zone_huawei -> bmc50 [label="10.129.40.50:443\n52 ms", color="#C62828", penwidth=1.2];
+    zone_huawei -> bmc51 [label="10.129.40.51:443\n52 ms", color="#C62828", penwidth=1.2];
+    
+    // Port forwards VPS1→BMC
+    vps1 -> bmc50 [label="socat :9443 ➜ BMC:443\nчерез wg1+tun2", color="#BF360C", penwidth=1.0, style=dashed, constraint=false];
+    vps1 -> bmc51 [label="socat :9444 ➜ BMC:443\nчерез wg1+tun2", color="#BF360C", penwidth=1.0, style=dashed, constraint=false];
+    
+    // SSHD tunnel path for user
+    skhome -> vps2 [style="dashed,dotted", color="#FF6F00", penwidth=0.8, label="ССШ туннель\nskhome01:L9443→BMC.50:443\nskhome01:L9444→BMC.51:443", weight=0];
+    
+    // ISO served from VPS2
+    vps2 -> iso [dir=none, color="#4527A0", penwidth=1.2];
+    iso -> node01 [label="Установка\nRedOS 8.0.2\n+Kickstart", color="#7B1FA2", penwidth=1.5, minlen=2];
+    iso -> node02 [label="Установка\nRedOS 8.0.2\n+Kickstart", color="#7B1FA2", penwidth=1.5, minlen=2];
+    
+    // GitHub sync
+    vps1 -> github [label="git push\nкаждые 15 мин\nDeploy Key", color="#4527A0", penwidth=1.2];
+    vps2 -> github [label="git pull+fallback\nкаждые 15 мин\n(смещение +3мин)", color="#4527A0", penwidth=1.2];
+    
+    // Future K8s link
+    node01 -> node02 [dir=both, label="Будущий K8s\nCalico BGP", color="#B71C1C", penwidth=1.5, style=bold, minlen=2];
+}
