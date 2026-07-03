@@ -44,13 +44,10 @@
 
 ## PCIe устройства: 13 шт.
 
-Наиболее вероятное распределение (по топологии YADRO VEGMAN):
-- 2× **NVIDIA Quadro RTX 6000** (24 GB GDDR6, Turing TU102, **NVLink** — объединённые 48 GB)
-- 2× **NVMe/RAID-контроллеры** (MegaRAID + M.2)
-- 2× **сетевые адаптеры** (транк VLAN 308/924/311)
-- 7× **системные мосты/PLX-коммутаторы**
-
-PCIe Vendor/Device ID не экспортируются через Redfish данной прошивки.
+Фактическая конфигурация GPU:
+- 2× **NVIDIA Quadro RTX 6000** (24 GB GDDR6 каждый, Turing TU102)
+- GPU связаны через **NVLink Bridge** (50 GB/s duplex)
+- Суммарно: 48 GB VRAM на сервер
 
 ## Сеть BMC
 
