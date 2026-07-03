@@ -1,0 +1,70 @@
+bmc_nodes:
+  - id: bmc-01
+    ip: "10.129.40.50"
+    type: OpenBMC
+    redfish_version: "1.9.0"
+    uuid: "c1b0a74d-f140-4ef4-9ed2-3b95897c471d"
+    web_ui: "https://10.129.40.50"
+    auth:
+      username: techvit
+      role: restricted
+    ports:
+      ssh: 22
+      http: 80
+      https: 443
+    access:
+      redfish_root: true
+      redfish_full: false
+      ssh: false
+      web_ui: true
+    status: discovered
+
+  - id: bmc-02
+    ip: "10.129.40.51"
+    type: OpenBMC
+    redfish_version: "1.9.0"
+    uuid: "289530cf-e7f5-4ae1-a9a9-27628dcdfbb7"
+    web_ui: "https://10.129.40.51"
+    auth:
+      username: techvit
+      role: restricted
+    ports:
+      ssh: 22
+      http: 80
+      https: 443
+    access:
+      redfish_root: true
+      redfish_full: false
+      ssh: false
+      web_ui: true
+    status: discovered
+
+vps_nodes:
+  - id: vps1
+    ip: "170.168.91.95"
+    role: primary
+    hermes: "v0.16.0"
+    os: Ubuntu
+    tunnels:
+      - name: HuaweiHP
+        iface: tun0
+        net: "172.30.20.0/24"
+      - name: WireGuard
+        iface: wg0
+        ip: "10.99.0.2"
+        peer: vps2
+
+  - id: vps2
+    ip: "130.17.1.90"
+    role: backup
+    hermes: "v0.18.0"
+    os: "Ubuntu 24.04.4"
+    tunnels:
+      - name: Cisco
+        iface: tun1
+        type: docker
+        net: "10.129.0.0/16"
+      - name: WireGuard
+        iface: wg0
+        ip: "10.99.0.1"
+        peer: vps1
