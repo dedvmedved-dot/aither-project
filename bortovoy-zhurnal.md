@@ -85,8 +85,9 @@ ISO: `redos-8-20250711.4-Everything-x86_64-DVD1.iso` (6.1 GB)
 
 ### Принятые решения
 - **RED OS 8.0.2** (ядро 6.12, NVIDIA 570)
-- **K3s** (не K8s) — проще, экономнее RAM, совместим с GPU Operator
-- **2× RTX 6000** (не 4, как в ТР) с NVLink
+- **K8s (kubeadm)** вместо K3s из ТР — полный Kubernetes для production GPU Operator, etcd, аудита
+- **2× RTX 6000** на сервер (не 4×, как в ТР) — NVLink bridge, 48 GB VRAM/сервер
+- **Диски:** RAID1 (2×1.7TB) под ОС, RAID10 (10×3.5TB) под данные, M.2 (2×480GB) под кэш Docker
 - [ ] Mount ISO → развёртывание RED OS 8.0
 
 ### Важно
