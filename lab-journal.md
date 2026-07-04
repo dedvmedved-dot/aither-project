@@ -152,3 +152,57 @@ nvidia.com/cuda.runtime: 12.8
 ---
 
 ### Шаг 4: Gate 2 — Model Fit (vLLM + Qwen3-14B)
+
+**Узел:** 40.51
+
+**Цель:** развернуть vLLM с моделью Qwen2.5-14B-Instruct, проверить инференс на GPU.
+
+#### 4.1 Пул образа
+
+**Команда:**
+```bash
+ctr image pull docker.io/vllm/vllm-openai:latest
+```
+
+**Питфолл:** Docker Hub заблокирован из РФ — прямой пул в K8s висел 42 минуты без прогресса.
+
+**Решение:** зеркало через containerd mirror:
+```toml
+[plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+  endpoint = ["https://dockerhub.timeweb.cloud", "https://mirror.gcr.io"]
+```
+
+Образ 8.6 GB скачан за ~3 минуты через `dockerhub.timeweb.cloud`.
+
+#### 4.2 NVIDIA runtime
+
+**Питфолл:** vLLM не видел GPU (`NVML Shared Library Not Found`). Причина — дефолтный `runc` не монтирует NVIDIA-библиотеки.
+
+**Решение:** прописать `nvidia` runtime в `/etc/containerd/config.toml`:
+```toml
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+  runtime_type = "io.containerd.runc.v2"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+    BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime"
+    SystemdCgroup = true
+```
+
+И установить `runtimeClassName: nvidia` в поде:
+```bash
+kubectl patch deploy vllm-qwen -p '{"spec":{"template":{"spec":{"runtimeClassName":"nvidia"}}}}'
+```
+
+**Питфолл 2:** `99-nvidia.toml` из GPU Operator в `conf.d/` ломает импорт containerd — перезаписывает секцию `runtimes` и теряет `nvidia` runtime. Решение: убрать `imports` из config.toml, собрать монолитный конфиг.
+
+#### 4.3 Результат
+
+```
+nvidia-smi: Quadro RTX 6000, CUDA 13.0, 570.195.03
+vLLM: Confirmed CUDA platform is available
+vLLM: Automatically detected platform cuda
+```
+
+GPU доступен в контейнере, vLLM инициализируется.
+
+**Статус:** ✅ GPU доступен, модель загружается
+
