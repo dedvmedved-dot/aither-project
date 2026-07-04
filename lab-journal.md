@@ -122,3 +122,29 @@ bootsman-k8s-clnt01-n8-gpu   Ready    control-plane   4m   v1.33.5
 ---
 
 ### Шаг 3: NVIDIA GPU Operator
+
+**Узел:** 40.51
+
+**Цель:** развернуть NVIDIA GPU Operator для управления GPU в K8s.
+
+**Команда:**
+```bash
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+helm install gpu-operator nvidia/gpu-operator -n gpu-operator --create-namespace
+```
+
+**Разбор:** GPU Operator автоматически разворачивает: device-plugin, container-toolkit, dcgm-exporter, feature-discovery, validator. Драйвер используется предустановленный (`driver=pre-installed`).
+
+**Результат:**
+```
+nvidia.com/gpu:         2
+nvidia.com/gpu.product: Quadro-RTX-6000
+nvidia.com/gpu.memory:  23040
+nvidia.com/gpu.count:   2
+nvidia.com/cuda.runtime: 12.8
+```
+Все поды Running: operator, toolkit, device-plugin, dcgm-exporter, feature-discovery, validator.
+
+**Питфолл:** тестовый под завис на `ContainerCreating` (runtime-образ ~4 GB, долгая загрузка). GPU видны в Capacity узла — этого достаточно для верификации.
+
+Статус: ✅ GPU Operator Ready
