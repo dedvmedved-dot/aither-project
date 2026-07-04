@@ -89,3 +89,11 @@ GPU 1: Quadro RTX 6000 | 24 GB | 26°C | P8 | 20W/250W
 | 2× RTX 6000 24GB | ✅ |
 
 Статус: ✅ Gate 0 пройден
+
+---
+
+### Шаг 2: Gate 1 — K8s single-node
+
+**Узел:** 40.51 (10.129.13.78)
+
+**Цель:** развернуть одноузловой Kubernetes с NVIDIA GPU Operator.
