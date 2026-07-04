@@ -97,3 +97,24 @@ GPU 1: Quadro RTX 6000 | 24 GB | 26°C | P8 | 20W/250W
 **Узел:** 40.51 (10.129.13.78)
 
 **Цель:** развернуть одноузловой Kubernetes с NVIDIA GPU Operator.
+
+**Команда:**
+```bash
+kubeadm reset -f
+kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=10.129.13.78
+kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+kubectl apply -f https://github.com/flannel-io/flannel/releases/download/v0.25.7/kube-flannel.yml
+```
+
+**Разбор:** `kubeadm reset -f` — очистка остатков старого кластера. `--apiserver-advertise-address=10.129.13.78` — API-сервер на VLAN-интерфейсе. `taint` — single-node: разрешить поды на control-plane. Flannel v0.25.7 — рабочая версия CNI (v0.28.5 сломана: `/opt/bin/install-conf` not found).
+
+**Питфолл:** Flannel v0.28.5 (latest) падает с `stat /opt/bin/install-conf: no such file or directory`. Calico Tigera operator не совместим с K8s 1.33. Решение: Flannel v0.25.7.
+
+**Результат:**
+```
+NAME                         STATUS   ROLES           AGE   VERSION
+bootsman-k8s-clnt01-n8-gpu   Ready    control-plane   4m   v1.33.5
+```
+Все pods Running: etcd, apiserver, controller-manager, scheduler, coredns (2), kube-proxy, flannel.
+
+Статус: ✅ K8s Ready
