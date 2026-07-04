@@ -62,3 +62,30 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-driver-570
 **Результат:** установка запущена в фоне...
 
 Статус: 🔄 In Progress
+
+**Результат (после ребута):**
+```
+NVIDIA-SMI 570.195.03   Driver Version: 570.195.03   CUDA Version: 12.8
+GPU 0: Quadro RTX 6000 | 24 GB | 26°C | P8 | 19W/250W
+GPU 1: Quadro RTX 6000 | 24 GB | 26°C | P8 | 20W/250W
+```
+
+**Дополнительно установлено:**
+- Docker 28.3.3 + nvidia-container-toolkit
+- GPU доступны внутри контейнеров (`docker run --gpus all nvidia/cuda:12.8 nvidia-smi` ✅)
+
+**Питфолл:** после `apt-get install nvidia-driver-570` модуль nouveau остался в памяти. Требуется ребут. После ребута не поднялся VLAN 308 — ручная настройка `ip link add link ens1f0 name ens1f0.308 type vlan id 308`.
+
+**Чек-лист Gate 0:**
+
+| Критерий | Статус |
+|---|---|
+| nvidia-smi | ✅ 570.195.03, CUDA 12.8 |
+| uname -a | ✅ 6.6.28-1-generic |
+| Astra Linux | ✅ 1.8.1 |
+| docker --version | ✅ 28.3.3 |
+| nvidia-container-toolkit | ✅ |
+| GPU в Docker | ✅ обе карты видны |
+| 2× RTX 6000 24GB | ✅ |
+
+Статус: ✅ Gate 0 пройден
