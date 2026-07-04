@@ -118,3 +118,7 @@ bootsman-k8s-clnt01-n8-gpu   Ready    control-plane   4m   v1.33.5
 Все pods Running: etcd, apiserver, controller-manager, scheduler, coredns (2), kube-proxy, flannel.
 
 Статус: ✅ K8s Ready
+
+---
+
+### Шаг 3: NVIDIA GPU Operator
