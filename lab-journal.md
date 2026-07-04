@@ -35,3 +35,30 @@
 - Добавлена актуальная топология (yadro-topology.*)
 
 Статус: ✅ OK
+
+---
+
+### Шаг 1: Gate 0 — установка NVIDIA-драйвера
+
+**Узел:** 40.51 (10.129.13.78)
+
+**Цель:** установить NVIDIA-драйвер 570, проверить `nvidia-smi`.
+
+**Окружение:**
+- Astra Linux 1.8, ядро 6.6.28-1-generic
+- Internet доступен (8.8.8.8 — 22ms, download.astralinux.ru — 32ms)
+- linux-headers-6.6.28-1-generic уже установлены
+- GCC отсутствовал (подтянется зависимостями)
+
+**Команда:**
+```bash
+apt-get update
+nvidia-detect  # → рекомендует nvidia-driver
+DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-driver-570
+```
+
+**Разбор:** `nvidia-detect-570` определяет GPU (TU102GL [Quadro RTX 6000]) и рекомендует пакет. `nvidia-driver-570` — метапакет, тянет kernel module (DKMS), userspace-библиотеки, утилиты. `DEBIAN_FRONTEND=noninteractive` — без диалогов (сервер headless).
+
+**Результат:** установка запущена в фоне...
+
+Статус: 🔄 In Progress
