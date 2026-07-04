@@ -148,3 +148,7 @@ nvidia.com/cuda.runtime: 12.8
 **Питфолл:** тестовый под завис на `ContainerCreating` (runtime-образ ~4 GB, долгая загрузка). GPU видны в Capacity узла — этого достаточно для верификации.
 
 Статус: ✅ GPU Operator Ready
+
+---
+
+### Шаг 4: Gate 2 — Model Fit (vLLM + Qwen3-14B)
