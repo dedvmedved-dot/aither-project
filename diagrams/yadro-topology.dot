@@ -1,0 +1,113 @@
+digraph YADRO_Lab {
+    rankdir=TB;
+    bgcolor="#1a1a2e";
+    
+    // Global styles
+    node [fontname="Helvetica", fontcolor=white, fontsize=11];
+    edge [fontname="Helvetica", fontcolor="#888888", fontsize=9];
+    
+    subgraph cluster_internet {
+        label="Интернет";
+        fontcolor="#888888";
+        color="#333366";
+        style=dashed;
+        
+        user [label="Сергей\n(Telegram)", shape=box, style="rounded,filled", fillcolor="#e94560", width=1.2];
+        github [label="GitHub\ndedvmedved-dot", shape=cylinder, fillcolor="#6c63ff", style=filled];
+    }
+    
+    subgraph cluster_skhome {
+        label="skhome01 (Ubuntu 24.04)\n192.168.0.107";
+        fontcolor="#cccccc";
+        color="#444488";
+        style="rounded,filled";
+        fillcolor="#0f0f2e";
+        
+        hermes [label="Hermes Agent\n(skhome01)", shape=box, style="rounded,filled", fillcolor="#16213e", width=1.8];
+    }
+    
+    subgraph cluster_vps {
+        label="VPS1 + VPS2 (WireGuard-мост)";
+        fontcolor="#cccccc";
+        color="#444488";
+        style="rounded,filled";
+        fillcolor="#0f0f2e";
+        
+        subgraph cluster_vps2 {
+            label="VPS2\n130.17.1.90";
+            fontcolor="#cccccc";
+            color="#335533";
+            style="rounded,filled";
+            fillcolor="#0a1a0a";
+            
+            tunnels [label="SSH-туннели:\n9443→40.50 BMC\n9444→40.51 BMC\n3389→RDP .21", shape=note, fillcolor="#2d6a4f", style=filled];
+        }
+    }
+    
+    subgraph cluster_mgmt {
+        label="Сеть управления BMC\n10.129.40.0/24";
+        fontcolor="#cccccc";
+        color="#666622";
+        style="rounded,filled";
+        fillcolor="#1a1a0a";
+        
+        bmc50 [label="BMC 40.50\nYADRO VEGMAN S320\nSN: 021222058D", shape=box, style="rounded,filled", fillcolor="#7f6000", width=2];
+        bmc51 [label="BMC 40.51\nYADRO VEGMAN S320\nSN: 0202230575", shape=box, style="rounded,filled", fillcolor="#7f6000", width=2];
+    }
+    
+    subgraph cluster_test {
+        label="Тестовая зона\nVLAN 308 (10.129.13.0/24)";
+        fontcolor="#cccccc";
+        color="#446644";
+        style="rounded,filled";
+        fillcolor="#0a1a0a";
+        
+        astra [label=".21 — Astra Linux (RDP)\n10.129.11.21\nsvlkravchuk\nHTTP:8888", shape=box, style="rounded,filled", fillcolor="#2d6a4f", width=1.8];
+        
+        yadro51 [label="40.51 — bootsman-k8s-clnt01-n8-gpu\n10.129.13.78 (ens1f0.308)\nSSH: root/root", shape=box, style="rounded,filled", fillcolor="#2d6a4f", width=2.5];
+        
+        subgraph cluster_yadro51_detail {
+            label="40.51 Конфигурация";
+            fontcolor="#88aa88";
+            color="#335533";
+            style="rounded,filled";
+            fillcolor="#0a150a";
+            
+            cpu [label="2× Xeon Gold 6258R\n28C/56T × 2 = 112 потоков", shape=record, fillcolor="#1a472a", style=filled];
+            ram [label="754 GB DDR4\n12× 64 GB Samsung", shape=record, fillcolor="#1a472a", style=filled];
+            gpu [label="2× NVIDIA RTX 6000/8000\nTU102GL (нет драйверов)", shape=record, fillcolor="#1a472a", style=filled];
+            disks [label="Диски:\n447 GB SSD (boot)\n1.7T + 8× 3.5T SAS SSD", shape=record, fillcolor="#1a472a", style=filled];
+            
+            cpu -> ram [style=invis];
+            ram -> gpu [style=invis];
+            gpu -> disks [style=invis];
+        }
+        
+        yadro50 [label="40.50 — НЕ РАБОТАЕТ\nRAID Marvell потерян\nBMC время 2001 год\n(батарейка CMOS)", shape=box, style="rounded,filled", fillcolor="#8b0000", width=2, color="#ff4444"];
+    }
+    
+    // Connections
+    user -> hermes [label="Telegram", color="#e94560"];
+    hermes -> github [label="git push", color="#6c63ff"];
+    hermes -> tunnels [label="SSH", color="#00ff00"];
+    tunnels -> bmc50 [label="9443", color="#aaaa00"];
+    tunnels -> bmc51 [label="9444", color="#aaaa00"];
+    tunnels -> astra [label="3389 (RDP)", color="#00aaff"];
+    bmc50 -> yadro50 [label="KVM", color="#ff4444", style=dashed];
+    bmc51 -> yadro51 [label="KVM", color="#00ff00", style=dashed];
+    astra -> yadro51 [label="SSH\nroot/root", color="#00ff00"];
+    
+    // Legend
+    subgraph cluster_legend {
+        label="Легенда";
+        fontcolor="#888888";
+        color="#333333";
+        style=rounded;
+        fillcolor="#0a0a1a";
+        
+        l1 [label="Работает", shape=box, style=rounded, fillcolor="#2d6a4f"];
+        l2 [label="Не работает", shape=box, style=rounded, fillcolor="#8b0000"];
+        l3 [label="Управление", shape=note, fillcolor="#7f6000", style=filled];
+        l4 [label="Пользователь", shape=box, style=rounded, fillcolor="#e94560"];
+    }
+}
