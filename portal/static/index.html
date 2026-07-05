@@ -481,7 +481,6 @@ code, .mono {
 .chat-balance {
   font-size: 13px;
   color: var(--text-muted);
-  margin-bottom: 8px;
 }
 .chat-balance-val { color: var(--green); font-weight: 600; }
 .chat-org-select {
@@ -1312,11 +1311,9 @@ async function renderChats() {
         <select class="chat-org-select" id="chat-org-select" onchange="onChatOrgChange(this.value)" style="margin-top:6px;">
           ${state.orgs.map(o => `<option value="${esc(o.org_id)}" ${state.chatOrgId===o.org_id?'selected':''}>${esc(o.name)}</option>`).join('')}
         </select>
+        <div class="chat-balance" id="chat-balance" style="margin-top:8px;">Баланс: —</div>
       </div>
       <div class="chat-sidebar-list" id="chat-list"></div>
-      <div class="chat-sidebar-footer">
-        <div class="chat-balance" id="chat-balance">Баланс: —</div>
-      </div>
     </div>
     <div class="chat-main">
       <div class="chat-messages" id="chat-messages">
