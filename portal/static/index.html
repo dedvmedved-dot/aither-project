@@ -1679,8 +1679,22 @@ render();
 
 // === INLINE SYNTAX HIGHLIGHTER ===
 function highlightCode(el) {
+  // Skip if already highlighted
+  if (el.querySelector('.hljs-keyword,.hljs-string,.hljs-comment')) return;
+
   const lang = (el.className.match(/language-(\w+)/) || [])[1] || '';
   let code = el.textContent;
+
+  // Auto-comment Russian plain-text lines with #
+  const isCyrillic = /[а-яё]/i;
+  const isCode = /[=(){}$;|\[\]<>]|^\s*(if|then|else|fi|for|while|do|done|echo|export|function|return|exit|def|class|import|from|print|let|const|var|function|SELECT|INSERT|UPDATE|DELETE)\b/m;
+  code = code.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (trimmed && isCyrillic.test(trimmed) && !isCode.test(trimmed) && !trimmed.startsWith('#') && !trimmed.startsWith('//')) {
+      return line.replace(trimmed, '# ' + trimmed);
+    }
+    return line;
+  }).join('\n');
 
   const KW = {
     python: 'and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|True|False|None|self',
