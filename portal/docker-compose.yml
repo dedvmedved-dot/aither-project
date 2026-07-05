@@ -16,7 +16,7 @@ services:
   portal-bff:
     build: .
     environment:
-      PG_HOST: portal-db
+      PG_HOST: 127.0.0.1
       PG_PORT: "5432"
       PG_USER: portal
       PG_PASSWORD: portal
@@ -33,9 +33,11 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/html:ro
     depends_on:
       - portal-bff
     network_mode: host
+
 volumes:
   portal_pgdata:

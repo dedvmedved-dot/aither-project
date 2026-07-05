@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aither — Token‑as‑a‑Service</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg-card: #13131a;
+  --bg-card-hover: #1a1a24;
+  --bg-input: #0d0d14;
+  --border: #1f1f2e;
+  --border-focus: #4f46e5;
+  --text: #e4e4ec;
+  --text-muted: #71718a;
+  --text-dim: #4a4a5e;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-glow: rgba(99,102,241,0.15);
+  --green: #34d399;
+  --green-bg: rgba(52,211,153,0.1);
+  --red: #f87171;
+  --red-bg: rgba(248,113,113,0.1);
+  --yellow: #fbbf24;
+  --yellow-bg: rgba(251,191,36,0.1);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Top accent glow */
+body::after {
+  content: '';
+  position: fixed;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== LAYOUT ===== */
+#app { position:relative; z-index:1; }
+
+/* ===== HEADER ===== */
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10,10,15,0.8);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-left { display:flex; align-items:center; gap:32px; }
+.logo {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.3px;
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.nav { display:flex; gap:4px; }
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nav-btn:hover { color: var(--text); background: var(--bg-card); }
+.nav-btn.active { color: var(--text); background: var(--bg-card); }
+.header-right { display:flex; align-items:center; gap:12px; }
+.user-name { font-size:14px; color:var(--text-muted); }
+.btn-logout {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-logout:hover { color: var(--red); border-color: var(--red); }
+
+/* ===== MAIN ===== */
+.main { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
+
+/* ===== LOGIN ===== */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+.login-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 48px 40px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: var(--shadow);
+}
+.login-card h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 8px;
+}
+.login-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+.login-card input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.login-card input:focus { border-color: var(--border-focus); }
+.login-card button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 11px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.login-card button:hover { background: var(--accent-hover); box-shadow: 0 0 20px var(--accent-glow); }
+.login-error { color: var(--red); font-size: 13px; margin-top: 12px; display: none; }
+
+/* ===== PAGE HEADER ===== */
+.page-header {
+  margin-bottom: 32px;
+}
+.page-header h2 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.page-header p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+
+/* ===== STATS GRID ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  transition: border-color 0.15s;
+}
+.stat-card:hover { border-color: var(--border-focus); }
+.stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.stat-value { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
+.stat-value.green { color: var(--green); }
+.stat-value.accent { background: linear-gradient(135deg, #6366f1, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.stat-sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+.card-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-header h3 { font-size: 16px; font-weight: 600; }
+.card-body { padding: 24px; }
+
+/* ===== TABLE ===== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg-card-hover); }
+
+/* ===== BADGES ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+.badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+.badge-accent { background: var(--accent-glow); color: var(--accent-hover); }
+
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 0 16px var(--accent-glow); }
+.btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--border-focus); }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid transparent; }
+.btn-danger:hover { border-color: var(--red); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ===== FORMS ===== */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+.form-input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--border-focus); }
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--text-dim);
+}
+.empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state h4 { color: var(--text-muted); font-size: 15px; margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+/* ===== KEY REVEAL ===== */
+.key-reveal {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--green);
+  word-break: break-all;
+  margin-top: 8px;
+  display: none;
+}
+.key-reveal-label { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+
+/* ===== TOAST ===== */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 20px;
+  font-size: 14px;
+  box-shadow: var(--shadow);
+  animation: slideIn 0.2s ease-out;
+  max-width: 400px;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error { border-left: 3px solid var(--red); }
+@keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 480px;
+  max-width: 90vw;
+  box-shadow: var(--shadow);
+}
+.modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; }
+
+/* ===== LOADING ===== */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ===== MONOSPACE CODE ===== */
+code, .mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-hover);
+}
+
+/* ===== CHART CONTAINER ===== */
+.chart-container {
+  position: relative;
+  height: 280px;
+  margin: 0 -8px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .header { padding: 0 16px; }
+  .main { padding: 24px 16px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .stat-value { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ===== STATE =====
+const state = {
+  token: localStorage.getItem('aither_token'),
+  user: null,
+  page: 'dashboard',
+  orgs: [],
+  selectedOrg: null,
+  apiKeys: [],
+  usage: null,
+  usageHistory: [],
+  coreStatus: null,
+};
+
+// ===== HELPERS =====
+const $ = (sel, ctx=document) => ctx.querySelector(sel);
+const $$ = (sel, ctx=document) => ctx.querySelectorAll(sel);
+
+function api(path, opts={}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  return fetch(path, { headers, ...opts }).then(r => r.json().then(d => ({ ok: r.ok, status: r.status, data: d })));
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  $('#toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; setTimeout(() => el.remove(), 200); }, 3500);
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function formatNumber(n) {
+  if (n == null) return '0';
+  return n.toLocaleString('ru-RU');
+}
+
+// ===== AUTH =====
+async function checkAuth() {
+  if (!state.token) return false;
+  const { ok, data } = await api('/api/v1/me');
+  if (ok && data.user) {
+    state.user = data.user;
+    return true;
+  }
+  state.token = null;
+  localStorage.removeItem('aither_token');
+  return false;
+}
+
+function logout() {
+  state.token = null;
+  state.user = null;
+  localStorage.removeItem('aither_token');
+  render();
+}
+
+// ===== RENDER =====
+async function render() {
+  if (!state.token || !(await checkAuth())) {
+    renderLogin();
+    return;
+  }
+  renderApp();
+  switch (state.page) {
+    case 'dashboard': await renderDashboard(); break;
+    case 'orgs': await renderOrgs(); break;
+    case 'org-detail': await renderOrgDetail(); break;
+  }
+}
+
+// ===== LOGIN PAGE =====
+function renderLogin() {
+  $('#app').innerHTML = `
+    <div class="login-page">
+      <div class="login-card">
+        <h1>Aither</h1>
+        <p>Token‑as‑a‑Service — платформа для инференса LLM</p>
+        <input type="text" id="login-name" placeholder="Ваше имя" autofocus>
+        <button onclick="doLogin()">Войти</button>
+        <div class="login-error" id="login-error"></div>
+      </div>
+    </div>`;
+  $('#login-name').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+}
+
+async function doLogin() {
+  const name = $('#login-name').value.trim();
+  if (!name) return;
+  const { ok, data } = await api('/auth/dev/login', { method:'POST', body: JSON.stringify({name}) });
+  if (ok && data.access_token) {
+    state.token = data.access_token;
+    localStorage.setItem('aither_token', state.token);
+    render();
+  } else {
+    $('#login-error').style.display = 'block';
+    $('#login-error').textContent = (data||{}).error || 'Ошибка входа';
+  }
+}
+
+// ===== APP SHELL =====
+function renderApp() {
+  const pages = [
+    { id:'dashboard', label:'Дашборд' },
+    { id:'orgs', label:'Организации' },
+  ];
+  if (state.selectedOrg && state.page==='org-detail') {
+    pages.push({ id:'org-detail', label: state.selectedOrg.name });
+  }
+  const navHtml = pages.map(p =>
+    `<button class="nav-btn${state.page===p.id?' active':''}" onclick="navigate('${p.id}')">${p.label}</button>`
+  ).join('');
+
+  $('#app').innerHTML = `
+    <div class="header">
+      <div class="header-left">
+        <span class="logo">Aither</span>
+        <nav class="nav">${navHtml}</nav>
+      </div>
+      <div class="header-right">
+        <span class="user-name">${state.user ? state.user.display_name : ''}</span>
+        <button class="btn-logout" onclick="logout()">Выйти</button>
+      </div>
+    </div>
+    <div class="main" id="main-content"></div>`;
+}
+
+function navigate(page) {
+  if (page === 'org-detail' && !state.selectedOrg) return;
+  state.page = page;
+  render();
+}
+
+// ===== DASHBOARD =====
+async function renderDashboard() {
+  const main = $('#main-content');
+  main.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  const [statusR, coreR] = await Promise.all([
+    api('/api/v1/status'),
+    api('/api/v1/core/status'),
+  ]);
+  state.coreStatus = coreR.ok ? coreR.data : null;
+
+  const status = statusR.ok ? statusR.data : { orgs:0, users:0, active_keys:0 };
+
+  main.innerHTML = `
+    <div class="page-header">
+      <h2>Дашборд</h2>
+      <p>Обзор платформы Aither — Token‑as‑a‑Service</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Организации</div>
+        <div class="stat-value accent">${formatNumber(status.orgs)}</div>
+        <div class="stat-sub">активных</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Пользователи</div>
+        <div class="stat-value">${formatNumber(status.users)}</div>
+        <div class="stat-sub">зарегистрировано</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">API‑ключи</div>
+        <div class="stat-value">${formatNumber(status.active_keys)}</div>
+        <div class="stat-sub">активных</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ядро (vLLM)</div>
+        <div class="stat-value ${state.coreStatus ? 'green' : ''}">${state.coreStatus ? 'Online' : '—'}</div>
+        <div class="stat-sub">${state.coreStatus ? state.coreStatus.model || 'GPU инференс' : 'недоступно'}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Архитектура платформы</h3></div>
+      <div class="card-body" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;justify-content:center;padding:32px;">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;font-size:13px;">
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;">
+            <div style="color:var(--accent-hover);font-weight:600;margin-bottom:4px;">🌐 Портал</div>
+            <div style="color:var(--text-dim);">VPS2</div>
+            <div style="color:var(--text-dim);">Fastify + nginx</div>
+          </div>
+          <div style="color:var(--text-dim);font-size:20px;">→</div>
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;">
+            <div style="color:var(--accent-hover);font-weight:600;margin-bottom:4px;">🔑 Gateway</div>
+            <div style="color:var(--text-dim);">40.51 · K8s</div>
+            <div style="color:var(--text-dim);">JWT RS256</div>
+          </div>
+          <div style="color:var(--text-dim);font-size:20px;">→</div>
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;">
+            <div style="color:var(--accent-hover);font-weight:600;margin-bottom:4px;">🧠 vLLM</div>
+            <div style="color:var(--text-dim);">40.51 · GPU</div>
+            <div style="color:var(--text-dim);">Qwen2.5‑14B</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Возможности</h3>
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+          ${[
+            {icon:'👤',title:'Dev-аутентификация',desc:'Вход по имени, JWT-токены на 24 часа'},
+            {icon:'🏢',title:'Организации',desc:'Создание организаций, управление участниками и ролями'},
+            {icon:'🔑',title:'API-ключи',desc:'Формат ak-..., отзыв ключей, аудит использования'},
+            {icon:'🔐',title:'Делегирование',desc:'JWT RS256 на 5 минут — безопасный доступ к GPU'},
+            {icon:'💰',title:'Биллинг',desc:'Double-entry: reserve → settle → refund, 1M токенов при создании'},
+            {icon:'📊',title:'Аналитика',desc:'Подсчёт токенов, дневная статистика, история списаний'},
+          ].map(f => `
+            <div style="padding:16px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border);">
+              <div style="font-size:20px;margin-bottom:8px;">${f.icon}</div>
+              <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${f.title}</div>
+              <div style="font-size:13px;color:var(--text-dim);">${f.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ===== ORGS =====
+async function renderOrgs() {
+  const main = $('#main-content');
+  main.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  const { ok, data } = await api('/api/v1/orgs');
+  state.orgs = ok ? (data.orgs||[]) : [];
+
+  main.innerHTML = `
+    <div class="page-header">
+      <h2>Организации</h2>
+      <p>Управление организациями и доступом к API</p>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <button class="btn btn-primary" onclick="showCreateOrg()">+ Новая организация</button>
+    </div>
+
+    ${state.orgs.length === 0 ? `
+      <div class="card">
+        <div class="card-body">
+          <div class="empty-state">
+            <div class="empty-state-icon">🏢</div>
+            <h4>Нет организаций</h4>
+            <p>Создайте первую организацию чтобы начать работу с API</p>
+          </div>
+        </div>
+      </div>
+    ` : `
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Название</th><th>Роль</th><th>Статус</th><th>Создана</th><th></th></tr></thead>
+            <tbody>
+              ${state.orgs.map(o => `
+                <tr>
+                  <td><strong>${esc(o.name)}</strong></td>
+                  <td><span class="badge badge-accent">${esc(o.role)}</span></td>
+                  <td><span class="badge badge-green">${esc(o.status)}</span></td>
+                  <td style="color:var(--text-dim);font-size:13px;">${formatDate(o.created_at)}</td>
+                  <td><button class="btn btn-secondary btn-sm" onclick="openOrg('${o.org_id}')">Открыть</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `}
+
+    ${renderCreateOrgModal()}`;
+}
+
+function esc(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+function renderCreateOrgModal() {
+  return `
+    <div class="modal-overlay" id="create-org-modal">
+      <div class="modal">
+        <h3>Новая организация</h3>
+        <div class="form-group">
+          <label class="form-label">Название</label>
+          <input class="form-input" id="new-org-name" placeholder="Например: NebulaCorp" autofocus>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeModal('create-org-modal')">Отмена</button>
+          <button class="btn btn-primary" onclick="createOrg()">Создать</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showCreateOrg() {
+  const modal = $('#create-org-modal');
+  if (!modal) { renderOrgs(); setTimeout(() => showCreateOrg(), 50); return; }
+  modal.classList.add('active');
+  setTimeout(() => $('#new-org-name')?.focus(), 100);
+}
+
+function closeModal(id) { $('#'+id)?.classList.remove('active'); }
+
+async function createOrg() {
+  const name = $('#new-org-name').value.trim();
+  if (!name) return;
+  const { ok, data } = await api('/api/v1/orgs', { method:'POST', body: JSON.stringify({name}) });
+  if (ok) {
+    closeModal('create-org-modal');
+    toast(`Организация «${name}» создана`);
+    renderOrgs();
+  } else {
+    toast((data||{}).error || 'Ошибка', 'error');
+  }
+}
+
+function openOrg(orgId) {
+  const org = state.orgs.find(o => o.org_id === orgId);
+  if (org) {
+    state.selectedOrg = org;
+    state.page = 'org-detail';
+    render();
+  }
+}
+
+// ===== ORG DETAIL =====
+async function renderOrgDetail() {
+  const main = $('#main-content');
+  main.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  const org = state.selectedOrg;
+  if (!org) { navigate('orgs'); return; }
+
+  const [keysR, detailR] = await Promise.all([
+    api(`/api/v1/orgs/${org.org_id}/api-keys`),
+    api(`/api/v1/orgs/${org.org_id}`),
+  ]);
+
+  state.apiKeys = keysR.ok ? (keysR.data.keys||[]) : [];
+  if (detailR.ok && detailR.data.org) state.selectedOrg = detailR.data.org;
+
+  // Load usage from Gateway
+  let delegationToken = null;
+  try {
+    const activeKey = state.apiKeys.find(k => k.status==='active');
+    if (activeKey) {
+      // We don't have full key, but we'll try to show billing info
+    }
+  } catch(e) {}
+
+  main.innerHTML = `
+    <div class="page-header">
+      <h2>${esc(state.selectedOrg.name)}</h2>
+      <p>org_id: <code>${esc(state.selectedOrg.org_id)}</code> · роль: <span class="badge badge-accent">${esc(state.selectedOrg.role)}</span></p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">API‑ключи</div>
+        <div class="stat-value accent">${state.apiKeys.filter(k=>k.status!=='revoked').length}</div>
+        <div class="stat-sub">активных</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Создана</div>
+        <div class="stat-value" style="font-size:20px;">${formatDate(state.selectedOrg.created_at)}</div>
+      </div>
+    </div>
+
+    <!-- API Keys -->
+    <div class="card">
+      <div class="card-header">
+        <h3>API‑ключи</h3>
+        <button class="btn btn-primary btn-sm" onclick="showCreateKey()">+ Новый ключ</button>
+      </div>
+      <div class="card-body" id="keys-body">
+        ${state.apiKeys.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔑</div>
+            <h4>Нет ключей</h4>
+            <p>Создайте API-ключ для доступа к инференсу</p>
+          </div>
+        ` : `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Название</th><th>Префикс</th><th>Статус</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead>
+              <tbody>
+                ${state.apiKeys.map(k => `
+                  <tr>
+                    <td><strong>${esc(k.name)}</strong></td>
+                    <td><code>${esc(k.api_key_prefix)}</code></td>
+                    <td><span class="badge ${k.status==='active'?'badge-green':'badge-red'}">${esc(k.status)}</span></td>
+                    <td style="color:var(--text-dim);font-size:13px;">${formatDate(k.created_at)}</td>
+                    <td style="color:var(--text-dim);font-size:13px;">${formatDate(k.last_used_at)}</td>
+                    <td>${k.status==='active' ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${k.key_id}')">Отозвать</button>` : ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+        <div class="key-reveal" id="key-reveal">
+          <div class="key-reveal-label">⚠️ Новый ключ — скопируйте сейчас. Больше не будет показан:</div>
+          <div id="key-reveal-value"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delegation -->
+    <div class="card">
+      <div class="card-header"><h3>Делегирование (Delegation Token)</h3></div>
+      <div class="card-body">
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;">
+          Delegation Token — короткоживущий JWT RS256 для прямого доступа к Gateway на 40.51.
+          Срок действия: <strong>5 минут</strong>.
+        </p>
+        <div class="form-group">
+          <label class="form-label">API-ключ</label>
+          <div style="display:flex;gap:8px;">
+            <input class="form-input" id="delegate-api-key" placeholder="ak-..." style="font-family:'JetBrains Mono',monospace;font-size:13px;">
+            <button class="btn btn-primary" onclick="getDelegationToken()">Получить токен</button>
+          </div>
+        </div>
+        <div id="delegate-result" style="display:none;margin-top:16px;">
+          <label class="form-label">Delegation Token (JWT RS256)</label>
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all;color:var(--green);" id="delegate-token-value"></div>
+          <p style="color:var(--text-dim);font-size:12px;margin-top:4px;">Используйте: <code>Authorization: Bearer &lt;token&gt;</code> → <code>http://10.129.13.78:30900/v1/chat/completions</code></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Usage & Billing -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Использование</h3>
+        <span style="font-size:12px;color:var(--text-dim);">данные с Gateway (40.51)</span>
+      </div>
+      <div class="card-body" id="usage-body">
+        <div style="color:var(--text-dim);font-size:14px;text-align:center;padding:20px;">
+          Для просмотра статистики используйте Delegation Token ⬆
+        </div>
+      </div>
+    </div>
+
+    ${renderCreateKeyModal()}`;
+}
+
+async function getDelegationToken() {
+  const apiKey = $('#delegate-api-key').value.trim();
+  if (!apiKey) { toast('Введите API-ключ', 'error'); return; }
+  const { ok, data } = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/delegate`, {
+    method: 'POST',
+    body: JSON.stringify({api_key: apiKey})
+  });
+  if (ok && data.delegation_token) {
+    $('#delegate-result').style.display = 'block';
+    $('#delegate-token-value').textContent = data.delegation_token;
+    // Try to fetch usage
+    await loadUsage(data.delegation_token);
+  } else {
+    toast((data||{}).error || 'Ошибка делегирования', 'error');
+  }
+}
+
+async function loadUsage(delegationToken) {
+  const GATEWAY = 'http://10.129.13.78:30900';
+  try {
+    const [usageR, billingR, historyR] = await Promise.all([
+      fetch(`${GATEWAY}/v1/usage/`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
+      fetch(`${GATEWAY}/v1/billing/`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
+      fetch(`${GATEWAY}/v1/usage/history?limit=20`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
+    ]);
+
+    $('#usage-body').innerHTML = `
+      <div class="stats-grid" style="margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-label">Баланс</div>
+          <div class="stat-value accent">${formatNumber(billingR.balance || 0)}</div>
+          <div class="stat-sub">токенов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Зарезервировано</div>
+          <div class="stat-value">${formatNumber(billingR.reserved || 0)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Потрачено всего</div>
+          <div class="stat-value accent">${formatNumber(usageR.total_tokens || 0)}</div>
+          <div class="stat-sub">токенов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Запросов сегодня</div>
+          <div class="stat-value">${formatNumber(usageR.requests_today || 0)}</div>
+        </div>
+      </div>
+
+      ${(historyR.ledger||[]).length > 0 ? `
+        <h4 style="margin-bottom:12px;font-size:14px;color:var(--text-muted);">История операций</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Операция</th><th>Токены</th><th>Баланс после</th><th>Reference</th><th>Время</th></tr></thead>
+            <tbody>
+              ${historyR.ledger.map(l => `
+                <tr>
+                  <td><span class="badge ${l.operation==='settle'?'badge-green':l.operation==='reserve'?'badge-yellow':'badge-red'}">${esc(l.operation)}</span></td>
+                  <td><strong>${l.amount > 0 ? '+' : ''}${formatNumber(l.amount)}</strong></td>
+                  <td>${formatNumber(l.balance_after)}</td>
+                  <td><code style="font-size:11px;">${esc((l.reference||'').slice(0,8))}…</code></td>
+                  <td style="color:var(--text-dim);font-size:13px;">${formatDate(l.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : '<div style="color:var(--text-dim);font-size:13px;">Нет операций</div>'}
+    `;
+  } catch(e) {
+    $('#usage-body').innerHTML = `<div style="color:var(--red);font-size:13px;">Ошибка загрузки: Gateway недоступен</div>`;
+  }
+}
+
+function renderCreateKeyModal() {
+  return `
+    <div class="modal-overlay" id="create-key-modal">
+      <div class="modal">
+        <h3>Новый API-ключ</h3>
+        <div class="form-group">
+          <label class="form-label">Название (опционально)</label>
+          <input class="form-input" id="new-key-name" placeholder="default" autofocus>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeModal('create-key-modal')">Отмена</button>
+          <button class="btn btn-primary" onclick="createKey()">Создать</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showCreateKey() { $('#create-key-modal').classList.add('active'); setTimeout(() => $('#new-key-name')?.focus(), 100); }
+
+async function createKey() {
+  const name = $('#new-key-name').value.trim() || 'default';
+  const { ok, data } = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/api-keys`, {
+    method: 'POST',
+    body: JSON.stringify({name})
+  });
+  if (ok && data.key) {
+    closeModal('create-key-modal');
+    $('#key-reveal').style.display = 'block';
+    $('#key-reveal-value').textContent = data.key.api_key;
+    toast('API-ключ создан');
+    renderOrgDetail();
+  } else {
+    toast((data||{}).error || 'Ошибка', 'error');
+  }
+}
+
+async function revokeKey(keyId) {
+  if (!confirm('Отозвать ключ? Это действие необратимо.')) return;
+  const { ok, data } = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/api-keys/${keyId}`, { method:'DELETE' });
+  if (ok) {
+    toast('Ключ отозван');
+    renderOrgDetail();
+  } else {
+    toast((data||{}).error || 'Ошибка', 'error');
+  }
+}
+
+// ===== INIT =====
+render();
+</script>
+</body>
+</html>
