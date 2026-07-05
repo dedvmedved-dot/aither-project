@@ -256,7 +256,29 @@ Balance 1 000 000 → inference (40 tokens) → 999 960 ✅
 - PyJWT требует `cryptography` для RS256 (иначе «Algorithm not supported»)
 
 ---
-- Usage Collector (подсчёт токенов из vLLM) — 40.51
+- Usage Collector (подсчёт токенов из vLLM) — ✅ 40.51
+
+---
+
+## 2026-07-05 — Gate 8: Usage Collector
+
+### Эндпоинты
+- `GET /v1/usage/` — total_tokens, total_requests, requests_today
+- `GET /v1/usage/history?limit=20` — последние операции из billing_ledger
+
+### Реализация
+- SQL-агрегация по billing_ledger
+- Redis daily counter (`usage:{org_id}:{date}`)
+- Требует delegation JWT (RS256)
+
+### Результат
+2 вызова → 80 токенов, 2 запроса, requests_today=2 ✅
+
+**Все P0 Gates пройдены. MVP готов.**
+
+Осталось: Rate Limiter, платёжный шлюз, React SPA, mTLS.
+
+---
 - Rate Limiter (per-key) — 40.51
 - Delegation Token (JWT RS256) — ✅ VPS2 → 40.51
 
