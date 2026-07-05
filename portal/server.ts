@@ -266,7 +266,56 @@ async function main() {
     return { key: r.rows[0] };
   });
 
+  // ==================== DELEGATION ====================
+
+  // Delegation private key (RS256) for signing delegation JWTs to Gateway
+  const fs = require("fs");
+  const DELEGATION_PRIVATE_KEY = (() => {
+    try { return fs.readFileSync("/app/delegation/private.pem", "utf8"); } catch {}
+    try { return fs.readFileSync("./delegation/private.pem", "utf8"); } catch {}
+    return process.env.DELEGATION_PRIVATE_KEY || "";
+  })();
+
+  // Get delegation token (JWT RS256, short-lived, for Gateway on 40.51)
+  app.post("/api/v1/orgs/:orgId/delegate", async (req: any, reply) => {
+    const p = auth(req, reply);
+    if (!p) return;
+    const { orgId } = req.params;
+    const { api_key }: any = req.body;
+    if (!api_key) return reply.status(400).send({ error: "api_key is required" });
+
+    // Validate API key belongs to org and is active
+    const k = await pool.query(
+      "SELECT key_id FROM portal_api_keys WHERE org_id=$1 AND api_key=$2 AND status='active'",
+      [orgId, api_key]
+    );
+    if (k.rows.length === 0) {
+      return reply.status(403).send({ error: "invalid or revoked api key" });
+    }
+
+    // Check user is member of org
+    const m = await pool.query(
+      "SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'",
+      [orgId, p.user_id]
+    );
+    if (m.rows.length === 0) {
+      return reply.status(403).send({ error: "not a member of this org" });
+    }
+
+    // Update last_used_at
+    await pool.query("UPDATE portal_api_keys SET last_used_at=now() WHERE key_id=$1", [k.rows[0].key_id]);
+
+    // Generate delegation JWT (RS256, 5 min)
+    const delegationToken = jwt.sign(
+      { org_id: orgId, key_id: k.rows[0].key_id, user_id: p.user_id },
+      DELEGATION_PRIVATE_KEY,
+      { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" }
+    );
+
+    return { delegation_token: delegationToken, expires_in: 300 };
+  });
+
   await app.listen({ port: PORT, host: "0.0.0.0" });
-  console.log("Portal BFF v0.3.0 on :" + PORT);
+  console.log("Portal BFF v0.4.0 on :" + PORT);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

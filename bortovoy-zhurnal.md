@@ -235,7 +235,26 @@ curl -X DELETE .../api/v1/orgs/$ID/api-keys/$KID
 - Billing Service (reserve → settle → refund) — 40.51
 - Usage Collector (подсчёт токенов из vLLM) — 40.51
 - Rate Limiter (per-key) — 40.51
-- Delegation Token (JWT RS256 вместо хардкода) — VPS2 → 40.51
+- Delegation Token (JWT RS256) — ✅ VPS2 → 40.51
+
+---
+
+## 2026-07-05 — Gate 6: Delegation Token (JWT RS256)
+
+### Поток
+```
+POST /api/v1/orgs/:id/delegate → delegation_jwt (RS256, 5 min)
+       ↓
+Gateway проверяет signature → extract org_id → rate limit → proxy vLLM
+```
+
+### Ключи
+- RSA 2048: `private.pem` (Portal BFF, только VPS2), `public.pem` (Gateway, ConfigMap)
+- `pyjwt` на Gateway (чистый Python)
+- Rate limit: `per-org_id` через Redis
+
+### Результат
+e2e: login → org → api-key → delegation → Gateway → vLLM → «Привет!» ✅
 
 ---
 

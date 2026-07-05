@@ -55,7 +55,7 @@ kubectl get svc -A
 | Usage Collector (подсчёт токенов) | P0 | 40.51 |
 | Rate Limiter (per-key, per-org) | P1 | 40.51 |
 | Пополнение баланса (платёжный шлюз) | P1 | 40.51 |
-| Delegation Token (не хардкод) | P1 | VPS2 → 40.51 |
+| Delegation Token (JWT RS256) | ✅ P1 | VPS2 → 40.51 |
 | mTLS между Portal BFF и Core | P2 | VPS2 ↔ 40.51 |
 | React SPA (фронтенд) | P1 | VPS2 |
 | Email-уведомления (SMTP) | P2 | VPS2 |

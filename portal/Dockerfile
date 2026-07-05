@@ -3,5 +3,6 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 RUN npm install
 COPY server.ts ./
+COPY delegation/ ./delegation/
 RUN npm run build
 CMD ["node", "dist/server.js"]
