@@ -79,17 +79,27 @@ async function main() {
       expires_at timestamptz,
       last_used_at timestamptz
     );
+    CREATE TABLE IF NOT EXISTS chats (
+      chat_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id uuid NOT NULL REFERENCES portal_users(user_id),
+      title text NOT NULL DEFAULT 'Новый чат',
+      model text NOT NULL DEFAULT 'qwen2.5-14b',
+      share_token text UNIQUE,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      message_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      chat_id uuid NOT NULL REFERENCES chats(chat_id) ON DELETE CASCADE,
+      role text NOT NULL CHECK (role IN ('user','assistant','system')),
+      content text NOT NULL DEFAULT '',
+      tokens_used int NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
   `);
-
-  // Health
-  app.get("/health", async () => {
-    await pool.query("SELECT 1");
-    return { status: "ok", database: "connected" };
-  });
 
   // ==================== AUTH ====================
 
-  // Dev login
   app.post("/auth/dev/login", async (req) => {
     const { name }: any = req.body;
     if (!name) return { error: "name required" };
@@ -111,29 +121,20 @@ async function main() {
     return { access_token: tok, user: { user_id: userId, login: name, email } };
   });
 
-  // Me
   app.get("/api/v1/me", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const r = await pool.query("SELECT user_id, display_name, email, avatar_url, oauth_provider, created_at FROM portal_users WHERE user_id=$1", [p.user_id]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "user not found" });
     return { user: r.rows[0] };
   });
 
-  // Status
   app.get("/api/v1/status", async () => {
     const o = await pool.query("SELECT count(*) FROM portal_organizations");
     const u = await pool.query("SELECT count(*) FROM portal_users");
     const k = await pool.query("SELECT count(*) FROM portal_api_keys WHERE status='active'");
-    return {
-      version: "0.3.0",
-      orgs: Number(o.rows[0].count),
-      users: Number(u.rows[0].count),
-      active_keys: Number(k.rows[0].count),
-    };
+    return { version: "0.5.0", orgs: Number(o.rows[0].count), users: Number(u.rows[0].count), active_keys: Number(k.rows[0].count) };
   });
 
-  // Core proxy
   app.get("/api/v1/core/status", async (_r, reply) => {
     try {
       const r = await fetch(CORE_API + "/health");
@@ -143,7 +144,6 @@ async function main() {
     }
   });
 
-  // Users list
   app.get("/api/v1/users", async () => {
     const r = await pool.query("SELECT user_id, display_name, email, oauth_provider, created_at FROM portal_users ORDER BY created_at DESC");
     return { users: r.rows };
@@ -151,124 +151,89 @@ async function main() {
 
   // ==================== ORGS ====================
 
-  // List my orgs
   app.get("/api/v1/orgs", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const r = await pool.query(
       `SELECT o.org_id, o.name, o.status, o.created_at, m.role
        FROM portal_organizations o
        JOIN portal_org_members m ON o.org_id = m.org_id
        WHERE m.user_id = $1 AND m.status = 'active'
-       ORDER BY o.created_at DESC`,
-      [p.user_id]
-    );
+       ORDER BY o.created_at DESC`, [p.user_id]);
     return { orgs: r.rows };
   });
 
-  // Create org
   app.post("/api/v1/orgs", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const { name }: any = req.body;
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
+    if (!name || typeof name !== "string" || name.trim().length === 0)
       return reply.status(400).send({ error: "name is required" });
-    }
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const org = await client.query(
         "INSERT INTO portal_organizations (name) VALUES ($1) RETURNING org_id, name, status, created_at",
-        [name.trim()]
-      );
+        [name.trim()]);
       const o = org.rows[0];
       await client.query(
         "INSERT INTO portal_org_members (org_id, user_id, role) VALUES ($1, $2, 'owner')",
-        [o.org_id, p.user_id]
-      );
+        [o.org_id, p.user_id]);
       await client.query("COMMIT");
       return { org: { ...o, role: "owner" } };
-    } catch (e: any) {
-      await client.query("ROLLBACK");
-      return reply.status(500).send({ error: e.message });
-    } finally {
-      client.release();
-    }
+    } catch (e: any) { await client.query("ROLLBACK"); return reply.status(500).send({ error: e.message }); }
+    finally { client.release(); }
   });
 
-  // Get org detail
   app.get("/api/v1/orgs/:orgId", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const { orgId } = req.params;
     const r = await pool.query(
       `SELECT o.org_id, o.name, o.status, o.created_at, m.role
-       FROM portal_organizations o
-       JOIN portal_org_members m ON o.org_id = m.org_id
-       WHERE o.org_id = $1 AND m.user_id = $2`,
-      [orgId, p.user_id]
-    );
+       FROM portal_organizations o JOIN portal_org_members m ON o.org_id = m.org_id
+       WHERE o.org_id = $1 AND m.user_id = $2`, [orgId, p.user_id]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "org not found" });
     return { org: r.rows[0] };
   });
 
   // ==================== API KEYS ====================
 
-  // List keys for org
   app.get("/api/v1/orgs/:orgId/api-keys", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const { orgId } = req.params;
     const m = await pool.query("SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [orgId, p.user_id]);
-    if (m.rows.length === 0) return reply.status(403).send({ error: "not a member of this org" });
+    if (m.rows.length === 0) return reply.status(403).send({ error: "not a member" });
     const r = await pool.query(
       `SELECT key_id, api_key_prefix, name, status, created_at, expires_at, last_used_at
-       FROM portal_api_keys WHERE org_id = $1 AND status != 'revoked'
-       ORDER BY created_at DESC`,
-      [orgId]
-    );
+       FROM portal_api_keys WHERE org_id=$1 AND status!='revoked' ORDER BY created_at DESC`, [orgId]);
     return { keys: r.rows };
   });
 
-  // Create key (owner only)
   app.post("/api/v1/orgs/:orgId/api-keys", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const { orgId } = req.params;
-    if (!await checkOrgOwner(orgId, p.user_id)) {
-      return reply.status(403).send({ error: "only org owner can create keys" });
-    }
-    const apiKey = "ak-" + randomBytes(24).toString("hex");  // ak- + 48 hex = 51 chars
-    const apiKeyPrefix = apiKey.slice(0, 11); // "ak-XXXXXXXX"
+    if (!await checkOrgOwner(orgId, p.user_id)) return reply.status(403).send({ error: "owner only" });
+    const apiKey = "ak-" + randomBytes(24).toString("hex");
+    const apiKeyPrefix = apiKey.slice(0, 11);
     const name: string = (req.body as any)?.name || "default";
     const r = await pool.query(
       `INSERT INTO portal_api_keys (org_id, api_key, api_key_prefix, name)
-       VALUES ($1, $2, $3, $4)
-       RETURNING key_id, api_key_prefix, name, status, created_at`,
-      [orgId, apiKey, apiKeyPrefix, name]
-    );
+       VALUES ($1,$2,$3,$4) RETURNING key_id, api_key_prefix, name, status, created_at`,
+      [orgId, apiKey, apiKeyPrefix, name]);
     return { key: { ...r.rows[0], api_key: apiKey } };
   });
 
-  // Revoke key (owner only)
   app.delete("/api/v1/orgs/:orgId/api-keys/:keyId", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const { orgId, keyId } = req.params;
-    if (!await checkOrgOwner(orgId, p.user_id)) {
-      return reply.status(403).send({ error: "only org owner can revoke keys" });
-    }
+    if (!await checkOrgOwner(orgId, p.user_id)) return reply.status(403).send({ error: "owner only" });
     const r = await pool.query(
       "UPDATE portal_api_keys SET status='revoked' WHERE key_id=$1 AND org_id=$2 RETURNING key_id, status",
-      [keyId, orgId]
-    );
+      [keyId, orgId]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "key not found" });
     return { key: r.rows[0] };
   });
 
   // ==================== DELEGATION ====================
 
-  // Delegation private key (RS256) for signing delegation JWTs to Gateway
   const fs = require("fs");
   const DELEGATION_PRIVATE_KEY = (() => {
     try { return fs.readFileSync("/app/delegation/private.pem", "utf8"); } catch {}
@@ -276,46 +241,253 @@ async function main() {
     return process.env.DELEGATION_PRIVATE_KEY || "";
   })();
 
-  // Get delegation token (JWT RS256, short-lived, for Gateway on 40.51)
   app.post("/api/v1/orgs/:orgId/delegate", async (req: any, reply) => {
-    const p = auth(req, reply);
-    if (!p) return;
+    const p = auth(req, reply); if (!p) return;
     const { orgId } = req.params;
     const { api_key }: any = req.body;
-    if (!api_key) return reply.status(400).send({ error: "api_key is required" });
-
-    // Validate API key belongs to org and is active
+    if (!api_key) return reply.status(400).send({ error: "api_key required" });
     const k = await pool.query(
-      "SELECT key_id FROM portal_api_keys WHERE org_id=$1 AND api_key=$2 AND status='active'",
-      [orgId, api_key]
-    );
-    if (k.rows.length === 0) {
-      return reply.status(403).send({ error: "invalid or revoked api key" });
-    }
-
-    // Check user is member of org
+      "SELECT key_id FROM portal_api_keys WHERE org_id=$1 AND api_key=$2 AND status='active'", [orgId, api_key]);
+    if (k.rows.length === 0) return reply.status(403).send({ error: "invalid or revoked" });
     const m = await pool.query(
-      "SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'",
-      [orgId, p.user_id]
-    );
-    if (m.rows.length === 0) {
-      return reply.status(403).send({ error: "not a member of this org" });
-    }
-
-    // Update last_used_at
+      "SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [orgId, p.user_id]);
+    if (m.rows.length === 0) return reply.status(403).send({ error: "not a member" });
     await pool.query("UPDATE portal_api_keys SET last_used_at=now() WHERE key_id=$1", [k.rows[0].key_id]);
-
-    // Generate delegation JWT (RS256, 5 min)
     const delegationToken = jwt.sign(
       { org_id: orgId, key_id: k.rows[0].key_id, user_id: p.user_id },
-      DELEGATION_PRIVATE_KEY,
-      { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" }
-    );
-
+      DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" });
     return { delegation_token: delegationToken, expires_in: 300 };
   });
 
+  // ==================== CHATS ====================
+
+  // Get org's active API key (for delegation in chat)
+  async function getOrgApiKey(orgId: string): Promise<string | null> {
+    const r = await pool.query(
+      "SELECT api_key FROM portal_api_keys WHERE org_id=$1 AND status='active' ORDER BY created_at ASC LIMIT 1",
+      [orgId]);
+    return r.rows.length > 0 ? r.rows[0].api_key : null;
+  }
+
+  // Get delegation token for org
+  async function getDelegationToken(orgId: string, userId: string): Promise<string | null> {
+    const apiKey = await getOrgApiKey(orgId);
+    if (!apiKey) return null;
+    return jwt.sign(
+      { org_id: orgId, key_id: "chat", user_id: userId },
+      DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" });
+  }
+
+  // List chats
+  app.get("/api/v1/chats", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const r = await pool.query(
+      `SELECT chat_id, title, model, share_token, created_at, updated_at
+       FROM chats WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50`,
+      [p.user_id]);
+    return { chats: r.rows };
+  });
+
+  // Create chat
+  app.post("/api/v1/chats", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { title, model }: any = req.body || {};
+    const r = await pool.query(
+      `INSERT INTO chats (user_id, title, model) VALUES ($1,$2,$3)
+       RETURNING chat_id, title, model, created_at`,
+      [p.user_id, title || "Новый чат", model || "qwen2.5-14b"]);
+    return { chat: r.rows[0] };
+  });
+
+  // Get chat with messages
+  app.get("/api/v1/chats/:chatId", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { chatId } = req.params;
+    const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
+    if (c.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
+    const msgs = await pool.query(
+      "SELECT message_id, role, content, tokens_used, created_at FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC",
+      [chatId]);
+    return { chat: c.rows[0], messages: msgs.rows };
+  });
+
+  // Delete chat
+  app.delete("/api/v1/chats/:chatId", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { chatId } = req.params;
+    const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 RETURNING chat_id", [chatId, p.user_id]);
+    if (r.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
+    return { deleted: true };
+  });
+
+  // Share chat (generate token)
+  app.post("/api/v1/chats/:chatId/share", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { chatId } = req.params;
+    const shareToken = randomBytes(16).toString("hex");
+    const r = await pool.query(
+      "UPDATE chats SET share_token=$1 WHERE chat_id=$2 AND user_id=$3 RETURNING chat_id, share_token",
+      [shareToken, chatId, p.user_id]);
+    if (r.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
+    return { share_token: shareToken, url: `/shared/${shareToken}` };
+  });
+
+  // View shared chat (no auth)
+  app.get("/api/v1/shared/:shareToken", async (req: any, reply) => {
+    const { shareToken } = req.params;
+    const c = await pool.query("SELECT chat_id, title, model, created_at FROM chats WHERE share_token=$1", [shareToken]);
+    if (c.rows.length === 0) return reply.status(404).send({ error: "not found" });
+    const msgs = await pool.query(
+      "SELECT role, content, created_at FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC",
+      [c.rows[0].chat_id]);
+    return { chat: c.rows[0], messages: msgs.rows };
+  });
+
+  // Send message + stream AI response
+  app.post("/api/v1/chats/:chatId/messages", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { chatId } = req.params;
+    const { content, org_id }: any = req.body || {};
+    if (!content) return reply.status(400).send({ error: "content required" });
+
+    // Get chat
+    const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
+    if (c.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
+    const chat = c.rows[0];
+
+    // Save user message
+    const userMsg = await pool.query(
+      "INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2) RETURNING message_id, created_at",
+      [chatId, content]);
+
+    // Get delegation token
+    const targetOrgId = org_id;
+    const dToken = await getDelegationToken(targetOrgId, p.user_id);
+    if (!dToken) return reply.status(400).send({ error: "no active API key for org" });
+
+    // Build message history
+    const history = await pool.query(
+      "SELECT role, content FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC", [chatId]);
+    const messages = history.rows.map((m: any) => ({ role: m.role, content: m.content }));
+
+    // Auto-title: use first 50 chars of first user message
+    if (chat.title === "Новый чат" && history.rows.filter((m: any) => m.role === "user").length === 1) {
+      const title = content.slice(0, 50).replace(/\n/g, " ");
+      await pool.query("UPDATE chats SET title=$1 WHERE chat_id=$2", [title, chatId]);
+    }
+
+    try {
+      // Call Gateway with streaming
+      const vllmRes = await fetch(CORE_API + "/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + dToken,
+        },
+        body: JSON.stringify({
+          model: chat.model,
+          messages: [...messages, { role: "user", content }],
+          max_tokens: 2048,
+          temperature: 0.7,
+          stream: true,
+        }),
+      });
+
+      if (!vllmRes.ok || !vllmRes.body) {
+        // Delete user message on error
+        await pool.query("DELETE FROM chat_messages WHERE message_id=$1", [userMsg.rows[0].message_id]);
+        return reply.status(502).send({ error: "vLLM error: " + vllmRes.status });
+      }
+
+      // Stream SSE to client
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      });
+
+      let fullContent = "";
+      const reader = vllmRes.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content || "";
+                fullContent += delta;
+                // Forward to client
+                reply.raw.write(`data: ${JSON.stringify({ delta })}\n\n`);
+              } catch {}
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Save assistant message
+      const tokensUsed = Math.ceil(fullContent.length / 4); // rough estimate
+      await pool.query(
+        "INSERT INTO chat_messages (chat_id, role, content, tokens_used) VALUES ($1,'assistant',$2,$3)",
+        [chatId, fullContent, tokensUsed]);
+      await pool.query("UPDATE chats SET updated_at=now() WHERE chat_id=$1", [chatId]);
+
+      reply.raw.write(`data: ${JSON.stringify({ delta: "", done: true, tokens_used: tokensUsed })}\n\n`);
+      reply.raw.end();
+    } catch (e: any) {
+      // Delete user message on error
+      await pool.query("DELETE FROM chat_messages WHERE message_id=$1", [userMsg.rows[0].message_id]);
+      if (!reply.raw.headersSent) {
+        return reply.status(502).send({ error: "stream error: " + e.message });
+      }
+      reply.raw.end();
+    }
+  });
+
+  // ==================== BALANCE proxy ====================
+
+  app.get("/api/v1/billing", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const orgId = (req.query as any).org_id;
+    if (!orgId) return reply.status(400).send({ error: "org_id required" });
+    const dToken = await getDelegationToken(orgId, p.user_id);
+    if (!dToken) return reply.status(400).send({ error: "no active API key" });
+    try {
+      const r = await fetch(CORE_API + "/v1/billing/", { headers: { Authorization: "Bearer " + dToken } });
+      return reply.send(await r.json());
+    } catch (e: any) {
+      return reply.status(502).send({ error: "gateway unreachable" });
+    }
+  });
+
+  app.get("/api/v1/usage", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const orgId = (req.query as any).org_id;
+    if (!orgId) return reply.status(400).send({ error: "org_id required" });
+    const dToken = await getDelegationToken(orgId, p.user_id);
+    if (!dToken) return reply.status(400).send({ error: "no active API key" });
+    try {
+      const r = await fetch(CORE_API + "/v1/usage/", { headers: { Authorization: "Bearer " + dToken } });
+      return reply.send(await r.json());
+    } catch (e: any) {
+      return reply.status(502).send({ error: "gateway unreachable" });
+    }
+  });
+
   await app.listen({ port: PORT, host: "0.0.0.0" });
-  console.log("Portal BFF v0.4.0 on :" + PORT);
+  console.log("Portal BFF v0.5.0 (with chat) on :" + PORT);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
