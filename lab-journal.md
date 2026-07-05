@@ -637,4 +637,128 @@ curl http://130.17.1.90:80/api/v1/status
 
 ---
 
+---
+
+### Шаг 8: Gate 6 — Delegation Token (JWT RS256)
+
+**Узлы:** VPS2 (Portal BFF) + 40.51 (Gateway)
+
+**Цель:** заменить хардкодную аутентификацию Gateway на криптографически проверяемый JWT RS256.
+
+#### 8.1 Поток
+
+```
+Клиент → Portal BFF:    POST /api/v1/orgs/:id/delegate  (JWT auth + API key)
+       ← Portal BFF:    delegation_token (JWT RS256, 5 min, {org_id, key_id})
+
+Клиент → Gateway:       Authorization: Bearer <delegation_token>
+       → Gateway:        проверяет подпись (public key), expiry, org_id
+       → Gateway:        rate limit per org_id (Redis)
+       → Gateway:        прокси → vLLM
+       ← vLLM:           ответ
+```
+
+#### 8.2 RSA-ключи
+
+Сгенерированы 2048-битные RSA-ключи:
+- `delegation/private.pem` — на Portal BFF, подписывает delegation JWT
+- `delegation/public.pem` — на Gateway, проверяет подпись
+
+Приватный ключ НЕ покидает VPS2. Публичный ключ загружен в ConfigMap `delegation-public-key` на 40.51.
+
+#### 8.3 Portal BFF: эндпоинт делегирования
+
+```typescript
+POST /api/v1/orgs/:orgId/delegate
+Body: {"api_key": "ak-..."}
+```
+
+Валидации:
+1. JWT пользователя (сессия)
+2. API-ключ принадлежит org и активен (`portal_api_keys.status='active'`)
+3. Пользователь — член организации
+4. Обновление `last_used_at`
+
+При успехе — JWT RS256 на 5 минут:
+```json
+{
+  "org_id": "66f8de82-...",
+  "key_id": "2eded913-...",
+  "user_id": "...",
+  "iat": 1712345678,
+  "exp": 1712345978,
+  "iss": "aither-portal"
+}
+```
+
+#### 8.4 Gateway: валидация JWT
+
+```python
+import jwt as pyjwt
+payload = pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"])
+```
+
+Gateway использует библиотеку `pyjwt` (чистый Python, без C-зависимостей).
+
+Rate limit переведён с `per-key` на `per-org_id`:
+```python
+counter_key = f"ratelimit:{org_id}:{window}"
+```
+
+#### 8.5 Деплой
+
+**Portal BFF (v0.4.0):**
+- Dockerfile: добавлен `COPY delegation/ ./delegation/`
+- Приватный ключ монтируется в `/app/delegation/private.pem`
+- Новый эндпоинт: `POST /api/v1/orgs/:orgId/delegate`
+
+**Gateway (v0.2.0):**
+- ConfigMap `gateway-code` обновлён (новый `gateway.py`)
+- ConfigMap `delegation-public-key` создан (публичный ключ)
+- args: `pip install -q redis pyjwt && python3 /app/gateway.py`
+
+#### 8.6 Верификация (e2e)
+
+```bash
+# 1. Вход
+curl -X POST .../auth/dev/login → JWT
+
+# 2. Организация
+curl .../api/v1/orgs → org_id
+
+# 3. API-ключ
+curl -X POST .../api/v1/orgs/$ORG_ID/api-keys → ak-...
+
+# 4. Делегирование
+curl -X POST .../api/v1/orgs/$ORG_ID/delegate \
+  -d '{"api_key":"ak-..."}' → delegation_token (RS256, 5 min)
+
+# 5. Инференс
+curl http://10.129.13.78:30900/v1/chat/completions \
+  -H "Authorization: Bearer $DELEGATION_TOKEN" \
+  -d '{"messages":[{"role":"user","content":"Привет!"}]}'
+→ {"choices":[{"message":{"content":"Привет!"}}]}
+```
+
+**Результат:** 5 completion_tokens, 45 total_tokens. Gateway проверил JWT, rate limit, проксировал → vLLM ✅
+
+**Чек-лист Gate 6:**
+
+| Критерий | Статус |
+|---|---|
+| RSA-ключи (2048 бит) | ✅ |
+| Portal BFF → delegation JWT (RS256) | ✅ |
+| Gateway → валидация JWT (public key) | ✅ |
+| Rate limit per org_id | ✅ |
+| E2E: delegation → Gateway → vLLM | ✅ 5 токенов |
+| Приватный ключ не на 40.51 | ✅ только публичный |
+
+**Статус:** ✅ Gate 6 пройден
+
+**Что дальше (P0):**
+- Billing Service (reserve → settle → refund) — 40.51
+- Usage Collector (подсчёт токенов из логов vLLM) — 40.51
+
+---
+
 *Лабораторный журнал ведётся ассистентом Hermes в хронологическом порядке*
