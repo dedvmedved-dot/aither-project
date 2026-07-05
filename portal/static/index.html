@@ -6,8 +6,6 @@
 <title>Aither — Token‑as‑a‑Service</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="/hljs/atom-one-dark.min.css">
-<script src="/hljs/highlight.min.js"></script>
 <style>
 :root {
   --bg: #0a0a0f;
@@ -580,6 +578,22 @@ code, .mono {
   max-width: 100%;
 }
 .chat-msg-content pre code { background: none; padding: 0; white-space: pre-wrap; word-break: break-word; }
+/* Built-in syntax highlighting */
+.hljs-keyword { color: #c678dd; }
+.hljs-string { color: #98c379; }
+.hljs-comment { color: #5c6370; font-style: italic; }
+.hljs-number { color: #d19a66; }
+.hljs-built_in { color: #e5c07b; }
+.hljs-function { color: #61afef; }
+.hljs-title { color: #61afef; }
+.hljs-params { color: #abb2bf; }
+.hljs-literal { color: #56b6c2; }
+.hljs-type { color: #e5c07b; }
+.hljs-meta { color: #c678dd; }
+.hljs-attr { color: #d19a66; }
+.hljs-variable { color: #e06c75; }
+.hljs-symbol { color: #56b6c2; }
+.hljs-regexp { color: #56b6c2; }
 .chat-msg-content p { margin: 0 0 8px 0; }
 .chat-msg-content p:last-child { margin-bottom: 0; }
 .chat-msg-content ul, .chat-msg-content ol { margin: 8px 0; padding-left: 20px; }
@@ -1455,12 +1469,7 @@ function renderMessages() {
         </div>
       </div>`;
   }).join('') + '</div>';
-  setTimeout(() => {
-    if (typeof hljs !== 'undefined') {
-      const blocks = el.querySelectorAll('pre code');
-      blocks.forEach(block => hljs.highlightElement(block));
-    }
-  }, 100);
+  el.querySelectorAll('pre code').forEach(block => highlightCode(block));
 }
 
 function simpleMd(text) {
@@ -1657,25 +1666,56 @@ if (window.location.pathname.startsWith('/shared/')) {
   state.page = 'shared';
 }
 render();
-// DEBUG: check if hljs is available
-setTimeout(() => {
-  console.log('=== HLJS DEBUG ===');
-  console.log('hljs type:', typeof hljs);
-  if (typeof hljs !== 'undefined') {
-    console.log('hljs.highlightElement:', typeof hljs.highlightElement);
-    console.log('hljs.highlightAll:', typeof hljs.highlightAll);
-    // Test with a simple string
-    const testEl = document.createElement('code');
-    testEl.className = 'language-python';
-    testEl.textContent = 'print("hello")';
-    document.body.appendChild(testEl);
-    try { hljs.highlightElement(testEl); console.log('highlightElement OK, result:', testEl.innerHTML.substring(0,100)); }
-    catch(e) { console.error('highlightElement ERROR:', e.message); }
-    document.body.removeChild(testEl);
-  } else {
-    console.error('hljs NOT DEFINED — script not loaded!');
+
+// === INLINE SYNTAX HIGHLIGHTER ===
+function highlightCode(el) {
+  const lang = (el.className.match(/language-(\w+)/) || [])[1] || '';
+  let code = el.textContent;
+
+  const KW = {
+    python: 'and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|True|False|None|self',
+    bash: 'if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|exit|export|local|source|echo|read|shift|declare|unset',
+    js: 'async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|let|new|of|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|true|false|null|undefined',
+    sql: 'SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|TABLE|ALTER|DROP|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|NULL|AS|INTO|VALUES|SET|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|UNION|EXISTS|CASE|WHEN|THEN|ELSE|END|DISTINCT|COUNT|SUM|AVG|MAX|MIN|PRIMARY|KEY|FOREIGN|REFERENCES|INT|VARCHAR|TEXT|BOOLEAN|SERIAL|BIGINT',
+  };
+
+  // Match language keywords
+  const keywords = KW[lang];
+  if (keywords) {
+    const re = new RegExp('\\b(' + keywords + ')\\b', 'g');
+    code = code.replace(re, '<span class="hljs-keyword">$1</span>');
   }
-}, 1000);
+
+  // Strings: single, double, backtick
+  code = code.replace(/(["'`])(?:(?!\1|\\).|\\.)*\1/g, '<span class="hljs-string">$&</span>');
+
+  // Python triple-quoted strings
+  code = code.replace(/('''[\s\S]*?'''|"""[\s\S]*?""")/g, '<span class="hljs-string">$1</span>');
+
+  // Comments: # and //
+  code = code.replace(/(^|\s)(#.*$)/gm, '$1<span class="hljs-comment">$2</span>');
+  code = code.replace(/(^|\s)(\/\/.*$)/gm, '$1<span class="hljs-comment">$2</span>');
+
+  // Numbers
+  code = code.replace(/\b(\d+\.?\d*)\b/g, '<span class="hljs-number">$1</span>');
+
+  // Built-ins (Python)
+  if (lang === 'python') {
+    code = code.replace(/\b(print|len|range|int|str|float|list|dict|set|tuple|bool|type|open|input|enumerate|zip|map|filter|sorted|reversed|sum|min|max|abs|round|isinstance|hasattr|getattr|setattr|super|Exception|ValueError|TypeError|KeyError|ImportError|RuntimeError|FileNotFoundError)\b/g, '<span class="hljs-built_in">$1</span>');
+    code = code.replace(/@(\w+)/g, '<span class="hljs-meta">@$1</span>');
+  }
+
+  // Bash variables
+  if (lang === 'bash') {
+    code = code.replace(/(\$\{?\w+\}?)/g, '<span class="hljs-variable">$1</span>');
+    code = code.replace(/\b(awk|sed|grep|cat|curl|wget|ssh|scp|rsync|tar|gzip|chmod|chown|mkdir|rm|cp|mv|ls|cd|pwd|df|du|ps|kill|systemctl|docker|kubectl|git|python|node|npm|pip)\b/g, '<span class="hljs-built_in">$1</span>');
+  }
+
+  // Functions
+  code = code.replace(/\b(\w+)(?=\s*\()/g, '<span class="hljs-function">$1</span>');
+
+  el.innerHTML = code;
+}
 </script>
 </body>
 </html>
