@@ -416,6 +416,11 @@ code, .mono {
 .chat-container {
   display: flex;
   height: calc(100vh - 56px);
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   margin: 0;
   max-width: none;
   padding: 0;
@@ -505,6 +510,7 @@ code, .mono {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 .chat-messages {
   flex: 1;
@@ -1399,7 +1405,13 @@ async function deleteChat(id) {
   await api(`/api/v1/chats/${id}`, { method:'DELETE' });
   if (state.chatId === id) { state.chatId = null; state.chatMessages = []; }
   await loadChatList();
-  if (!state.chatId) renderChats();
+  if (!state.chatId) {
+    // Show empty state, don't auto-create
+    const msgEl = $('#chat-messages');
+    if (msgEl) msgEl.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Выберите или создайте новый чат</div></div>';
+    const balEl = $('#chat-balance');
+    if (balEl) balEl.innerHTML = 'Баланс: —';
+  }
 }
 
 async function loadChatMessages(chatId) {
