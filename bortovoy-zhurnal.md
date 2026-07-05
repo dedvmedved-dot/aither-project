@@ -232,7 +232,30 @@ curl -X DELETE .../api/v1/orgs/$ID/api-keys/$KID
 ```
 
 **Осталось (P0):**
-- Billing Service (reserve → settle → refund) — 40.51
+- Billing Service (reserve → settle → refund) — ✅ 40.51
+
+---
+
+## 2026-07-05 — Gate 7: Billing Service
+
+### Double-entry биллинг
+- `billing_accounts` (balance, reserved) + `billing_ledger` (reserve/settle/refund)
+- PostgreSQL `SELECT FOR UPDATE` — транзакционная целостность
+- 1 000 000 токенов при создании организации
+
+### Поток
+```
+reserve → proxy vLLM → 200? settle(actual) : refund(reserved)
+```
+
+### Результат
+Balance 1 000 000 → inference (40 tokens) → 999 960 ✅
+
+### Питфоллы
+- Hermes redacts passwords → Kubernetes Secret с base64
+- PyJWT требует `cryptography` для RS256 (иначе «Algorithm not supported»)
+
+---
 - Usage Collector (подсчёт токенов из vLLM) — 40.51
 - Rate Limiter (per-key) — 40.51
 - Delegation Token (JWT RS256) — ✅ VPS2 → 40.51

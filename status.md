@@ -51,7 +51,7 @@ kubectl get svc -A
 | ~~OAuth/OIDC (вход через GitHub/Google)~~ → dev login | ✅ P0 | VPS2 |
 | ~~Регистрация + создание организации~~ | ✅ P0 | VPS2 |
 | ~~Управление API-ключами (создание/ротация/блокировка)~~ | ✅ P0 | VPS2 |
-| Billing Service (reserve → settle → refund) | P0 | 40.51 |
+| Billing Service (reserve → settle → refund) | ✅ P0 | 40.51 |
 | Usage Collector (подсчёт токенов) | P0 | 40.51 |
 | Rate Limiter (per-key, per-org) | P1 | 40.51 |
 | Пополнение баланса (платёжный шлюз) | P1 | 40.51 |

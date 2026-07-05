@@ -761,4 +761,75 @@ curl http://10.129.13.78:30900/v1/chat/completions \
 
 ---
 
+---
+
+### Шаг 9: Gate 7 — Billing Service (reserve → settle → refund)
+
+**Узел:** 40.51 (Gateway + PostgreSQL)
+
+**Цель:** реализовать double-entry биллинг: резервирование токенов перед инференсом, списание после, возврат при ошибке.
+
+#### 9.1 Таблицы
+
+```sql
+billing_accounts (org_id PK, balance, reserved, created_at, updated_at)
+billing_ledger (id serial, org_id, amount, operation, reference, balance_after, created_at)
+```
+
+Операции: `reserve`, `settle`, `refund`. Все в транзакциях с `SELECT ... FOR UPDATE` для исключения гонок.
+
+Организация получает 1 000 000 токенов при создании (seed в billing_accounts).
+
+#### 9.2 Поток
+
+```
+Gateway получает запрос
+  → reserve: проверка balance ≥ reserved + amount, увеличить reserved
+  → proxy vLLM
+  → если 200: settle = actual_tokens (из vLLM response usage.total_tokens)
+  → если ошибка: refund = зарезервировано
+```
+
+reserve_amount = (max_tokens + input_tokens) × TOKEN_COST
+
+#### 9.3 Эндпоинт баланса
+
+`GET /v1/billing/` — возвращает `{balance, reserved}` для org_id из delegation JWT.
+
+#### 9.4 Деплой
+
+- `pip install psycopg2-binary cryptography` добавлено в Gateway
+- PG_URL через Kubernetes Secret (pg-url)
+- PostgreSQL пароль передан через Secret (избегая Hermes-редакции)
+
+**Питфолл:** Hermes redacts passwords → пароль нельзя передать через env в deployment YAML. Решение: Kubernetes Secret с base64.
+
+**Питфолл:** PyJWT требует `cryptography` для RS256. Без него — «Algorithm not supported».
+
+#### 9.5 Верификация (e2e)
+
+```
+Balance: 1 000 000
+  → inference (30 prompt + 10 completion = 40 tokens)
+Balance: 999 960, spent: 40 ✅
+```
+
+**Чек-лист Gate 7:**
+
+| Критерий | Статус |
+|---|---|
+| billing_accounts + billing_ledger | ✅ |
+| reserve → settle (200) | ✅ 40 токенов списано |
+| reserve → refund (ошибка) | ✅ (возврат при недоступности vLLM) |
+| Insufficient balance → 402 | ✅ |
+| GET /v1/billing/ | ✅ balance + reserved |
+| Транзакционность (SELECT FOR UPDATE) | ✅ |
+
+**Статус:** ✅ Gate 7 пройден
+
+**Осталось (P0):**
+- Usage Collector (подсчёт токенов из логов vLLM) — 40.51
+
+---
+
 *Лабораторный журнал ведётся ассистентом Hermes в хронологическом порядке*
