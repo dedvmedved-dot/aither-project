@@ -172,4 +172,31 @@ portal/
 
 ---
 
+## 2026-07-05 — Gate 5: Бизнес-логика (v0.3.0)
+
+**18:00** — Аутентификация и организации
+- Dev login: JWT (jsonwebtoken), создание пользователя при первом входе
+- POST `/api/v1/orgs` — создание организации, автор становится owner
+- GET `/api/v1/orgs` — список организаций пользователя
+
+**18:10** — Управление API-ключами
+- Таблица `portal_api_keys` (org_id, api_key, api_key_prefix, name, status)
+- POST `/api/v1/orgs/:orgId/api-keys` — создание ключа формата `ak-<48 hex>` (owner only)
+- DELETE `/api/v1/orgs/:orgId/api-keys/:keyId` — отзыв ключа (owner only)
+- GET `/api/v1/orgs/:orgId/api-keys` — список активных ключей организации
+
+**18:15** — Деплой портала v0.3.0
+- Пересборка BFF (Fastify), network_mode: host для доступа к VPN-туннелю
+- PG_HOST=127.0.0.1 (DB проброшен на хост)
+- Конфликт со старым контейнером (порт 3000) — решён остановкой
+- Все эндпоинты работают: orgs CR + api-keys CRD
+
+**Осталось (P0):**
+- Billing Service (reserve → settle → refund) — 40.51
+- Usage Collector (подсчёт токенов из vLLM) — 40.51
+- Rate Limiter (per-key) — 40.51
+- Delegation Token (JWT RS256 вместо хардкода) — VPS2 → 40.51
+
+---
+
 *Журнал ведётся ассистентом Hermes в хронологическом порядке*
