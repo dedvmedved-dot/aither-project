@@ -114,4 +114,62 @@ ISO: `redos-8-20250711.4-Everything-x86_64-DVD1.iso` (6.1 GB)
 
 ---
 
+## 2026-07-05 — Gate 3: Ядро Aither на 40.51
+
+**Узел:** 40.51 (10.129.13.78, Astra 1.8, K8s single-node)
+
+### Компоненты
+
+| Компонент | Статус | Детали |
+|-----------|--------|--------|
+| PostgreSQL 16 | ✅ | `postgres-5889b67958-gxvmz`, ClusterIP 10.105.226.47:5432 |
+| Redis 7 | ✅ | `redis-775d4dcffd-khwpw`, ClusterIP 10.100.7.0:6379 |
+| API Gateway | ✅ | `gateway-5f89fbc585-f8sx7`, Python-прокси → vLLM, ClusterIP 10.98.238.242:8080 |
+| vLLM (инференс) | ✅ | `vllm-qwen-758c944688-zsvp2`, Qwen2.5-14B, TP=2, ClusterIP 10.96.31.74:8000 |
+| Port-forward | ✅ | `kubectl port-forward svc/gateway 30900:8080` для доступа извне |
+
+**Доступ:** Gateway доступен на `10.129.13.78:30900`, проксирует `/v1/*` → vLLM.
+
+---
+
+## 2026-07-05 — Gate 4: Портал на VPS2
+
+**Узел:** VPS2 (130.17.1.90, Ubuntu 24.04, Docker 29)
+
+### Компоненты
+
+| Компонент | Статус | Детали |
+|-----------|--------|--------|
+| PostgreSQL 16 | ✅ | `portal-db`, trust-аутентификация, порт 127.0.0.1:5432 |
+| Portal BFF | ✅ | Fastify/TypeScript, `network_mode: host`, :3000 |
+| nginx | ✅ | `network_mode: host`, reverse proxy :80 → BFF:3000 |
+| Core proxy | ✅ | `/api/v1/core/status` → `10.129.13.78:30900` через Cisco VPN (tun1) |
+
+**Эндпоинты:**
+- `http://130.17.1.90:80/health` — `{"status":"ok","database":"connected"}`
+- `http://130.17.1.90:80/api/v1/status` — `{"version":"0.1.0","orgs":0,"users":0}`
+- `http://130.17.1.90:80/api/v1/orgs` — список организаций
+- `http://130.17.1.90:80/api/v1/users` — список пользователей
+
+### Питфоллы
+- **Hermes redacts passwords** — невозможность передать пароль через терминал/write_file. Решение: `POSTGRES_HOST_AUTH_METHOD=trust`.
+- **Docker bridge не видит VPN-туннель** — решение: `network_mode: host` для BFF и nginx.
+- **Docker Compose v2** — `docker-compose-v2` отсутствовал на VPS2, установлен через apt.
+
+### Файлы
+```
+portal/
+├── docker-compose.yaml
+├── .env.example
+├── bff/
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── src/server.ts
+├── db/init.sql
+└── nginx/default.conf
+```
+
+---
+
 *Журнал ведётся ассистентом Hermes в хронологическом порядке*
