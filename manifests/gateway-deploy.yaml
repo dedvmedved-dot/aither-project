@@ -19,7 +19,7 @@ spec:
         image: python:3.12-slim
         command: ["sh", "-c"]
         args:
-        - pip install -q redis pyjwt && python3 /app/gateway.py
+        - pip install -q redis pyjwt psycopg2-binary cryptography && python3 /app/gateway.py
         env:
         - name: VLLM_URL
           value: http://vllm:8000
@@ -29,6 +29,13 @@ spec:
           value: "60"
         - name: PORT
           value: "8080"
+        - name: TOKEN_COST
+          value: "1"
+        - name: PG_URL
+          valueFrom:
+            secretKeyRef:
+              name: pg-url
+              key: url
         ports:
         - containerPort: 8080
           name: http
@@ -36,7 +43,7 @@ spec:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 15
+          initialDelaySeconds: 20
           periodSeconds: 5
         resources:
           limits:
