@@ -1,0 +1,71 @@
+digraph AitherArchitecture {
+    rankdir=TB;
+    bgcolor="#0d1117";
+    fontname="Helvetica";
+    
+    node [fontname="Helvetica", fontsize=11, style=filled];
+    edge [fontname="Helvetica", fontsize=9, color="#8b9496"];
+
+    // Internet
+    internet [label="Интернет\n(Telegram API)", shape=cloud, fillcolor="#1a1a2e", fontcolor="#e6e6e6", color="#4a4a8a"];
+    
+    // VPS1
+    subgraph cluster_vps1 {
+        label="VPS1 (170.168.91.95) — Публичный хост";
+        fontcolor="#c9d1d9";
+        color="#30363d";
+        bgcolor="#161b22";
+        
+        hermes [label="Hermes Agent\n(Telegram Bot)", shape=box, fillcolor="#238636", fontcolor="#ffffff"];
+        gateway [label="Gateway\n(порт 30900:8080)", shape=box, fillcolor="#1f6feb", fontcolor="#ffffff"];
+    }
+    
+    // VPS2
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90) — Прокси-хост";
+        fontcolor="#c9d1d9";
+        color="#30363d";
+        bgcolor="#161b22";
+        
+        proxy [label="SSH-прокси\n+ Хранилище моделей", shape=box, fillcolor="#8957e5", fontcolor="#ffffff"];
+    }
+    
+    // K8s
+    subgraph cluster_k8s {
+        label="40.51 (10.129.13.78) — K8s GPU-кластер";
+        fontcolor="#c9d1d9";
+        color="#30363d";
+        bgcolor="#161b22";
+        
+        subgraph cluster_gpu {
+            label="GPU Node (bootsman-k8s-clnt01-n8-gpu)";
+            fontcolor="#c9d1d9";
+            color="#525252";
+            bgcolor="#0d1117";
+            
+            gpu0 [label="GPU 0\nQuadro RTX 6000\n24 GB", shape=box, fillcolor="#da3633", fontcolor="#ffffff"];
+            gpu1 [label="GPU 1\nQuadro RTX 6000\n24 GB", shape=box, fillcolor="#da3633", fontcolor="#ffffff"];
+            
+            qwen [label="vLLM Qwen\n14B FP16, TP=2\nпорт 8000", shape=box, fillcolor="#bf8700", fontcolor="#ffffff"];
+        }
+        
+        postgres [label="PostgreSQL\n(метаданные)", shape=cylinder, fillcolor="#336791", fontcolor="#ffffff"];
+        redis [label="Redis\n(сессии)", shape=cylinder, fillcolor="#dc382d", fontcolor="#ffffff"];
+        svc [label="Service\n(vllm-qwen:8000)", shape=box, fillcolor="#525252", fontcolor="#c9d1d9"];
+    }
+    
+    // Portal
+    portal [label="Aither Portal\n(130.17.1.90:80)\nВыбор модели • Чат", shape=box, fillcolor="#1f6feb", fontcolor="#ffffff"];
+    
+    // Connections
+    internet -> hermes [label=" Webhook", color="#58a6ff"];
+    hermes -> gateway [label=" Маршрутизация\nзапросов", color="#58a6ff"];
+    gateway -> proxy [label=" SSH-туннель\n(WireGuard)", color="#8b9496", style=dashed];
+    proxy -> svc [label=" kubectl\n(SSH+sshpass)", color="#8b9496", style=dashed];
+    svc -> qwen [label=" :8000", color="#58a6ff"];
+    qwen -> gpu0 [label=" TP=2", color="#f0883e"];
+    qwen -> gpu1 [label=" TP=2", color="#f0883e"];
+    gateway -> portal [label=" API", color="#58a6ff"];
+    portal -> postgres [label=" ", color="#8b9496", style=dotted];
+    portal -> redis [label=" ", color="#8b9496", style=dotted];
+}
