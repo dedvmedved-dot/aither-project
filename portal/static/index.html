@@ -1250,6 +1250,8 @@ async function renderChats() {
       state.orgs = [cd.org];
       state.chatOrgId = cd.org.org_id;
       localStorage.setItem('aither_chat_org', state.chatOrgId);
+      // Auto-create API key for new org
+      await api('/api/v1/orgs/' + cd.org.org_id + '/api-keys', { method:'POST', body: JSON.stringify({name:'default'}) });
     }
   }
 
