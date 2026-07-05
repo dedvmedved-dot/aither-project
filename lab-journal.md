@@ -1060,4 +1060,102 @@ Chat: c7594792...
 
 ---
 
+---
+
+### Шаг 13: Gate 11 — Мультимодельное развёртывание (Saiga 8B + Qwen 14B)
+
+**Узел:** 40.51 (K8s, 2× RTX 6000)
+
+**Цель:** добавить вторую модель (Saiga 8B) и обеспечить одновременную работу двух моделей на двух GPU. Подготовить инфраструктуру для выбора модели пользователем на портале.
+
+#### 13.1 Скачивание Saiga 8B
+
+Модель `IlyaGusev/saiga_llama3_8b` (Llama-3 8B, файнтюн на русском) скачана через HF на VPS2 (1.1 GB на шард, всего ~14 GB).
+
+```bash
+# VPS2: скачивание через hf_xet
+HF_XET_HIGH_PERFORMANCE=1 python3 -c "
+from huggingface_hub import snapshot_download
+snapshot_download('IlyaGusev/saiga_llama3_8b', local_dir='/data/models/saiga_llama3_8b')
+"
+```
+
+~14 GB, 4 шарда safetensors.
+
+#### 13.2 Копирование на 40.51
+
+SCP через Cisco VPN, 1.1 GB на шард `model-00004-of-00004.safetensors`:
+
+```bash
+# VPS2 → 40.51
+sshpass -proot scp -o Compression=yes \
+  /data/models/saiga_llama3_8b/model-00004-of-00004.safetensors \
+  root@10.129.13.78:/data/models/saiga_llama3_8b/
+```
+
+**Питфолл:** VPN-туннель ~400 KB/s — копирование 1.1 GB заняло ~30 минут. При прерывании scp файл остаётся битым (incomplete metadata → SafetensorError).
+
+#### 13.3 Разнесение моделей по GPU
+
+Два пода vLLM — на разные GPU через `CUDA_VISIBLE_DEVICES`:
+- `vllm-saiga`: GPU 0 (`CUDA_VISIBLE_DEVICES=0`)
+- `vllm-qwen`: GPU 1 (`CUDA_VISIBLE_DEVICES=1`)
+
+```bash
+kubectl set env deploy/vllm-saiga CUDA_VISIBLE_DEVICES=0
+kubectl set env deploy/vllm-qwen CUDA_VISIBLE_DEVICES=1
+```
+
+#### 13.4 Pitfall №1: VLLM_PORT URI (K8s service discovery)
+
+**Симптом:** `ValueError: VLLM_PORT 'tcp://10.102.127.135:8000' appears to be a URI`
+
+K8s автоинжектит переменные окружения сервисов (VLLM_PORT, VLLM_QWEN_PORT и т.д.). vLLM 0.24 валидирует VLLM_PORT и падает при URI-формате.
+
+**Решение:** переопределить VLLM_PORT на уровне env (перебивает K8s-автоинжект):
+
+```bash
+kubectl set env deploy/vllm-saiga VLLM_PORT=8000
+kubectl set env deploy/vllm-qwen VLLM_PORT=8000
+```
+
+#### 13.5 Pitfall №2: Flash Attention 2 на Turing GPU
+
+**Симптом:** `Cannot use FA version 2 is not supported due to FA2 is only supported on devices with compute capability >= 8`
+
+Quadro RTX 6000 = Turing SM 7.5. Flash Attention 2 требует SM 8.0+.
+
+**Решение:** `--enforce-eager` (отключает FA2 и CUDAGraphs):
+
+```bash
+kubectl patch deploy vllm-saiga --type=json \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--enforce-eager"}]'
+```
+
+#### 13.6 Pitfall №3: Архитектурная инспекция Qwen2 (vLLM 0.24 bug)
+
+**Симптом:** `Model architectures ['Qwen2ForCausalLM'] failed to be inspected`
+
+vLLM 0.24 запускает сабпроцесс `python3 -m vllm.model_executor.models.registry` для инспекции архитектуры. Импорт `qwen2.py` → `attention/mm_encoder_attention.py` → `kernels/oink_ops.py` → `pynvml.nvmlDeviceGetHandleByIndex` — сабпроцесс не видит GPU.
+
+**Решение:** даунгрейд образа vLLM до v0.8.5 (в процессе).
+
+```bash
+kubectl set image deploy/vllm-qwen vllm=vllm/vllm-openai:v0.8.5
+```
+
+#### Текущий статус
+
+| Компонент | Статус |
+|---|---|
+| Saiga 8B на 40.51 | 🔄 копируется (scp ~400 KB/s) |
+| Qwen 14B на 40.51 | 🔄 даунгрейд образа vLLM (тянет v0.8.5) |
+| VLLM_PORT fix | ✅ оба деплоймента |
+| --enforce-eager | ✅ оба деплоймента |
+| CUDA_VISIBLE_DEVICES | ✅ разнесены по GPU |
+
+Статус: 🔄 In Progress
+
+---
+
 *Лабораторный журнал ведётся ассистентом Hermes в хронологическом порядке*
