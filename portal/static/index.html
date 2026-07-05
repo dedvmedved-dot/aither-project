@@ -1239,12 +1239,37 @@ async function revokeKey(keyId) {
 // ===== CHATS =====
 
 async function renderChats() {
-  // Load orgs for select
+  // Load orgs
   const { ok: orgOk, data: orgData } = await api('/api/v1/orgs');
   if (orgOk) state.orgs = orgData.orgs || [];
+
+  // Auto-create org if none
+  if (state.orgs.length === 0) {
+    const { ok: co, data: cd } = await api('/api/v1/orgs', { method:'POST', body: JSON.stringify({name:'Моя организация'}) });
+    if (co && cd.org) {
+      state.orgs = [cd.org];
+      state.chatOrgId = cd.org.org_id;
+      localStorage.setItem('aither_chat_org', state.chatOrgId);
+    }
+  }
+
   if (!state.chatOrgId && state.orgs.length > 0) {
     state.chatOrgId = state.orgs[0].org_id;
     localStorage.setItem('aither_chat_org', state.chatOrgId);
+  }
+
+  // Auto-create chat if none selected
+  if (!state.chatId) {
+    // Load existing chats
+    const { ok: lcOk } = await api('/api/v1/chats');
+    if (lcOk) {
+      // If no chats exist, create one
+      const { ok: ncOk, data: ncData } = await api('/api/v1/chats', { method:'POST', body: JSON.stringify({model: state.chatModel}) });
+      if (ncOk && ncData.chat) {
+        state.chatId = ncData.chat.chat_id;
+        state.chatMessages = [];
+      }
+    }
   }
 
   let mainHtml = `
@@ -1266,28 +1291,28 @@ async function renderChats() {
     </div>
     <div class="chat-main">
       <div class="chat-messages" id="chat-messages">
-        ${state.chatId ? '<div class="loading">Загрузка...</div>' : '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Выберите чат или создайте новый</div></div>'}
+        ${state.chatId ? '<div class="loading">Загрузка...</div>' : '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Создаю чат...</div></div>'}
       </div>
       <div class="chat-input-area">
         <div class="chat-input-row">
           <textarea class="chat-input" id="chat-input" placeholder="Введите сообщение..." rows="1" onkeydown="onChatKey(event)"></textarea>
-          <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()" ${!state.chatId?'disabled':''}>▶</button>
+          <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()">▶</button>
         </div>
         <div class="chat-input-actions">
-          <button class="chat-input-btn" onclick="shareChat()" ${!state.chatId?'disabled':''}>🔗 Поделиться</button>
+          <button class="chat-input-btn" onclick="shareChat()">🔗 Поделиться</button>
         </div>
       </div>
     </div>`;
 
   $('#main-content').innerHTML = mainHtml;
 
-  // Load chats list
   await loadChatList();
-  // Load balance
   loadBalance();
 
   if (state.chatId) {
     await loadChatMessages(state.chatId);
+  } else {
+    renderMessages();
   }
 }
 
@@ -1409,10 +1434,18 @@ function simpleMd(text) {
 
 async function sendChat() {
   if (state.chatStreaming) return;
-  if (!state.chatId) return;
   const input = $('#chat-input');
   const content = input.value.trim();
   if (!content) return;
+
+  // Auto-create chat if none
+  if (!state.chatId) {
+    const { ok, data } = await api('/api/v1/chats', { method:'POST', body: JSON.stringify({model: state.chatModel}) });
+    if (!ok) { toast('Не удалось создать чат', 'error'); return; }
+    state.chatId = data.chat.chat_id;
+    state.chatMessages = [];
+    await loadChatList();
+  }
 
   input.value = '';
   input.style.height = 'auto';
@@ -1516,7 +1549,7 @@ function scrollToBottom() {
 }
 
 async function shareChat() {
-  if (!state.chatId) return;
+  if (!state.chatId) { toast('Сначала отправьте сообщение', 'error'); return; }
   const { ok, data } = await api(`/api/v1/chats/${state.chatId}/share`, { method:'POST' });
   if (!ok) { toast('Ошибка', 'error'); return; }
   const url = window.location.origin + '/shared/' + data.share_token;
