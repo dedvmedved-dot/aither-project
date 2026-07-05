@@ -269,10 +269,17 @@ async function main() {
     return r.rows.length > 0 ? r.rows[0].api_key : null;
   }
 
-  // Get delegation token for org
+  // Get delegation token for org (auto-creates API key if needed)
   async function getDelegationToken(orgId: string, userId: string): Promise<string | null> {
-    const apiKey = await getOrgApiKey(orgId);
-    if (!apiKey) return null;
+    let apiKey = await getOrgApiKey(orgId);
+    if (!apiKey) {
+      // Auto-create first API key for org
+      apiKey = "ak-" + randomBytes(24).toString("hex");
+      const apiKeyPrefix = apiKey.slice(0, 11);
+      await pool.query(
+        "INSERT INTO portal_api_keys (org_id, api_key, api_key_prefix, name) VALUES ($1,$2,$3,'auto')",
+        [orgId, apiKey, apiKeyPrefix]);
+    }
     return jwt.sign(
       { org_id: orgId, key_id: "chat", user_id: userId },
       DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" });
