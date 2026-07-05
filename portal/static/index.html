@@ -1455,14 +1455,16 @@ function renderMessages() {
         </div>
       </div>`;
   }).join('') + '</div>';
-  if (typeof hljs !== 'undefined') hljs.highlightAll();
+  if (typeof hljs !== 'undefined') {
+    el.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+  }
 }
 
 function simpleMd(text) {
   if (!text) return '';
   return text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => `<pre><code class="language-${lang || 'plaintext'}">${code}</code></pre>`)
+    .replace(/```(\w*)\s*\n([\s\S]*?)```/g, (_, lang, code) => `<pre><code class="language-${lang || 'plaintext'}">${code.trim()}</code></pre>`)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
