@@ -36,6 +36,10 @@ def billing_op(org_id: str, operation: str, amount: int, reference: str = ""):
         with conn:
             with conn.cursor() as cur:
                 if operation == "reserve":
+                    # Auto-create billing account if missing
+                    cur.execute(
+                        "INSERT INTO billing_accounts (org_id, balance, reserved) VALUES (%s, 1000000, 0) ON CONFLICT (org_id) DO NOTHING",
+                        (org_id,))
                     # Check balance, then reserve
                     cur.execute(
                         "SELECT balance, reserved FROM billing_accounts WHERE org_id=%s FOR UPDATE",
