@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+data:
+  config.yaml: |
+    general_settings:
+      master_key: aither-master-key
+      database_url: "postgresql://aither:aither_pass@postgres:5432/aither"
+    model_list:
+      - model_name: qwen-14b
+        litellm_params:
+          model: openai/qwen-14b
+          api_base: http://vllm:8000/v1
+          api_key: "sk-none"
+    litellm_settings:
+      drop_params: true
+      set_verbose: false
+    router_settings:
+      num_retries: 2
+      timeout: 120
+      allowed_fails: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  labels:
+    app: litellm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      containers:
+      - name: litellm
+        image: ghcr.io/berriai/litellm:main-stable
+        command: ["litellm"]
+        args: ["--config", "/etc/litellm/config.yaml", "--port", "4000"]
+        ports:
+        - containerPort: 4000
+          name: http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/litellm
+        env:
+        - name: LITELLM_MASTER_KEY
+          value: "aither-master-key"
+      volumes:
+      - name: config
+        configMap:
+          name: litellm-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm
+spec:
+  selector:
+    app: litellm
+  ports:
+  - port: 4000
+    targetPort: 4000
+    name: http

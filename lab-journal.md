@@ -246,3 +246,69 @@ snapshot_download('Qwen/Qwen2.5-14B-Instruct', local_dir='/data/models/Qwen2.5-1
 
 **Статус:** ✅ Gate 2 пройден
 
+---
+
+### Шаг 5: Gate 3 — Ядро Aither (PostgreSQL, Redis, Gateway)
+
+**Узел:** 40.51
+
+**Цель:** развернуть инфраструктуру ядра — PostgreSQL, Redis, API Gateway.
+
+#### 5.1 PostgreSQL
+
+**Манифест:** `manifests/postgres.yaml`
+
+```bash
+kubectl apply -f manifests/postgres.yaml
+```
+
+PostgreSQL 16, БД `aither`, пользователь `aither`. PV 50 GB на `/data/postgres` (hostPath).
+
+**Проверка:**
+```sql
+SELECT 1 AS ok;  -- ✅
+```
+
+#### 5.2 Redis
+
+**Манифест:** `manifests/redis.yaml`
+
+Redis 7 (Alpine), append-only, maxmemory 512 MB, политика allkeys-lru.
+
+**Проверка:**
+```
+redis-cli ping  → PONG ✅
+```
+
+#### 5.3 API Gateway
+
+**Манифест:** `manifests/gateway-deploy.yaml` + `manifests/gateway.py`
+
+Минимальный Python-шлюз (stdlib: `http.server` + `urllib`):
+- Проксирует `/v1/chat/completions` → vLLM
+- Rate limiting через Redis (60 RPM per key)
+- Health check `/health`
+- Переопределяет model на `/models/Qwen2.5-14B-Instruct`
+
+**Проверка:**
+```
+GET  /health → 200 {"status": "ok"}
+POST /v1/chat/completions → 200 "Привет!" ✅
+```
+
+#### 5.4 Что отложено
+
+Billing Service и Usage Collector требуют разработки (финансовая логика, state machine reserve/settle/refund, append-only ledger). Для MVP задокументированы как stubs — будут реализованы на этапе пилота.
+
+**Чек-лист Gate 3:**
+
+| Критерий | Статус |
+|---|---|
+| PostgreSQL 16 | ✅ Running |
+| Redis 7 | ✅ Running |
+| API Gateway → vLLM | ✅ 200 OK |
+| Rate limiting (Redis) | ✅ |
+| vLLM Service (ClusterIP) | ✅ |
+
+**Статус:** ✅ Gate 3 пройден (MVP)
+
