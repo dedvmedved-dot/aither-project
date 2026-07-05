@@ -204,5 +204,45 @@ vLLM: Automatically detected platform cuda
 
 GPU доступен в контейнере, vLLM инициализируется.
 
-**Статус:** ✅ GPU доступен, модель загружается
+#### 4.4 Модель на хосте
+
+**Питфолл:** загрузка из HuggingFace внутри пода — ~5 MB/s → 1.5 часа. При пересоздании пода кеш теряется.
+
+**Решение:** скачать модель на хост через `hf_xet` + `hostPath`:
+```bash
+pip3 install --break-system-packages hf_xet
+HF_XET_HIGH_PERFORMANCE=1 python3 -c "
+from huggingface_hub import snapshot_download
+snapshot_download('Qwen/Qwen2.5-14B-Instruct', local_dir='/data/models/Qwen2.5-14B-Instruct')
+"
+```
+
+28 GB скачаны за 73 минуты. Модель монтируется в под через `hostPath: /data/models`.
+
+**Питфолл:** `HF_HUB_ENABLE_HF_TRANSFER` устарел — заменён на `HF_XET_HIGH_PERFORMANCE`. Без этого скорость падает до ~5 MB/s, с ним — до 10 MB/s пиково.
+
+**Манифест:** `manifests/vllm-qwen-deploy.yaml` — runtimeClassName nvidia, TP=2, hostPath /data/models.
+
+#### 4.5 Инференс
+
+**Результат:**
+```
+> Привет! Ответь одним предложением.
+< Привет! Как я могу помочь вам сегодня?
+```
+14 токенов, vLLM 0.24.0, TP=2, обе RTX 6000.
+
+Модель загружается с локального диска за 17 сек (против ~10 мин с HuggingFace).
+
+**Чек-лист Gate 2:**
+
+| Критерий | Статус |
+|---|---|
+| vLLM образ (8.6 GB) | ✅ dockerhub.timeweb.cloud |
+| GPU в контейнере | ✅ nvidia-container-runtime |
+| Модель на хосте (28 GB) | ✅ hf_xet + hostPath |
+| Инференс (TP=2) | ✅ Qwen2.5-14B-Instruct |
+| API v1/chat/completions | ✅ 200 OK |
+
+**Статус:** ✅ Gate 2 пройден
 
