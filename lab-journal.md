@@ -958,4 +958,87 @@ total_tokens: 80, total_requests: 2, requests_today: 2 ✅
 
 ---
 
+### Шаг 12: Gate 10 — Chat Portal (пользовательский чат)
+
+**Узел:** VPS2 (Portal BFF) + 40.51 (vLLM через Gateway)
+
+**Цель:** личный кабинет клиента — чат с моделью, история, баланс, share-ссылки.
+
+#### 12.1 База данных
+
+```sql
+CREATE TABLE chats (
+    chat_id uuid PK, user_id uuid FK, title text, model text,
+    share_token text UNIQUE, created_at, updated_at
+);
+CREATE TABLE chat_messages (
+    message_id uuid PK, chat_id uuid FK ON DELETE CASCADE,
+    role text CHECK (user|assistant|system), content text,
+    tokens_used int, created_at
+);
+```
+
+#### 12.2 API эндпоинты (Portal BFF v0.5.0)
+
+| Метод | Путь | Описание |
+|---|---|---|
+| GET | `/api/v1/chats` | Список чатов пользователя |
+| POST | `/api/v1/chats` | Создать чат |
+| GET | `/api/v1/chats/:id` | Чат + сообщения |
+| DELETE | `/api/v1/chats/:id` | Удалить чат |
+| POST | `/api/v1/chats/:id/messages` | Отправить сообщение (SSE-стриминг → vLLM) |
+| POST | `/api/v1/chats/:id/share` | Сгенерировать share-ссылку |
+| GET | `/api/v1/shared/:token` | Просмотр общего чата (без авторизации) |
+| GET | `/api/v1/billing?org_id=` | Баланс (прокси → Gateway) |
+
+#### 12.3 Поток сообщения
+
+```
+POST /api/v1/chats/:id/messages
+  → сохранить user-сообщение в БД
+  → получить delegation_token для org
+  → fetch(CORE_API/v1/chat/completions) с stream=true
+  → SSE-прокси клиенту: data: {"delta":"..."}
+  → сохранить assistant-сообщение в БД
+  → data: {"done":true, "tokens_used":N}
+```
+
+Авто-заголовок: первые 50 символов первого сообщения → `chats.title`.
+
+#### 12.4 Интерфейс
+
+- **Sidebar:** список чатов, баланс, выбор организации/модели
+- **Основная область:** сообщения с markdown, streaming-курсор `▊`
+- **Ввод:** Enter — отправить, Shift+Enter — новая строка
+- **Share:** модалка с URL для копирования
+
+#### 12.5 Верификация (e2e)
+
+```
+Chat: c7594792...
+  → POST /messages {"content":"Hi! Answer in one word."}
+  → SSE: data: {"delta":"Hello"} ... data: {"done":true,"tokens_used":2}
+  → GET /chats/:id → 2 messages [user, assistant]
+  → POST /share → /shared/be275704...
+  → GET /shared/:token → 2 messages (public)
+```
+
+**Чек-лист Gate 10:**
+
+| Критерий | Статус |
+|---|---|
+| Создание чата | ✅ |
+| Список чатов (sidebar) | ✅ |
+| Streaming SSE (посимвольный вывод) | ✅ |
+| Сохранение сообщений в БД | ✅ |
+| Авто-заголовок чата | ✅ |
+| Баланс организации live | ✅ |
+| Выбор организации/модели | ✅ |
+| Share-ссылка (без авторизации) | ✅ |
+| Удаление чата (cascade) | ✅ |
+
+**Статус:** ✅ Gate 10 пройден
+
+---
+
 *Лабораторный журнал ведётся ассистентом Hermes в хронологическом порядке*
