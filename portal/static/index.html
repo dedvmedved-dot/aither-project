@@ -1455,9 +1455,12 @@ function renderMessages() {
         </div>
       </div>`;
   }).join('') + '</div>';
-  if (typeof hljs !== 'undefined') {
-    el.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
-  }
+  setTimeout(() => {
+    if (typeof hljs !== 'undefined') {
+      const blocks = el.querySelectorAll('pre code');
+      blocks.forEach(block => hljs.highlightElement(block));
+    }
+  }, 100);
 }
 
 function simpleMd(text) {
@@ -1654,6 +1657,25 @@ if (window.location.pathname.startsWith('/shared/')) {
   state.page = 'shared';
 }
 render();
+// DEBUG: check if hljs is available
+setTimeout(() => {
+  console.log('=== HLJS DEBUG ===');
+  console.log('hljs type:', typeof hljs);
+  if (typeof hljs !== 'undefined') {
+    console.log('hljs.highlightElement:', typeof hljs.highlightElement);
+    console.log('hljs.highlightAll:', typeof hljs.highlightAll);
+    // Test with a simple string
+    const testEl = document.createElement('code');
+    testEl.className = 'language-python';
+    testEl.textContent = 'print("hello")';
+    document.body.appendChild(testEl);
+    try { hljs.highlightElement(testEl); console.log('highlightElement OK, result:', testEl.innerHTML.substring(0,100)); }
+    catch(e) { console.error('highlightElement ERROR:', e.message); }
+    document.body.removeChild(testEl);
+  } else {
+    console.error('hljs NOT DEFINED — script not loaded!');
+  }
+}, 1000);
 </script>
 </body>
 </html>
