@@ -52,7 +52,7 @@ kubectl get svc -A
 | ~~Регистрация + создание организации~~ | ✅ P0 | VPS2 |
 | ~~Управление API-ключами (создание/ротация/блокировка)~~ | ✅ P0 | VPS2 |
 | Billing Service (reserve → settle → refund) | ✅ P0 | 40.51 |
-| Usage Collector (подсчёт токенов) | P0 | 40.51 |
+| Usage Collector (подсчёт токенов) | ✅ P0 | 40.51 |
 | Rate Limiter (per-key, per-org) | P1 | 40.51 |
 | Пополнение баланса (платёжный шлюз) | P1 | 40.51 |
 | Delegation Token (JWT RS256) | ✅ P1 | VPS2 → 40.51 |

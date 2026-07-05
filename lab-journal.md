@@ -832,4 +832,68 @@ Balance: 999 960, spent: 40 ✅
 
 ---
 
+---
+
+### Шаг 10: Gate 8 — Usage Collector
+
+**Узел:** 40.51 (Gateway + PostgreSQL + Redis)
+
+**Цель:** отслеживать потребление токенов: общий расход, дневная активность, история операций.
+
+#### 10.1 Эндпоинты
+
+`GET /v1/usage/` — сводка:
+```json
+{"org_id":"...", "total_tokens": 80, "total_requests": 2, "requests_today": 2}
+```
+
+- `total_tokens` — SUM(amount) из billing_ledger WHERE operation='settle'
+- `total_requests` — COUNT settle-операций
+- `requests_today` — Redis-счётчик `usage:{org_id}:{YYYY-MM-DD}` (инкрементится при каждом settle)
+
+`GET /v1/usage/history?limit=20` — последние N записей из billing_ledger:
+```json
+{"ledger": [
+  {"amount":40, "operation":"settle", "reference":"a1b2c3d4",
+   "balance_after":999920, "created_at":"2026-07-05T02:39:39"}
+]}
+```
+
+#### 10.2 Реализация
+
+Daily counter в Redis (do_POST):
+```python
+today = time.strftime("%Y-%m-%d")
+r.incr(f"usage:{org_id}:{today}")
+r.expire(f"usage:{org_id}:{today}", 86400 * 2)  # TTL = 2 дня
+```
+
+Агрегация через SQL-запросы к billing_ledger (do_GET).
+
+#### 10.3 Верификация
+
+```
+=== USAGE ===
+total_tokens: 40 (было 40 от предыдущего теста)
+→ 2 вызова инференса по 40 токенов
+total_tokens: 80, total_requests: 2, requests_today: 2 ✅
+```
+
+**Чек-лист Gate 8:**
+
+| Критерий | Статус |
+|---|---|
+| GET /v1/usage/ — сводка | ✅ |
+| GET /v1/usage/history — история | ✅ |
+| Daily counter (Redis) | ✅ |
+| Связь с billing_ledger | ✅ |
+
+**Статус:** ✅ Gate 8 пройден
+
+**Все P0 выполнены. MVP завершён.**
+
+Осталось (P1/P2): Rate Limiter, платёжный шлюз, React SPA, mTLS, email-уведомления, админ-панель.
+
+---
+
 *Лабораторный журнал ведётся ассистентом Hermes в хронологическом порядке*

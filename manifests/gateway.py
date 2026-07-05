@@ -156,6 +156,57 @@ class Gateway(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if self.path.startswith("/v1/usage/"):
+            auth = self.headers.get("Authorization", "")
+            token = auth[7:] if auth.startswith("Bearer ") else ""
+            if not token or not PUBLIC_KEY:
+                self._json(401, {"error": "unauthorized"})
+                return
+            try:
+                payload = pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"])
+                org_id = payload.get("org_id")
+            except Exception as e:
+                self._json(401, {"error": str(e)})
+                return
+            conn = db_pool.getconn()
+            try:
+                with conn.cursor() as cur:
+                    if self.path == "/v1/usage/":
+                        # Summary
+                        cur.execute(
+                            "SELECT count(*), coalesce(sum(amount),0) FROM billing_ledger "
+                            "WHERE org_id=%s AND operation='settle'", (org_id,))
+                        cnt, total = cur.fetchone()
+                        cnt, total = cnt or 0, total or 0
+                        # Requests today
+                        today = time.strftime("%Y-%m-%d")
+                        rcount = int(r.get(f"usage:{org_id}:{today}") or 0)
+                        self._json(200, {
+                            "org_id": org_id,
+                            "total_tokens": int(total),
+                            "total_requests": cnt,
+                            "requests_today": rcount,
+                        })
+                    elif self.path.startswith("/v1/usage/history"):
+                        limit = 20
+                        if "?" in self.path:
+                            for kv in self.path.split("?", 1)[1].split("&"):
+                                if kv.startswith("limit="):
+                                    try: limit = min(int(kv[6:]), 100)
+                                    except: pass
+                        cur.execute(
+                            "SELECT amount, operation, reference, balance_after, created_at "
+                            "FROM billing_ledger WHERE org_id=%s ORDER BY id DESC LIMIT %s",
+                            (org_id, limit))
+                        rows = cur.fetchall()
+                        self._json(200, {"org_id": org_id, "ledger": [
+                            {"amount": r[0], "operation": r[1], "reference": r[2],
+                             "balance_after": r[3], "created_at": r[4].isoformat()}
+                            for r in rows
+                        ]})
+            finally:
+                db_pool.putconn(conn)
+            return
         self._json(404, {"error": "not found"})
 
     def _proxy(self, method, path, body=None):
@@ -247,6 +298,10 @@ class Gateway(BaseHTTPRequestHandler):
 
         if status == 200:
             billing_op(org_id, "settle", actual_tokens, ref)
+            # Track daily usage in Redis
+            today = time.strftime("%Y-%m-%d")
+            r.incr(f"usage:{org_id}:{today}")
+            r.expire(f"usage:{org_id}:{today}", 86400 * 2)
         else:
             billing_op(org_id, "refund", reserve_amount, ref)
 
