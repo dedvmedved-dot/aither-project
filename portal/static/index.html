@@ -713,7 +713,7 @@ const state = {
   coreStatus: null,
   // Chat state
   chats: [],
-  chatId: null,
+  chatId: localStorage.getItem('aither_chat_id') || null,
   chatMessages: [],
   chatStreaming: false,
   chatOrgId: localStorage.getItem('aither_chat_org') || '',
@@ -1308,15 +1308,19 @@ async function renderChats() {
     localStorage.setItem('aither_chat_org', state.chatOrgId);
   }
 
-  // Auto-create chat if none selected
+  // Restore or create chat
   if (!state.chatId) {
-    // Load existing chats
-    const { ok: lcOk } = await api('/api/v1/chats');
-    if (lcOk) {
-      // If no chats exist, create one
+    const { ok: lcOk, data: lcData } = await api('/api/v1/chats');
+    if (lcOk && lcData.chats && lcData.chats.length > 0) {
+      // Has chats — just pick the most recent one
+      state.chatId = lcData.chats[0].chat_id;
+      localStorage.setItem('aither_chat_id', state.chatId);
+    } else {
+      // No chats at all — create first one
       const { ok: ncOk, data: ncData } = await api('/api/v1/chats', { method:'POST', body: JSON.stringify({model: state.chatModel}) });
       if (ncOk && ncData.chat) {
         state.chatId = ncData.chat.chat_id;
+        localStorage.setItem('aither_chat_id', state.chatId);
         state.chatMessages = [];
       }
     }
@@ -1404,6 +1408,7 @@ function onChatOrgChange(val) {
   state.chatOrgId = val;
   localStorage.setItem('aither_chat_org', val);
   state.chatId = null;
+  localStorage.removeItem('aither_chat_id');
   state.chatMessages = [];
   renderChats();
 }
@@ -1417,6 +1422,7 @@ async function newChat() {
   const { ok, data } = await api('/api/v1/chats', { method:'POST', body: JSON.stringify({model: state.chatModel}) });
   if (ok) {
     state.chatId = data.chat.chat_id;
+    localStorage.setItem('aither_chat_id', state.chatId);
     state.chatMessages = [];
     await renderChats();
     focusInput();
@@ -1425,6 +1431,7 @@ async function newChat() {
 
 async function selectChat(id) {
   state.chatId = id;
+  localStorage.setItem('aither_chat_id', id);
   await renderChats();
   focusInput();
 }
@@ -1432,7 +1439,7 @@ async function selectChat(id) {
 async function deleteChat(id) {
   if (!confirm('Удалить чат?')) return;
   await api(`/api/v1/chats/${id}`, { method:'DELETE' });
-  if (state.chatId === id) { state.chatId = null; state.chatMessages = []; }
+  if (state.chatId === id) { state.chatId = null; state.chatMessages = []; localStorage.removeItem('aither_chat_id'); }
   await loadChatList();
   if (!state.chatId) {
     // Show empty state, don't auto-create
