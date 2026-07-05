@@ -1,71 +1,70 @@
-digraph AitherArchitecture {
+digraph Architecture {
     rankdir=TB;
-    bgcolor="#0d1117";
+    bgcolor="#ffffff";
     fontname="Helvetica";
     
-    node [fontname="Helvetica", fontsize=11, style=filled];
-    edge [fontname="Helvetica", fontsize=9, color="#8b9496"];
+    node [fontname="Helvetica", fontsize=10, style="filled", color="#333333"];
+    edge [fontname="Helvetica", fontsize=8, color="#666666"];
 
-    // Internet
-    internet [label="Интернет\n(Telegram API)", shape=cloud, fillcolor="#1a1a2e", fontcolor="#e6e6e6", color="#4a4a8a"];
+    subgraph cluster_internet {
+        label="Интернет";
+        fontcolor="#333333";
+        color="#999999";
+        bgcolor="#f5f5f5";
+        
+        tg [label="Telegram API\n(пользователи)", shape=cloud, fillcolor="#e3f2fd", fontcolor="#1565c0", color="#1e88e5"];
+    }
     
-    // VPS1
     subgraph cluster_vps1 {
-        label="VPS1 (170.168.91.95) — Публичный хост";
-        fontcolor="#c9d1d9";
-        color="#30363d";
-        bgcolor="#161b22";
+        label="VPS1 (170.168.91.95) — Публичный шлюз";
+        fontcolor="#333333";
+        color="#cccccc";
+        bgcolor="#fafafa";
         
-        hermes [label="Hermes Agent\n(Telegram Bot)", shape=box, fillcolor="#238636", fontcolor="#ffffff"];
-        gateway [label="Gateway\n(порт 30900:8080)", shape=box, fillcolor="#1f6feb", fontcolor="#ffffff"];
+        hermes [label="Hermes Agent\n(Telegram Bot)", shape=box, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047"];
+        gateway [label="Gateway :30900\n(маршрутизация)", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+        portal [label="Aither Portal\n(:80, веб-интерфейс)", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
     }
     
-    // VPS2
     subgraph cluster_vps2 {
-        label="VPS2 (130.17.1.90) — Прокси-хост";
-        fontcolor="#c9d1d9";
-        color="#30363d";
-        bgcolor="#161b22";
+        label="VPS2 (130.17.1.90) — Прокси";
+        fontcolor="#333333";
+        color="#cccccc";
+        bgcolor="#fafafa";
         
-        proxy [label="SSH-прокси\n+ Хранилище моделей", shape=box, fillcolor="#8957e5", fontcolor="#ffffff"];
+        proxy [label="SSH-прокси\nХранилище моделей", shape=box, fillcolor="#e1bee7", fontcolor="#7b1fa2", color="#8e24aa"];
     }
     
-    // K8s
     subgraph cluster_k8s {
         label="40.51 (10.129.13.78) — K8s GPU-кластер";
-        fontcolor="#c9d1d9";
-        color="#30363d";
-        bgcolor="#161b22";
+        fontcolor="#333333";
+        color="#cccccc";
+        bgcolor="#fafafa";
         
         subgraph cluster_gpu {
-            label="GPU Node (bootsman-k8s-clnt01-n8-gpu)";
-            fontcolor="#c9d1d9";
-            color="#525252";
-            bgcolor="#0d1117";
+            label="GPU Node";
+            fontcolor="#333333";
+            color="#e0e0e0";
+            bgcolor="#fff8e1";
             
-            gpu0 [label="GPU 0\nQuadro RTX 6000\n24 GB", shape=box, fillcolor="#da3633", fontcolor="#ffffff"];
-            gpu1 [label="GPU 1\nQuadro RTX 6000\n24 GB", shape=box, fillcolor="#da3633", fontcolor="#ffffff"];
-            
-            qwen [label="vLLM Qwen\n14B FP16, TP=2\nпорт 8000", shape=box, fillcolor="#bf8700", fontcolor="#ffffff"];
+            qwen [label="vLLM Qwen 14B\nTP=2, :8000", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
+            gpu0 [label="GPU 0\n24 GB", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
+            gpu1 [label="GPU 1\n24 GB", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
         }
         
-        postgres [label="PostgreSQL\n(метаданные)", shape=cylinder, fillcolor="#336791", fontcolor="#ffffff"];
-        redis [label="Redis\n(сессии)", shape=cylinder, fillcolor="#dc382d", fontcolor="#ffffff"];
-        svc [label="Service\n(vllm-qwen:8000)", shape=box, fillcolor="#525252", fontcolor="#c9d1d9"];
+        postgres [label="PostgreSQL", shape=cylinder, fillcolor="#b3e5fc", fontcolor="#0277bd", color="#0288d1"];
+        redis [label="Redis", shape=cylinder, fillcolor="#ffccbc", fontcolor="#bf360c", color="#e64a19"];
+        svc [label="Service\n(vllm-qwen-direct)", shape=box, fillcolor="#e0e0e0", fontcolor="#424242", color="#9e9e9e"];
     }
     
-    // Portal
-    portal [label="Aither Portal\n(130.17.1.90:80)\nВыбор модели • Чат", shape=box, fillcolor="#1f6feb", fontcolor="#ffffff"];
-    
-    // Connections
-    internet -> hermes [label=" Webhook", color="#58a6ff"];
-    hermes -> gateway [label=" Маршрутизация\nзапросов", color="#58a6ff"];
-    gateway -> proxy [label=" SSH-туннель\n(WireGuard)", color="#8b9496", style=dashed];
-    proxy -> svc [label=" kubectl\n(SSH+sshpass)", color="#8b9496", style=dashed];
-    svc -> qwen [label=" :8000", color="#58a6ff"];
-    qwen -> gpu0 [label=" TP=2", color="#f0883e"];
-    qwen -> gpu1 [label=" TP=2", color="#f0883e"];
-    gateway -> portal [label=" API", color="#58a6ff"];
-    portal -> postgres [label=" ", color="#8b9496", style=dotted];
-    portal -> redis [label=" ", color="#8b9496", style=dotted];
+    tg -> hermes [label=" Webhook", color="#1e88e5"];
+    hermes -> gateway [label=" Маршрутизация", color="#43a047"];
+    gateway -> proxy [label=" WireGuard", color="#7b1fa2", style=dashed];
+    proxy -> svc [label=" kubectl", color="#7b1fa2", style=dashed];
+    svc -> qwen [label=" :8000", color="#1e88e5"];
+    qwen -> gpu0 [label=" TP=2", color="#e53935"];
+    qwen -> gpu1 [label=" TP=2", color="#e53935"];
+    gateway -> portal [label=" API", color="#fb8c00"];
+    portal -> postgres [style=dotted, color="#9e9e9e"];
+    portal -> redis [style=dotted, color="#9e9e9e"];
 }

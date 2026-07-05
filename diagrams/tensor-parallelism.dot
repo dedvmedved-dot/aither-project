@@ -1,0 +1,34 @@
+digraph TensorParallelism {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    fontname="Helvetica";
+    node [fontname="Helvetica", fontsize=10, style=filled, color="#555555"];
+    edge [fontname="Helvetica", fontsize=9, color="#888888"];
+
+    subgraph cluster_model {
+        label="Qwen 2.5 14B (28 GB FP16)";
+        fontcolor="#333333"; color="#cccccc"; bgcolor="#f3e5f5";
+        layers [label="40 слоёв Transformer\n28 attention heads\n5120 hidden dim\n\nЗагрузка: 8 shard'ов\nпо 3.5 GB, ~17 сек", shape=box, fillcolor="#e1bee7", fontcolor="#7b1fa2", color="#8e24aa"];
+    }
+    
+    subgraph cluster_gpu0 {
+        label="GPU 0 (24 GB)";
+        fontcolor="#c62828"; color="#e53935"; bgcolor="#ffebee";
+        g0 [label="Веса: 14 GB\n(слои 0-19)\n\nKV-кэш: ~5 GB\n(4096 токенов)\n\nGPU-mem: 19.5/24 GB", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
+    }
+    
+    subgraph cluster_gpu1 {
+        label="GPU 1 (24 GB)";
+        fontcolor="#c62828"; color="#e53935"; bgcolor="#ffebee";
+        g1 [label="Веса: 14 GB\n(слои 20-39)\n\nKV-кэш: ~5 GB\n(4096 токенов)\n\nGPU-mem: 19.5/24 GB", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
+    }
+    
+    comm [label="NCCL All-Reduce\nPCIe 3.0 x16 ≈ 16 GB/s\n\n⚠ Без NVLink:\nпотери 30-50%\nна синхронизации", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
+    
+    layers -> g0 [label=" Слои 0-19"];
+    layers -> g1 [label=" Слои 20-39"];
+    g0 -> comm [label=" Активации", color="#1565c0"];
+    g1 -> comm [label=" Активации", color="#1565c0"];
+    comm -> g0 [label=" Синхр.", color="#e65100", style=dashed];
+    comm -> g1 [label=" Синхр.", color="#e65100", style=dashed];
+}
