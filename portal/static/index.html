@@ -420,6 +420,7 @@ code, .mono {
   left: 0;
   right: 0;
   bottom: 0;
+  overflow: hidden;
 }
 .chat-sidebar {
   width: 280px;
@@ -1302,6 +1303,7 @@ async function renderChats() {
   }
 
   let mainHtml = `
+    <div class="chat-container">
     <div class="chat-sidebar">
       <div class="chat-sidebar-header">
         <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="newChat()">+ Новый чат</button>
@@ -1328,7 +1330,8 @@ async function renderChats() {
           <button class="chat-input-btn" onclick="shareChat()">🔗 Поделиться</button>
         </div>
       </div>
-    </div>`;
+    </div>
+  </div>`;
 
   $('#main-content').innerHTML = mainHtml;
 
