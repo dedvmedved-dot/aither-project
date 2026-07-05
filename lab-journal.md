@@ -312,3 +312,329 @@ Billing Service и Usage Collector требуют разработки (фина
 
 **Статус:** ✅ Gate 3 пройден (MVP)
 
+---
+
+### Шаг 6: Gate 4 — Портал на VPS2 (Portal BFF + Portal DB + nginx)
+
+**Узел:** VPS2 (130.17.1.90, Ubuntu 24.04, Docker 29)
+
+**Цель:** развернуть портал (frontend для пользователей), который:
+- Принимает внешние запросы на 80 порт
+- Аутентифицирует пользователей (dev‑режим)
+- Проксирует запросы к ядру Aither на 40.51 через VPN‑туннель
+
+#### 6.1 Архитектура портала
+
+```
+Интернет → nginx :80 → Portal BFF (Fastify) :3000 → Portal DB :5432
+                                    ↓ (Cisco VPN tun1)
+                             10.129.13.78:30900 (API Gateway)
+```
+
+#### 6.2 Компоненты
+
+| Компонент | Технология | Порт | Назначение |
+|-----------|-----------|------|------------|
+| nginx | 1.27‑alpine | 80 | Reverse proxy, внешняя точка входа |
+| Portal BFF | Fastify + TypeScript, Node 22 | 3000 | Бизнес‑логика, auth, proxy к ядру |
+| Portal DB | PostgreSQL 16‑alpine | 5432 | Пользователи, организации, ключи |
+
+#### 6.3 Сеть
+
+**Питфолл: Docker bridge не видит VPN‑туннель.**
+Docker создаёт изолированную сеть `172.17.0.0/16` с NAT — контейнеры в bridge-сети не видят VPN-интерфейсы хоста (`tun0`, `tun1`). Портал должен ходить в `10.129.13.78:30900` через Cisco VPN (`tun1`), но из bridge-сети этот адрес недоступен.
+
+**Решение:** `network_mode: host` для BFF и nginx. Контейнеры разделяют сетевой стек хоста и видят все его интерфейсы:
+
+```yaml
+# docker-compose.yml
+services:
+  portal-bff:
+    network_mode: host
+    environment:
+      PG_HOST: 127.0.0.1    # DB на хосте, не Docker DNS
+      CORE_API: "http://10.129.13.78:30900"
+  
+  portal-nginx:
+    network_mode: host
+    ports:
+      - "80:80"
+```
+
+Это создаёт ограничение: PG_HOST должен быть `127.0.0.1` (а не `portal-db` через Docker DNS), потому что host-сетевые контейнеры не резолвят Docker-имена. Portal DB публикует порт 5432 на `127.0.0.1:5432`.
+
+#### 6.4 Portal DB
+
+PostgreSQL 16, trust-аутентификация (MVP, без пароля).
+
+**Питфолл: Hermes redacts passwords.** При попытке передать пароль БД через переменную окружения `POSTGRES_PASSWORD=...` в docker-compose, значение маскируется (`***`). Решение для MVP: `POSTGRES_HOST_AUTH_METHOD=trust` — доступ без пароля.
+
+DDL (автосоздание через BFF):
+```sql
+CREATE TABLE portal_users (
+    user_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    oauth_provider text NOT NULL DEFAULT 'github',
+    oauth_id text NOT NULL,
+    email text, display_name text, avatar_url text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    last_login_at timestamptz,
+    UNIQUE(oauth_provider, oauth_id)
+);
+
+CREATE TABLE portal_organizations (
+    org_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL, aither_org_id uuid,
+    status text NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','suspended','deleted')),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE portal_org_members (
+    membership_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id uuid NOT NULL REFERENCES portal_organizations(org_id),
+    user_id uuid NOT NULL REFERENCES portal_users(user_id),
+    role text NOT NULL DEFAULT 'developer'
+        CHECK (role IN ('owner','billing_admin','developer','viewer')),
+    status text NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','inactive')),
+    UNIQUE(org_id, user_id)
+);
+```
+
+#### 6.5 Portal BFF
+
+Fastify-сервер, минимальный TypeScript. Компилируется в JS, работает в Node 22.
+
+Ключевые эндпоинты (v0.1.0):
+- `GET /health` — проверка БД
+- `GET /api/v1/status` — счётчики орг/пользователей
+- `GET /api/v1/orgs` — список организаций
+- `GET /api/v1/users` — список пользователей
+- `GET /api/v1/core/status` — прокси к ядру (проверка связности VPS2 → 40.51)
+
+#### 6.6 Деплой
+
+```bash
+# На VPS2
+git clone git@github.com:dedvmedved-dot/aither-project.git
+cd aither-project/portal
+docker compose up -d
+```
+
+**Питфолл: Docker Compose v2.** На VPS2 отсутствовал пакет `docker-compose-v2`. Установлен через `apt install docker-compose-v2`. Старый синтаксис (`docker-compose` через дефис) не работает — используется `docker compose` (пробел).
+
+#### 6.7 Верификация
+
+```bash
+# Здоровье портала
+curl http://130.17.1.90:80/health
+# → {"status":"ok","service":"portal-bff","database":"connected"}
+
+# Статус
+curl http://130.17.1.90:80/api/v1/status
+# → {"version":"0.1.0","orgs":0,"users":0}
+
+# Связность с ядром
+curl http://130.17.1.90:80/api/v1/core/status
+# → {"status":"ok","model":"Qwen2.5-14B-Instruct"}
+```
+
+**Чек-лист Gate 4:**
+
+| Критерий | Статус |
+|---|---|
+| Portal DB (PostgreSQL 16) | ✅ Running, healthy |
+| Portal BFF (Fastify) | ✅ :3000, network_mode: host |
+| nginx reverse proxy | ✅ :80 → BFF:3000 |
+| Core proxy (VPN) | ✅ VPS2 → 40.51 через tun1 |
+| Внешний доступ | ✅ http://130.17.1.90:80 |
+
+**Статус:** ✅ Gate 4 пройден
+
+---
+
+### Шаг 7: Gate 5 — Бизнес‑логика (Auth, организации, API‑ключи)
+
+**Узел:** VPS2 (Portal BFF + Portal DB)
+
+**Цель:** реализовать пользовательскую бизнес‑логику портала:
+- Аутентификация (dev‑режим для MVP)
+- Создание организаций
+- Управление API‑ключами (создание, просмотр, отзыв)
+
+#### 7.1 Аутентификация
+
+Для MVP используется **dev‑режим**: вход по имени, без OAuth.
+
+```bash
+POST /auth/dev/login
+Body: {"name": "sergey"}
+→ {"access_token": "eyJ...", "user": {...}}
+```
+
+JWT выпускается библиотекой `jsonwebtoken`:
+- `user_id` — UUID пользователя
+- Срок действия: 24 часа
+- Секрет: `JWT_SECRET` (из переменной окружения)
+
+При первом входе пользователь создаётся в `portal_users` (с префиксом `oauth_provider='dev'`, `oauth_id=normalized_name`). При повторном — обновляется `last_login_at`.
+
+Эндпоинты:
+- `GET /api/v1/me` — профиль текущего пользователя (требует JWT)
+- `GET /api/v1/users` — список всех пользователей (публичный)
+
+#### 7.2 Организации
+
+**Таблица `portal_organizations`:**
+```sql
+CREATE TABLE portal_organizations (
+    org_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    aither_org_id uuid,           -- ID в ядре Aither (пока NULL)
+    status text NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','suspended','deleted')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+**Таблица `portal_org_members`:**
+```sql
+CREATE TABLE portal_org_members (
+    membership_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id uuid NOT NULL REFERENCES portal_organizations(org_id),
+    user_id uuid NOT NULL REFERENCES portal_users(user_id),
+    role text NOT NULL DEFAULT 'developer'
+        CHECK (role IN ('owner','billing_admin','developer','viewer')),
+    status text NOT NULL DEFAULT 'active',
+    UNIQUE(org_id, user_id)
+);
+```
+
+**Транзакционное создание:**
+```typescript
+// POST /api/v1/orgs
+const client = await pool.connect();
+await client.query("BEGIN");
+const org = await client.query("INSERT INTO portal_organizations ...");
+await client.query("INSERT INTO portal_org_members ... (role='owner')");
+await client.query("COMMIT");
+```
+
+Создатель автоматически становится `owner` организации.
+
+Эндпоинты:
+- `POST /api/v1/orgs` — создать организацию (требует JWT)
+- `GET /api/v1/orgs` — список организаций пользователя
+- `GET /api/v1/orgs/:orgId` — детали организации
+
+#### 7.3 API‑ключи
+
+**Таблица `portal_api_keys`:**
+```sql
+CREATE TABLE portal_api_keys (
+    key_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id uuid REFERENCES portal_organizations(org_id),
+    api_key text NOT NULL UNIQUE,        -- полный ключ
+    api_key_prefix text NOT NULL,        -- префикс для отображения
+    name text NOT NULL DEFAULT 'default',
+    status text NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','revoked')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz,
+    last_used_at timestamptz
+);
+```
+
+**Формат ключа:** `ak-` + 48 hex-символов (24 байта `randomBytes`):
+```
+ak-9dc7f501831ac36e3f02ab8d95b45d4afc7b42e973ca172c
+```
+
+Префикс `ak-XXXXXXXX` (первые 8 hex + `ak-`) сохраняется в `api_key_prefix` — для отображения пользователю без раскрытия полного ключа.
+
+**Безопасность:** полный ключ возвращается **только один раз** — в ответе на `POST /api/v1/orgs/:orgId/api-keys`. При последующих запросах (GET /api-keys) отображается только префикс.
+
+**Контроль доступа:** создавать и отзывать ключи может только `owner` организации:
+```typescript
+async function checkOrgOwner(orgId, userId) {
+    const r = await pool.query(
+        "SELECT 1 FROM portal_org_members
+         WHERE org_id=$1 AND user_id=$2 AND role='owner'",
+        [orgId, userId]);
+    return r.rows.length > 0;
+}
+```
+
+Эндпоинты:
+- `POST /api/v1/orgs/:orgId/api-keys` — создать ключ (owner only)
+- `GET /api/v1/orgs/:orgId/api-keys` — список активных ключей (член организации)
+- `DELETE /api/v1/orgs/:orgId/api-keys/:keyId` — отозвать ключ (owner only)
+
+#### 7.4 Деплой v0.3.0
+
+**Питфолл: Конфликт портов.** На VPS2 уже работал старый контейнер `portal-bff` (от предыдущего ручного деплоя), занимающий порт 3000. Новый образ через docker compose не мог стартовать — `EADDRINUSE`.
+
+**Решение:**
+```bash
+docker stop portal-bff portal-nginx
+docker rm portal-bff portal-nginx
+cd /root/aither-portal && docker compose up -d
+```
+
+**Питфолл: PG_HOST.** После перехода на `network_mode: host`, переменная `PG_HOST=portal-db` (Docker DNS) перестала резолвиться — `ENOTFOUND`. Исправлено на `PG_HOST=127.0.0.1` (DB проброшена на хост).
+
+#### 7.5 Верификация
+
+```bash
+# Вход
+TOKEN=*** -s -X POST http://130.17.1.90:80/auth/dev/login \
+  -H "Content-Type: application/json" \
+  -d '{"name":"sergey"}' | python3 -c \
+  "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Создать организацию
+curl -s -X POST http://130.17.1.90:80/api/v1/orgs \
+  -H "Authorization: Bearer $TOKEN...
+  -H "Content-Type: application/json" \
+  -d '{"name":"NebulaCorp"}'
+# → {"org": {"org_id":"66f8de82-...", "name":"NebulaCorp", "role":"owner"}}
+
+# Создать API-ключ
+curl -s -X POST http://130.17.1.90:80/api/v1/orgs/$ORG_ID/api-keys \
+  -H "Authorization: Bearer $TOKEN...
+  -d '{"name":"default"}'
+# → {"key": {"key_id":"2eded913-...", "api_key":"ak-9dc7f501...", "status":"active"}}
+
+# Отозвать ключ
+curl -s -X DELETE \
+  http://130.17.1.90:80/api/v1/orgs/$ORG_ID/api-keys/$KEY_ID \
+  -H "Authorization: Bearer $TOKEN...
+# → {"key": {"key_id":"2eded913-...", "status":"revoked"}}
+
+# Статус портала
+curl http://130.17.1.90:80/api/v1/status
+# → {"version":"0.3.0","orgs":1,"users":1,"active_keys":0}
+```
+
+**Чек-лист Gate 5:**
+
+| Критерий | Статус |
+|---|---|
+| Dev login → JWT | ✅ |
+| POST /api/v1/orgs (транзакционно) | ✅ owner auto-assigned |
+| POST /api/v1/orgs/:id/api-keys (owner only) | ✅ ak-<48 hex> |
+| DELETE /api/v1/orgs/:id/api-keys/:kid | ✅ soft-revoke |
+| GET /api/v1/orgs/:id/api-keys | ✅ префикс, без полного ключа |
+| Питфоллы зафиксированы | ✅ |
+
+**Статус:** ✅ Gate 5 пройден
+
+**Что дальше (P0):**
+- Billing Service (reserve → settle → refund) — 40.51
+- Usage Collector (подсчёт токенов из логов vLLM) — 40.51
+- Delegation Token (JWT RS256, валидация API‑ключа на Gateway) — VPS2 → 40.51
+
+---
+
+*Лабораторный журнал ведётся ассистентом Hermes в хронологическом порядке*

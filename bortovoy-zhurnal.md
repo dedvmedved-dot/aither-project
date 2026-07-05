@@ -141,55 +141,95 @@ ISO: `redos-8-20250711.4-Everything-x86_64-DVD1.iso` (6.1 GB)
 | Компонент | Статус | Детали |
 |-----------|--------|--------|
 | PostgreSQL 16 | ✅ | `portal-db`, trust-аутентификация, порт 127.0.0.1:5432 |
-| Portal BFF | ✅ | Fastify/TypeScript, `network_mode: host`, :3000 |
+| Portal BFF | ✅ | Fastify/TypeScript, Node 22, `network_mode: host`, :3000 |
 | nginx | ✅ | `network_mode: host`, reverse proxy :80 → BFF:3000 |
 | Core proxy | ✅ | `/api/v1/core/status` → `10.129.13.78:30900` через Cisco VPN (tun1) |
 
-**Эндпоинты:**
-- `http://130.17.1.90:80/health` — `{"status":"ok","database":"connected"}`
-- `http://130.17.1.90:80/api/v1/status` — `{"version":"0.1.0","orgs":0,"users":0}`
-- `http://130.17.1.90:80/api/v1/orgs` — список организаций
-- `http://130.17.1.90:80/api/v1/users` — список пользователей
+### Архитектурное решение: network_mode: host
+
+Docker bridge-сеть изолирует контейнеры — они не видят VPN-интерфейсы хоста (tun1). Портал должен проксировать запросы к ядру на 40.51 (10.129.13.78:30900) через VPN, но из bridge это невозможно. Решение: `network_mode: host`.
+
+Побочный эффект: Docker DNS не работает → PG_HOST должен быть `127.0.0.1`, не `portal-db`. Portal DB публикует порт 5432 на хосте.
+
+### Эндпоинты (v0.1.0)
+- `GET /health` — проверка БД
+- `GET /api/v1/status` — счётчики
+- `GET /api/v1/orgs` — организации
+- `GET /api/v1/users` — пользователи
+- `GET /api/v1/core/status` — прокси → 40.51
+
+### Верификация
+```bash
+curl http://130.17.1.90:80/health
+# → {"status":"ok","database":"connected"}
+
+curl http://130.17.1.90:80/api/v1/core/status
+# → связь VPS2 → 40.51 работает
+```
 
 ### Питфоллы
-- **Hermes redacts passwords** — невозможность передать пароль через терминал/write_file. Решение: `POSTGRES_HOST_AUTH_METHOD=trust`.
-- **Docker bridge не видит VPN-туннель** — решение: `network_mode: host` для BFF и nginx.
-- **Docker Compose v2** — `docker-compose-v2` отсутствовал на VPS2, установлен через apt.
+- **Docker bridge не видит VPN-туннель** — решение: `network_mode: host`
+- **Hermes redacts passwords** — `POSTGRES_HOST_AUTH_METHOD=trust`
+- **Docker Compose v2** — отсутствовал на VPS2, установлен через apt
 
 ### Файлы
 ```
 portal/
-├── docker-compose.yaml
-├── .env.example
-├── bff/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── src/server.ts
-├── db/init.sql
-└── nginx/default.conf
+├── Dockerfile
+├── docker-compose.yml
+├── nginx.conf
+├── package.json
+├── tsconfig.json
+└── server.ts
 ```
 
 ---
 
 ## 2026-07-05 — Gate 5: Бизнес-логика (v0.3.0)
 
-**18:00** — Аутентификация и организации
-- Dev login: JWT (jsonwebtoken), создание пользователя при первом входе
-- POST `/api/v1/orgs` — создание организации, автор становится owner
-- GET `/api/v1/orgs` — список организаций пользователя
+### 5.1 Аутентификация (dev-режим)
 
-**18:10** — Управление API-ключами
-- Таблица `portal_api_keys` (org_id, api_key, api_key_prefix, name, status)
-- POST `/api/v1/orgs/:orgId/api-keys` — создание ключа формата `ak-<48 hex>` (owner only)
-- DELETE `/api/v1/orgs/:orgId/api-keys/:keyId` — отзыв ключа (owner only)
-- GET `/api/v1/orgs/:orgId/api-keys` — список активных ключей организации
+POST `/auth/dev/login` — вход по имени, выпуск JWT (jsonwebtoken, 24h).
+Первый вход создаёт пользователя в `portal_users` (oauth_provider='dev').
 
-**18:15** — Деплой портала v0.3.0
-- Пересборка BFF (Fastify), network_mode: host для доступа к VPN-туннелю
-- PG_HOST=127.0.0.1 (DB проброшен на хост)
-- Конфликт со старым контейнером (порт 3000) — решён остановкой
-- Все эндпоинты работают: orgs CR + api-keys CRD
+### 5.2 Организации
+
+POST `/api/v1/orgs` — транзакционное создание (BEGIN → INSERT org + member → COMMIT). Создатель становится `owner`.
+
+Роли: `owner`, `billing_admin`, `developer`, `viewer`.
+
+### 5.3 API-ключи
+
+Таблица `portal_api_keys`: `key_id`, `org_id`, `api_key`, `api_key_prefix`, `name`, `status`.
+
+Ключ формата `ak-<48 hex>` (randomBytes 24). Полный ключ возвращается **один раз** при создании. Далее — только префикс.
+
+POST/DELETE — owner only (проверка через `portal_org_members.role`).
+
+### 5.4 Деплой v0.3.0
+
+Старый контейнер `portal-bff` (ручной деплой) конфликтовал с docker compose — `EADDRINUSE` на порту 3000. Решено остановкой и удалением.
+
+PG_HOST=portal-db (Docker DNS) → ENOTFOUND. Исправлено на 127.0.0.1.
+
+### Верификация
+```bash
+# Вход
+curl -X POST .../auth/dev/login -d '{"name":"sergey"}'
+# → access_token (JWT)
+
+# Org
+curl -X POST .../api/v1/orgs -d '{"name":"NebulaCorp"}'
+# → {"org":{"org_id":"...","role":"owner"}}
+
+# Ключ
+curl -X POST .../api/v1/orgs/$ID/api-keys
+# → {"key":{"api_key":"ak-9dc7f501..."}}
+
+# Отзыв
+curl -X DELETE .../api/v1/orgs/$ID/api-keys/$KID
+# → {"key":{"status":"revoked"}}
+```
 
 **Осталось (P0):**
 - Billing Service (reserve → settle → refund) — 40.51
