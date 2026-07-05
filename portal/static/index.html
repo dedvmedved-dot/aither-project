@@ -426,12 +426,13 @@ code, .mono {
   padding: 0;
 }
 .chat-sidebar {
-  width: 300px;
-  min-width: 300px;
+  width: 280px;
+  flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--bg-card);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .chat-sidebar-header {
   padding: 16px;
@@ -517,6 +518,10 @@ code, .mono {
   overflow-y: auto;
   padding: 24px 32px;
 }
+.chat-messages-inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
 .chat-empty {
   display: flex;
   align-items: center;
@@ -588,11 +593,15 @@ code, .mono {
 .chat-input-area {
   padding: 16px 32px;
   border-top: 1px solid var(--border);
+  max-width: 40%;
+  margin: 0 auto;
+  width: 100%;
 }
 .chat-input-row {
   display: flex;
   gap: 8px;
   align-items: flex-end;
+  justify-content: center;
 }
 .chat-input {
   flex: 1;
@@ -1296,17 +1305,17 @@ async function renderChats() {
   let mainHtml = `
     <div class="chat-sidebar">
       <div class="chat-sidebar-header">
-        <button class="btn btn-primary" style="width:100%;" onclick="newChat()">+ Новый чат</button>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="newChat()">+ Новый чат</button>
+        <select class="chat-model-select" id="chat-model-select" onchange="onChatModelChange(this.value)">
+          <option value="qwen2.5-14b" ${state.chatModel==='qwen2.5-14b'?'selected':''}>Qwen 2.5 14B</option>
+        </select>
+        <select class="chat-org-select" id="chat-org-select" onchange="onChatOrgChange(this.value)" style="margin-top:6px;">
+          ${state.orgs.map(o => `<option value="${esc(o.org_id)}" ${state.chatOrgId===o.org_id?'selected':''}>${esc(o.name)}</option>`).join('')}
+        </select>
       </div>
       <div class="chat-sidebar-list" id="chat-list"></div>
       <div class="chat-sidebar-footer">
         <div class="chat-balance" id="chat-balance">Баланс: —</div>
-        <select class="chat-org-select" id="chat-org-select" onchange="onChatOrgChange(this.value)">
-          ${state.orgs.map(o => `<option value="${esc(o.org_id)}" ${state.chatOrgId===o.org_id?'selected':''}>${esc(o.name)}</option>`).join('')}
-        </select>
-        <select class="chat-model-select" id="chat-model-select" onchange="onChatModelChange(this.value)">
-          <option value="qwen2.5-14b" ${state.chatModel==='qwen2.5-14b'?'selected':''}>Qwen 2.5 14B</option>
-        </select>
       </div>
     </div>
     <div class="chat-main">
@@ -1408,7 +1417,7 @@ async function deleteChat(id) {
   if (!state.chatId) {
     // Show empty state, don't auto-create
     const msgEl = $('#chat-messages');
-    if (msgEl) msgEl.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Выберите или создайте новый чат</div></div>';
+    if (msgEl) msgEl.innerHTML = '<div class="chat-messages-inner"><div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Выберите или создайте новый чат</div></div></div>';
     const balEl = $('#chat-balance');
     if (balEl) balEl.innerHTML = 'Баланс: —';
   }
@@ -1426,10 +1435,10 @@ function renderMessages() {
   const el = $('#chat-messages');
   if (!el) return;
   if (state.chatMessages.length === 0) {
-    el.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Начните диалог</div></div>';
+    el.innerHTML = '<div class="chat-messages-inner"><div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Начните диалог</div></div></div>';
     return;
   }
-  el.innerHTML = state.chatMessages.map((m, i) => {
+  el.innerHTML = '<div class="chat-messages-inner">' + state.chatMessages.map((m, i) => {
     const isStreaming = state.chatStreaming && i === state.chatMessages.length - 1 && m.role === 'assistant';
     return `
       <div class="chat-msg ${isStreaming ? 'chat-msg-streaming' : ''}">
@@ -1439,7 +1448,7 @@ function renderMessages() {
           ${m.tokens_used ? `<div class="chat-msg-meta">~${m.tokens_used} токенов</div>` : ''}
         </div>
       </div>`;
-  }).join('');
+  }).join('') + '</div>';
 }
 
 function simpleMd(text) {
