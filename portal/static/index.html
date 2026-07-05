@@ -6,8 +6,8 @@
 <title>Aither — Token‑as‑a‑Service</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/atom-one-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/styles/atom-one-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/lib/highlight.min.js"></script>
 <style>
 :root {
   --bg: #0a0a0f;
@@ -558,6 +558,14 @@ code, .mono {
   line-height: 1.7;
   min-width: 0;
 }
+.chat-msg-content code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-hover);
+}
 .chat-msg-content pre {
   background: var(--bg-input);
   border: 1px solid var(--border);
@@ -567,13 +575,8 @@ code, .mono {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   margin: 8px 0;
-}
-.chat-msg-content code {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  background: var(--bg-input);
-  padding: 2px 6px;
-  border-radius: 4px;
+  white-space: pre;
+  max-width: 100%;
 }
 .chat-msg-content pre code { background: none; padding: 0; }
 .chat-msg-content p { margin: 0 0 8px 0; }
