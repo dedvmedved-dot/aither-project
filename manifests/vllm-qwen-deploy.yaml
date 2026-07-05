@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-qwen
+  labels:
+    app: vllm-qwen
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-qwen
+  template:
+    metadata:
+      labels:
+        app: vllm-qwen
+    spec:
+      runtimeClassName: nvidia
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+        args:
+          - "--model"
+          - "/models/Qwen2.5-14B-Instruct"
+          - "--dtype"
+          - "half"
+          - "--max-model-len"
+          - "4096"
+          - "--gpu-memory-utilization"
+          - "0.90"
+          - "--tensor-parallel-size"
+          - "2"
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          limits:
+            nvidia.com/gpu: "2"
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        env:
+        - name: HUGGING_FACE_HUB_TOKEN
+          value: "hf_dummy"
+        - name: HF_HUB_OFFLINE
+          value: "1"
+      volumes:
+      - name: models
+        hostPath:
+          path: /data/models
+          type: Directory
