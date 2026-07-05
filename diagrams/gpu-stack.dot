@@ -1,0 +1,37 @@
+digraph GpuStack {
+    rankdir=TB;
+    bgcolor="#ffffff";
+    fontname="Helvetica";
+    node [fontname="Helvetica", fontsize=10, style=filled, color="#555555"];
+    edge [fontname="Helvetica", fontsize=8, color="#888888"];
+
+    subgraph cluster_host {
+        label="Узел K8s (Astra Linux 1.8)";
+        fontcolor="#333333"; color="#cccccc"; bgcolor="#f5f5f5";
+        hw [label="2× Quadro RTX 6000\n(24 GB VRAM)", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
+        driver [label="NVIDIA Driver 560.35\nCUDA 12.x", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
+    }
+    
+    subgraph cluster_k8s {
+        label="Kubernetes (GPU Operator)";
+        fontcolor="#333333"; color="#cccccc"; bgcolor="#fafafa";
+        gpuop [label="GPU Operator\nClusterPolicy", shape=box, fillcolor="#e1bee7", fontcolor="#7b1fa2", color="#8e24aa"];
+        devplug [label="Device Plugin\nDaemonSet\n(envvar mode)", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+        runtime [label="nvidia-container-runtime\n(CSV mode)", shape=box, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047"];
+        containerd [label="containerd\n(CRI runtime)", shape=box, fillcolor="#e0e0e0", fontcolor="#424242", color="#9e9e9e"];
+    }
+    
+    subgraph cluster_pod {
+        label="Pod Qwen";
+        fontcolor="#333333"; color="#cccccc"; bgcolor="#e3f2fd";
+        vllm [label="vLLM Container (v0.8.5)\nNVIDIA_VISIBLE_DEVICES=all", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+    }
+    
+    driver -> hw [label=" Управление", color="#e53935"];
+    gpuop -> devplug [label=" Конфигурация", color="#1e88e5"];
+    devplug -> runtime [label=" GPU-селекция", color="#1e88e5"];
+    runtime -> containerd [label=" OCI-хук", color="#43a047"];
+    containerd -> vllm [label=" Запуск с GPU", color="#1e88e5"];
+    vllm -> driver [label=" CUDA API", color="#fb8c00", style=dashed];
+    driver -> hw [style=invis];
+}
