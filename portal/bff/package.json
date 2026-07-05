@@ -1,6 +1,6 @@
 {
   "name": "portal-bff",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "build": "tsc",
@@ -10,12 +10,14 @@
   "dependencies": {
     "fastify": "^4.28.0",
     "@fastify/cors": "^9.0.0",
+    "jsonwebtoken": "^9.0.0",
     "pg": "^8.13.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
     "ts-node": "^10.9.0",
     "@types/node": "^22.0.0",
-    "@types/pg": "^8.11.0"
+    "@types/pg": "^8.11.0",
+    "@types/jsonwebtoken": "^9.0.0"
   }
 }
