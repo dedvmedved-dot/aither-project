@@ -7,36 +7,37 @@ digraph RequestFlow {
 
     user [label="Пользователь\nTelegram", shape=box, fillcolor="#e3f2fd", fontcolor="#1565c0", color="#1e88e5"];
     
-    subgraph cluster_vps1 {
-        label="VPS1";
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90)";
         fontcolor="#333333"; color="#cccccc"; bgcolor="#fafafa";
-        hermes [label="1. Hermes Agent\nПолучение запроса", shape=box, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047"];
-        gw [label="2. Gateway :30900\nВыбор модели\nВалидация запроса", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+        hermes [label="1. Hermes Agent\nПолучение webhook", shape=box, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047"];
+        bff [label="2. Portal BFF :3000\nDev-login → JWT\nОрганизации, API-ключи", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
     }
     
-    subgraph cluster_vps2 {
-        label="VPS2";
-        fontcolor="#333333"; color="#cccccc"; bgcolor="#fafafa";
-        proxy [label="3. SSH-прокси\nWireGuard туннель", shape=box, fillcolor="#e1bee7", fontcolor="#7b1fa2", color="#8e24aa"];
+    subgraph cluster_vpn {
+        label="WireGuard VPN";
+        fontcolor="#333333"; color="#b39ddb"; bgcolor="#f3e5f5";
+        style=dashed;
     }
     
     subgraph cluster_k8s {
         label="K8s (40.51)";
         fontcolor="#333333"; color="#cccccc"; bgcolor="#fafafa";
-        svc [label="4. Service\nvllm-qwen-direct:8000", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
+        gw [label="3. Gateway :30900\nNodePort\nВыбор модели\nВалидация + биллинг", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+        svc [label="4. Service\nvllm-qwen:8000\nClusterIP", shape=box, fillcolor="#e0e0e0", fontcolor="#424242", color="#9e9e9e"];
         vllm [label="5. vLLM\nТокенизация\nИнференс TP=2", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
     }
     
-    out [label="Ответ\n(токены)\n~2-3 сек", shape=box, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047"];
+    out [label="Ответ\nSSE-поток\n(токены)", shape=box, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047"];
     
     user -> hermes [label=" \"Привет!\"", color="#1e88e5"];
-    hermes -> gw [label=" JSON", color="#43a047"];
-    gw -> proxy [label=" SSH", color="#7b1fa2"];
-    proxy -> svc [label=" kubectl", color="#7b1fa2"];
-    svc -> vllm [label=" :8000", color="#e65100"];
+    hermes -> bff [label=" Промпт", color="#e65100"];
+    bff -> gw [label=" HTTP :30900\n+ JWT-делегация", color="#7b1fa2", style=dashed];
+    gw -> svc [label=" :8000", color="#1565c0"];
+    svc -> vllm [label=" OpenAI API", color="#e65100"];
     vllm -> svc [label=" Токены", color="#e53935", dir=back];
-    svc -> proxy [dir=back, color="#7b1fa2"];
-    proxy -> gw [dir=back, color="#7b1fa2"];
-    gw -> hermes [dir=back, color="#43a047"];
+    svc -> gw [dir=back, color="#1e88e5"];
+    gw -> bff [label=" SSE-стрим", dir=back, color="#7b1fa2", style=dashed];
+    bff -> hermes [dir=back, color="#e65100"];
     hermes -> out [color="#2e7d32"];
 }

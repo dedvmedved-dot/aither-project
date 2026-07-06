@@ -15,24 +15,24 @@ digraph Architecture {
         tg [label="Telegram API\n(пользователи)", shape=cloud, fillcolor="#e3f2fd", fontcolor="#1565c0", color="#1e88e5"];
     }
     
-    subgraph cluster_vps1 {
-        label="VPS1 (170.168.91.95) — Публичный шлюз";
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90) — Публичный шлюз";
         fontcolor="#333333";
         color="#cccccc";
         bgcolor="#fafafa";
         
         hermes [label="Hermes Agent\n(Telegram Bot)", shape=box, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047"];
-        gateway [label="Gateway :30900\n(маршрутизация)", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
-        portal [label="Aither Portal\n(:80, веб-интерфейс)", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
+        portal [label="Aither Portal\n(:80, SPA + BFF)", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
+        postgres [label="PostgreSQL 16", shape=cylinder, fillcolor="#b3e5fc", fontcolor="#0277bd", color="#0288d1"];
+        nginx [label="nginx\n(:80)", shape=box, fillcolor="#e0e0e0", fontcolor="#424242", color="#9e9e9e"];
     }
     
-    subgraph cluster_vps2 {
-        label="VPS2 (130.17.1.90) — Прокси";
+    subgraph cluster_vpn {
+        label="WireGuard VPN";
         fontcolor="#333333";
-        color="#cccccc";
-        bgcolor="#fafafa";
-        
-        proxy [label="SSH-прокси\nХранилище моделей", shape=box, fillcolor="#e1bee7", fontcolor="#7b1fa2", color="#8e24aa"];
+        color="#b39ddb";
+        bgcolor="#f3e5f5";
+        style=dashed;
     }
     
     subgraph cluster_k8s {
@@ -47,24 +47,34 @@ digraph Architecture {
             color="#e0e0e0";
             bgcolor="#fff8e1";
             
-            qwen [label="vLLM Qwen 14B\nTP=2, :8000", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
+            gateway [label="Gateway\n(NodePort :30900)", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+            qwen [label="vLLM Qwen 14B\nTP=2, NodePort :32293", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
             gpu0 [label="GPU 0\n24 GB", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
             gpu1 [label="GPU 1\n24 GB", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
         }
         
-        postgres [label="PostgreSQL", shape=cylinder, fillcolor="#b3e5fc", fontcolor="#0277bd", color="#0288d1"];
+        k8s_postgres [label="PostgreSQL", shape=cylinder, fillcolor="#b3e5fc", fontcolor="#0277bd", color="#0288d1"];
         redis [label="Redis", shape=cylinder, fillcolor="#ffccbc", fontcolor="#bf360c", color="#e64a19"];
-        svc [label="Service\n(vllm-qwen-direct)", shape=box, fillcolor="#e0e0e0", fontcolor="#424242", color="#9e9e9e"];
+    }
+
+    subgraph cluster_vps1 {
+        label="VPS1 (170.168.91.95) — Резерв";
+        fontcolor="#333333";
+        color="#cccccc";
+        bgcolor="#fafafa";
+        style=dashed;
+        
+        standby [label="Hermes Agent\n(hot-standby)", shape=box, fillcolor="#e0e0e0", fontcolor="#757575", color="#bdbdbd", style=dashed];
     }
     
     tg -> hermes [label=" Webhook", color="#1e88e5"];
-    hermes -> gateway [label=" Маршрутизация", color="#43a047"];
-    gateway -> proxy [label=" WireGuard", color="#7b1fa2", style=dashed];
-    proxy -> svc [label=" kubectl", color="#7b1fa2", style=dashed];
-    svc -> qwen [label=" :8000", color="#1e88e5"];
+    hermes -> portal [label=" API", color="#43a047"];
+    portal -> postgres [style=dotted, color="#9e9e9e"];
+    portal -> nginx [label=" Прокси", color="#e65100"];
+    portal -> gateway [label=" HTTP :30900\nWireGuard", color="#7b1fa2", style=dashed];
+    gateway -> qwen [label=" :8000\n(ClusterIP)", color="#1e88e5"];
     qwen -> gpu0 [label=" TP=2", color="#e53935"];
     qwen -> gpu1 [label=" TP=2", color="#e53935"];
-    gateway -> portal [label=" API", color="#fb8c00"];
-    portal -> postgres [style=dotted, color="#9e9e9e"];
-    portal -> redis [style=dotted, color="#9e9e9e"];
+    gateway -> k8s_postgres [style=dotted, color="#9e9e9e"];
+    gateway -> redis [style=dotted, color="#9e9e9e"];
 }
