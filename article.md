@@ -60,9 +60,9 @@
 
 | Узел | IP | Роль | ОС |
 |---|---|---|---|
-| **VPS1** | 170.168.91.95 | Публичный шлюз: Hermes Agent, Gateway, Portal | Debian 12 |
-| **VPS2** | 130.17.1.90 | SSH-прокси, хранилище моделей | Debian 12 |
-| **40.51** | 10.129.13.78 | K8s GPU-кластер (1 узел) | Astra Linux 1.8 |
+| **VPS1** | 170.168.91.95 | Резервный Hermes (hot-standby) | Debian 12 |
+| **VPS2** | 130.17.1.90 | Публичный шлюз: Hermes Agent, Portal (SPA + BFF), PostgreSQL, nginx | Debian 12 |
+| **40.51** | 10.129.13.78 | K8s GPU-кластер: vLLM (NodePort 32293), Gateway (NodePort 30900) | Astra Linux 1.8 |
 
 ### 2.2. Путь запроса (end-to-end)
 
@@ -71,12 +71,13 @@
 **По шагам:**
 
 1. **Пользователь → Telegram** — текстовое сообщение
-2. **Hermes Agent** — получает webhook, извлекает промпт
-3. **Gateway (:30900)** — выбирает модель, формирует OpenAI-совместимый запрос
-4. **SSH-туннель (WireGuard)** — запрос проксируется через VPS2 к K8s
-5. **K8s Service (vllm-qwen-direct:8000)** — направляет запрос в под с vLLM
-6. **vLLM** — токенизирует промпт, выполняет инференс на GPU, возвращает токены
-7. **Ответ** — потоком возвращается пользователю (~2–3 сек)
+2. **Hermes Agent (VPS2)** — получает webhook, обрабатывает промпт
+3. **Portal BFF (:3000)** — формирует делегированный запрос к Gateway
+4. **Gateway (:30900, K8s NodePort)** — выбирает модель, формирует OpenAI-совместимый запрос
+5. **VPN (WireGuard)** — запрос идёт напрямую к K8s-узлу 40.51
+6. **K8s Service (vllm-qwen-nodeport:32293)** — направляет запрос в под с vLLM
+7. **vLLM** — токенизирует промпт, выполняет инференс на GPU, возвращает токены
+8. **Ответ** — SSE-потоком возвращается через Gateway → Portal BFF → пользователю
 
 ### 2.3. Программный стек
 
@@ -486,37 +487,101 @@ curl -X POST http://10.244.0.x:8000/v1/chat/completions \
 
 ### 9.1. Gateway (FastAPI)
 
-Gateway развёрнут на VPS1, слушает порт **30900**. Он выполняет:
+Gateway развёрнут как **K8s Deployment** на узле 40.51 и доступен через **NodePort 30900**. Он выполняет:
 
-1. **Приём запросов** от Hermes Agent (Telegram) и Portal (веб)
-2. **Маршрутизация** — выбор модели (пока одна: Qwen)
-3. **Проксирование** — передача запроса в K8s-под через SSH-туннель
-4. **Потоковый ответ** — токены возвращаются пользователю по мере генерации
+1. **Приём запросов** от Portal BFF (веб) и напрямую через API
+2. **Маршрутизация** — выбор модели (пока одна: Qwen, готовится Saiga)
+3. **Проксирование** — передача запроса в vLLM-под через ClusterIP-сервис
+4. **Потоковый ответ** — токены возвращаются пользователю по мере генерации (SSE)
 
-```python
-# Псевдокод маршрутизации
-@app.post("/v1/chat/completions")
-async def chat(request: ChatRequest):
-    model = request.model  # "qwen" или "saiga"
-    target = MODELS[model]  # {"host": "10.244.0.x", "port": 8000}
-    
-    # Проксирование через SSH-туннель
-    async with ssh_tunnel(target.host, target.port) as tunnel:
-        response = await proxy_request(tunnel, request)
-    
-    return StreamingResponse(response)
+**Развёртывание NodePort:**
+
+```bash
+# Создание NodePort для Gateway (если отсутствует)
+kubectl expose deployment gateway --type=NodePort \
+  --port=8080 --target-port=8080 \
+  --name=gateway-nodeport \
+  --overrides='{"spec":{"ports":[{"port":8080,"targetPort":8080,"nodePort":30900}]}}'
+
+# Проверка
+kubectl get svc gateway-nodeport
+curl http://10.129.13.78:30900/health
+# → {"status": "ok", "billing": "enabled"}
+```
+
+**Проверка состояния Gateway:**
+
+```bash
+# Статус пода
+kubectl get pods -l app=gateway
+
+# Логи
+kubectl logs deploy/gateway --tail=20
+
+# Перезапуск при проблемах
+kubectl rollout restart deploy/gateway
 ```
 
 ### 9.2. Portal (веб-интерфейс)
 
-Доступен по адресу: **http://130.17.1.90:80**
+Доступен по адресу: **http://130.17.1.90**
 
-![Скриншот портала](diagrams/architecture.svg)
+**Архитектура портала:**
 
-Возможности портала:
-- **Выбор модели** — переключение между доступными LLM
-- **Чат-интерфейс** — общение с моделью в реальном времени
-- **Настройка параметров** — temperature, max_tokens, top_p
+```
+Браузер → :80 (nginx/статик + прокси API)
+          ├── /api/* → BFF (:3000, Fastify)
+          │   ├── /auth/dev/login    — вход (dev-режим)
+          │   ├── /api/v1/me         — профиль пользователя
+          │   ├── /api/v1/orgs       — организации
+          │   ├── /api/v1/chats      — чаты (создание, история)
+          │   └── /api/v1/chats/:id/messages → Gateway (:30900, SSE-стрим)
+          └── /      → SPA (try_files index.html)
+```
+
+**Стек портала:**
+
+| Компонент | Технология | Порт |
+|---|---|---|
+| Статика (SPA) | HTML/CSS/JS (ванильный) | :80 (nginx) |
+| BFF (Backend-for-Frontend) | Fastify (Node.js + TypeScript) | :3000 |
+| База данных | PostgreSQL 16 | :5432 |
+| Прокси | nginx | :80 |
+
+**Возможности портала:**
+
+- **Dev-логин** — `POST /auth/dev/login` с именем, возвращает JWT-токен
+- **Организации** — создание/управление orgs, API-ключи (формат `ak-...`)
+- **Чат-интерфейс** — создание чатов, история сообщений, потоковый ответ (SSE)
+- **Выбор модели** — `qwen2.5-14b` (основная), `saiga_llama3_8b` (план)
+- **Шеринг чатов** — генерация share-токенов для публичного доступа
+
+**Быстрый старт через API:**
+
+```bash
+# 1. Dev-логин
+TOKEN=$(curl -s -X POST http://130.17.1.90/auth/dev/login \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"test"}' | jq -r '.access_token')
+
+# 2. Создать организацию
+ORG=$(curl -s -X POST http://130.17.1.90/api/v1/orgs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"my-org"}' | jq -r '.org.org_id')
+
+# 3. Создать чат
+CHAT=$(curl -s -X POST http://130.17.1.90/api/v1/chats \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Тест","model":"qwen2.5-14b"}' | jq -r '.chat.chat_id')
+
+# 4. Отправить сообщение (SSE-стрим)
+curl -N -X POST "http://130.17.1.90/api/v1/chats/$CHAT/messages" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"content\":\"Привет!\",\"org_id\":\"$ORG\"}"
+```
 
 ---
 
@@ -525,29 +590,31 @@ async def chat(request: ChatRequest):
 ### 10.1. Доступ к порталу
 
 ```
-URL:       http://130.17.1.90:80
-Логин:     (не требуется — внутренний контур)
+URL:       http://130.17.1.90
+Логин:     dev-режим (введите любое имя)
 ```
 
 ### 10.2. Работа через веб-интерфейс
 
 1. Откройте `http://130.17.1.90` в браузере
-2. Выберите модель в выпадающем списке (Qwen 2.5 14B)
-3. Введите запрос в поле ввода
-4. Нажмите **Enter** или кнопку отправки
-5. Ответ генерируется потоково — токены появляются по мере вывода
+2. Введите имя пользователя (dev-логин)
+3. Создайте организацию (кнопка «Новая организация»)
+4. Перейдите в раздел «Чаты» → «Новый чат»
+5. Выберите модель (Qwen 2.5 14B)
+6. Введите запрос и нажмите **Enter**
+7. Ответ генерируется потоково — токены появляются по мере вывода
 
 ### 10.3. Работа через Telegram-бота
 
 1. Найдите бота **@HermesAgent** в Telegram (пилотная группа)
-2. Отправьте сообщение — бот передаст его модели Qwen
-3. Ответ придёт в течение 2–5 секунд
+2. Отправьте сообщение — Hermes Agent обработает его
+3. Ответ придёт в течение нескольких секунд
 
 ### 10.4. Работа через API (для разработчиков)
 
 ```bash
-# Endpoint
-curl -X POST http://170.168.91.95:30900/v1/chat/completions \
+# Endpoint (через Gateway NodePort на 40.51)
+curl -X POST http://10.129.13.78:30900/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "qwen",
@@ -649,6 +716,7 @@ watch -n 2 nvidia-smi
 | 6 | **Повреждение shard'ов** | `SafetensorError: incomplete metadata` | SCP через VPN (200 KB/s) прерывается | `rsync --partial` + проверка размера |
 | 7 | **Зомби-процессы vLLM** | `Port 8000 is already in use` | После падения пода процесс остаётся на хосте | `fuser -k 8000/tcp` перед перезапуском |
 | 8 | **Отсутствие NVLink** | Потери 30-50% на all-reduce | GPU общаются через PCIe | Закупка NVLink-мостов |
+| 9 | **Gateway NodePort отсутствует** | Портал не может достучаться до Gateway (`core_unreachable`) | Gateway — ClusterIP (только внутри кластера), NodePort не создан | `kubectl expose deployment gateway --type=NodePort --nodePort=30900` |
 
 ### 12.2. Детальный разбор: Flash Attention 2
 
@@ -738,8 +806,8 @@ GPU 0 ←──NVLink 50 GB/s──→ GPU 1
 
 | Задача | Описание |
 |---|---|
+| **Мониторинг** | ✅ Выполнено: Hermes Cron — проверка Portal, BFF, Gateway, vLLM, GPU каждые 5 мин с авто-восстановлением (NodePort, рестарт подов). Prometheus + Grafana: метрики GPU, задержки, throughput (план) |
 | **Мультимодельность** | Saiga 8B + Qwen Coder 14B + Qwen 32B GPTQ |
-| **Мониторинг** | Prometheus + Grafana: метрики GPU, задержки, throughput |
 | **Квантизация** | INT4 (AWQ/GPTQ) для эффективного использования VRAM |
 | **RAG** | Векторная БД Qdrant + retrieval-augmented generation |
 
@@ -759,11 +827,13 @@ GPU 0 ←──NVLink 50 GB/s──→ GPU 1
 
 ✅ **Kubernetes с GPU** — настроен GPU Operator, Device Plugin, container runtime  
 ✅ **Модель Qwen 14B** — загружена, работает с TP=2 на двух RTX 6000  
-✅ **Gateway + Portal** — маршрутизация и веб-интерфейс  
+✅ **Gateway (K8s NodePort)** — маршрутизация запросов через NodePort 30900  
+✅ **Portal (SPA + BFF)** — веб-интерфейс с чатом, организациями, API-ключами, SSE-стримингом  
 ✅ **Telegram-бот** — интеграция с Hermes Agent  
+✅ **Мониторинг** — автоматическая проверка всех компонентов каждые 5 минут с авто-восстановлением  
 
-Выявлен и задокументирован ряд проблем (Flash Attention 2, CDI, pynvml, OOM), характерных для эксплуатации GPU Turing в изолированных средах. Определён план развития: NVLink-мосты, мультимодельность, расширение кластера.
+Выявлен и задокументирован ряд проблем (Flash Attention 2, CDI, pynvml, OOM, Gateway NodePort), характерных для эксплуатации GPU Turing в изолированных средах. Определён план развития: NVLink-мосты, мультимодельность, расширение кластера.
 
 ---
 
-*Лабораторная работа выполнена 05.07.2026. Платформа доступна для тестирования.*
+*Лабораторная работа выполнена 05.07.2026. Последнее обновление: 06.07.2026. Платформа доступна для тестирования.*
