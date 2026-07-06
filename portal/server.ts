@@ -6,7 +6,7 @@ import { randomBytes } from "crypto";
 
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-me";
-const CORE_API = process.env.CORE_API || "http://10.129.13.78:30900";
+const CORE_API = process.env.CORE_API || "http://10.129.13.78:32293";
 
 const pool = new Pool({
   host: process.env.PG_HOST || "127.0.0.1",
@@ -367,10 +367,7 @@ async function main() {
       "INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2) RETURNING message_id, created_at",
       [chatId, content]);
 
-    // Get delegation token
-    const targetOrgId = org_id;
-    const dToken = await getDelegationToken(targetOrgId, p.user_id);
-    if (!dToken) return reply.status(400).send({ error: "no active API key for org" });
+    // Skip delegation token — direct to vLLM
 
     // Build message history
     const history = await pool.query(
@@ -389,7 +386,6 @@ async function main() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer " + dToken,
         },
         body: JSON.stringify({
           model: chat.model,
