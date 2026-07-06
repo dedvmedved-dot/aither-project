@@ -15,7 +15,7 @@ digraph DeploymentFlow {
     subgraph cluster_pod {
         label="Pod (10.244.0.x)";
         fontcolor="#333333"; color="#cccccc"; bgcolor="#e3f2fd";
-        container [label="Container: vllm\nvllm/vllm-openai:v0.8.5\nport: 8000", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+        container [label="Container: vllm\nvllm/vllm-openai:latest (0.24.0)\nport: 8000", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
         models [label="/models\n← /data/models", shape=folder, fillcolor="#e0e0e0", fontcolor="#424242"];
         cpu [label="CPU: 8/16", shape=note, fillcolor="#e0e0e0", fontcolor="#424242"];
         ram [label="RAM: 24G/48G", shape=note, fillcolor="#e0e0e0", fontcolor="#424242"];
