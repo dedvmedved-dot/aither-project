@@ -85,9 +85,9 @@
 |---|---|---|
 | Оркестрация | Kubernetes | 1.32+ |
 | Рантайм | containerd | 2.x |
-| GPU-драйвер | NVIDIA | 560.35 |
+| GPU-драйвер | NVIDIA | 570.195.03 |
 | GPU в K8s | NVIDIA GPU Operator | 25.x |
-| Инференс | vLLM | 0.8.5 |
+| Инференс | vLLM | 0.24.0 (:latest) |
 | API-шлюз | FastAPI (Python) | 0.115+ |
 | База данных | PostgreSQL | 15+ |
 | Кэш | Redis | 7+ |
@@ -141,7 +141,7 @@ mkdir -p $HOME/.kube
 cp /etc/kubernetes/admin.conf $HOME/.kube/config
 
 # Установка CNI (Flannel)
-kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+kubectl apply -f https://github.com/flannel-io/flannel/releases/download/v0.25.7/kube-flannel.yml
 
 # Снятие taint с control-plane (чтобы поды могли запускаться)
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
@@ -189,7 +189,7 @@ kubectl describe node bootsman-k8s-clnt01-n8-gpu | grep nvidia
 
 **Как это работает:**
 
-1. **NVIDIA Driver** (560.35) — устанавливается демоном GPU Operator, управляет GPU на уровне ОС
+1. **NVIDIA Driver** (570.195.03) — устанавливается демоном GPU Operator, управляет GPU на уровне ОС
 2. **GPU Operator** — управляет жизненным циклом всех GPU-компонентов через ClusterPolicy
 3. **Device Plugin** (DaemonSet) — регистрирует GPU как ресурс K8s (`nvidia.com/gpu: 2`)
 4. **nvidia-container-runtime** — OCI-хук, который при запуске контейнера монтирует GPU-устройства и библиотеки
@@ -236,7 +236,7 @@ kubectl run gpu-test --rm -it --restart=Never \
 **Ожидаемый вывод:**
 ```
 +-----------------------------------------+
-| NVIDIA-SMI 560.35       Driver: 560.35  |
+| NVIDIA-SMI 570.195     Driver: 570.195  |
 | GPU  Name                 Bus-Id         |
 |   0  Quadro RTX 6000      00000000:3B:00 |
 |   1  Quadro RTX 6000      00000000:5E:00 |
@@ -344,7 +344,7 @@ spec:
       runtimeClassName: nvidia       # Включает GPU-рантайм
       containers:
       - name: vllm
-        image: vllm/vllm-openai:v0.8.5
+        image: vllm/vllm-openai:latest
         command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
         args:
         - "--model"
@@ -365,6 +365,8 @@ spec:
           value: "1"                  # Офлайн-режим
         - name: VLLM_PORT
           value: "8000"               # Перебить автоинжект K8s
+        - name: VLLM_USE_V1
+          value: "0"                  # Отключить V1 engine (баг pynvml)
         - name: NVIDIA_VISIBLE_DEVICES
           value: "all"
         - name: NVIDIA_DRIVER_CAPABILITIES
@@ -419,6 +421,7 @@ nvidia-smi
 | `--gpu-memory-utilization 0.90` | Резервирует 90% VRAM | По умолчанию 0.90 — оптимально для максимизации KV-кэша |
 | `--max-model-len 4096` | Ограничивает контекстное окно | По умолчанию 32768 — нужен больший KV-кэш, не влезет |
 | `VLLM_PORT=8000` | Явно задаёт порт | K8s автоинжектит `VLLM_QWEN_PORT_8000_TCP=tcp://...` и vLLM падает |
+| `VLLM_USE_V1=0` | Отключает V1 engine | V1 engine падает с `pynvml.nvmlDeviceGetHandleByIndex` на Turing GPU |
 
 ---
 
@@ -712,7 +715,7 @@ watch -n 2 nvidia-smi
 | 2 | **Qwen OOM на 1 GPU** | `OutOfMemoryError` | 28 GB > 24 GB | `--tensor-parallel-size 2` |
 | 3 | **VLLM_PORT автоинжект** | `VLLM_PORT appears to be a URI` | K8s Service создаёт `VLLM_QWEN_PORT_8000_TCP=tcp://...` | `VLLM_PORT=8000` |
 | 4 | **CDI device resolution** | `unresolvable CDI devices` | containerd в режиме `auto` не может разрешить CDI-спеки | `mode=csv` в nvidia-container-runtime |
-| 5 | **vLLM 0.24 pynvml-баг** | `pynvml.nvmlDeviceGetHandleByIndex` | V1 engine + сабпроцессы без GPU-контекста | Переход на v0.8.5 + `runtimeClassName: nvidia` |
+| 5 | **vLLM v0.8.5 pynvml-баг** | `pynvml.nvmlDeviceGetHandleByIndex` → под в CrashLoopBackOff | v0.8.5 образ несовместим с ядром 6.6 + драйвером 570 | Переход на `:latest` (0.24.0) + `VLLM_USE_V1=0` |
 | 6 | **Повреждение shard'ов** | `SafetensorError: incomplete metadata` | SCP через VPN (200 KB/s) прерывается | `rsync --partial` + проверка размера |
 | 7 | **Зомби-процессы vLLM** | `Port 8000 is already in use` | После падения пода процесс остаётся на хосте | `fuser -k 8000/tcp` перед перезапуском |
 | 8 | **Отсутствие NVLink** | Потери 30-50% на all-reduce | GPU общаются через PCIe | Закупка NVLink-мостов |

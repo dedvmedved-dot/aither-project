@@ -16,13 +16,13 @@
 </g>
 <g id="clust2" class="cluster">
 <title>cluster_k8s</title>
-<polygon fill="#fafafa" stroke="#cccccc" points="14,-293 14,-616 220,-616 220,-293 14,-293"/>
-<text text-anchor="middle" x="117" y="-600.8" font-family="Helvetica,sans-Serif" font-size="14.00" fill="#333333">Kubernetes (GPU Operator)</text>
+<polygon fill="#fafafa" stroke="#cccccc" points="15,-293 15,-616 221,-616 221,-293 15,-293"/>
+<text text-anchor="middle" x="118" y="-600.8" font-family="Helvetica,sans-Serif" font-size="14.00" fill="#333333">Kubernetes (GPU Operator)</text>
 </g>
 <g id="clust3" class="cluster">
 <title>cluster_pod</title>
-<polygon fill="#e3f2fd" stroke="#cccccc" points="8,-191 8,-266 186,-266 186,-191 8,-191"/>
-<text text-anchor="middle" x="97" y="-250.8" font-family="Helvetica,sans-Serif" font-size="14.00" fill="#333333">Pod Qwen</text>
+<polygon fill="#e3f2fd" stroke="#cccccc" points="8,-191 8,-266 190,-266 190,-191 8,-191"/>
+<text text-anchor="middle" x="99" y="-250.8" font-family="Helvetica,sans-Serif" font-size="14.00" fill="#333333">Pod Qwen</text>
 </g>
 <!-- hw -->
 <g id="node1" class="node">
@@ -34,14 +34,14 @@
 <!-- driver -->
 <g id="node2" class="node">
 <title>driver</title>
-<polygon fill="#fff3e0" stroke="#fb8c00" points="157,-133 37,-133 37,-97 157,-97 157,-133"/>
-<text text-anchor="middle" x="97" y="-118" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#e65100">NVIDIA Driver 560.35</text>
-<text text-anchor="middle" x="97" y="-107" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#e65100">CUDA 12.x</text>
+<polygon fill="#fff3e0" stroke="#fb8c00" points="162,-133 36,-133 36,-97 162,-97 162,-133"/>
+<text text-anchor="middle" x="99" y="-118" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#e65100">NVIDIA Driver 570.195</text>
+<text text-anchor="middle" x="99" y="-107" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#e65100">CUDA 12.x</text>
 </g>
 <!-- driver&#45;&gt;hw -->
 <g id="edge1" class="edge">
 <title>driver&#45;&gt;hw</title>
-<path fill="none" stroke="#e53935" d="M80.49,-96.59C74.9,-88.56 70.98,-78.87 75,-70 76.67,-66.32 78.93,-62.88 81.55,-59.7"/>
+<path fill="none" stroke="#e53935" d="M81.26,-96.74C75.21,-88.75 70.9,-79.03 75,-70 76.67,-66.32 78.93,-62.88 81.55,-59.7"/>
 <polygon fill="#e53935" stroke="#e53935" points="84.2,-61.99 88.6,-52.35 79.15,-57.14 84.2,-61.99"/>
 <text text-anchor="middle" x="102.5" y="-72.6" font-family="Helvetica,sans-Serif" font-size="8.00"> Управление</text>
 </g>
@@ -49,73 +49,73 @@
 <!-- gpuop -->
 <g id="node3" class="node">
 <title>gpuop</title>
-<polygon fill="#e1bee7" stroke="#8e24aa" points="138.5,-585 55.5,-585 55.5,-549 138.5,-549 138.5,-585"/>
-<text text-anchor="middle" x="97" y="-570" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#7b1fa2">GPU Operator</text>
-<text text-anchor="middle" x="97" y="-559" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#7b1fa2">ClusterPolicy</text>
+<polygon fill="#e1bee7" stroke="#8e24aa" points="140.5,-585 57.5,-585 57.5,-549 140.5,-549 140.5,-585"/>
+<text text-anchor="middle" x="99" y="-570" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#7b1fa2">GPU Operator</text>
+<text text-anchor="middle" x="99" y="-559" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#7b1fa2">ClusterPolicy</text>
 </g>
 <!-- devplug -->
 <g id="node4" class="node">
 <title>devplug</title>
-<polygon fill="#bbdefb" stroke="#1e88e5" points="141.5,-504 52.5,-504 52.5,-463 141.5,-463 141.5,-504"/>
-<text text-anchor="middle" x="97" y="-492" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">Device Plugin</text>
-<text text-anchor="middle" x="97" y="-481" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">DaemonSet</text>
-<text text-anchor="middle" x="97" y="-470" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">(envvar mode)</text>
+<polygon fill="#bbdefb" stroke="#1e88e5" points="143.5,-504 54.5,-504 54.5,-463 143.5,-463 143.5,-504"/>
+<text text-anchor="middle" x="99" y="-492" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">Device Plugin</text>
+<text text-anchor="middle" x="99" y="-481" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">DaemonSet</text>
+<text text-anchor="middle" x="99" y="-470" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">(envvar mode)</text>
 </g>
 <!-- gpuop&#45;&gt;devplug -->
 <g id="edge2" class="edge">
 <title>gpuop&#45;&gt;devplug</title>
-<path fill="none" stroke="#1e88e5" d="M97,-548.72C97,-538.7 97,-525.81 97,-514.22"/>
-<polygon fill="#1e88e5" stroke="#1e88e5" points="100.5,-514.05 97,-504.05 93.5,-514.05 100.5,-514.05"/>
-<text text-anchor="middle" x="130" y="-524.6" font-family="Helvetica,sans-Serif" font-size="8.00"> Конфигурация</text>
+<path fill="none" stroke="#1e88e5" d="M99,-548.72C99,-538.7 99,-525.81 99,-514.22"/>
+<polygon fill="#1e88e5" stroke="#1e88e5" points="102.5,-514.05 99,-504.05 95.5,-514.05 102.5,-514.05"/>
+<text text-anchor="middle" x="132" y="-524.6" font-family="Helvetica,sans-Serif" font-size="8.00"> Конфигурация</text>
 </g>
 <!-- runtime -->
 <g id="node5" class="node">
 <title>runtime</title>
-<polygon fill="#c8e6c9" stroke="#43a047" points="166,-418 28,-418 28,-382 166,-382 166,-418"/>
-<text text-anchor="middle" x="97" y="-403" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#2e7d32">nvidia&#45;container&#45;runtime</text>
-<text text-anchor="middle" x="97" y="-392" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#2e7d32">(CSV mode)</text>
+<polygon fill="#c8e6c9" stroke="#43a047" points="168,-418 30,-418 30,-382 168,-382 168,-418"/>
+<text text-anchor="middle" x="99" y="-403" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#2e7d32">nvidia&#45;container&#45;runtime</text>
+<text text-anchor="middle" x="99" y="-392" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#2e7d32">(CSV mode)</text>
 </g>
 <!-- devplug&#45;&gt;runtime -->
 <g id="edge3" class="edge">
 <title>devplug&#45;&gt;runtime</title>
-<path fill="none" stroke="#1e88e5" d="M97,-462.77C97,-452.42 97,-439.57 97,-428.28"/>
-<polygon fill="#1e88e5" stroke="#1e88e5" points="100.5,-428.06 97,-418.06 93.5,-428.06 100.5,-428.06"/>
-<text text-anchor="middle" x="128" y="-438.6" font-family="Helvetica,sans-Serif" font-size="8.00"> GPU&#45;селекция</text>
+<path fill="none" stroke="#1e88e5" d="M99,-462.77C99,-452.42 99,-439.57 99,-428.28"/>
+<polygon fill="#1e88e5" stroke="#1e88e5" points="102.5,-428.06 99,-418.06 95.5,-428.06 102.5,-428.06"/>
+<text text-anchor="middle" x="130" y="-438.6" font-family="Helvetica,sans-Serif" font-size="8.00"> GPU&#45;селекция</text>
 </g>
 <!-- containerd -->
 <g id="node6" class="node">
 <title>containerd</title>
-<polygon fill="#e0e0e0" stroke="#9e9e9e" points="138,-337 56,-337 56,-301 138,-301 138,-337"/>
-<text text-anchor="middle" x="97" y="-322" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#424242">containerd</text>
-<text text-anchor="middle" x="97" y="-311" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#424242">(CRI runtime)</text>
+<polygon fill="#e0e0e0" stroke="#9e9e9e" points="140,-337 58,-337 58,-301 140,-301 140,-337"/>
+<text text-anchor="middle" x="99" y="-322" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#424242">containerd</text>
+<text text-anchor="middle" x="99" y="-311" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#424242">(CRI runtime)</text>
 </g>
 <!-- runtime&#45;&gt;containerd -->
 <g id="edge4" class="edge">
 <title>runtime&#45;&gt;containerd</title>
-<path fill="none" stroke="#43a047" d="M97,-381.86C97,-371.71 97,-358.63 97,-347.12"/>
-<polygon fill="#43a047" stroke="#43a047" points="100.5,-347.11 97,-337.11 93.5,-347.11 100.5,-347.11"/>
-<text text-anchor="middle" x="113.5" y="-357.6" font-family="Helvetica,sans-Serif" font-size="8.00"> OCI&#45;хук</text>
+<path fill="none" stroke="#43a047" d="M99,-381.86C99,-371.71 99,-358.63 99,-347.12"/>
+<polygon fill="#43a047" stroke="#43a047" points="102.5,-347.11 99,-337.11 95.5,-347.11 102.5,-347.11"/>
+<text text-anchor="middle" x="115.5" y="-357.6" font-family="Helvetica,sans-Serif" font-size="8.00"> OCI&#45;хук</text>
 </g>
 <!-- vllm -->
 <g id="node7" class="node">
 <title>vllm</title>
-<polygon fill="#bbdefb" stroke="#1e88e5" points="177.5,-235 16.5,-235 16.5,-199 177.5,-199 177.5,-235"/>
-<text text-anchor="middle" x="97" y="-220" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">vLLM Container (v0.8.5)</text>
-<text text-anchor="middle" x="97" y="-209" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">NVIDIA_VISIBLE_DEVICES=all</text>
+<polygon fill="#bbdefb" stroke="#1e88e5" points="182.5,-235 15.5,-235 15.5,-199 182.5,-199 182.5,-235"/>
+<text text-anchor="middle" x="99" y="-220" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">vLLM Container (0.24.0 :latest)</text>
+<text text-anchor="middle" x="99" y="-209" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">VLLM_USE_V1=0</text>
 </g>
 <!-- containerd&#45;&gt;vllm -->
 <g id="edge5" class="edge">
 <title>containerd&#45;&gt;vllm</title>
-<path fill="none" stroke="#1e88e5" d="M97,-300.58C97,-285.38 97,-263.07 97,-245.46"/>
-<polygon fill="#1e88e5" stroke="#1e88e5" points="100.5,-245.22 97,-235.22 93.5,-245.22 100.5,-245.22"/>
-<text text-anchor="middle" x="126" y="-276.6" font-family="Helvetica,sans-Serif" font-size="8.00"> Запуск с GPU</text>
+<path fill="none" stroke="#1e88e5" d="M99,-300.58C99,-285.38 99,-263.07 99,-245.46"/>
+<polygon fill="#1e88e5" stroke="#1e88e5" points="102.5,-245.22 99,-235.22 95.5,-245.22 102.5,-245.22"/>
+<text text-anchor="middle" x="128" y="-276.6" font-family="Helvetica,sans-Serif" font-size="8.00"> Запуск с GPU</text>
 </g>
 <!-- vllm&#45;&gt;driver -->
 <g id="edge6" class="edge">
 <title>vllm&#45;&gt;driver</title>
-<path fill="none" stroke="#fb8c00" stroke-dasharray="5,2" d="M97,-198.58C97,-183.38 97,-161.07 97,-143.46"/>
-<polygon fill="#fb8c00" stroke="#fb8c00" points="100.5,-143.22 97,-133.22 93.5,-143.22 100.5,-143.22"/>
-<text text-anchor="middle" x="117" y="-174.6" font-family="Helvetica,sans-Serif" font-size="8.00"> CUDA API</text>
+<path fill="none" stroke="#fb8c00" stroke-dasharray="5,2" d="M99,-198.58C99,-183.38 99,-161.07 99,-143.46"/>
+<polygon fill="#fb8c00" stroke="#fb8c00" points="102.5,-143.22 99,-133.22 95.5,-143.22 102.5,-143.22"/>
+<text text-anchor="middle" x="119" y="-174.6" font-family="Helvetica,sans-Serif" font-size="8.00"> CUDA API</text>
 </g>
 </g>
 </svg>

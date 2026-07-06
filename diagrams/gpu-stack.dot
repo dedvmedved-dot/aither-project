@@ -9,7 +9,7 @@ digraph GpuStack {
         label="Узел K8s (Astra Linux 1.8)";
         fontcolor="#333333"; color="#cccccc"; bgcolor="#f5f5f5";
         hw [label="2× Quadro RTX 6000\n(24 GB VRAM)", shape=box, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935"];
-        driver [label="NVIDIA Driver 560.35\nCUDA 12.x", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
+        driver [label="NVIDIA Driver 570.195\nCUDA 12.x", shape=box, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00"];
     }
     
     subgraph cluster_k8s {
@@ -24,7 +24,7 @@ digraph GpuStack {
     subgraph cluster_pod {
         label="Pod Qwen";
         fontcolor="#333333"; color="#cccccc"; bgcolor="#e3f2fd";
-        vllm [label="vLLM Container (v0.8.5)\nNVIDIA_VISIBLE_DEVICES=all", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
+        vllm [label="vLLM Container (0.24.0 :latest)\nVLLM_USE_V1=0", shape=box, fillcolor="#bbdefb", fontcolor="#1565c0", color="#1e88e5"];
     }
     
     driver -> hw [label=" Управление", color="#e53935"];
