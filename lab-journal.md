@@ -1918,3 +1918,60 @@ CREATE TABLE billing_accounts (
 - Добавить кнопки СБП/QR в интерфейс
 
 ---
+
+## День 8 (дополнение): ручной тест ЮKassa на VPS2
+
+**Дата:** 07.07.2026, 22:13 МСК
+
+### Ход теста
+
+1. Dev-логин → JWT-токен
+2. Создана организация `test-yookassa`
+3. `POST /api/v1/billing/topup` (500 ₽)
+4. `GET /api/v1/billing/payments`
+
+### Полный вывод
+
+**Логин:**
+```json
+{"access_token":"eyJ...","user":{"user_id":"8e1096...","login":"test","email":"test@dev.local"}}
+```
+
+**Организация:**
+```json
+{"org_id":"9e346ad...","name":"test-yookassa","status":"active","role":"owner"}
+```
+
+**Топ-ап (500 ₽):**
+```json
+{
+  "ok": true,
+  "txn_id": "01c5fa1b-4474-4b82-8c25-31cf518ffc3e",
+  "status": "succeeded",
+  "tokens": 500000,
+  "dev_mode": true
+}
+```
+
+**Платежи:**
+```json
+{
+  "payments": [
+    {
+      "txn_id": "01c5fa1b-4474-4b82-8c25-31cf518ffc3e",
+      "provider": "yookassa",
+      "amount_rub": "500.00",
+      "tokens": 500000,
+      "status": "succeeded",
+      "created_at": "2026-07-07T22:13:24.370Z"
+    }
+  ]
+}
+```
+
+### Итог
+
+- ✅ Dev-режим: пополнение без участия ЮKassa, мгновенное зачисление
+- ✅ 500 ₽ → 500 000 токенов (курс 1:1000)
+- ✅ Транзакция сохранена в `payment_transactions`
+- ✅ Баланс зачислен в `billing_accounts.total_tokens`
