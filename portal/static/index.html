@@ -825,6 +825,11 @@ async function render() {
     return;
   }
   renderApp();
+  // Load models on first render (needed for chat dropdown)
+  if (state.availableModels.length === 0) {
+    const { ok, data } = await api('/api/v1/models');
+    if (ok && data?.data) state.availableModels = data.data;
+  }
   switch (state.page) {
     case 'dashboard': await renderDashboard(); break;
     case 'orgs': await renderOrgs(); break;
@@ -912,13 +917,11 @@ async function renderDashboard() {
   const main = $('#main-content');
   main.innerHTML = '<div class="loading">Загрузка...</div>';
 
-  const [statusR, coreR, modelsR] = await Promise.all([
+  const [statusR, coreR] = await Promise.all([
     api('/api/v1/status'),
     api('/api/v1/core/status'),
-    api('/api/v1/models'),
   ]);
   state.coreStatus = coreR.ok ? coreR.data : null;
-  if (modelsR.ok && modelsR.data?.data) state.availableModels = modelsR.data.data;
 
   const status = statusR.ok ? statusR.data : { orgs:0, users:0, active_keys:0 };
 
