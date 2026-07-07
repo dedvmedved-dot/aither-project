@@ -1749,3 +1749,44 @@ VPS1 (170.168.91.95) ═══ WireGuard ═══ VPS2 (130.17.1.90)
 | `dissertation-a` | чисто |
 | `dissertation-rca` | чисто |
 | `hermes-sync` | синхронизирован |
+
+---
+
+## День 7: OAuth GitHub (07.07.2026)
+
+**Цель:** заменить dev-логин на настоящую аутентификацию через GitHub OAuth.
+
+### Выполнено
+
+| Компонент | Изменение |
+|---|---|
+| **BFF** (`portal/server.ts`) | Добавлены `GET /auth/github` (редирект на GitHub) и `GET /auth/github/callback` (обмен code→token, получение профиля, upsert в БД, выдача JWT) |
+| **Фронтенд** (`portal/static/index.html`) | Кнопка «🐙 Войти через GitHub» на странице логина, обработка `aither_token` из URL после callback |
+| **GitHub OAuth App** | Зарегистрирован: Client ID `Ov23li...`, callback URL `http://130.17.1.90/auth/github/callback` |
+| **Документация** | `docs/oauth-github.md` — полное описание механизма OAuth с диаграммой потока |
+
+### Технические детали
+
+- **Flow:** Web Application Flow (Authorization Code Grant)
+- **Scope:** `read:user`, `user:email`
+- **Результат:** JWT RS256 (24h) — совместим с существующей системой
+- **Безопасность:** `client_secret` только на сервере (env var), code одноразовый, state для CSRF-защиты
+
+### Деплой
+
+- `server.ts` → `tsc` → `dist/server.js` → scp на VPS2
+- `index.html` → scp в `/root/aither-portal/static/` (bind-mount nginx)
+- BFF перезапущен с env vars: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `PUBLIC_HOST`
+
+### Верификация
+
+| Тест | Результат |
+|---|---|
+| `GET /auth/github` | ✅ 302 → GitHub authorize URL |
+| `GET /auth/github/callback` (без code) | ✅ 400 `missing code` |
+| `GET /api/v1/status` | ✅ `{"version":"0.5.0",...}` |
+| Кнопка GitHub на странице логина | ✅ `btn-github loginWithGitHub` в HTML |
+| Полный браузерный флоу | ⬜ ожидает теста в браузере |
+
+### Статус: ✅ Готово (ждёт браузерного теста)
+
