@@ -2030,3 +2030,85 @@ CREATE TABLE billing_accounts (
 | — | Fine-tuning пайплайн | P2 |
 | — | RAG-подсистема | P2 |
 | — | Cost-aware routing | P2 |
+
+---
+
+## День 9: Каталог моделей + балансировка нагрузки (08.07.2026)
+
+**Дата:** 08.07.2026, 22:50 МСК  
+**Коммит:** `5a8b352`
+
+### Архитектура
+
+```
+Запрос: model="qwen2.5-32b"
+        │
+        ▼
+┌──────────────────────────────────────┐
+│              GATEWAY                  │
+│  catalog.resolve(model)              │
+│       │                               │
+│       │ backend_url + model_path      │
+│       ▼                               │
+│  ┌──────────────────────────────┐    │
+│  │ qwen2.5-14b → vllm:8000      │    │
+│  │ qwen2.5-32b → vllm-32b:8000  │    │
+│  └──────────────────────────────┘    │
+└──────────────────────────────────────┘
+         │                   │
+         ▼                   ▼
+   vLLM 14B (n8)      vLLM 32B (n7)
+```
+
+### Новые файлы
+
+| Файл | Назначение |
+|---|---|
+| `gateway/catalog.yaml` | Реестр моделей: имя, бэкенд, путь, цена |
+| `gateway/catalog.py` | Загрузчик + `resolve()` + `health_check()` |
+| `manifests/gateway-catalog.yaml` | K8s: ConfigMap + Deployment с каталогом |
+| `docs/model-catalog.md` | Полная документация (14 000 знаков) |
+
+### Изменённые файлы
+
+| Файл | Что изменено |
+|---|---|
+| `gateway/gateway.py` | Замена жёсткой маршрутизации на `catalog.resolve()` |
+| `portal/server.ts` | Новый эндпоинт `GET /api/v1/models` |
+| `portal/static/index.html` | Динамический выпадающий список моделей |
+
+### API
+
+| Эндпоинт | Ответ |
+|---|---|
+| `GET /v1/models` | `{"object":"list","data":[{id,display_name,description,...}]}` |
+| `GET /v1/models/health` | `{"backends":{"qwen2.5-14b":{"alive":true},...}}` |
+
+### Маршрутизация
+
+**Было (дни 1–8):**
+```python
+if "saiga" in model: → VLLM_SAIGA_URL
+else:                → VLLM_URL (жёстко 14B)
+```
+
+**Стало (день 9):**
+```python
+backend_url, model_path, err = catalog.resolve(model)
+→ динамический lookup по catalog.yaml
+```
+
+### Цены
+
+| Модель | Токенов/₽ | ~300 слов | ~1000 слов |
+|---|---|---|---|
+| Qwen 2.5 14B | 100 | 3 ₽ | 10 ₽ |
+| Qwen 2.5 32B | 30 | 10 ₽ | 33 ₽ |
+
+### Как добавить новую модель
+
+1. `kubectl apply -f manifests/vllm-new-model.yaml` (Deployment + Service)
+2. Добавить запись в `gateway/catalog.yaml`
+3. `kubectl create configmap gateway-catalog --from-file=catalog.yaml`
+4. `kubectl rollout restart deployment/gateway`
+5. Модель появляется в UI автоматически
