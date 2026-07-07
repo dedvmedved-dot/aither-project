@@ -1143,6 +1143,21 @@ async function renderOrgDetail() {
       </div>
     </div>
 
+    <!-- Top-up -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <h3>💰 Пополнение баланса</h3>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <input type="number" id="topup-amount" class="form-input" style="width:180px;" placeholder="Сумма в ₽" min="1" value="1000">
+          <button class="btn btn-primary" onclick="doTopup()">Пополнить</button>
+          <span style="font-size:13px;color:var(--text-dim);">1 ₽ = 1 000 токенов</span>
+        </div>
+        <div id="topup-result" style="margin-top:12px;font-size:14px;"></div>
+      </div>
+    </div>
+
     <!-- API Keys -->
     <div class="card">
       <div class="card-header">
@@ -1338,6 +1353,42 @@ async function revokeKey(keyId) {
     renderOrgDetail();
   } else {
     toast((data||{}).error || 'Ошибка', 'error');
+  }
+}
+
+// ===== TOP-UP =====
+
+async function doTopup() {
+  const amount = parseInt($('#topup-amount')?.value) || 0;
+  if (amount < 1) { toast('Введите сумму ≥ 1 ₽', 'error'); return; }
+
+  const orgId = state.selectedOrg?.org_id;
+  if (!orgId) { toast('Выберите организацию', 'error'); return; }
+
+  const el = $('#topup-result');
+  el.innerHTML = '<span style="color:var(--text-muted);">Создание платежа...</span>';
+
+  const { ok, data } = await api('/api/v1/billing/topup', {
+    method: 'POST',
+    body: JSON.stringify({ org_id: orgId, amount_rub: amount })
+  });
+
+  if (!ok) {
+    el.innerHTML = `<span style="color:var(--red);">Ошибка: ${(data||{}).error || 'неизвестная'}</span>`;
+    return;
+  }
+
+  if (data.dev_mode || data.status === 'succeeded') {
+    el.innerHTML = `<span style="color:var(--green);">✅ Зачислено ${data.tokens?.toLocaleString()} токенов!</span>`;
+    toast(`+${data.tokens?.toLocaleString()} токенов`);
+    return;
+  }
+
+  if (data.confirmation_url) {
+    el.innerHTML = `<a href="${data.confirmation_url}" target="_blank" class="btn btn-primary btn-sm">💳 Оплатить через ЮKassa</a>`;
+    window.open(data.confirmation_url, '_blank');
+  } else {
+    el.innerHTML = `<span style="color:var(--red);">Ошибка: нет ссылки на оплату</span>`;
   }
 }
 
