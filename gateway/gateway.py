@@ -364,7 +364,9 @@ class Gateway(BaseHTTPRequestHandler):
             pass
 
         if status == 200:
-            billing_op(org_id, "settle", actual_tokens, ref)
+            # Cap settle at reserved amount (actual can exceed estimate)
+            settle_amount = min(actual_tokens, reserve_amount)
+            billing_op(org_id, "settle", settle_amount, ref)
             # Insert usage record to PostgreSQL
             try:
                 conn = db_pool.getconn()
