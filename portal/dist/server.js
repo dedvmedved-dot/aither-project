@@ -11,6 +11,7 @@ const crypto_1 = require("crypto");
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-me";
 const CORE_API = process.env.CORE_API || "http://10.129.13.78:32293";
+const CORE_API_32B = process.env.CORE_API_32B || "http://10.129.13.77:32294";
 const pool = new pg_1.Pool({
     host: process.env.PG_HOST || "127.0.0.1",
     port: Number(process.env.PG_PORT) || 5432,
@@ -634,8 +635,9 @@ async function main() {
             // Translate model short name → vLLM path
             const modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
             const vllmModel = modelInfo.vllm_path;
-            // Call Gateway with streaming
-            const vllmRes = await fetch(CORE_API + "/v1/chat/completions", {
+            const vllmEndpoint = chat.model === "qwen2.5-32b" ? CORE_API_32B : CORE_API;
+            // Call vLLM with streaming
+            const vllmRes = await fetch(vllmEndpoint + "/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
