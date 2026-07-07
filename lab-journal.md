@@ -1647,3 +1647,105 @@ $ curl localhost:8000/v1/chat/completions -d '{"model":"qwen2.5-32b","messages":
 PVC: `models-32b-pvc` (50Gi, hostPath: `/mnt/data/models/Qwen2.5-32B-GPTQ` на n7)
 
 ⚠️ На n7 не устанавливать `kubectl` локально — kubeconfig не настроен. Все команды `kubectl` — через n8.
+
+---
+
+## 2026-07-09: Полный отчёт — Aither Platform (04:10 МСК)
+
+### Hermes Agent (VPS1)
+
+| Параметр | Значение |
+|---|---|
+| Модель | `deepseek-v4-pro` (DeepSeek) |
+| Gateway | systemd, PID 1286928 |
+| Telegram | ✓ (home: 611581566) |
+| Nous Portal | ✓ |
+| Память | 3.9G всего, свободно 180M |
+| Диск | 40G / 25G (66%) |
+| Аптайм | 6 дн 9 ч |
+
+### Инфраструктура
+
+```
+VPS1 (170.168.91.95) ═══ WireGuard ═══ VPS2 (130.17.1.90)
+                                             │
+                  ┌──────────────────────────┴──────────────────────┐
+             Cisco815 (V1)                                  HuaweiHP (V2)
+             10.129.11.0/24                               10.129.13.0/24 (VLAN 308)
+                  │                                    ┌─────────┴─────────┐
+              .21 (Astra)                          n8-gpu (40.51)     n7-gpu (40.50)
+                                                   control-plane        worker
+                                                   2× RTX 6000        2× RTX 6000
+```
+
+### Ноды K8s
+
+| Нода | Роль | IP | ОС | K8s | Аптайм | GPU | RAM |
+|---|---|---|---|---|---|---|---|
+| **n8** (40.51) | control-plane | 10.129.13.78 | Astra Linux 6.6.28 | v1.33.5 | 2д 22ч | 2× RTX 6000 | 754G |
+| **n7** (40.50) | worker | 10.129.13.77 | Astra Linux 6.6.28 | v1.33.5 | 3ч 25м | 2× RTX 6000 | 754G |
+
+### GPU
+
+| Нода | GPU 0 | GPU 1 | Всего |
+|---|---|---|---|
+| **n8** | 20.7/23 GiB, 32°C | 20.7/23 GiB, 32°C | 41.4/46 GiB |
+| **n7** | 20.7/23 GiB, 34°C | 20.7/23 GiB, 36°C | 41.4/46 GiB |
+
+### Поды (бизнес-сервисы)
+
+| Сервис | Нода | Статус | Рестарты | Возраст |
+|---|---|---|---|---|
+| **gateway** | n7 | 1/1 Running | 0 | ~2м |
+| **postgres** | n8 | 1/1 Running | 0 | 2д 19ч |
+| **redis** | n8 | 1/1 Running | 0 | 2д 19ч |
+| **vllm-qwen** (14B) | n8 | 1/1 Running | 0 | 13ч |
+| **vllm-qwen32b** (TP=2) | n7 | 1/1 Running | 0 | ~33м |
+
+### Модели
+
+| Модель | Нода | vLLM | max_model_len | Статус |
+|---|---|---|---|---|
+| Qwen2.5-14B-Instruct | n8 | ✓ | 4096 | Serving |
+| Qwen2.5-32B-GPTQ (TP=2) | n7 | ✓ | 8192 | Serving |
+
+### Gateway — активные модули
+
+| Модуль | Статус |
+|---|---|
+| JWT RS256 | ✅ public key loaded |
+| Rate Limiter (RPM 300 / TPM 100K) | ✅ Redis |
+| Usage Collector (точный учёт) | ✅ PostgreSQL |
+| Reservation Reaper (60s) | ✅ refund + reserved fix |
+| **AI Security Gateway** | ✅ prompt injection + DLP |
+| Billing (reserve → settle) | ✅ cap fix |
+
+### Дорожная карта
+
+| День | Задача | Статус |
+|---|---|---|
+| 1 | `org_id` | ✅ |
+| 2 | Rate Limiter | ✅ |
+| 3 | Usage Collector | ✅ |
+| 4 | Reservation Reaper | ✅ |
+| 5 | Интеграционный тест | ✅ |
+| 6 | AI Security Gateway | ✅ |
+| 7 | OAuth GitHub | ⬜ |
+| 8 | Каталог моделей | ⬜ |
+| 9 | Второй vLLM-узел (балансировка) | ⬜ |
+| 10 | Observability (Grafana) | ⬜ |
+
+### Незакрытое
+
+- [ ] Вернуть **Parsec** на n7 (`max_ilev=63 execstack=1`)
+- [ ] VPS2 портал — нет health-эндпоинта
+- [ ] n7 kubectl не настроен (все команды через n8)
+
+### Репозитории
+
+| Репо | Последний коммит |
+|---|---|
+| `aither-project` | `5185dc0` — security: AI Security Gateway |
+| `dissertation-a` | чисто |
+| `dissertation-rca` | чисто |
+| `hermes-sync` | синхронизирован |
