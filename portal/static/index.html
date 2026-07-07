@@ -824,12 +824,13 @@ async function render() {
     renderLogin();
     return;
   }
-  renderApp();
-  // Load models on first render (needed for chat dropdown)
+  // Load models BEFORE rendering (needed for chat dropdown)
   if (state.availableModels.length === 0) {
-    const { ok, data } = await api('/api/v1/models');
+    const { ok, data } = await api('/api/v1/models?_=' + Date.now());
+    console.log('Models loaded:', ok, data?.data?.length, data?.data?.map(m=>m.id));
     if (ok && data?.data) state.availableModels = data.data;
   }
+  renderApp();
   switch (state.page) {
     case 'dashboard': await renderDashboard(); break;
     case 'orgs': await renderOrgs(); break;
