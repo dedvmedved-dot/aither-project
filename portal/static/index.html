@@ -767,6 +767,7 @@ const state = {
   chatStreaming: false,
   chatOrgId: localStorage.getItem('aither_chat_org') || '',
   chatModel: localStorage.getItem('aither_chat_model') || 'qwen2.5-14b',
+  availableModels: [],
 };
 
 // ===== HELPERS =====
@@ -911,11 +912,13 @@ async function renderDashboard() {
   const main = $('#main-content');
   main.innerHTML = '<div class="loading">Загрузка...</div>';
 
-  const [statusR, coreR] = await Promise.all([
+  const [statusR, coreR, modelsR] = await Promise.all([
     api('/api/v1/status'),
     api('/api/v1/core/status'),
+    api('/api/v1/models'),
   ]);
   state.coreStatus = coreR.ok ? coreR.data : null;
+  if (modelsR.ok && modelsR.data?.data) state.availableModels = modelsR.data.data;
 
   const status = statusR.ok ? statusR.data : { orgs:0, users:0, active_keys:0 };
 
@@ -1440,7 +1443,9 @@ async function renderChats() {
       <div class="chat-sidebar-header">
         <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="newChat()">+ Новый чат</button>
         <select class="chat-model-select" id="chat-model-select" onchange="onChatModelChange(this.value)">
-          <option value="qwen2.5-14b" ${state.chatModel==='qwen2.5-14b'?'selected':''}>Qwen 2.5 14B</option>
+          ${(state.availableModels.length > 0 ? state.availableModels : [{id:'qwen2.5-14b',display_name:'Qwen 2.5 14B'}]).map(m => 
+            `<option value="${esc(m.id)}" ${state.chatModel===m.id?'selected':''}>${esc(m.display_name || m.id)}</option>`
+          ).join('')}
         </select>
         <select class="chat-org-select" id="chat-org-select" onchange="onChatOrgChange(this.value)" style="margin-top:6px;">
           ${state.orgs.map(o => `<option value="${esc(o.org_id)}" ${state.chatOrgId===o.org_id?'selected':''}>${esc(o.name)}</option>`).join('')}

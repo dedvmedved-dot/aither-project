@@ -7,6 +7,7 @@ import jwt as pyjwt
 import psycopg2
 import psycopg2.pool
 from security import check_security
+from catalog import list_models, resolve, health_summary, load_catalog
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
@@ -179,11 +180,11 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(401, {"error": str(e)})
             return
         if self.path == "/v1/models":
-            status, body, ct = self._proxy("GET", self.path)
-            self.send_response(status)
-            self.send_header("Content-Type", ct)
-            self.end_headers()
-            self.wfile.write(body)
+            # Return model catalog (not vLLM-proxied)
+            self._json(200, {"object": "list", "data": list_models()})
+            return
+        if self.path == "/v1/models/health":
+            self._json(200, {"object": "health", "backends": health_summary()})
             return
         if self.path.startswith("/v1/usage/"):
             auth = self.headers.get("Authorization", "")
@@ -321,14 +322,14 @@ class Gateway(BaseHTTPRequestHandler):
             max_tokens = req_data.get("max_tokens", 256)
             input_tokens = len(req_data.get("messages", [])) * 20  # rough estimate
             reserve_amount = (max_tokens + input_tokens) * TOKEN_COST
-            # Multi-model routing
-            model = req_data.get("model", "qwen")
-            if "saiga" in model.lower():
-                self.vllm_url = os.environ.get("VLLM_SAIGA_URL", "http://vllm-saiga:8000") or "http://vllm-saiga:8000"
-                req_data["model"] = "/models/saiga_llama3_8b"
-            else:
-                self.vllm_url = os.environ.get("VLLM_URL", "http://vllm:8000") or "http://vllm:8000"
-                req_data["model"] = "/models/Qwen2.5-14B-Instruct"
+            # Multi-model routing via catalog
+            model = req_data.get("model", "")
+            backend_url, model_path, err = resolve(model)
+            if err:
+                self._json(400, {"error": "unknown_model", "detail": err, "available": [m["id"] for m in list_models()]})
+                return
+            self.vllm_url = backend_url
+            req_data["model"] = model_path
             body_str = json.dumps(req_data)
 
             # Security check: prompt injection + DLP
@@ -496,6 +497,7 @@ def reaper_loop():
 
 
 if __name__ == "__main__":
+    print(f"[Gateway] Catalog: {len(list_models())} models loaded", flush=True)
     print(f"[Reaper] Starting (interval={REAP_INTERVAL}s, threshold={STUCK_THRESHOLD}s)", flush=True)
     threading.Thread(target=reaper_loop, daemon=True).start()
     port = int(os.environ.get("PORT", "8080"))

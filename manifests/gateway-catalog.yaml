@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-catalog
+data:
+  catalog.yaml: |
+    models:
+      - name: qwen2.5-14b
+        display_name: "Qwen 2.5 14B"
+        backend: "http://vllm:8000"
+        model_path: "/models/Qwen2.5-14B-Instruct"
+        max_tokens: 4096
+        description: "Быстрая универсальная модель — чаты, summarization, код"
+        tokens_per_ruble: 100
+        tags: [chat, code, fast]
+        status: active
+
+      - name: qwen2.5-32b
+        display_name: "Qwen 2.5 32B"
+        backend: "http://vllm-32b:8000"
+        model_path: "/models/Qwen2.5-32B-Instruct-GPTQ"
+        max_tokens: 8192
+        description: "Мощная модель — сложный код, аналитика, длинные тексты"
+        tokens_per_ruble: 30
+        tags: [code, analysis, large-context]
+        status: active
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    app: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: python:3.12-slim
+        command: ["sh", "-c"]
+        args:
+        - |
+          pip install -q redis pyjwt psycopg2-binary pyyaml && python3 /app/gateway.py
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CATALOG_PATH
+          value: "/app/catalog.yaml"
+        - name: VLLM_URL
+          value: "http://vllm:8000"
+        - name: REDIS_URL
+          value: "redis"
+        - name: RATE_LIMIT_RPM
+          value: "300"
+        - name: RATE_LIMIT_TPM
+          value: "100000"
+        - name: PORT
+          value: "8080"
+        - name: TOKEN_COST
+          value: "1"
+        - name: PG_URL
+          valueFrom:
+            secretKeyRef:
+              name: pg-url
+              key: url
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: code
+          mountPath: /app/gateway.py
+          subPath: gateway.py
+        - name: code
+          mountPath: /app/security.py
+          subPath: security.py
+        - name: code
+          mountPath: /app/catalog.py
+          subPath: catalog.py
+        - name: catalog
+          mountPath: /app/catalog.yaml
+          subPath: catalog.yaml
+        - name: delegation-key
+          mountPath: /app/delegation
+      volumes:
+      - name: code
+        configMap:
+          name: gateway-code
+      - name: catalog
+        configMap:
+          name: gateway-catalog
+      - name: delegation-key
+        configMap:
+          name: delegation-public-key
