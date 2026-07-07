@@ -1568,8 +1568,17 @@ async function deleteChat(id) {
 }
 
 async function loadChatMessages(chatId) {
-  const { ok, data } = await api(`/api/v1/chats/${chatId}`);
-  if (!ok) return;
+  const { ok, data, status } = await api(`/api/v1/chats/${chatId}`);
+  if (!ok) {
+    // Chat deleted or never existed — clear stale reference
+    if (status === 404) {
+      state.chatId = null;
+      localStorage.removeItem('aither_chat_id');
+      state.chatMessages = [];
+      renderMessages();
+    }
+    return;
+  }
   state.chatMessages = data.messages || [];
   renderMessages();
   scrollToBottom();
