@@ -192,6 +192,38 @@ body::after {
 }
 .login-card button:hover { background: var(--accent-hover); box-shadow: 0 0 20px var(--accent-glow); }
 .login-error { color: var(--red); font-size: 13px; margin-top: 12px; display: none; }
+.login-divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.login-divider::before, .login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.login-divider span { margin: 0 12px; }
+.btn-github {
+  width: 100%;
+  padding: 10px;
+  background: #24292e;
+  border: 1px solid #444d56;
+  border-radius: var(--radius-sm);
+  color: #e4e4ec;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-github:hover { background: #2f363d; border-color: #6366f1; }
 
 /* ===== PAGE HEADER ===== */
 .page-header {
@@ -793,11 +825,17 @@ function renderLogin() {
         <p>Token‑as‑a‑Service — платформа для инференса LLM</p>
         <p style="font-size:11px;color:var(--text-dim);margin-bottom:20px;line-height:1.4;">Пилотный проект Управления виртуализации и облачных сервисов<br>(Группа разработки AI-систем), АО «Гринатом»</p>
         <input type="text" id="login-name" placeholder="Ваше имя" autofocus>
-        <button onclick="doLogin()">Войти</button>
+        <button onclick="doLogin()" style="margin-top:16px;width:100%;">Войти (dev)</button>
+        <div class="login-divider"><span>или</span></div>
+        <button class="btn-github" onclick="loginWithGitHub()">🐙 Войти через GitHub</button>
         <div class="login-error" id="login-error"></div>
       </div>
     </div>`;
-  $('#login-name').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+  $$('#login-name').forEach(el => el.addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); }));
+}
+
+function loginWithGitHub() {
+  window.location.href = '/auth/github';
 }
 
 async function doLogin() {
@@ -1681,6 +1719,15 @@ async function renderShared() {
 // ===== INIT =====
 if (window.location.pathname.startsWith('/shared/')) {
   state.page = 'shared';
+}
+// OAuth callback — handle token from URL
+const urlParams = new URLSearchParams(window.location.search);
+const oauthToken = urlParams.get('aither_token');
+if (oauthToken) {
+  state.token = oauthToken;
+  localStorage.setItem('aither_token', oauthToken);
+  // Clean URL
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 render();
 
