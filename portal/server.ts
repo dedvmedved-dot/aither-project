@@ -383,6 +383,15 @@ async function main() {
     return { version: "0.5.0", orgs: Number(o.rows[0].count), users: Number(u.rows[0].count), active_keys: Number(k.rows[0].count) };
   });
 
+  app.get("/api/v1/models", async (_r, reply) => {
+    try {
+      const r = await fetch(CORE_API + "/v1/models");
+      return reply.send(await r.json());
+    } catch (e: any) {
+      return reply.status(502).send({ error: "gateway unreachable", detail: e.message });
+    }
+  });
+
   app.get("/api/v1/core/status", async (_r, reply) => {
     try {
       const r = await fetch(CORE_API + "/health");

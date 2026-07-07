@@ -1,0 +1,23 @@
+# Модельный каталог Aither Platform
+# Каждая модель знает свой backend URL (vLLM-под) и параметры
+
+models:
+  - name: qwen2.5-14b
+    display_name: "Qwen 2.5 14B"
+    backend: "http://vllm:8000"
+    model_path: "/models/Qwen2.5-14B-Instruct"
+    max_tokens: 4096
+    description: "Быстрая универсальная модель — чаты, summarization, код"
+    tokens_per_ruble: 100
+    tags: [chat, code, fast]
+    status: active
+
+  - name: qwen2.5-32b
+    display_name: "Qwen 2.5 32B"
+    backend: "http://vllm-32b:8000"
+    model_path: "/models/Qwen2.5-32B-Instruct-GPTQ"
+    max_tokens: 8192
+    description: "Мощная модель — сложный код, аналитика, длинные тексты"
+    tokens_per_ruble: 30
+    tags: [code, analysis, large-context]
+    status: active
