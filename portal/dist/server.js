@@ -106,6 +106,24 @@ async function main() {
       tokens_used int NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS payment_transactions (
+      txn_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id uuid REFERENCES portal_organizations(org_id),
+      user_id uuid REFERENCES portal_users(user_id),
+      provider text NOT NULL DEFAULT 'yookassa',
+      provider_payment_id text,
+      amount_rub numeric(12,2) NOT NULL,
+      tokens int NOT NULL DEFAULT 0,
+      status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','succeeded','canceled')),
+      meta jsonb DEFAULT '{}',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS billing_accounts (
+      org_id uuid PRIMARY KEY REFERENCES portal_organizations(org_id),
+      reserved bigint NOT NULL DEFAULT 0,
+      total_tokens bigint NOT NULL DEFAULT 0
+    );
   `);
     // ==================== AUTH ====================
     // GitHub OAuth
@@ -688,6 +706,120 @@ async function main() {
         catch (e) {
             return reply.status(502).send({ error: "gateway unreachable" });
         }
+    });
+    // ==================== PAYMENTS (YooKassa) ====================
+    const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || "";
+    const YOOKASSA_SECRET = process.env.YOOKASSA_SECRET || "";
+    const TOKENS_PER_RUBLE = 1000; // 1 ₽ = 1000 токенов (для теста; в продакшене ~100)
+    // Create payment → redirect to YooKassa
+    app.post("/api/v1/billing/topup", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        const { org_id, amount_rub } = req.body;
+        if (!org_id || !amount_rub || amount_rub < 1)
+            return reply.status(400).send({ error: "org_id and amount_rub (>=1) required" });
+        // Check org membership
+        const m = await pool.query("SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [org_id, p.user_id]);
+        if (m.rows.length === 0)
+            return reply.status(403).send({ error: "not a member" });
+        const tokens = Math.floor(amount_rub * TOKENS_PER_RUBLE);
+        // Create transaction record
+        const txn = await pool.query(`INSERT INTO payment_transactions (org_id, user_id, provider, amount_rub, tokens, status, meta)
+       VALUES ($1,$2,'yookassa',$3,$4,'pending','{}'::jsonb) RETURNING txn_id`, [org_id, p.user_id, amount_rub, tokens]);
+        const txnId = txn.rows[0].txn_id;
+        // If YooKassa is not configured, auto-succeed for dev mode
+        if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET) {
+            await pool.query("UPDATE payment_transactions SET status='succeeded', updated_at=now(), meta=$1 WHERE txn_id=$2", [JSON.stringify({ dev_mode: true }), txnId]);
+            // Credit tokens directly (simulate YooKassa callback)
+            await pool.query(`INSERT INTO billing_accounts (org_id, reserved, total_tokens)
+         VALUES ($1, 0, $2)
+         ON CONFLICT (org_id) DO UPDATE SET total_tokens = billing_accounts.total_tokens + $2`, [org_id, tokens]);
+            return reply.send({
+                ok: true,
+                txn_id: txnId,
+                status: "succeeded",
+                tokens: tokens,
+                dev_mode: true,
+            });
+        }
+        // Create YooKassa payment
+        try {
+            const idempotenceKey = txnId;
+            const ykRes = await fetch("https://api.yookassa.ru/v3/payments", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Basic " + Buffer.from(YOOKASSA_SHOP_ID + ":" + YOOKASSA_SECRET).toString("base64"),
+                    "Idempotence-Key": idempotenceKey,
+                },
+                body: JSON.stringify({
+                    amount: { value: amount_rub.toFixed(2), currency: "RUB" },
+                    confirmation: { type: "redirect", return_url: `http://${process.env.PUBLIC_HOST || "localhost"}/` },
+                    description: `Пополнение Aither: ${tokens.toLocaleString()} токенов`,
+                    metadata: { txn_id: txnId, org_id },
+                }),
+            });
+            const ykData = await ykRes.json();
+            if (ykRes.ok && ykData.confirmation?.confirmation_url) {
+                await pool.query("UPDATE payment_transactions SET provider_payment_id=$1, meta=$2 WHERE txn_id=$3", [ykData.id, JSON.stringify(ykData), txnId]);
+                return reply.send({
+                    ok: true,
+                    txn_id: txnId,
+                    confirmation_url: ykData.confirmation.confirmation_url,
+                    status: "pending",
+                });
+            }
+            return reply.status(502).send({ error: "yookassa error", detail: ykData });
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "yookassa error: " + e.message });
+        }
+    });
+    // YooKassa webhook — called by YooKassa when payment status changes
+    app.post("/api/v1/billing/webhook", async (req, reply) => {
+        try {
+            const body = req.body;
+            const event = body?.event;
+            const payment = body?.object;
+            if (event === "payment.succeeded" && payment?.status === "succeeded") {
+                const txnId = payment.metadata?.txn_id;
+                if (!txnId)
+                    return reply.send({ ok: false, error: "no txn_id in metadata" });
+                const txn = await pool.query("SELECT txn_id, org_id, tokens, status FROM payment_transactions WHERE txn_id=$1", [txnId]);
+                if (txn.rows.length === 0)
+                    return reply.send({ ok: false, error: "txn not found" });
+                if (txn.rows[0].status === "succeeded")
+                    return reply.send({ ok: true, status: "already_processed" });
+                // Mark succeeded + credit tokens
+                await pool.query("BEGIN");
+                await pool.query("UPDATE payment_transactions SET status='succeeded', updated_at=now(), meta=$1 WHERE txn_id=$2", [JSON.stringify(payment), txnId]);
+                await pool.query(`INSERT INTO billing_accounts (org_id, reserved, total_tokens)
+           VALUES ($1, 0, $2)
+           ON CONFLICT (org_id) DO UPDATE SET total_tokens = billing_accounts.total_tokens + $2`, [txn.rows[0].org_id, txn.rows[0].tokens]);
+                await pool.query("COMMIT");
+                return reply.send({ ok: true, status: "credited" });
+            }
+            return reply.send({ ok: true, status: "ignored", event });
+        }
+        catch (e) {
+            return reply.status(500).send({ ok: false, error: e.message });
+        }
+    });
+    // List payment transactions for org
+    app.get("/api/v1/billing/payments", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        const orgId = req.query.org_id;
+        if (!orgId)
+            return reply.status(400).send({ error: "org_id required" });
+        const m = await pool.query("SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [orgId, p.user_id]);
+        if (m.rows.length === 0)
+            return reply.status(403).send({ error: "not a member" });
+        const r = await pool.query(`SELECT txn_id, provider, amount_rub, tokens, status, created_at
+       FROM payment_transactions WHERE org_id=$1 ORDER BY created_at DESC LIMIT 50`, [orgId]);
+        return reply.send({ payments: r.rows });
     });
     await app.listen({ port: PORT, host: "0.0.0.0" });
     console.log("Portal BFF v0.5.0 (with chat) on :" + PORT);
