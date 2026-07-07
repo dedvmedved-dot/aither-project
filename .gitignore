@@ -1,2 +1,4 @@
 delegation/private.pem
 portal/node_modules/
+portal/.env
+portal/.env.production
