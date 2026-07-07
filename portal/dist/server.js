@@ -108,6 +108,74 @@ async function main() {
     );
   `);
     // ==================== AUTH ====================
+    // GitHub OAuth
+    const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
+    const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || "";
+    app.get("/auth/github", async (_req, reply) => {
+        if (!GITHUB_CLIENT_ID)
+            return reply.status(500).send({ error: "GitHub OAuth not configured" });
+        const state = (0, crypto_1.randomBytes)(16).toString("hex");
+        const params = new URLSearchParams({
+            client_id: GITHUB_CLIENT_ID,
+            redirect_uri: process.env.GITHUB_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/github/callback`,
+            scope: "read:user user:email",
+            state,
+        });
+        return reply.redirect(`https://github.com/login/oauth/authorize?${params}`);
+    });
+    app.get("/auth/github/callback", async (req, reply) => {
+        if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET)
+            return reply.status(500).send({ error: "GitHub OAuth not configured" });
+        const { code, state } = req.query;
+        if (!code)
+            return reply.status(400).send({ error: "missing code" });
+        try {
+            // Exchange code for access token
+            const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    client_id: GITHUB_CLIENT_ID,
+                    client_secret: GITHUB_CLIENT_SECRET,
+                    code,
+                    redirect_uri: process.env.GITHUB_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/github/callback`,
+                }),
+            });
+            const tokenData = await tokenRes.json();
+            if (tokenData.error)
+                return reply.status(403).send({ error: tokenData.error_description || tokenData.error });
+            const accessToken = tokenData.access_token;
+            // Get user info
+            const [userRes, emailsRes] = await Promise.all([
+                fetch("https://api.github.com/user", { headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "aither-portal" } }),
+                fetch("https://api.github.com/user/emails", { headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "aither-portal" } }),
+            ]);
+            const ghUser = await userRes.json();
+            const emails = await emailsRes.json();
+            const primaryEmail = emails.find((e) => e.primary)?.email || emails[0]?.email || "";
+            const oauthId = String(ghUser.id);
+            const displayName = ghUser.name || ghUser.login;
+            const avatarUrl = ghUser.avatar_url || "";
+            // Upsert user
+            let user = await pool.query("SELECT user_id FROM portal_users WHERE oauth_provider=$1 AND oauth_id=$2", ["github", oauthId]);
+            let userId;
+            if (user.rows.length === 0) {
+                const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
+           VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["github", oauthId, primaryEmail, displayName, avatarUrl]);
+                userId = ins.rows[0].user_id;
+            }
+            else {
+                userId = user.rows[0].user_id;
+                await pool.query("UPDATE portal_users SET email=$1, display_name=$2, avatar_url=$3, last_login_at=now() WHERE user_id=$4", [primaryEmail, displayName, avatarUrl, userId]);
+            }
+            const tok = signToken(userId);
+            const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "GitHub OAuth error: " + e.message });
+        }
+    });
     app.post("/auth/dev/login", async (req) => {
         const { name } = req.body;
         if (!name)
