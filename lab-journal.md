@@ -1471,3 +1471,106 @@ JWT Auth → Rate Limiter → Reserve → Proxy(vLLM) → Usage Collector → Se
 - `LOG.md` — хронология разработки
 
 Создан навык `gostechnical-documentation` для будущих компонентов.
+
+---
+
+## 2026-07-08–09: День 4–5 — Расширение кластера K8s и развёртывание второго GPU-узла
+
+### Задача
+
+Развернуть второй GPU-узел (40.50, `n7-gpu`) в кластере K8s, загрузить модели Qwen2.5-32B-GPTQ и Qwen2.5-Coder-14B, настроить vLLM.
+
+### Сборка кластера
+
+| Шаг | Действие | Результат |
+|---|---|---|
+| 1 | Установка containerd из репо Astra | сервис active ✅ |
+| 2 | Копирование k8s-бинарников с 40.51 по HTTP (CDN заблокирован) | .deb получены |
+| 3 | `dpkg -i` kubeadm, kubelet, kubectl | установлены |
+| 4 | `kubeadm join` с `--fail-swap-on=false` | worker подключён |
+| 5 | `systemctl enable --now kubelet` | запущен |
+| 6 | Деплой Flannel CNI | сеть поднята |
+
+**Итог:** кластер из 2 нод Ready:
+
+| Нода | Роль | IP | GPU |
+|---|---|---|---|
+| `n8-gpu` | control-plane | 10.129.13.78 | 2× RTX 6000 |
+| `n7-gpu` | worker | 10.129.13.77 | 2× RTX 6000 |
+
+### GPU-оператор и модели
+
+1. **GPU-оператор NVIDIA** развёрнут на n7 — все поды Running.
+2. **CDI-устройства** созданы вручную (`nvidia-cdi`), т.к. автоматически не появились.
+3. **Модели загружены на n7:**
+
+| Модель | Размер | Статус |
+|---|---|---|
+| Qwen2.5-32B-GPTQ | 19 GB | ✅ загружена |
+| Qwen2.5-Coder-14B | 23.5 GB | ✅ загружена |
+
+4. **vLLM образ** загружен на n7 через локальный registry (Docker Hub — 293 KiB/s, неприемлемо).
+5. **vLLM под** запущен с `runtimeClassName: nvidia-cdi`.
+
+### Особенности и обходы
+
+| Проблема | Решение |
+|---|---|
+| CDN K8s заблокирован | копирование .deb с 40.51 по HTTP |
+| Swap на Astra Linux | `--fail-swap-on=false` в kubelet |
+| Docker Hub медленный | локальный registry на n8 (порт 5000) |
+| `ctr import` глючит на containerd 2.2 | альтернативный pull через registry |
+| Parsec блокирует установку ПО | `parsec=0` в GRUB (вернуть после!) |
+| vLLM и K8s-сервис (VLLM_PORT) | `sh -c "export VLLM_PORT=8000; exec python3 -m vllm..."` |
+
+### Текущий статус инфраструктуры
+
+```
+VPS1 (170.168.91.95)                     VPS2 (130.17.1.90)
+     │                                        │
+     │  WireGuard wg0                         │
+     └────────────┬───────────────────────────┘
+                  │
+         ┌────────┴────────┐
+         │                 │
+    Cisco815 (V1)     HuaweiHP (V2)
+         │                 │
+    10.129.11.0/24    10.129.13.0/24 (VLAN 308)
+         │                 │
+    .21 (Astra)       ┌────┴────┐
+                   n8-gpu     n7-gpu
+                  (40.51)    (40.50)
+                  ctrl-pl     worker
+```
+
+| Компонент | Хост | Статус |
+|---|---|---|
+| Gateway (Python) | n8-gpu (40.51) | ✅ Running (423 строк) |
+| Reservation Reaper | n8-gpu | ✅ фоновый поток |
+| PostgreSQL + Redis | n8-gpu | ✅ |
+| Rate Limiter | n8-gpu | ✅ (RPM/TPM) |
+| Usage Collector | n8-gpu | ✅ (точный учёт) |
+| vLLM (2 модели) | n7-gpu (40.50) | ✅ |
+| Портал Aither | VPS2:80 | ✅ |
+
+### Репозитории
+
+| Репо | Статус |
+|---|---|
+| `dedvmedved-dot/aither-project` | ✅ основная кодобаза |
+| `dedvmedved-dot/dissertation-a` | ✅ автореферат + 3 статьи |
+| `dedvmedved-dot/dissertation-rca` | ✅ готова (147 стр.) |
+| `dedvmedved-dot/hermes-sync` | ✅ хаб памяти и навыков |
+
+### Незавершённое
+
+- [ ] Вернуть Parsec (`max_ilev=63 execstack=1`) на 40.50
+- [ ] AI Security Gateway (день 6)
+- [ ] Каталог моделей (день 8)
+- [ ] Cost-aware routing
+- [ ] RAG-подсистема
+- [ ] Fine-tuning пайплайн
+
+### Память
+
+Хранилище памяти Hermes консолидировано (7 записей, 64%). Бэкап в `hermes-sync`. Архивная копия в `aither-project/archive/`.
