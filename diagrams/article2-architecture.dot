@@ -1,0 +1,70 @@
+digraph Aither {
+    bgcolor="#ffffff";
+    fontname="Helvetica";
+    rankdir=TB;
+    splines=ortho;
+    
+    subgraph cluster_vps {
+        label="VPS2 (130.17.1.90)";
+        style=filled;
+        fillcolor="#e0e0e0";
+        fontcolor="#424242";
+        fontname="Helvetica";
+        fontsize=11;
+        
+        nginx [label="Nginx\n:80", shape=box, style=filled, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00", fontsize=10];
+        bff [label="BFF (Fastify)\n:3000", shape=box, style=filled, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00", fontsize=10];
+        pg [label="PostgreSQL 16\n:5432", shape=cylinder, style=filled, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047", fontsize=10];
+    }
+    
+    subgraph cluster_k8s {
+        label="Kubernetes v1.33.5\nVLAN 308 (10.129.13.0/24)";
+        style=filled;
+        fillcolor="#bbdefb";
+        fontcolor="#1565c0";
+        fontname="Helvetica";
+        fontsize=11;
+        
+        subgraph cluster_n8 {
+            label="n8 · control-plane\n2× RTX 6000 24GB";
+            style=filled;
+            fillcolor="#bbdefb";
+            fontcolor="#1565c0";
+            color="#1e88e5";
+            fontsize=10;
+            
+            vllm14 [label="vLLM 14B\nFP16 · 4096 ctx\n:32293", shape=box, style=filled, fillcolor="#e1bee7", fontcolor="#7b1fa2", color="#8e24aa", fontsize=10];
+            gpua [label="GPU 0+1", shape=box, style=filled, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935", fontsize=9];
+        }
+        
+        subgraph cluster_n7 {
+            label="n7 · worker\n2× RTX 6000 24GB";
+            style=filled;
+            fillcolor="#bbdefb";
+            fontcolor="#1565c0";
+            color="#1e88e5";
+            fontsize=10;
+            
+            vllm32 [label="vLLM 32B\nGPTQ · 8192 ctx\n:32294", shape=box, style=filled, fillcolor="#e1bee7", fontcolor="#7b1fa2", color="#8e24aa", fontsize=10];
+            gpub [label="GPU 0+1", shape=box, style=filled, fillcolor="#ffcdd2", fontcolor="#c62828", color="#e53935", fontsize=9];
+        }
+        
+        gateway [label="Gateway\nJWT+RL\nClusterIP", shape=box, style=filled, fillcolor="#fff3e0", fontcolor="#e65100", color="#fb8c00", fontsize=10];
+        redis [label="Redis 7", shape=cylinder, style=filled, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047", fontsize=10];
+        pgk8s [label="PostgreSQL", shape=cylinder, style=filled, fillcolor="#c8e6c9", fontcolor="#2e7d32", color="#43a047", fontsize=10];
+    }
+    
+    user [label="Пользователь", shape=ellipse, style=filled, fillcolor="#e0e0e0", fontcolor="#424242", color="#9e9e9e", fontsize=10];
+    vpn [label="WireGuard\nCisco815", shape=box, style=filled, fillcolor="#e0e0e0", fontcolor="#424242", color="#9e9e9e", fontsize=9];
+    
+    user -> nginx [label="HTTPS"];
+    nginx -> bff [label="/api/*\n/auth/*", fontsize=8];
+    bff -> vllm14 [label="14B запросы", fontsize=8, color="#1e88e5"];
+    bff -> vllm32 [label="32B запросы", fontsize=8, color="#8e24aa"];
+    bff -> pg [label="SQL\nбиллинг", fontsize=8];
+    vllm14 -> gpua [label="TP=2", fontsize=7, color="#e53935"];
+    vllm32 -> gpub [label="TP=2", fontsize=7, color="#e53935"];
+    bff -> gateway [label="JWT RS256", fontsize=8, style=dashed, color="#888888"];
+    gateway -> redis [fontsize=7, color="#888888"];
+    bff -> vpn [style=invis];
+}
