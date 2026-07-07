@@ -1,0 +1,57 @@
+digraph usage_collector_architecture {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.8;
+    ranksep=1.0;
+    fontname="Helvetica";
+    labelloc="t";
+    label="Usage Collector — архитектура потока данных";
+    fontsize=16;
+    
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=9, color="#37474F", arrowsize=0.8];
+    
+    subgraph cluster_gateway {
+        label="Gateway Aither";
+        style="filled,rounded,dashed";
+        fillcolor="#FFF3E0";
+        color="#E65100";
+        
+        auth [label="JWT Auth\norg_id", fillcolor="#FFE0B2", color="#BF360C"];
+        ratelimit [label="Rate Limiter\nRPM + TPM", fillcolor="#FFE0B2", color="#BF360C"];
+        reserve [label="Billing Reserve\nbilling_op(reserve)", fillcolor="#FFE0B2", color="#BF360C"];
+        proxy [label="Proxy to vLLM\nзамер latency", fillcolor="#FFE0B2", color="#BF360C"];
+        collector [label="Usage Collector\nизвлечение usage\n+ INSERT record", fillcolor="#FFCC80", color="#E65100"];
+        settle [label="Billing Settle\nbilling_op(settle)", fillcolor="#FFE0B2", color="#BF360C"];
+        
+        auth -> ratelimit -> reserve -> proxy -> collector -> settle;
+    }
+    
+    subgraph cluster_storage {
+        label="Хранилища";
+        style="filled,rounded,dashed";
+        fillcolor="#EDE7F6";
+        color="#4527A0";
+        
+        pg [label="PostgreSQL\nusage_records\nbilling_ledger", fillcolor="#D1C4E9", color="#311B92"];
+        redis [label="Redis\nсчётчики\nrate limits", fillcolor="#D1C4E9", color="#311B92"];
+    }
+    
+    subgraph cluster_vllm {
+        label="Инференс-сервер";
+        style="filled,rounded,dashed";
+        fillcolor="#FCE4EC";
+        color="#C62828";
+        
+        vllm [label="vLLM\nQwen2.5-14B", fillcolor="#F8BBD0", color="#880E4F"];
+    }
+    
+    proxy -> vllm [label="POST /v1/chat/completions", color="#1565C0"];
+    vllm -> proxy [label="response\n+ usage.total_tokens", color="#2E7D32"];
+    
+    collector -> pg [label="INSERT", color="#4527A0"];
+    collector -> redis [label="INCR usage:*", color="#4527A0"];
+    settle -> pg [label="UPDATE billing", color="#4527A0"];
+    reserve -> pg [label="UPDATE billing", color="#4527A0"];
+    ratelimit -> redis [label="INCR rl:*", color="#4527A0"];
+}

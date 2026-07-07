@@ -1,0 +1,48 @@
+digraph usage_state_machine {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.8;
+    fontname="Helvetica";
+    labelloc="t";
+    label="Usage Collector — конечный автомат запроса";
+    fontsize=16;
+    
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=9];
+    edge [fontname="Helvetica", fontsize=8, color="#37474F"];
+    
+    start [label="START", shape=circle, fillcolor="#C8E6C9", color="#2E7D32", width=0.5];
+    auth_state [label="AUTH\nJWT verify", fillcolor="#BBDEFB", color="#0D47A1"];
+    rl_state [label="RATE LIMIT\nRPM+TPM check", fillcolor="#BBDEFB", color="#0D47A1"];
+    reserve_state [label="RESERVE\nbilling_op", fillcolor="#FFE0B2", color="#BF360C"];
+    proxy_state [label="PROXY\n→ vLLM", fillcolor="#FFE0B2", color="#BF360C"];
+    collect_state [label="COLLECT\nextract usage", fillcolor="#FFCC80", color="#E65100"];
+    settle_state [label="SETTLE\nbilling + record", fillcolor="#C8E6C9", color="#2E7D32"];
+    error_state [label="ERROR\nrefund + record", fillcolor="#F8BBD0", color="#C62828"];
+    end_state [label="END", shape=circle, fillcolor="#C8E6C9", color="#2E7D32", width=0.5];
+    
+    # Error states
+    auth_fail [label="401\nunauthorized", fillcolor="#F8BBD0", color="#C62828"];
+    rl_fail [label="429\nrate limited", fillcolor="#F8BBD0", color="#C62828"];
+    reserve_fail [label="402\nno balance", fillcolor="#F8BBD0", color="#C62828"];
+    proxy_fail [label="502\nvLLM error", fillcolor="#F8BBD0", color="#C62828"];
+    
+    start -> auth_state;
+    auth_state -> auth_fail [label="fail"];
+    auth_state -> rl_state [label="ok"];
+    rl_state -> rl_fail [label="exceeded"];
+    rl_state -> reserve_state [label="ok"];
+    reserve_state -> reserve_fail [label="insufficient"];
+    reserve_state -> proxy_state [label="ok"];
+    proxy_state -> proxy_fail [label="error"];
+    proxy_state -> collect_state [label="ok"];
+    collect_state -> settle_state [label="success"];
+    collect_state -> error_state [label="error"];
+    
+    settle_state -> end_state;
+    error_state -> end_state;
+    auth_fail -> end_state;
+    rl_fail -> end_state;
+    reserve_fail -> end_state;
+    proxy_fail -> end_state;
+}
