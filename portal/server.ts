@@ -383,13 +383,32 @@ async function main() {
     return { version: "0.5.0", orgs: Number(o.rows[0].count), users: Number(u.rows[0].count), active_keys: Number(k.rows[0].count) };
   });
 
+  // Model catalog — maps short names to vLLM paths
+  const MODEL_MAP: Record<string, { display_name: string; vllm_path: string; description: string }> = {
+    "qwen2.5-14b": {
+      display_name: "Qwen 2.5 14B",
+      vllm_path: "/models/Qwen2.5-14B-Instruct",
+      description: "Быстрая универсальная модель",
+    },
+    "qwen2.5-32b": {
+      display_name: "Qwen 2.5 32B",
+      vllm_path: "/models/Qwen2.5-32B-Instruct-GPTQ",
+      description: "Мощная модель для сложных задач",
+    },
+  };
+
   app.get("/api/v1/models", async (_r, reply) => {
-    try {
-      const r = await fetch(CORE_API + "/v1/models");
-      return reply.send(await r.json());
-    } catch (e: any) {
-      return reply.status(502).send({ error: "gateway unreachable", detail: e.message });
-    }
+    return reply.send({
+      object: "list",
+      data: Object.entries(MODEL_MAP).map(([id, m]) => ({
+        id,
+        object: "model",
+        display_name: m.display_name,
+        description: m.description,
+        max_tokens: id.endsWith("32b") ? 8192 : 4096,
+        tags: id.endsWith("32b") ? ["code", "analysis"] : ["chat", "code", "fast"],
+      })),
+    });
   });
 
   app.get("/api/v1/core/status", async (_r, reply) => {
@@ -638,6 +657,10 @@ async function main() {
     }
 
     try {
+      // Translate model short name → vLLM path
+      const modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
+      const vllmModel = modelInfo.vllm_path;
+
       // Call Gateway with streaming
       const vllmRes = await fetch(CORE_API + "/v1/chat/completions", {
         method: "POST",
@@ -645,7 +668,7 @@ async function main() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: chat.model,
+          model: vllmModel,
           messages: [...messages, { role: "user", content }],
           max_tokens: 2048,
           temperature: 0.7,
