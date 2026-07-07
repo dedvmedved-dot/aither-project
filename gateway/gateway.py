@@ -446,11 +446,23 @@ def reap_stuck():
                     return 0
                 refunded = 0
                 for (lid, org_id, ref, amount, created_at) in stuck:
+                    # Release reserved tokens
+                    cur.execute(
+                        """UPDATE billing_accounts
+                           SET reserved = reserved - %s, updated_at = now()
+                           WHERE org_id = %s AND reserved >= %s
+                           RETURNING balance""",
+                        (amount, org_id, amount))
+                    row = cur.fetchone()
+                    if not row:
+                        continue  # reserved < amount, skip
+                    new_balance = row[0]
+                    # Record refund with correct amount and balance
                     cur.execute(
                         """INSERT INTO billing_ledger
                            (org_id, amount, operation, reference, balance_after)
-                           VALUES (%s, 0, 'refund', %s, 0)""",
-                        (org_id, ref))
+                           VALUES (%s, %s, 'refund', %s, %s)""",
+                        (org_id, amount, ref, new_balance))
                     refunded += 1
                 return refunded
     except Exception as e:
