@@ -1315,3 +1315,54 @@ sshpass -p 'root' ssh root@10.129.13.78 "curl -s localhost:30900/health"
 # Портал
 curl -s http://130.17.1.90/health
 ```
+
+---
+
+## 2026-07-07: День 1 — fix org_id (сквозной сценарий)
+
+### Диагностика
+
+Поток: `фронтенд → BFF → Gateway → vLLM`
+
+Проверка показала:
+- **Фронтенд:** отправляет `org_id` в `POST /api/v1/chats/:chatId/messages` ✅
+- **BFF:** принимает `org_id` → `getDelegationToken(orgId, userId)` → JWT RS256 с `org_id` ✅
+- **Gateway:** `_check_jwt()` → `payload.get("org_id", "unknown")` ❌
+
+Корень проблемы: старый процесс `gateway.py` (PID 525889) работал **вне K8s-пода** на хосте 40.51. Публичный ключ (`public.pem`) лежал только в K8s ConfigMap (`delegation-public-key`), смонтированном внутрь пода. Процесс на хосте не имел к нему доступа → `PUBLIC_KEY=""` → JWT не верифицировался → fallback `{"legacy_key": token}` → `org_id` не извлекался → `"unknown"`.
+
+K8s-под `gateway-5d788c7dfd-ffxsq` существовал, но был в состоянии `0/1 Ready` (readiness probe падал с BrokenPipe — процесс на хосте конфликтовал с подом за порт 8080).
+
+### Решение
+
+1. Убит хост-процесс gateway.py (PID 525889)
+2. K8s автоматически перезапустил под `gateway-5d788c7dfd-ffxsq`
+3. Под загрузил публичный ключ из ConfigMap: `Gateway: public key loaded (451 chars)`
+4. Под стал Ready: `1/1 Running`
+
+### Проверка
+
+Тестовый JWT с `org_id` → Gateway → vLLM:
+
+```
+> POST /v1/chat/completions
+> Authorization: Bearer <JWT с org_id>
+< 200 OK
+< {"choices":[{"message":{"content":"OK! Как могу я помочь..."}}]}
+```
+
+Сквозной сценарий: `запрос → JWT-верификация → reserve → vLLM → settle → ответ` ✅
+
+### K8s-контекст (важно!)
+
+Gateway работает **в K8s**, не на хосте:
+
+| Ресурс | Имя | Детали |
+|---|---|---|
+| Deployment | `gateway` | image: python:3.12-slim, command: `pip install ... && python3 /app/gateway.py` |
+| ConfigMap | `delegation-public-key` | public.pem (451 chars) |
+| ConfigMap | `gateway-code` | gateway.py |
+| Service | `gateway-nodeport` | 8080:30900 |
+| Под | `gateway-5d788c7dfd-ffxsq` | 1/1 Ready |
+
+**Не трогать процесс gateway.py на хосте — управляется через K8s.**
