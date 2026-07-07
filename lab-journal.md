@@ -1857,3 +1857,64 @@ VPS1 (170.168.91.95) ═══ WireGuard ═══ VPS2 (130.17.1.90)
 | Яндекс | `yandex` | ✅ |
 | Dev (резерв) | `dev` | ✅ |
 
+---
+
+## День 8: ЮKassa — пополнение баланса
+
+**Дата:** 07.07.2026  
+**Коммит:** `fe7136c`
+
+### Задача
+
+Подключить платёжную систему ЮKassa для пополнения баланса организаций на портале Aither.
+
+### Реализация
+
+#### BFF (server.ts)
+
+| Эндпоинт | Метод | Назначение |
+|---|---|---|
+| `/api/v1/billing/topup` | POST | Создание платежа → редирект на ЮKassa |
+| `/api/v1/billing/webhook` | POST | Callback от ЮKassa (зачисление токенов) |
+| `/api/v1/billing/payments` | GET | История транзакций организации |
+
+#### Режимы работы
+
+| Режим | Условие | Поведение |
+|---|---|---|
+| **Dev** | `YOOKASSA_SHOP_ID` не задан | Авто-успех, прямое зачисление токенов |
+| **Боевой** | `YOOKASSA_SHOP_ID` + `YOOKASSA_SECRET` заданы | Платёж через API ЮKassa, webhook-подтверждение |
+
+#### Курс (dev)
+
+**1 ₽ = 1 000 токенов** (в продакшене ~100 токенов/₽).
+
+#### БД
+
+Добавлена таблица `billing_accounts`:
+
+```sql
+CREATE TABLE billing_accounts (
+    org_id      uuid PRIMARY KEY REFERENCES portal_organizations(org_id),
+    reserved    bigint NOT NULL DEFAULT 0,
+    total_tokens bigint NOT NULL DEFAULT 0
+);
+```
+
+### Фронтенд
+
+Виджет «💰 Пополнение баланса» в карточке организации: поле ввода суммы + кнопка «Пополнить».
+
+### Тестирование (dev-режим)
+
+| Тест | Результат |
+|---|---|
+| `POST /api/v1/billing/topup` (500 ₽) | ✅ 200 OK, `status: "succeeded"`, `tokens: 500000` |
+| `GET /api/v1/billing/payments` | ✅ 1 транзакция, `amount_rub: 500.00`, `provider: yookassa` |
+
+### Следующие шаги
+
+- Зарегистрироваться в ЮKassa → получить `shopId` + `secret` → включить боевой режим
+- Добавить кнопки СБП/QR в интерфейс
+
+---
