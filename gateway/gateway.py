@@ -6,6 +6,7 @@ import redis
 import jwt as pyjwt
 import psycopg2
 import psycopg2.pool
+from security import check_security
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
@@ -329,6 +330,14 @@ class Gateway(BaseHTTPRequestHandler):
                 self.vllm_url = os.environ.get("VLLM_URL", "http://vllm:8000") or "http://vllm:8000"
                 req_data["model"] = "/models/Qwen2.5-14B-Instruct"
             body_str = json.dumps(req_data)
+
+            # Security check: prompt injection + DLP
+            messages = req_data.get("messages", [])
+            secure, reason = check_security(messages)
+            if not secure:
+                self._json(403, {"error": "security_violation", "reason": reason})
+                return
+
         except:
             max_tokens = 256
             reserve_amount = 300
