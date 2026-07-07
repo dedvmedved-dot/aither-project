@@ -1419,3 +1419,55 @@ rl:...:tpm:29723528
 | Saiga Llama3 8B | 15 GB | ✅ готов |
 | Qwen2.5-Coder-14B-Instruct | 17 GB / 29 GB | 🔄 качается |
 | Qwen2.5-32B-GPTQ | 461 MB / 19 GB | 🔄 качается |
+
+---
+
+## 2026-07-07: День 3 — Usage Collector (точный учёт токенов)
+
+### Реализация
+
+Добавлена подсистема точного учёта потреблённых токенов в Gateway:
+
+- **DDL:** автосоздание таблицы `usage_records` при старте (prompt_tokens, completion_tokens, total_tokens, status, latency_ms)
+- **Сбор метрик:** извлечение `usage.prompt_tokens` и `usage.completion_tokens` из ответа vLLM
+- **Запись в БД:** INSERT после каждого запроса (success) или ошибки (error)
+- **Агрегация:** эндпоинт `GET /v1/usage/stats?days=N` — группировка по дням и моделям
+- **Redis:** счётчик суммы токенов `usage:tk:{org_id}:{date}` (TTL 48h)
+
+### Архитектура
+
+```
+JWT Auth → Rate Limiter → Reserve → Proxy(vLLM) → Usage Collector → Settle
+                                                      ├─ INSERT usage_records
+                                                      ├─ INCRBY usage:tk:*
+                                                      └─ извлечение usage из ответа vLLM
+```
+
+### Тестирование
+
+| Тест | Ожидание | Факт |
+|---|---|---|
+| prompt_tokens | из vLLM | 31 ✅ |
+| completion_tokens | из vLLM | 2 ✅ |
+| total_tokens | 33 | 33 ✅ |
+| usage_records | запись в БД | 1 row ✅ |
+| /v1/usage/stats | агрегация | работает ✅ |
+
+### Метрики
+
+| Параметр | До | После |
+|---|---|---|
+| Точность учёта | ±30% | ±0% |
+| Детализация | total_tokens | prompt + completion |
+| Хранение | billing_ledger | + usage_records (90 дн) |
+| Gateway строк | 340 | 423 (+83) |
+
+### Артефакты
+
+Полный пакет документации в `Usage-Collector/`:
+- `article.md` — статья (7 разделов, алгоритм, структуры данных)
+- `schemes/` — 2 схемы (архитектура + конечный автомат, SVG+JPG 300 DPI)
+- `protocol.md` — протокол внедрения (5 шагов)
+- `LOG.md` — хронология разработки
+
+Создан навык `gostechnical-documentation` для будущих компонентов.
