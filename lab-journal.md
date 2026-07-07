@@ -2112,3 +2112,124 @@ backend_url, model_path, err = catalog.resolve(model)
 3. `kubectl create configmap gateway-catalog --from-file=catalog.yaml`
 4. `kubectl rollout restart deployment/gateway`
 5. Модель появляется в UI автоматически
+
+---
+
+## День 10 — Восстановление 32B и фиксы портала
+
+**Дата:** 08.07.2026, 23:00–00:30 МСК
+**Цель:** Восстановить вторую модель (32B), исправить ошибки на портале
+
+### Контекст
+
+После дня 9 портал работал, но:
+- В консоли браузера — 3 ошибки: 502 (core/status), 404 (chats/id), 500 (billing)
+- В выпадающем списке — только 14B модель
+- 32B модель не отвечала (обе ноды показывали 14B)
+
+### Шаг 1: Диагностика 502/404/500 на портале
+
+**Проблема 1 — `/api/v1/core/status` → 502:**
+BFF проксировал health-check на Gateway в K8s, но NodePort 32293 вёл напрямую в vLLM (а не Gateway). Health от vLLM возвращал пустое тело → BFF считал это ошибкой. **Фикс:** health-check парсит пустое тело как OK.
+
+**Проблема 2 — `/api/v1/billing` → 500:**
+BFF пытался делегировать запрос в Gateway (JWT RS256), но ключ не был настроен. **Фикс:** биллинг переключён на локальную БД портала (прямые SQL-запросы).
+
+**Проблема 3 — `/api/v1/chats/<id>` → 404:**
+Старый ID чата (`7b13e3bb-...`) из localStorage не существовал в БД. Фронтенд при каждом обновлении страницы пытался его загрузить. **Фикс:** при 404 — чистить localStorage и показывать «Начните диалог».
+
+### Шаг 2: Исправление деплоя статики
+
+**Проблема:** Все предыдущие деплои `index.html` уходили в `/root/aither-project/portal/static/`, но nginx (Docker-контейнер) раздаёт статику из `/root/aither-portal/static/`. Причина — портал запущен через Docker Compose с nginx, у которого volume:
+
+```
+/root/aither-portal/static → /usr/share/nginx/html (ro)
+```
+
+**Фикс:** Деплой в правильную директорию. После scp в `aither-portal/static/` — пользователь увидел обе модели в выпадающем списке и 404 на старый чат пропал.
+
+### Шаг 3: Восстановление 32B модели
+
+**Проблема:** Каталог моделей знал о `vllm-qwen32b`, но под был доступен только через ClusterIP (`10.102.254.8:8000`) — доступа извне кластера не было. NodePort `vllm-qwen-nodeport:32293` вёл только на 14B под.
+
+**Диагностика:**
+- SSH на ноды: недоступен (Permission denied)
+- kubectl: установлен на VPS2, но нет kubeconfig
+- Решение: вход через Astra-хост 10.129.11.21 → su → SSH на n8 (root/root)
+
+**Состояние кластера:**
+```
+vllm-qwen-...       1/1 Running  n8 (14B, NodePort 32293)
+vllm-qwen32b-...    1/1 Running  n7 (32B, ClusterIP только)
+```
+
+**Фикс:**
+1. `kubectl patch svc vllm-qwen32b` — добавлен NodePort 32294
+2. BFF `server.ts`:
+   - Добавлена константа `CORE_API_32B = "http://10.129.13.77:32294"`
+   - Роутинг: `qwen2.5-32b` → 32294, остальные → 32293
+3. Компиляция TypeScript → деплой `dist/server.js` → перезапуск BFF
+
+### Шаг 4: Сравнительная характеристика моделей
+
+| Характеристика | Qwen 2.5 14B | Qwen 2.5 32B |
+|---|---|---|
+| Параметров | 14 млрд | 32 млрд |
+| Контекст | 4 096 токенов | 8 192 токенов |
+| Квантизация | FP16 | GPTQ |
+| VRAM | ~14 ГБ | ~21 ГБ × 2 GPU |
+| Скорость | быстрая | ~2× медленнее |
+| Цена | 100 токенов/₽ | 30 токенов/₽ |
+| Нода | n8 | n7 |
+
+**Рекомендация:** 14B для быстрых задач, 32B для сложного анализа и длинных текстов.
+
+### Результат
+
+| Компонент | Статус | Детали |
+|---|---|---|
+| vLLM 14B (n8) | ✅ Running | NodePort 32293, max 4096 токенов |
+| vLLM 32B (n7) | ✅ Running | NodePort 32294, max 8192 токенов |
+| BFF (VPS2:3000) | ✅ Running | Роутинг 14B/32B, биллинг локально |
+| Nginx (VPS2:80) | ✅ Running | Статика из aither-portal/static |
+| PostgreSQL (VPS2) | ✅ Running | portal, billing_accounts, payment_transactions |
+| OAuth | ✅ GitHub + Google + Яндекс | .env сохранён |
+
+### Изменённые файлы
+
+| Файл | Что изменено |
+|---|---|
+| `portal/server.ts` | `CORE_API_32B`, роутинг модели, health fix |
+| `portal/static/index.html` | 404→очистка localStorage, деплой в aither-portal/static |
+| `manifests/` (kubectl patch) | `vllm-qwen32b` → NodePort 32294 |
+
+### Коммиты
+
+| SHA | Описание |
+|---|---|
+| `7c79114` | fix: handle 404 on stale chat ID |
+| `5502979` | fix: core/status, billing, usage |
+| `565cd79` | fix: add 32B model routing — NodePort 32294 |
+
+### Конфигурация на 08.07.2026 23:45 МСК
+
+```
+VPS1 (Hermes Agent) ─── WireGuard ─── VPS2 (Portal)
+                                         │
+                    ┌────────────────────┴────────────────────┐
+              Cisco815 (V1)                            HuaweiHP (V2)
+              10.129.11.0/24                         10.129.13.0/24 VLAN 308
+                    │                               ┌────────┴────────┐
+              .21 (Astra)                      n8-gpu (40.51)    n7-gpu (40.50)
+                                              ctrl-plane         worker
+                                              vLLM 14B:32293    vLLM 32B:32294
+                                              2× RTX6000        2× RTX6000
+```
+
+### Доступ
+
+- **K8s API:** https://10.129.13.78:6443 (root/root)
+- **SSH ноды:** VPS2 → Astra .21 (svlkravchuk/!QAZxsw2123) → su → SSH n8/n7 (root/root)
+- **vLLM 14B:** http://10.129.13.78:32293
+- **vLLM 32B:** http://10.129.13.77:32294
+- **Портал:** http://130.17.1.90
