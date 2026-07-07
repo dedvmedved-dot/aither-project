@@ -176,6 +176,138 @@ async function main() {
             return reply.status(502).send({ error: "GitHub OAuth error: " + e.message });
         }
     });
+    // Google OAuth
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+    const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+    app.get("/auth/google", async (_req, reply) => {
+        if (!GOOGLE_CLIENT_ID)
+            return reply.status(500).send({ error: "Google OAuth not configured" });
+        const state = (0, crypto_1.randomBytes)(16).toString("hex");
+        const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/google/callback`;
+        const params = new URLSearchParams({
+            client_id: GOOGLE_CLIENT_ID,
+            redirect_uri: redirectUri,
+            response_type: "code",
+            scope: "openid profile email",
+            state,
+        });
+        return reply.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+    });
+    app.get("/auth/google/callback", async (req, reply) => {
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET)
+            return reply.status(500).send({ error: "Google OAuth not configured" });
+        const { code } = req.query;
+        if (!code)
+            return reply.status(400).send({ error: "missing code" });
+        try {
+            const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/google/callback`;
+            const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({
+                    client_id: GOOGLE_CLIENT_ID,
+                    client_secret: GOOGLE_CLIENT_SECRET,
+                    code,
+                    redirect_uri: redirectUri,
+                    grant_type: "authorization_code",
+                }),
+            });
+            const tokenData = await tokenRes.json();
+            if (tokenData.error)
+                return reply.status(403).send({ error: tokenData.error_description || tokenData.error });
+            // Get userinfo via OpenID Connect
+            const userRes = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+                headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            });
+            const gu = await userRes.json();
+            const oauthId = gu.sub;
+            const displayName = gu.name || gu.email?.split("@")[0] || "";
+            const email = gu.email || "";
+            const avatarUrl = gu.picture || "";
+            let user = await pool.query("SELECT user_id FROM portal_users WHERE oauth_provider=$1 AND oauth_id=$2", ["google", oauthId]);
+            let userId;
+            if (user.rows.length === 0) {
+                const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
+           VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["google", oauthId, email, displayName, avatarUrl]);
+                userId = ins.rows[0].user_id;
+            }
+            else {
+                userId = user.rows[0].user_id;
+                await pool.query("UPDATE portal_users SET email=$1, display_name=$2, avatar_url=$3, last_login_at=now() WHERE user_id=$4", [email, displayName, avatarUrl, userId]);
+            }
+            const tok = signToken(userId);
+            const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "Google OAuth error: " + e.message });
+        }
+    });
+    // Yandex OAuth
+    const YANDEX_CLIENT_ID = process.env.YANDEX_CLIENT_ID || "";
+    const YANDEX_CLIENT_SECRET = process.env.YANDEX_CLIENT_SECRET || "";
+    app.get("/auth/yandex", async (_req, reply) => {
+        if (!YANDEX_CLIENT_ID)
+            return reply.status(500).send({ error: "Yandex OAuth not configured" });
+        const state = (0, crypto_1.randomBytes)(16).toString("hex");
+        const params = new URLSearchParams({
+            client_id: YANDEX_CLIENT_ID,
+            redirect_uri: process.env.YANDEX_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/yandex/callback`,
+            response_type: "code",
+            scope: "login:email login:info",
+            state,
+        });
+        return reply.redirect(`https://oauth.yandex.ru/authorize?${params}`);
+    });
+    app.get("/auth/yandex/callback", async (req, reply) => {
+        if (!YANDEX_CLIENT_ID || !YANDEX_CLIENT_SECRET)
+            return reply.status(500).send({ error: "Yandex OAuth not configured" });
+        const { code } = req.query;
+        if (!code)
+            return reply.status(400).send({ error: "missing code" });
+        try {
+            const tokenRes = await fetch("https://oauth.yandex.ru/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({
+                    grant_type: "authorization_code",
+                    code,
+                    client_id: YANDEX_CLIENT_ID,
+                    client_secret: YANDEX_CLIENT_SECRET,
+                }),
+            });
+            const tokenData = await tokenRes.json();
+            if (tokenData.error)
+                return reply.status(403).send({ error: tokenData.error_description || tokenData.error });
+            const userRes = await fetch("https://login.yandex.ru/info?format=json", {
+                headers: { Authorization: `OAuth ${tokenData.access_token}` },
+            });
+            const yu = await userRes.json();
+            const oauthId = yu.id;
+            const displayName = yu.real_name || yu.login || yu.default_email?.split("@")[0] || "";
+            const email = yu.default_email || "";
+            const avatarUrl = yu.default_avatar_id
+                ? `https://avatars.yandex.net/get-yapic/${yu.default_avatar_id}/islands-200`
+                : "";
+            let user = await pool.query("SELECT user_id FROM portal_users WHERE oauth_provider=$1 AND oauth_id=$2", ["yandex", oauthId]);
+            let userId;
+            if (user.rows.length === 0) {
+                const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
+           VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["yandex", oauthId, email, displayName, avatarUrl]);
+                userId = ins.rows[0].user_id;
+            }
+            else {
+                userId = user.rows[0].user_id;
+                await pool.query("UPDATE portal_users SET email=$1, display_name=$2, avatar_url=$3, last_login_at=now() WHERE user_id=$4", [email, displayName, avatarUrl, userId]);
+            }
+            const tok = signToken(userId);
+            const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "Yandex OAuth error: " + e.message });
+        }
+    });
     app.post("/auth/dev/login", async (req) => {
         const { name } = req.body;
         if (!name)

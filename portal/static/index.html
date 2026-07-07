@@ -207,10 +207,13 @@ body::after {
 }
 .login-divider span { margin: 0 12px; }
 .btn-github {
-  width: 100%;
-  padding: 10px;
   background: #24292e;
   border: 1px solid #444d56;
+}
+.btn-github:hover { background: #2f363d; border-color: #6366f1; }
+.btn-oauth {
+  width: 100%;
+  padding: 10px;
   border-radius: var(--radius-sm);
   color: #e4e4ec;
   font-family: inherit;
@@ -222,8 +225,22 @@ body::after {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  margin-bottom: 8px;
 }
-.btn-github:hover { background: #2f363d; border-color: #6366f1; }
+.btn-google {
+  background: #fff;
+  color: #333;
+  border: 1px solid #ddd;
+}
+.btn-google:hover { border-color: #6366f1; }
+.btn-google b { color: #4285f4; font-size: 18px; }
+.btn-yandex {
+  background: #fc3f1d;
+  border: 1px solid #e03414;
+  color: #fff;
+}
+.btn-yandex:hover { background: #e03414; }
+.btn-yandex b { color: #fff; font-size: 16px; }
 
 /* ===== PAGE HEADER ===== */
 .page-header {
@@ -824,18 +841,20 @@ function renderLogin() {
         <h1>Aither</h1>
         <p>Token‑as‑a‑Service — платформа для инференса LLM</p>
         <p style="font-size:11px;color:var(--text-dim);margin-bottom:20px;line-height:1.4;">Пилотный проект Управления виртуализации и облачных сервисов<br>(Группа разработки AI-систем), АО «Гринатом»</p>
-        <input type="text" id="login-name" placeholder="Ваше имя" autofocus>
-        <button onclick="doLogin()" style="margin-top:16px;width:100%;">Войти (dev)</button>
+        <button class="btn-oauth btn-github" onclick="loginWith('github')">🐙 Войти через GitHub</button>
+        <button class="btn-oauth btn-google" onclick="loginWith('google')"><b>G</b> Войти через Google</button>
+        <button class="btn-oauth btn-yandex" onclick="loginWith('yandex')"><b>Я</b> Войти через Яндекс</button>
         <div class="login-divider"><span>или</span></div>
-        <button class="btn-github" onclick="loginWithGitHub()">🐙 Войти через GitHub</button>
+        <input type="text" id="login-name" placeholder="Ваше имя" autofocus>
+        <button onclick="doLogin()" style="margin-top:12px;width:100%;">Войти (dev)</button>
         <div class="login-error" id="login-error"></div>
       </div>
     </div>`;
   $$('#login-name').forEach(el => el.addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); }));
 }
 
-function loginWithGitHub() {
-  window.location.href = '/auth/github';
+function loginWith(provider) {
+  window.location.href = '/auth/' + provider;
 }
 
 async function doLogin() {
