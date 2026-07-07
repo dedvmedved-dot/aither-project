@@ -1574,3 +1574,76 @@ VPS1 (170.168.91.95)                     VPS2 (130.17.1.90)
 ### Память
 
 Хранилище памяти Hermes консолидировано (7 записей, 64%). Бэкап в `hermes-sync`. Архивная копия в `aither-project/archive/`.
+
+---
+
+## 2026-07-09: Восстановление n7 — vLLM Qwen2.5-32B
+
+### Диагностика
+
+| Нода | Статус | Проблема |
+|---|---|---|
+| **n8** (40.51) | ✅ Gateway + vLLM-14B работают | — |
+| **n7** (40.50) | ❌ vLLM-32B в crash-лупе | 15+ рестартов, 203 BackOff |
+
+Под `vllm-qwen32b` падал с ошибкой при запуске, обе GPU простаивали (0 MiB).
+
+### Root cause analysis
+
+Три независимые проблемы:
+
+| # | Проблема | Причина |
+|---|---|---|
+| 1 | **Модель недокачана** | PVC `models-32b-pvc` → `/mnt/data/models/Qwen2.5-32B-GPTQ/`: только 2.6 GB из 19 GB. `config.json` отсутствовал, 4 из 5 shard'ов недокачаны |
+| 2 | **runtimeClassName: nvidia-cdi** | CDI-рантайм не пробрасывал GPU в контейнер → `NVMLError_NotFound` |
+| 3 | **`--device cuda` в vLLM 0.24.0** | vLLM пытался сконвертировать строку `'cuda'` в int → `ValueError` → fallback-поиск UUID `'cuda'` → `NotFound` |
+
+### Решение
+
+| # | Действие | Команда |
+|---|---|---|
+| 1 | Установка `sshpass` + `rsync` на n7 | `apt-get install -y sshpass rsync` |
+| 2 | Копирование модели с n8 → n7 | `rsync -av root@10.129.13.78:/data/models/Qwen2.5-32B-GPTQ/ /mnt/data/models/Qwen2.5-32B-GPTQ/` (19 GB, ~48 MB/s) |
+| 3 | Смена runtime на `nvidia` | `kubectl patch deployment vllm-qwen32b -p '{"spec":{"template":{"spec":{"runtimeClassName":"nvidia"}}}}'` |
+| 4 | Убран `--device cuda` | Удалён из args деплоймента |
+| 5 | Добавлен `--tensor-parallel-size 2` + 2 GPU | 32B не влезает в 1× RTX 6000 (23 GB). Требует ~19 GB на модель + KV-кеш |
+
+### Верификация
+
+```bash
+# GPU загружены
+$ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
+0, 20727 MiB
+1, 20727 MiB
+
+# vLLM API
+$ curl localhost:8000/v1/models
+{"data":[{"id":"qwen2.5-32b","max_model_len":8192,...}]}
+
+# Инференс
+$ curl localhost:8000/v1/chat/completions -d '{"model":"qwen2.5-32b","messages":[...],"max_tokens":10}'
+{"choices":[{"message":{"content":"Привет! السلام"}}],"usage":{"prompt_tokens":40,"completion_tokens":6}}
+```
+
+### Итоговое состояние
+
+| Нода | vLLM | Модель | GPU | KV-кеш |
+|---|---|---|---|---|
+| **n8** (40.51) | ✅ | Qwen2.5-14B | 2× RTX 6000 | — |
+| **n7** (40.50) | ✅ | Qwen2.5-32B (TP=2) | 2× RTX 6000 | 8.89 GiB / 72K токенов |
+
+### Конфигурация vLLM-32B (актуальная)
+
+```
+--model /models
+--served-model-name qwen2.5-32b
+--host 0.0.0.0 --port 8000
+--max-model-len 8192
+--gpu-memory-utilization 0.90
+--dtype auto
+--tensor-parallel-size 2
+```
+
+PVC: `models-32b-pvc` (50Gi, hostPath: `/mnt/data/models/Qwen2.5-32B-GPTQ` на n7)
+
+⚠️ На n7 не устанавливать `kubectl` локально — kubeconfig не настроен. Все команды `kubectl` — через n8.
