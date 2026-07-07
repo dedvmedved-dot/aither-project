@@ -1790,3 +1790,38 @@ VPS1 (170.168.91.95) ═══ WireGuard ═══ VPS2 (130.17.1.90)
 
 ### Статус: ✅ Готово (ждёт браузерного теста)
 
+
+---
+
+## День 7.1: Multi-OAuth — Google + Яндекс (07.07.2026)
+
+**Цель:** добавить вход через Google и Яндекс к существующему GitHub OAuth.
+
+### Код
+
+| Компонент | Изменение |
+|---|---|
+| **BFF** | `GET /auth/google` + `/callback` (OpenID Connect, `openid profile email`) |
+| **BFF** | `GET /auth/yandex` + `/callback` (OAuth 2.0, `login:email login:info`) |
+| **Фронтенд** | 3 кнопки на странице логина: GitHub 🐙, Google **G**, Яндекс **Я** |
+| **CSS** | Стили `.btn-oauth`, `.btn-google`, `.btn-yandex` |
+
+### Конфигурация
+
+| Провайдер | Callback URL | Статус |
+|---|---|---|
+| GitHub | `http://130.17.1.90/auth/github/callback` | ✅ работает |
+| Google | `http://130.17.1.90/auth/google/callback` | ⬜ нужны Client ID / Secret |
+| Яндекс | `http://130.17.1.90/auth/yandex/callback` | ⬜ нужны Client ID / Secret |
+
+### OAuth-провайдеры в БД
+
+| `oauth_provider` | Поставщик |
+|---|---|
+| `github` | GitHub |
+| `google` | Google (OpenID Connect) |
+| `yandex` | Яндекс ID |
+| `dev` | Dev-логин (резервный) |
+
+### Статус: ✅ код готов, ждёт регистрации приложений
+
