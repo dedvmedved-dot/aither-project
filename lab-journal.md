@@ -1366,3 +1366,56 @@ Gateway работает **в K8s**, не на хосте:
 | Под | `gateway-5d788c7dfd-ffxsq` | 1/1 Ready |
 
 **Не трогать процесс gateway.py на хосте — управляется через K8s.**
+
+---
+
+## 2026-07-07: День 2 — Rate Limiter (RPM + TPM)
+
+### Реализация
+
+В Gateway добавлен двухуровневый rate limiter на Redis (без Lua-скрипта, простые атомарные операции):
+
+- **RPM** (Requests Per Minute) — лимит: 300 запросов/мин на организацию
+- **TPM** (Tokens Per Minute) — лимит: 100 000 токенов/мин, оценка из размера тела запроса (`Content-Length // 4`)
+
+Ключи Redis: `rl:{org_id}:rpm:{window}` и `rl:{org_id}:tpm:{window}`, TTL 120с.
+
+При превышении возвращается `429` с детализацией:
+```json
+{"error": "rate_limit_exceeded", "rpm": N, "tpm": N, 
+ "rpm_limit": 300, "tpm_limit": 100000}
+```
+
+При недоступности Redis — fail open (запрос пропускается).
+
+### Конфигурация (env vars)
+
+| Переменная | По умолчанию |
+|---|---|
+| `RATE_LIMIT_RPM` | 300 |
+| `RATE_LIMIT_TPM` | 100 000 |
+
+### Проверка
+
+5 последовательных запросов — все 200, ключи в Redis созданы:
+```
+rl:...:rpm:29723528
+rl:...:tpm:29723528
+```
+
+### K8s
+
+| Ресурс | Имя |
+|---|---|
+| Deployment | `gateway` (image: python:3.12-slim) |
+| ConfigMap | `gateway-code` — gateway.py (340 строк) |
+| Под | `gateway-7888c88f5b-fxtns` — 1/1 Ready (старт за 60с) |
+
+### Статус моделей на 40.51
+
+| Модель | Размер | Статус |
+|---|---|---|
+| Qwen2.5-14B-Instruct | 28 GB | ✅ готов |
+| Saiga Llama3 8B | 15 GB | ✅ готов |
+| Qwen2.5-Coder-14B-Instruct | 17 GB / 29 GB | 🔄 качается |
+| Qwen2.5-32B-GPTQ | 461 MB / 19 GB | 🔄 качается |
