@@ -1975,3 +1975,58 @@ CREATE TABLE billing_accounts (
 - ✅ 500 ₽ → 500 000 токенов (курс 1:1000)
 - ✅ Транзакция сохранена в `payment_transactions`
 - ✅ Баланс зачислен в `billing_accounts.total_tokens`
+
+---
+
+## Полный статус дорожной карты (07.07.2026, 22:20 МСК)
+
+### Выполнено
+
+| # | Компонент | Коммит | Статус |
+|---|---|---|---|
+| 1 | Fix org_id (сквозной сценарий) | — | ✅ |
+| 2 | Rate Limiter (RPM + TPM) | — | ✅ |
+| 3 | Usage Collector (точный учёт) | — | ✅ |
+| 4–5 | K8s: n7 + n8, vLLM 14B + 32B | — | ✅ |
+| 6 | AI Security Gateway | `5185dc0` | ✅ |
+| 7 | OAuth GitHub + Google + Яндекс | `d93251f` | ✅ |
+| 8 | ЮKassa (dev-режим) | `55c5c03` | ✅ |
+
+### Архитектура (текущая)
+
+```
+Пользователь → Портал (VPS2:80) → BFF (VPS2:3000)
+                  │                      │
+                  ├─ OAuth: GitHub / Google / Яндекс
+                  ├─ Платежи: ЮKassa (dev)
+                  └─ Чаты: стриминг через Gateway
+                                         │
+                              ┌──────────┴──────────┐
+                              ▼                      ▼
+                     Gateway (n8:32293)      vLLM (n7:8000)
+                     rate limit / settle     Qwen2.5-32B (2×RTX6000)
+                              │
+                     vLLM (n8:8000)
+                     Qwen2.5-14B (1×RTX6000)
+```
+
+### Инфраструктура
+
+| Узел | IP | Роль | GPU | Статус |
+|---|---|---|---|---|
+| n8-gpu (40.51) | 10.129.13.78 | Control-plane + Gateway + vLLM 14B | 2× RTX6000 | ✅ |
+| n7-gpu (40.50) | 10.129.13.77 | Worker + vLLM 32B | 2× RTX6000 | ✅ |
+| VPS2 | 130.17.1.90 | Портал + BFF + PostgreSQL | — | ✅ |
+| VPS1 | 170.168.91.95 | Hermes Agent | — | ✅ |
+
+### Впереди
+
+| # | Компонент | Приоритет |
+|---|---|---|
+| 9 | Каталог моделей + маршрутизация (LB) | P0 |
+| 10 | Observability (Grafana, дашборды, алерты) | P0 |
+| — | Parsec на n7 (`max_ilev=63 execstack=1`) | P1 |
+| — | ЮKassa боевая (регистрация + продакшен) | P1 |
+| — | Fine-tuning пайплайн | P2 |
+| — | RAG-подсистема | P2 |
+| — | Cost-aware routing | P2 |
