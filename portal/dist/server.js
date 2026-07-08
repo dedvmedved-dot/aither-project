@@ -8,6 +8,7 @@ const cors_1 = __importDefault(require("@fastify/cors"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const pg_1 = require("pg");
 const crypto_1 = require("crypto");
+const security_1 = require("./security");
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-me";
 const CORE_API = process.env.CORE_API || "http://10.129.13.78:32293";
@@ -124,6 +125,18 @@ async function main() {
       role text NOT NULL CHECK (role IN ('user','assistant','system')),
       content text NOT NULL DEFAULT '',
       tokens_used int NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS security_audit (
+      event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id uuid,
+      org_id uuid,
+      chat_id uuid,
+      category text NOT NULL,
+      reason text NOT NULL,
+      content_snippet text,
+      model text,
+      ip_address text,
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS payment_transactions (
@@ -638,6 +651,16 @@ async function main() {
         const { content, org_id } = req.body || {};
         if (!content)
             return reply.status(400).send({ error: "content required" });
+        // ── Security check: prompt injection + DLP ──
+        const secResult = (0, security_1.checkSecurity)([{ role: "user", content }]);
+        if (!secResult.ok) {
+            const ip = (req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || req.ip || "").toString();
+            await pool.query(`INSERT INTO security_audit (user_id, org_id, chat_id, category, reason, content_snippet, model, ip_address)
+         VALUES ($1,$2,$3,$4,$5,$6,NULL,$7)`, [p.user_id, org_id || null, chatId, secResult.category, secResult.reason,
+                content.slice(0, 200), ip]);
+            console.log(`[security] BLOCKED ${secResult.category}: ${secResult.reason} (user=${p.user_id}, ip=${ip})`);
+            return reply.status(403).send({ error: "security_violation", reason: secResult.reason });
+        }
         // Get chat
         const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
         if (c.rows.length === 0)
