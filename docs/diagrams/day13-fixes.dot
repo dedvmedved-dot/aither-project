@@ -1,0 +1,64 @@
+digraph Day13_Fixes {
+    rankdir=TB;
+    splines=ortho;
+    bgcolor="#ffffff";
+    fontname="Helvetica";
+    
+    subgraph cluster_fixes {
+        label="Исправления дня 13-14";
+        style=filled; fillcolor="#fff8e1"; color="#ffa000";
+        fontname="Helvetica"; fontsize=12;
+        
+        subgraph cluster_fix1 {
+            label="1. OAuth env vars";
+            style=filled; fillcolor="#ffebee"; color="#e53935";
+            
+            f1_before [label="BFF запущен\nбез .env\n→ все провайдеры\n«not configured»", shape=box, style=filled, fillcolor="#ffcdd2", fontcolor="#b71c1c"];
+            f1_after [label=".env загружен\nчерез set -a\n→ все 302", shape=box, style=filled, fillcolor="#c8e6c9", fontcolor="#1b5e20"];
+            f1_before -> f1_after [label="fix", color="#4caf50", fontcolor="#4caf50"];
+        }
+        
+        subgraph cluster_fix2 {
+            label="2. req.user → p.user_id";
+            style=filled; fillcolor="#e8eaf6"; color="#3949ab";
+            
+            f2_before [label="req.user.user_id\n→ 500\n«Cannot read\nproperties of\nundefined»", shape=box, style=filled, fillcolor="#c5cae9", fontcolor="#1a237e"];
+            f2_after [label="p.user_id\n→ delegation\ntoken создан", shape=box, style=filled, fillcolor="#c8e6c9", fontcolor="#1b5e20"];
+            f2_before -> f2_after [label="fix", color="#4caf50", fontcolor="#4caf50"];
+        }
+    }
+    
+    subgraph cluster_fix3_4 {
+        label="3-4. org_id + баланс";
+        style=filled; fillcolor="#f3e5f5"; color="#8e24aa";
+        
+        f3_before [label="Чат без org_id\n→ «insufficient\nbalance»\n→ баланс = 0", shape=box, style=filled, fillcolor="#e1bee7", fontcolor="#4a148c"];
+        f3_after [label="chats.org_id\n+ data.total_tokens\n→ 1 000 000", shape=box, style=filled, fillcolor="#c8e6c9", fontcolor="#1b5e20"];
+        f3_before -> f3_after [label="fix", color="#4caf50", fontcolor="#4caf50"];
+    }
+    
+    subgraph cluster_fix5 {
+        label="5. Dev-вход удалён";
+        style=filled; fillcolor="#fff3e0"; color="#ef6c00";
+        
+        f5_before [label="Кнопка\n«Войти (dev)»\nна лендинге", shape=box, style=filled, fillcolor="#ffe0b2", fontcolor="#bf360c"];
+        f5_after [label="Только\nOAuth-кнопки\n(Яндекс/Google/GitHub)", shape=box, style=filled, fillcolor="#c8e6c9", fontcolor="#1b5e20"];
+        f5_before -> f5_after [label="fix", color="#4caf50", fontcolor="#4caf50"];
+    }
+    
+    subgraph cluster_fix6 {
+        label="6. hljs-артефакты";
+        style=filled; fillcolor="#e0f7fa"; color="#00838f";
+        
+        f6_before [label="Code blocks\nс «hljs-keyword»>\n(битый HTML)", shape=box, style=filled, fillcolor="#b2ebf2", fontcolor="#004d40"];
+        f6_after [label="Strings →\nkeywords\n(правильный\nпорядок)", shape=box, style=filled, fillcolor="#c8e6c9", fontcolor="#1b5e20"];
+        f6_before -> f6_after [label="fix", color="#4caf50", fontcolor="#4caf50"];
+    }
+    
+    subgraph cluster_fix7 {
+        label="7. Кнопка копирования";
+        style=filled; fillcolor="#f1f8e9"; color="#558b2f";
+        
+        f7 [label="📋 Копировать\nнад блоками кода\n+ fallback для HTTP", shape=box, style=filled, fillcolor="#c8e6c9", fontcolor="#1b5e20"];
+    }
+}

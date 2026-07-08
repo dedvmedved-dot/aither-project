@@ -1,0 +1,95 @@
+digraph Aither_Day13 {
+    rankdir=TB;
+    splines=polyline;
+    bgcolor="#ffffff";
+    fontname="Helvetica";
+    compound=true;
+
+    // ===== CLIENTS =====
+    subgraph cluster_clients {
+        label="Клиенты";
+        style=filled; fillcolor="#f5f5f5"; color="#bdbdbd";
+        fontname="Helvetica"; fontsize=11;
+        
+        browser [label="Браузер\n(Специалисты)", shape=box, style=filled, fillcolor="#e3f2fd", fontcolor="#1565c0"];
+        api_client [label="Внешний API\n(OpenAI-совместимый)", shape=box, style=filled, fillcolor="#e8eaf6", fontcolor="#283593"];
+    }
+
+    // ===== VPS2 =====
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90)";
+        style=filled; fillcolor="#fff3e0"; color="#fb8c00";
+        fontname="Helvetica"; fontsize=11;
+        
+        nginx [label="Nginx :80\n(статик + прокси)", shape=box, style=filled, fillcolor="#ffe0b2", fontcolor="#e65100"];
+        bff [label="BFF :3000\n(Fastify)\nOAuth + Chat API", shape=box, style=filled, fillcolor="#ffcc80", fontcolor="#e65100"];
+        pg_portal [label="PostgreSQL\n(portal)\nusers, orgs, billing", shape=cylinder, style=filled, fillcolor="#c8e6c9", fontcolor="#2e7d32"];
+        
+        nginx -> bff [label="/api/*\n/auth/*", color="#fb8c00"];
+        bff -> pg_portal [color="#4caf50"];
+    }
+
+    // ===== K8s Cluster =====
+    subgraph cluster_k8s {
+        label="Kubernetes (VLAN 308)";
+        style=filled; fillcolor="#e8f5e9"; color="#43a047";
+        fontname="Helvetica"; fontsize=11;
+        
+        subgraph cluster_n8 {
+            label="n8 (10.129.13.78) — control-plane";
+            style=filled; fillcolor="#e8eaf6"; color="#5c6bc0";
+            
+            gateway [label="Gateway :30900\n(JWT RS256\nSecurity\nBilling)", shape=box, style=filled, fillcolor="#c5cae9", fontcolor="#283593"];
+            pg_k8s [label="PostgreSQL K8s\n(aither)", shape=cylinder, style=filled, fillcolor="#a5d6a7", fontcolor="#1b5e20"];
+            redis [label="Redis\n(rate limit)", shape=cylinder, style=filled, fillcolor="#ef9a9a", fontcolor="#b71c1c"];
+            vllm14 [label="vLLM 14B\n:30900\nQwen2.5-14B", shape=box, style=filled, fillcolor="#e1bee7", fontcolor="#7b1fa2"];
+            
+            gateway -> pg_k8s [color="#4caf50"];
+            gateway -> redis [color="#ef5350"];
+            gateway -> vllm14 [label="POST /v1/chat", color="#8e24aa"];
+        }
+        
+        subgraph cluster_n7 {
+            label="n7 (10.129.13.77) — worker";
+            style=filled; fillcolor="#fce4ec"; color="#e91e63";
+            
+            vllm32 [label="vLLM 32B\n:30901\nQwen2.5-32B", shape=box, style=filled, fillcolor="#f8bbd0", fontcolor="#880e4f"];
+            chromadb [label="ChromaDB\n:8000\nRAG-документы", shape=cylinder, style=filled, fillcolor="#b3e5fc", fontcolor="#01579b"];
+        }
+    }
+
+    // ===== OAuth =====
+    subgraph cluster_oauth {
+        label="OAuth-провайдеры";
+        style=filled; fillcolor="#fafafa"; color="#9e9e9e";
+        fontname="Helvetica"; fontsize=10;
+        
+        yandex [label="Яндекс", shape=ellipse, style=filled, fillcolor="#ffebee", fontcolor="#c62828"];
+        google [label="Google", shape=ellipse, style=filled, fillcolor="#e8f5e9", fontcolor="#2e7d32"];
+        github [label="GitHub", shape=ellipse, style=filled, fillcolor="#f3e5f5", fontcolor="#7b1fa2"];
+    }
+
+    // ===== Connections =====
+    browser -> nginx [label="HTTPS", color="#1565c0", fontcolor="#1565c0"];
+    api_client -> nginx [color="#283593", fontcolor="#283593"];
+    
+    bff -> gateway [label="Delegation JWT\nRS256, 5 мин", color="#ff9800", fontcolor="#ff9800", style=dashed];
+    bff -> yandex [color="#ef5350", style=dotted];
+    bff -> google [color="#66bb6a", style=dotted];
+    bff -> github [color="#ab47bc", style=dotted];
+    
+    gateway -> vllm32 [label="POST /v1/chat\n(32B)", color="#e91e63", fontcolor="#e91e63", ltail=cluster_n8, lhead=cluster_n7];
+
+    // ===== Legend =====
+    subgraph cluster_legend {
+        label="Легенда";
+        style=filled; fillcolor="#f5f5f5"; color="#bdbdbd";
+        fontname="Helvetica"; fontsize=9;
+        
+        l1 [label="█ Маршрутизация", shape=plaintext, fontcolor="#fb8c00"];
+        l2 [label="--- Delegation JWT", shape=plaintext, fontcolor="#ff9800"];
+        l3 [label="··· OAuth flow", shape=plaintext, fontcolor="#9e9e9e"];
+        
+        l1 -> l2 -> l3 [style=invis];
+    }
+}
