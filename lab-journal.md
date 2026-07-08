@@ -2233,3 +2233,111 @@ VPS1 (Hermes Agent) ─── WireGuard ─── VPS2 (Portal)
 - **vLLM 14B:** http://10.129.13.78:32293
 - **vLLM 32B:** http://10.129.13.77:32294
 - **Портал:** http://130.17.1.90
+
+
+---
+
+## День 11 — Observability: Prometheus + Grafana + DCGM
+
+**Дата:** 09.07.2026, 19:00–20:00 МСК
+**Цель:** Мониторинг GPU, vLLM-метрик и инфраструктуры
+
+### Архитектура мониторинга
+
+```
+GPU Nodes (n7, n8)
+    ├── DCGM Exporter (DaemonSet) :9400 → GPU-метрики
+    ├── vLLM :8000/metrics → инференс-метрики
+    │
+Prometheus (Deployment, n7) :9090 → NodePort 30909
+    ├── scrape: dcgm-exporter (kubernetes_sd)
+    ├── scrape: vLLM (static pod IPs)
+    └── scrape: vLLM (static NodePorts)
+    │
+Grafana (Deployment, n7) :3000 → NodePort 30300
+    ├── Datasource: Prometheus
+    ├── Dashboard: GPU Overview (температура, utilisation, память, мощность)
+    └── Dashboard: vLLM Inference (throughput, latency, KV cache)
+```
+
+### Шаг 1: DCGM Exporter
+
+**Манифест:** `dcgm-exporter.yaml` — DaemonSet с nodeSelector `nvidia.com/gpu.present=true`, образ `nvidia/dcgm-exporter:3.3.7`.
+
+**Питфолл 1:** nodeSelector `nvidia.com/gpu` не работает — правильный ярлык `nvidia.com/gpu.present`.
+
+**Питфолл 2:** на n7 оба GPU заняты vLLM-32b — DCGM не мог запросить GPU resource. Решение: убрать `resources.limits.nvidia.com/gpu` из DaemonSet.
+
+### Шаг 2: Prometheus
+
+**Манифест:** `prometheus.yaml` — Deployment + ConfigMap (scrape configs) + Service (NodePort 30909).
+
+**Scrape targets:**
+- `dcgm-exporter` — через kubernetes_sd (endpoints)
+- `vllm` — статические pod IP: 10.244.0.168 (14B/n8) + 10.244.1.47 (32B/n7)
+- `vllm-nodeport` — через NodePort: 10.129.13.78:32293 + 10.129.13.77:32294
+
+**Питфолл 3:** kubernetes_sd требовал RBAC — создан ClusterRole `prometheus-monitoring` (get/list/watch pods, endpoints, services, nodes).
+
+**Alerts:**
+- `GPUHighTemperature` — > 85°C в течение 5 мин
+- `GPUMemoryHigh` — > 90% в течение 5 мин
+
+### Шаг 3: Grafana
+
+**Манифест:** `grafana.yaml` — Deployment + Service (NodePort 30300).
+
+**Настройка:**
+- Admin: `admin/admin`
+- Anonymous access: enabled
+- Datasource: Prometheus (через API)
+
+### Шаг 4: Дашборды
+
+**GPU Overview** (`/d/aither-gpu`):
+| Панель | Метрика |
+|---|---|
+| GPU Temperature | `avg(DCGM_FI_DEV_GPU_TEMP)` |
+| GPU Utilization % | `avg(DCGM_FI_DEV_GPU_UTIL)` |
+| GPU Memory Used | `sum(DCGM_FI_DEV_FB_USED) / 1024` |
+| GPU Count | `count(DCGM_FI_DEV_GPU_TEMP)` |
+| GPU Utilization × Device | `DCGM_FI_DEV_GPU_UTIL` per GPU |
+| GPU Temperature × Device | `DCGM_FI_DEV_GPU_TEMP` per GPU |
+| GPU Memory × Device | `DCGM_FI_DEV_FB_USED / 1024` per GPU |
+| GPU Power × Device | `DCGM_FI_DEV_POWER_USAGE` per GPU |
+
+**vLLM Inference** (`/d/aither-vllm`):
+| Панель | Метрика |
+|---|---|
+| Requests/sec | `rate(vllm:request_success_total[1m])` |
+| Generation Throughput | `rate(vllm:generation_tokens_total[1m])` |
+| KV Cache Usage % | `avg(vllm:gpu_cache_usage_perc)` |
+| Running Requests | `sum(vllm:num_requests_running)` |
+| Latency p50/p90/p99 | `histogram_quantile(vllm:request_e2e_time_seconds_bucket)` |
+
+### Доступ
+
+| Сервис | URL |
+|---|---|
+| Grafana | http://10.129.13.78:30300 (логин: admin/admin) |
+| Prometheus | http://10.129.13.78:30909 |
+| DCGM Exporter | k8s ClusterIP `dcgm-exporter.monitoring:9400` |
+
+### Результат
+
+| Компонент | Статус |
+|---|---|
+| DCGM Exporter (n8) | ✅ Running, метрики: GPU0=32°C, GPU1=32°C |
+| DCGM Exporter (n7) | ✅ Running, метрики: GPU0=35°C, GPU1=36°C |
+| Prometheus | ✅ Running, 6/6 targets UP |
+| Grafana | ✅ Running, 2 дашборда |
+
+### Коммит
+
+`53ab350` — observability: Prometheus + Grafana + DCGM Exporter
+
+### Не реализовано в этом дне
+
+- Биллинг-дашборд (зависит от метрик PostgreSQL)
+- Retention > 7 дней (ограничение emptyDir — нужен PVC)
+- Alertmanager (уведомления в Telegram)
