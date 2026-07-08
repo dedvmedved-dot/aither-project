@@ -2341,3 +2341,83 @@ Grafana (Deployment, n7) :3000 → NodePort 30300
 - Биллинг-дашборд (зависит от метрик PostgreSQL)
 - Retention > 7 дней (ограничение emptyDir — нужен PVC)
 - Alertmanager (уведомления в Telegram)
+
+---
+
+## День 11 (продолжение) — Авто-баланс + Grafana публичный доступ
+
+**Дата:** 8 июля 2026
+
+### Авто-баланс для пользователей
+
+Добавлена система автоматического начисления токенов, чтобы пользователи могли тестировать платформу до подключения ЮKassa.
+
+**Реализация в `portal/server.ts`:**
+
+| Компонент | Описание |
+|---|---|
+| `ensurePersonalOrg()` | При регистрации создаёт личный орг `«Личный»` + 100K токенов |
+| Стартовый баланс | 100 000 токенов (STARTER_TOKENS) |
+| Авто-пополнение | При достижении 0 — +100K (REFILL_TOKENS), до 10 раз |
+| Защита | REFILL_LIMIT = 10, счётчик в `meta.refill_count` |
+
+**Схема работы:**
+```
+Регистрация → ensurePersonalOrg()
+  ├─ Создаёт org «Личный» + owner membership
+  └─ INSERT billing_accounts: 100K tokens
+
+GET /api/v1/billing?org_id=X
+  ├─ balance > 0 → возвращает
+  └─ balance = 0 + refill_count < 10 → +100K авто-пополнение
+```
+
+Работает для всех провайдеров: GitHub, Google, Яндекс, dev-вход.
+
+### Grafana — публичный доступ
+
+**Проблема:** Grafana (K8s NodePort 30300) доступна только внутри кластера.
+
+**Решение:** nginx reverse-proxy на VPS2 через subdomain:
+
+```
+grafana.130.17.1.90.nip.io → VPS2:80 → n8:30300 (Grafana)
+```
+
+**Конфигурация nginx (`/root/aither-portal/nginx.conf`):**
+- Отдельный `server` блок для `grafana.130.17.1.90.nip.io`
+- WebSocket support (Upgrade/Connection headers)
+- Пароль Grafana: `astraadm` → заменён на `xrDj.'R,BfTFQ@GCXn,s`
+
+**Дашборды (пересозданы с явным datasource):**
+
+| Дашборд | Панели |
+|---|---|
+| **Aither GPU Overview** | 8 панелей: температура, утилизация, память, мощность (статистика + графики per-device) |
+| **Aither vLLM Inference** | 6 панелей: запросы/сек, p50/p95 latency, uptime 14B+32B |
+
+**Обнаруженная проблема:** часы на GPU-нодах (n8, n7) ушли вперёд на 29 часов. Prometheus хранит данные с будущими метками времени.  
+**Workaround:** дашборды настроены на диапазон `now-2d → now+2d`, что покрывает сдвиг.
+
+### Итоги дня
+
+| Компонент | Статус |
+|---|---|
+| Авто-баланс (100K + рефилл ×10) | ✅ |
+| Grafana → `grafana.130.17.1.90.nip.io` | ✅ |
+| GPU дашборд (4 GPU) | ✅ |
+| vLLM дашборд (latency, uptime) | ✅ |
+| NTP sync на нодах | ❌ SSH недоступен |
+
+### Коммиты
+
+| SHA | Описание |
+|---|---|
+| `e60e1f6` | feat: auto-balance + Grafana public access |
+| `9e56658` | docs: ROADMAP update |
+
+### Конфигурационные файлы
+
+- `portal/nginx.conf` — nginx с Grafana server block
+- `manifests/observability/grafana.yaml` — обновлён (sub_path, пароль)
+- `portal/server.ts` — ensurePersonalOrg(), авто-рефилл
