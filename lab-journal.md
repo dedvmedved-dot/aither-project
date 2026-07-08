@@ -2421,3 +2421,87 @@ grafana.130.17.1.90.nip.io → VPS2:80 → n8:30300 (Grafana)
 - `portal/nginx.conf` — nginx с Grafana server block
 - `manifests/observability/grafana.yaml` — обновлён (sub_path, пароль)
 - `portal/server.ts` — ensurePersonalOrg(), авто-рефилл
+
+
+---
+
+## День 12: AI Security Gateway + Grafana fix + Gateway в K8s (09.07.2026)
+
+### 1. Диагностика и исправление Grafana
+
+**Проблема:** n7 (bootsmam-k8s-clnt01-n7-gpu) улетел на +29 часов вперёд → Prometheus TSDB «out of bounds» → все метрики отбрасывались.
+
+**Решение:**
+- Установлено правильное время через `timedatectl set-time`
+- Установлен и запущен `chrony` на n7 (синхронизация с пулом NTP)
+- Prometheus перезапущен с чистым TSDB (удаление пода)
+- ✅ Все 6 таргетов UP, метрики GPU текут
+
+**NTP статус n7:** `System clock synchronized: yes`, источник `mskm9-ntp02c.ntppool.yandex.net`
+
+### 2. AI Security Gateway в K8s
+
+**Архитектура:**
+```
+Клиент → VPS2:80 (Nginx) → VPS2:3000 (BFF) → K8s Gateway:30900 → Security → Billing → vLLM
+```
+
+**Изменения:**
+
+**K8s Gateway (`gateway.py`):**
+- Исправлен баг: `vllm_url` не инициализировался при GET-запросах (`/v1/models`)
+- Добавлен class-level default: `vllm_url = VLLM_URL`
+
+**Security patterns (`security.py`):**
+- EN: 18 паттернов → 23 (добавлены: `act as unethical`, `[system] (override)`, `chaos mode`)
+- RU: 0 → 6 паттернов (`игнорируй`, `забудь`, `ты теперь`, `расскажи`, `напиши`, `смени`)
+- DLP: добавлены SNILS, INN, `xai-` ключи
+
+**BFF (`server.ts`):**
+- `CORE_API` / `CORE_API_32B` → `10.129.13.78:30900` (Gateway)
+- Генерация delegation-токена (RS256, 5 мин) для каждого запроса
+- Заголовок `Authorization: Bearer <token>` в запросах к Gateway
+- Нестриминговый режим: Gateway возвращает полный JSON → BFF оборачивает в SSE
+
+**Исправление ключей:**
+- ConfigMap `delegation-public-key` синхронизирован с BFF (разные ключи → Signature verification failed)
+
+### 3. Тестирование
+
+| Тест | Результат |
+|---|---|
+| Normal (Hello) | ✅ PASS → vLLM: «2+2 equals 4» |
+| EN Injection | ✅ BLOCKED (security_violation) |
+| RU Jailbreak (игнорируй) | ✅ BLOCKED |
+| RU Forget (забудь) | ✅ BLOCKED |
+| DLP Credit Card | ✅ BLOCKED |
+| DLP SNILS | ✅ BLOCKED |
+| DLP Phone | ✅ BLOCKED |
+
+### 4. BFF на VPS2
+
+- Node.js BFF перекомпилирован (`npx tsc`)
+- Запущен на VPS2:3000
+- Второй рубеж безопасности: BFF сохраняет собственную проверку `checkSecurity()` как fallback
+
+### Коммиты
+
+| SHA | Описание |
+|---|---|
+| `f2e6202` | feat: Gateway в K8s — BFF маршрутизация + security |
+
+### Конфигурационные файлы
+
+- `gateway/gateway.py` — исправлен баг vllm_url, добавлен default
+- `gateway/security.py` — EN+RU паттерны, DLP расширен
+- `portal/server.ts` — Gateway-маршрутизация + delegation-токен
+- `portal/dist/server.js` — скомпилированная версия
+
+### Доступ к кластеру
+
+- **kubectl** установлен на VPS1
+- **kubeconfig** скопирован с n8 (`/etc/kubernetes/admin.conf`)
+- **SSH к нодам:** через jump-хост 10.129.11.21 (svlkravchuk / !QAZxsw2123)
+- **n8:** root / root
+- **n7:** root / root
+- **chrony на n7:** активен, синхронизирован
