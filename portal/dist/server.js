@@ -11,8 +11,8 @@ const crypto_1 = require("crypto");
 const security_1 = require("./security");
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-me";
-const CORE_API = process.env.CORE_API || "http://10.129.13.78:32293";
-const CORE_API_32B = process.env.CORE_API_32B || "http://10.129.13.77:32294";
+const CORE_API = process.env.CORE_API || "http://10.129.13.78:30900";
+const CORE_API_32B = process.env.CORE_API_32B || "http://10.129.13.78:30900"; // Gateway handles model routing
 const pool = new pg_1.Pool({
     host: process.env.PG_HOST || "127.0.0.1",
     port: Number(process.env.PG_PORT) || 5432,
@@ -668,7 +668,8 @@ async function main() {
         const chat = c.rows[0];
         // Save user message
         const userMsg = await pool.query("INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2) RETURNING message_id, created_at", [chatId, content]);
-        // Skip delegation token — direct to vLLM
+        // Generate delegation token for Gateway
+        const delegationToken = jsonwebtoken_1.default.sign({ org_id: chat.org_id, key_id: "chat", user_id: req.user.user_id }, DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" });
         // Build message history
         const history = await pool.query("SELECT role, content FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC", [chatId]);
         const messages = history.rows.map((m) => ({ role: m.role, content: m.content }));
@@ -682,65 +683,39 @@ async function main() {
             const modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
             const vllmModel = modelInfo.vllm_path;
             const vllmEndpoint = chat.model === "qwen2.5-32b" ? CORE_API_32B : CORE_API;
-            // Call vLLM with streaming
+            // Call Gateway (handles security, billing, routing, vLLM)
             const vllmRes = await fetch(vllmEndpoint + "/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "Authorization": "Bearer " + delegationToken,
                 },
                 body: JSON.stringify({
-                    model: vllmModel,
+                    model: chat.model, // Gateway handles model routing
                     messages: [...messages, { role: "user", content }],
                     max_tokens: 2048,
                     temperature: 0.7,
-                    stream: true,
                 }),
             });
-            if (!vllmRes.ok || !vllmRes.body) {
-                // Delete user message on error
+            if (!vllmRes.ok) {
+                const errText = await vllmRes.text();
                 await pool.query("DELETE FROM chat_messages WHERE message_id=$1", [userMsg.rows[0].message_id]);
-                return reply.status(502).send({ error: "vLLM error: " + vllmRes.status });
+                return reply.status(vllmRes.status).send({ error: "Gateway error: " + errText.slice(0, 200) });
             }
-            // Stream SSE to client
+            // Gateway returns full JSON (non-streaming)
+            const vllmJson = await vllmRes.json();
+            const fullContent = vllmJson.choices?.[0]?.message?.content || "";
+            const usage = vllmJson.usage || {};
+            const tokensUsed = usage.total_tokens || Math.ceil(fullContent.length / 4);
+            // Stream SSE to client (backward compatible)
             reply.raw.writeHead(200, {
                 "Content-Type": "text/event-stream",
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
             });
-            let fullContent = "";
-            const reader = vllmRes.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done)
-                        break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split("\n");
-                    buffer = lines.pop() || "";
-                    for (const line of lines) {
-                        if (line.startsWith("data: ")) {
-                            const data = line.slice(6);
-                            if (data === "[DONE]")
-                                continue;
-                            try {
-                                const parsed = JSON.parse(data);
-                                const delta = parsed.choices?.[0]?.delta?.content || "";
-                                fullContent += delta;
-                                // Forward to client
-                                reply.raw.write(`data: ${JSON.stringify({ delta })}\n\n`);
-                            }
-                            catch { }
-                        }
-                    }
-                }
-            }
-            finally {
-                reader.releaseLock();
-            }
+            // Send content as single delta
+            reply.raw.write(`data: ${JSON.stringify({ delta: fullContent })}\n\n`);
             // Save assistant message
-            const tokensUsed = Math.ceil(fullContent.length / 4); // rough estimate
             await pool.query("INSERT INTO chat_messages (chat_id, role, content, tokens_used) VALUES ($1,'assistant',$2,$3)", [chatId, fullContent, tokensUsed]);
             await pool.query("UPDATE chats SET updated_at=now() WHERE chat_id=$1", [chatId]);
             reply.raw.write(`data: ${JSON.stringify({ delta: "", done: true, tokens_used: tokensUsed })}\n\n`);
