@@ -1,0 +1,57 @@
+digraph BillingFlow {
+    rankdir=TB;
+    fontname="Arial";
+    bgcolor="#ffffff";
+    
+    node [fontname="Arial", shape=box, style=filled];
+    edge [fontname="Arial", color="#555555"];
+    
+    subgraph cluster_onboarding {
+        label="Регистрация и стартовый баланс";
+        style=filled;
+        fillcolor="#E8F5E9";
+        color="#2E7D32";
+        
+        register [label="OAuth-логин\n(Google/GitHub/Яндекс)", fillcolor="#C8E6C9", shape=component];
+        new_user [label="Создание пользователя\n+ личная организация", fillcolor="#C8E6C9"];
+        starter [label="Начисление 100 000 токенов\n(STARTER_TOKENS)", fillcolor="#A5D6A7"];
+        auto_refill [label="Авто-пополнение ×10\n(REFILL_TOKENS)\nпри обнулении баланса", fillcolor="#A5D6A7"];
+    }
+    
+    subgraph cluster_lifecycle {
+        label="Жизненный цикл токенов";
+        style=filled;
+        fillcolor="#E3F2FD";
+        color="#1565C0";
+        
+        reserve [label="💰 Reserve\n(Gateway блокирует\nоценочные токены)", fillcolor="#90CAF9"];
+        inference [label="🤖 Inference\n(vLLM генерирует\nответ)", fillcolor="#64B5F6"];
+        settle [label="📊 Settle\n(Gateway корректирует\nпо фактическому\nкол-ву токенов)", fillcolor="#42A5F5"];
+        reaper [label="♻ Reaper (cron 60s)\nВозврат залипших\nрезервов > 5 мин", fillcolor="#BBDEFB"];
+    }
+    
+    subgraph cluster_payment {
+        label="Пополнение (в планах)";
+        style=filled;
+        fillcolor="#FFF3E0";
+        color="#E65100";
+        
+        yookassa [label="ЮKassa\n(тестовый режим)", fillcolor="#FFE0B2", style=dashed];
+        topup [label="Пополнение\nбаланса", fillcolor="#FFE0B2", style=dashed];
+    }
+    
+    register -> new_user;
+    new_user -> starter;
+    starter -> auto_refill;
+    
+    auto_refill -> reserve [label="запрос"];
+    reserve -> inference;
+    inference -> settle;
+    settle -> auto_refill [label="остаток"];
+    
+    reserve -> reaper [label="залип > 5 мин", color="#FF8F00"];
+    reaper -> auto_refill [label="возврат", color="#FF8F00", style=dashed];
+    
+    yookassa -> topup [style=dashed];
+    topup -> auto_refill [style=dashed, label="ручное\nпополнение"];
+}
