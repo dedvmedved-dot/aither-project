@@ -46,6 +46,25 @@ async function checkOrgOwner(orgId, userId) {
     const r = await pool.query("SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND role='owner'", [orgId, userId]);
     return r.rows.length > 0;
 }
+const STARTER_TOKENS = 100_000; // 100K токенов новому пользователю
+const REFILL_TOKENS = 100_000; // авто-пополнение при обнулении
+const REFILL_LIMIT = 10; // максимум авто-пополнений (защита от бесконечного цикла)
+/** Создаёт личный org для нового пользователя и начисляет стартовые токены */
+async function ensurePersonalOrg(userId) {
+    const exist = await pool.query(`SELECT o.org_id FROM portal_organizations o
+     JOIN portal_org_members m ON o.org_id=m.org_id
+     WHERE m.user_id=$1 AND o.name='Личный'`, [userId]);
+    if (exist.rows.length > 0)
+        return exist.rows[0].org_id;
+    const org = await pool.query("INSERT INTO portal_organizations (name) VALUES ('Личный') RETURNING org_id");
+    const orgId = org.rows[0].org_id;
+    await pool.query("INSERT INTO portal_org_members (org_id, user_id, role) VALUES ($1,$2,'owner')", [orgId, userId]);
+    await pool.query(`INSERT INTO billing_accounts (org_id, reserved, total_tokens, meta)
+     VALUES ($1,0,$2,'{}'::jsonb)
+     ON CONFLICT (org_id) DO NOTHING`, [orgId, STARTER_TOKENS]);
+    console.log(`[auto-balance] new user ${userId}: personal org ${orgId} + ${STARTER_TOKENS} tokens`);
+    return orgId;
+}
 async function main() {
     const app = (0, fastify_1.default)({ logger: false });
     await app.register(cors_1.default, { origin: "*" });
@@ -182,6 +201,7 @@ async function main() {
                 const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
            VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["github", oauthId, primaryEmail, displayName, avatarUrl]);
                 userId = ins.rows[0].user_id;
+                await ensurePersonalOrg(userId);
             }
             else {
                 userId = user.rows[0].user_id;
@@ -249,6 +269,7 @@ async function main() {
                 const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
            VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["google", oauthId, email, displayName, avatarUrl]);
                 userId = ins.rows[0].user_id;
+                await ensurePersonalOrg(userId);
             }
             else {
                 userId = user.rows[0].user_id;
@@ -314,6 +335,7 @@ async function main() {
                 const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
            VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["yandex", oauthId, email, displayName, avatarUrl]);
                 userId = ins.rows[0].user_id;
+                await ensurePersonalOrg(userId);
             }
             else {
                 userId = user.rows[0].user_id;
@@ -338,6 +360,7 @@ async function main() {
         if (user.rows.length === 0) {
             const ins = await pool.query("INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, last_login_at) VALUES ($1,$2,$3,$4,now()) RETURNING user_id", ["dev", oid, email, name]);
             userId = ins.rows[0].user_id;
+            await ensurePersonalOrg(userId);
         }
         else {
             userId = user.rows[0].user_id;
@@ -718,10 +741,21 @@ async function main() {
         if (!orgId)
             return reply.status(400).send({ error: "org_id required" });
         try {
-            const r = await pool.query("SELECT total_tokens, reserved FROM billing_accounts WHERE org_id=$1", [orgId]);
+            const r = await pool.query("SELECT total_tokens, reserved, meta FROM billing_accounts WHERE org_id=$1", [orgId]);
             if (r.rows.length === 0)
                 return reply.send({ org_id: orgId, total_tokens: 0, reserved: 0 });
-            return reply.send({ org_id: orgId, total_tokens: Number(r.rows[0].total_tokens), reserved: Number(r.rows[0].reserved) });
+            let total = Number(r.rows[0].total_tokens);
+            const meta = r.rows[0].meta || {};
+            const refillCount = meta.refill_count || 0;
+            // Auto-refill when balance hits 0 (until limit)
+            if (total <= 0 && refillCount < REFILL_LIMIT) {
+                await pool.query(`UPDATE billing_accounts SET total_tokens = total_tokens + $1,
+           meta = jsonb_set(COALESCE(meta,'{}'::jsonb),'{refill_count}',$2::jsonb),
+           updated_at = now() WHERE org_id=$3`, [REFILL_TOKENS, JSON.stringify(refillCount + 1), orgId]);
+                total += REFILL_TOKENS;
+                console.log(`[auto-refill] org ${orgId}: +${REFILL_TOKENS} tokens (refill #${refillCount + 1}/${REFILL_LIMIT})`);
+            }
+            return reply.send({ org_id: orgId, total_tokens: total, reserved: Number(r.rows[0].reserved) });
         }
         catch (e) {
             return reply.send({ org_id: orgId, total_tokens: 0, reserved: 0, note: "billing_accounts table missing" });

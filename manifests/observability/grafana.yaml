@@ -24,11 +24,15 @@ spec:
         - name: GF_SECURITY_ADMIN_USER
           value: admin
         - name: GF_SECURITY_ADMIN_PASSWORD
-          value: admin
+          value: "xrDj.'R,BfTFQ@GCXn,s"
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: "true"
         - name: GF_USERS_DEFAULT_THEME
           value: light
+        - name: GF_SERVER_ROOT_URL
+          value: "http://130.17.1.90/grafana/"
+        - name: GF_SERVER_SERVE_FROM_SUB_PATH
+          value: "true"
         resources:
           requests:
             cpu: 100m
