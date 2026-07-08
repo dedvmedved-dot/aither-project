@@ -1,0 +1,99 @@
+digraph AitherArchitecture {
+    rankdir=TB;
+    fontname="Arial";
+    bgcolor="#ffffff";
+    
+    node [fontname="Arial", shape=box, style=filled];
+    edge [fontname="Arial", color="#555555"];
+    
+    subgraph cluster_users {
+        label="Пользователи";
+        style=filled;
+        fillcolor="#E3F2FD";
+        color="#1565C0";
+        fontname="Arial";
+        
+        browser [label="Браузер\n(портал)", fillcolor="#BBDEFB", shape=component];
+        api_client [label="Внешний API-клиент\n(curl, Python, etc)", fillcolor="#BBDEFB", shape=component];
+    }
+    
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90)";
+        style=filled;
+        fillcolor="#FFF3E0";
+        color="#E65100";
+        fontname="Arial";
+        
+        nginx [label="Nginx :80\n(SPA + прокси)", fillcolor="#FFE0B2", shape=cylinder];
+        portal_static [label="Статика портала\nindex.html", fillcolor="#FFE0B2", shape=note];
+        bff [label="BFF :3000\n(Node.js/Fastify)\nАвторизация, чаты, биллинг", fillcolor="#FFE0B2"];
+        pg_vps2 [label="PostgreSQL\n(пользователи, чаты)", fillcolor="#FFE0B2", shape=cylinder];
+        chromadb [label="ChromaDB\n(векторная БД)", fillcolor="#FFE0B2", shape=cylinder, style="dashed"];
+    }
+    
+    subgraph cluster_k8s {
+        label="Kubernetes (n8 + n7)";
+        style=filled;
+        fillcolor="#E8F5E9";
+        color="#2E7D32";
+        fontname="Arial";
+        
+        gateway [label="Gateway :30900\n(Python)\nРезервирование\nРасчёт стоимости\nRate Limiter\nAI Security", fillcolor="#C8E6C9"];
+        pg_k8s [label="PostgreSQL\n(биллинг, ключи)", fillcolor="#C8E6C9", shape=cylinder];
+        redis [label="Redis\n(Rate Limiter)", fillcolor="#C8E6C9", shape=cylinder];
+        
+        subgraph cluster_n8 {
+            label="n8 (control-plane)";
+            style=filled;
+            fillcolor="#F1F8E9";
+            color="#558B2F";
+            vllm14 [label="vLLM 14B\nQwen 2.5 14B\n2× RTX 6000 (TP=2)", fillcolor="#DCEDC8"];
+        }
+        
+        subgraph cluster_n7 {
+            label="n7 (worker)";
+            style=filled;
+            fillcolor="#F1F8E9";
+            color="#558B2F";
+            vllm32 [label="vLLM 32B\nQwen 2.5 32B\n2× RTX 6000 (TP=2)", fillcolor="#DCEDC8"];
+        }
+        
+        grafana [label="Grafana\n(observability)", fillcolor="#C8E6C9", shape=component];
+        prometheus [label="Prometheus\n(метрики)", fillcolor="#C8E6C9", shape=cylinder];
+    }
+    
+    subgraph cluster_auth {
+        label="OAuth-провайдеры";
+        style=filled;
+        fillcolor="#F3E5F5";
+        color="#6A1B9A";
+        fontname="Arial";
+        
+        google [label="Google", fillcolor="#E1BEE7"];
+        github [label="GitHub", fillcolor="#E1BEE7"];
+        yandex [label="Яндекс", fillcolor="#E1BEE7"];
+    }
+    
+    browser -> nginx [label="HTTPS"];
+    api_client -> nginx [label="HTTPS\nBearer API-Key"];
+    
+    nginx -> portal_static;
+    nginx -> bff [label="/api/*\n/auth/*"];
+    
+    bff -> google [label="OAuth"];
+    bff -> github [label="OAuth"];
+    bff -> yandex [label="OAuth"];
+    bff -> pg_vps2;
+    bff -> chromadb [style=dashed, label="RAG"];
+    bff -> gateway [label="reserve→\ninference→\nsettle"];
+    
+    gateway -> pg_k8s;
+    gateway -> redis;
+    gateway -> vllm14 [label="14B"];
+    gateway -> vllm32 [label="32B"];
+    
+    vllm14 -> prometheus;
+    vllm32 -> prometheus;
+    gateway -> prometheus;
+    prometheus -> grafana;
+}
