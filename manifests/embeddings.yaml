@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: embeddings
+  labels:
+    app: embeddings
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: embeddings
+  template:
+    metadata:
+      labels:
+        app: embeddings
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu
+      initContainers:
+      - name: install-deps
+        image: python:3.11-slim
+        command: ["pip", "install", "--no-cache-dir", "sentence-transformers", "fastapi", "uvicorn", "chromadb-client"]
+        volumeMounts:
+        - name: python-packages
+          mountPath: /root/.local
+      containers:
+      - name: embeddings
+        image: python:3.11-slim
+        command: ["python", "-c"]
+        args:
+        - |
+          from fastapi import FastAPI
+          from sentence_transformers import SentenceTransformer
+          import uvicorn, os, sys
+          sys.path.insert(0, '/root/.local/lib/python3.11/site-packages')
+
+          app = FastAPI(title="Embeddings Service")
+          model = SentenceTransformer("intfloat/multilingual-e5-large", device="cpu")
+
+          @app.get("/health")
+          def health():
+              return {"status": "ok", "model": "multilingual-e5-large"}
+
+          @app.post("/v1/embeddings")
+          async def embed(req: dict):
+              texts = req.get("input", [])
+              if isinstance(texts, str):
+                  texts = [texts]
+              # E5 prefix: "query: " or "passage: "
+              task = req.get("task", "passage")
+              prefix = "query: " if task == "query" else "passage: "
+              texts = [prefix + t for t in texts]
+              embeddings = model.encode(texts, normalize_embeddings=True)
+              return {
+                  "object": "list",
+                  "data": [{"embedding": emb.tolist(), "index": i} for i, emb in enumerate(embeddings)],
+                  "model": "multilingual-e5-large"
+              }
+
+          uvicorn.run(app, host="0.0.0.0", port=8001)
+        ports:
+        - containerPort: 8001
+        env:
+        - name: HF_HUB_DISABLE_PROGRESS_BARS
+          value: "1"
+        - name: TRANSFORMERS_CACHE
+          value: "/cache"
+        volumeMounts:
+        - name: python-packages
+          mountPath: /root/.local
+        - name: model-cache
+          mountPath: /cache
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "6Gi"
+            cpu: "4"
+      volumes:
+      - name: python-packages
+        emptyDir: {}
+      - name: model-cache
+        emptyDir:
+          sizeLimit: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: embeddings
+spec:
+  selector:
+    app: embeddings
+  ports:
+  - port: 8001
+    targetPort: 8001

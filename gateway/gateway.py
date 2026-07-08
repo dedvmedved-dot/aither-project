@@ -129,6 +129,57 @@ def get_balance(org_id: str):
         db_pool.putconn(conn)
 
 
+CHROMA_URL = os.environ.get("CHROMA_URL", "http://chromadb:8000")
+_rag_chroma = None
+_rag_ef = None
+
+def _get_ef():
+    global _rag_ef
+    if _rag_ef is None:
+        from chromadb.utils import embedding_functions
+        _rag_ef = embedding_functions.ONNXMiniLM_L6_V2()
+    return _rag_ef
+
+def _get_chroma():
+    global _rag_chroma
+    if _rag_chroma is None:
+        import chromadb
+        _rag_chroma = chromadb.HttpClient(host=CHROMA_URL.split("://")[1].split(":")[0],
+                                          port=int(CHROMA_URL.split(":")[-1]))
+    return _rag_chroma
+
+def rag_ingest(documents: list) -> dict:
+    """Ingest documents into ChromaDB. Each doc: {id, text, metadata?}"""
+    chroma = _get_chroma()
+    ef = _get_ef()
+    coll = chroma.get_or_create_collection("documents")
+    ids, texts, metadatas = [], [], []
+    for doc in documents:
+        ids.append(doc.get("id", str(uuid.uuid4())[:8]))
+        texts.append(doc["text"])
+        metadatas.append(doc.get("metadata", {"source": "unknown"}))
+    embeddings = ef(texts)
+    coll.add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
+    return {"ingested": len(documents), "ids": ids}
+
+def rag_query(query: str, top_k: int = 5) -> list:
+    """Query ChromaDB for relevant documents."""
+    chroma = _get_chroma()
+    ef = _get_ef()
+    coll = chroma.get_or_create_collection("documents")
+    count = coll.count()
+    if count == 0:
+        return []
+    q_embedding = ef(["query: " + query])
+    results = coll.query(query_embeddings=q_embedding, n_results=min(top_k, count))
+    return [{"id": id_, "text": doc, "metadata": meta,
+             "score": round(1 - float(dist), 4) if dist is not None else 0}
+            for id_, doc, meta, dist in zip(
+                results["ids"][0], results["documents"][0],
+                results["metadatas"][0] if results["metadatas"] else [{}]*len(results["ids"][0]),
+                results.get("distances", [[1]]*len(results["ids"][0]))[0])]
+
+
 class Gateway(BaseHTTPRequestHandler):
     vllm_url = VLLM_URL  # default, overridden per-request by model routing
 
@@ -137,6 +188,31 @@ class Gateway(BaseHTTPRequestHandler):
         if not auth.startswith("Bearer "):
             return None
         token = auth[7:]
+                # ── API Key auth (ak-...) ──────────────────────────────
+        if token.startswith("ak-"):
+            conn = db_pool.getconn()
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "SELECT org_id, user_id, name FROM portal_api_keys"
+                            " WHERE api_key=%s AND status='active'"
+                            " AND (expires_at IS NULL OR expires_at > now())",
+                            (token,))
+                        row = cur.fetchone()
+                        if row:
+                            cur.execute(
+                                "UPDATE portal_api_keys SET last_used_at=now() WHERE api_key=%s",
+                                (token,))
+                            return {"org_id": str(row[0]), "user_id": str(row[1]),
+                                    "api_key": True, "key_name": row[2]}
+            except Exception as e:
+                print(f"[API Key] lookup error: {e}", flush=True)
+            finally:
+                db_pool.putconn(conn)
+            return None
+
+        # ── JWT RS256 auth ─────────────────────────────────────
         try:
             if PUBLIC_KEY:
                 return pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"],
@@ -282,6 +358,46 @@ class Gateway(BaseHTTPRequestHandler):
 
         if not self.path.startswith("/v1/"):
             self._json(404, {"error": "not found"})
+            return
+
+        # ── RAG endpoints ─────────────────────────────────────
+        if self.path == "/v1/rag/ingest":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body_str = self.rfile.read(length).decode() if length else "{}"
+                req_data = json.loads(body_str)
+                docs = req_data.get("documents", [])
+                if not docs:
+                    self._json(400, {"error": "documents array required"})
+                    return
+                result = rag_ingest(docs)
+                self._json(200, result)
+            except Exception as e:
+                self._json(500, {"error": "ingest_failed", "detail": str(e)})
+            return
+
+        if self.path == "/v1/rag/query":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body_str = self.rfile.read(length).decode() if length else "{}"
+                req_data = json.loads(body_str)
+                query = req_data.get("query", "")
+                top_k = req_data.get("top_k", 5)
+                if not query:
+                    self._json(400, {"error": "query required"})
+                    return
+                results = rag_query(query, top_k)
+                self._json(200, {"query": query, "results": results})
+            except Exception as e:
+                self._json(500, {"error": "query_failed", "detail": str(e)})
             return
 
         # Validate JWT
@@ -499,6 +615,14 @@ def reaper_loop():
 if __name__ == "__main__":
     print(f"[Reaper] Starting (interval={REAP_INTERVAL}s, threshold={STUCK_THRESHOLD}s)", flush=True)
     threading.Thread(target=reaper_loop, daemon=True).start()
+    # Pre-load ONNX embedding model at startup (avoids blocking first RAG request)
+    print("[Init] Pre-loading ONNX embedding model...", flush=True)
+    try:
+        ef = _get_ef()
+        _ = ef(["warmup"])
+        print("[Init] ONNX embedding model ready", flush=True)
+    except Exception as e:
+        print(f"[Init] ONNX warmup failed (will retry on first request): {e}", flush=True)
     port = int(os.environ.get("PORT", "8080"))
     server = HTTPServer(("0.0.0.0", port), Gateway)
     print(f"Gateway listening on :{port}", flush=True)

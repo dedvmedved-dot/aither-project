@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: chromadb-pv
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: ["ReadWriteOnce"]
+  hostPath:
+    path: /data/chromadb
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chromadb-pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+  volumeName: chromadb-pv
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chromadb
+  labels:
+    app: chromadb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chromadb
+  template:
+    metadata:
+      labels:
+        app: chromadb
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu
+      containers:
+      - name: chromadb
+        image: chromadb/chroma:0.6.3
+        ports:
+        - containerPort: 8000
+        env:
+        - name: IS_PERSISTENT
+          value: "TRUE"
+        - name: PERSIST_DIRECTORY
+          value: "/chroma/chroma"
+        - name: ANONYMIZED_TELEMETRY
+          value: "FALSE"
+        volumeMounts:
+        - name: chroma-data
+          mountPath: /chroma/chroma
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2"
+      volumes:
+      - name: chroma-data
+        persistentVolumeClaim:
+          claimName: chromadb-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chromadb
+spec:
+  selector:
+    app: chromadb
+  ports:
+  - port: 8000
+    targetPort: 8000
