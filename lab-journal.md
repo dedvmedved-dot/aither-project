@@ -2505,3 +2505,79 @@ grafana.130.17.1.90.nip.io → VPS2:80 → n8:30300 (Grafana)
 - **n8:** root / root
 - **n7:** root / root
 - **chrony на n7:** активен, синхронизирован
+
+## День 14: Критические исправления чата (08.07.2026)
+
+### Инцидент
+
+После успешной демонстрации чата (день 13) портал перестал работать — «Bad Gateway» при
+отправке сообщений, ошибки 500 при создании чата, 402 в Gateway.
+
+Время простоя: ~4 часа. Причина: три независимых бага, проявившихся одновременно.
+
+### Диагностика
+
+| # | Симптом | Диагноз |
+|---|---|---|
+| 1 | `POST /api/v1/chats/:id/messages` → **502 Bad Gateway** | nginx буферизировал SSE-стрим и рвал соединение |
+| 2 | `POST /api/v1/chats` → **500** `invalid input syntax for type uuid: "7183cec1"` | `chats.org_id` имел тип `uuid`, портал передавал короткую форму |
+| 3 | Gateway → **402** `insufficient_balance: invalid input syntax for type uuid` | `billing_accounts.org_id`, `billing_ledger.org_id`, `usage_records.org_id` — тоже `uuid` |
+
+### Исправления
+
+**1. nginx: SSE-стриминг**
+
+В `nginx.conf` в блок `location /api/` добавлены директивы:
+
+```nginx
+proxy_set_header Connection "";
+proxy_buffering off;
+proxy_read_timeout 300s;
+chunked_transfer_encoding on;
+```
+
+Без них nginx буферизировал SSE-поток от BFF и разрывал соединение до получения ответа от vLLM.
+
+**2. Миграция БД: UUID → TEXT**
+
+Портал использует короткую форму `org_id` (первые 8 символов UUID: `7183cec1`)
+для URL и API. Колонки типа `uuid` в PostgreSQL не принимают такой формат.
+
+```sql
+-- VPS2 (портал)
+ALTER TABLE chats DROP CONSTRAINT chats_org_id_fkey;
+ALTER TABLE chats ALTER COLUMN org_id TYPE text;
+
+-- K8s PostgreSQL (Gateway)
+ALTER TABLE billing_accounts ALTER COLUMN org_id TYPE text;
+ALTER TABLE billing_ledger ALTER COLUMN org_id TYPE text;
+ALTER TABLE usage_records ALTER COLUMN org_id TYPE text;
+```
+
+**3. Перезапуск BFF**
+
+BFF на VPS2 вошёл в состояние «зомби» — процесс жив, порт слушается, но все роуты
+возвращают 404. Причина не установлена (возможно, внутренний сбой Fastify).
+Решение: `kill` + перезапуск с `set -a && . ./.env && set +a`.
+
+### Результат
+
+- ✅ Чат работает с обеими моделями (14B и 32B)
+- ✅ Создание чатов без ошибок
+- ✅ Внешний API отвечает
+- ✅ Стриминг SSE пробрасывается корректно
+
+### Коммиты
+
+| SHA | Описание |
+|---|---|
+| `19918e1` | fix: org_id UUID→TEXT + nginx SSE streaming |
+
+### Извлечённые уроки
+
+1. **nginx и SSE несовместимы без `proxy_buffering off`** — стандартный конфиг
+   для проксирования API не работает со стримингом.
+2. **Типы колонок должны соответствовать формату данных** — портал использует
+   короткие ID для читаемости URL, БД должна принимать text, не uuid.
+3. **BFF на Node.js может зависать без видимых причин** — нужен health-check
+   с автоматическим перезапуском (systemd, supervisor).
