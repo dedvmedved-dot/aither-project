@@ -23,7 +23,107 @@
 
 ## 1. Архитектура платформы
 
-![Архитектура](diagrams/architecture.svg)
+```dot
+digraph AitherArchitecture {
+    rankdir=TB;
+    fontname="Arial";
+    bgcolor="#ffffff";
+    
+    node [fontname="Arial", shape=box, style=filled];
+    edge [fontname="Arial", color="#555555"];
+    
+    subgraph cluster_users {
+        label="Пользователи";
+        style=filled;
+        fillcolor="#E3F2FD";
+        color="#1565C0";
+        fontname="Arial";
+        
+        browser [label="Браузер\n(портал)", fillcolor="#BBDEFB", shape=component];
+        api_client [label="Внешний API-клиент\n(curl, Python, etc)", fillcolor="#BBDEFB", shape=component];
+    }
+    
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90)";
+        style=filled;
+        fillcolor="#FFF3E0";
+        color="#E65100";
+        fontname="Arial";
+        
+        nginx [label="Nginx :80\n(SPA + прокси)", fillcolor="#FFE0B2", shape=cylinder];
+        portal_static [label="Статика портала\nindex.html", fillcolor="#FFE0B2", shape=note];
+        bff [label="BFF :3000\n(Node.js/Fastify)\nАвторизация, чаты, биллинг", fillcolor="#FFE0B2"];
+        pg_vps2 [label="PostgreSQL\n(пользователи, чаты)", fillcolor="#FFE0B2", shape=cylinder];
+        chromadb [label="ChromaDB\n(векторная БД)", fillcolor="#FFE0B2", shape=cylinder, style="dashed"];
+    }
+    
+    subgraph cluster_k8s {
+        label="Kubernetes (n8 + n7)";
+        style=filled;
+        fillcolor="#E8F5E9";
+        color="#2E7D32";
+        fontname="Arial";
+        
+        gateway [label="Gateway :30900\n(Python)\nРезервирование\nРасчёт стоимости\nRate Limiter\nAI Security", fillcolor="#C8E6C9"];
+        pg_k8s [label="PostgreSQL\n(биллинг, ключи)", fillcolor="#C8E6C9", shape=cylinder];
+        redis [label="Redis\n(Rate Limiter)", fillcolor="#C8E6C9", shape=cylinder];
+        
+        subgraph cluster_n8 {
+            label="n8 (control-plane)";
+            style=filled;
+            fillcolor="#F1F8E9";
+            color="#558B2F";
+            vllm14 [label="vLLM 14B\nQwen 2.5 14B\n2× RTX 6000 (TP=2)", fillcolor="#DCEDC8"];
+        }
+        
+        subgraph cluster_n7 {
+            label="n7 (worker)";
+            style=filled;
+            fillcolor="#F1F8E9";
+            color="#558B2F";
+            vllm32 [label="vLLM 32B\nQwen 2.5 32B\n2× RTX 6000 (TP=2)", fillcolor="#DCEDC8"];
+        }
+        
+        grafana [label="Grafana\n(observability)", fillcolor="#C8E6C9", shape=component];
+        prometheus [label="Prometheus\n(метрики)", fillcolor="#C8E6C9", shape=cylinder];
+    }
+    
+    subgraph cluster_auth {
+        label="OAuth-провайдеры";
+        style=filled;
+        fillcolor="#F3E5F5";
+        color="#6A1B9A";
+        fontname="Arial";
+        
+        google [label="Google", fillcolor="#E1BEE7"];
+        github [label="GitHub", fillcolor="#E1BEE7"];
+        yandex [label="Яндекс", fillcolor="#E1BEE7"];
+    }
+    
+    browser -> nginx [label="HTTPS"];
+    api_client -> nginx [label="HTTPS\nBearer API-Key"];
+    
+    nginx -> portal_static;
+    nginx -> bff [label="/api/*\n/auth/*"];
+    
+    bff -> google [label="OAuth"];
+    bff -> github [label="OAuth"];
+    bff -> yandex [label="OAuth"];
+    bff -> pg_vps2;
+    bff -> chromadb [style=dashed, label="RAG"];
+    bff -> gateway [label="reserve→\ninference→\nsettle"];
+    
+    gateway -> pg_k8s;
+    gateway -> redis;
+    gateway -> vllm14 [label="14B"];
+    gateway -> vllm32 [label="32B"];
+    
+    vllm14 -> prometheus;
+    vllm32 -> prometheus;
+    gateway -> prometheus;
+    prometheus -> grafana;
+}
+```
 
 ### Компоненты
 
@@ -78,7 +178,52 @@ http://130.17.1.90
 
 ## 3. Чат с моделями
 
-![Поток обработки запроса](diagrams/chat-flow.svg)
+```dot
+digraph ChatFlow {
+    rankdir=LR;
+    fontname="Arial";
+    bgcolor="#ffffff";
+    
+    node [fontname="Arial", shape=box, style=filled, fillcolor="#E3F2FD", color="#1565C0"];
+    edge [fontname="Arial", color="#555555"];
+    
+    user [label="Пользователь\nв браузере", fillcolor="#BBDEFB", shape=component];
+    
+    subgraph cluster_flow {
+        label="Поток обработки запроса";
+        style=filled;
+        fillcolor="#FFF8E1";
+        color="#F57F17";
+        
+        step1 [label="1. POST /api/v1/chats/:id/messages\n{content: ...}", fillcolor="#FFF9C4", shape=note];
+        step2 [label="2. BFF авторизация\n(verify JWT)", fillcolor="#FFF9C4"];
+        step3 [label="3. AI Security\n(checkSecurity)\nинъекции + DLP", fillcolor="#FFCCBC"];
+        step4 [label="4. Gateway: reserve\n(проверка баланса\n+ списание)", fillcolor="#C8E6C9"];
+        step5 [label="5. vLLM: inference\n(SSE-стриминг)", fillcolor="#C8E6C9"];
+        step6 [label="6. Gateway: settle\n(коррекция\nпо фактическим\nтокенам)", fillcolor="#C8E6C9"];
+        step7 [label="7. BFF → SSE\n(chunked\nпроброс клиенту)", fillcolor="#FFF9C4"];
+    }
+    
+    user -> step1;
+    step1 -> step2;
+    step2 -> step3;
+    step3 -> step4 [label="OK"];
+    step3 -> reject [label="⛔ injection/DLP", color="#D32F2F"];
+    
+    reject [label="❌ 403 Forbidden\n(попытка взлома\nили утечка данных)", fillcolor="#FFCDD2", color="#D32F2F", shape=note];
+    
+    step4 -> step4b [label="OK"];
+    step4 -> no_balance [label="⛔ 0 токенов", color="#D32F2F"];
+    
+    no_balance [label="❌ 402\ninsufficient_balance", fillcolor="#FFCDD2", color="#D32F2F", shape=note];
+    step4b [label="4b. Rate Limiter\n(Redis sliding\nwindow 60s)", fillcolor="#C8E6C9"];
+    
+    step4b -> step5;
+    step5 -> step6;
+    step6 -> step7;
+    step7 -> user [label="data: {delta:...}\ndata: {done:true}"];
+}
+```
 
 ### Как начать чат
 
@@ -192,7 +337,65 @@ print(response.json())
 
 ## 5. Биллинг и баланс
 
-![Жизненный цикл токенов](diagrams/billing-flow.svg)
+```dot
+digraph BillingFlow {
+    rankdir=TB;
+    fontname="Arial";
+    bgcolor="#ffffff";
+    
+    node [fontname="Arial", shape=box, style=filled];
+    edge [fontname="Arial", color="#555555"];
+    
+    subgraph cluster_onboarding {
+        label="Регистрация и стартовый баланс";
+        style=filled;
+        fillcolor="#E8F5E9";
+        color="#2E7D32";
+        
+        register [label="OAuth-логин\n(Google/GitHub/Яндекс)", fillcolor="#C8E6C9", shape=component];
+        new_user [label="Создание пользователя\n+ личная организация", fillcolor="#C8E6C9"];
+        starter [label="Начисление 100 000 токенов\n(STARTER_TOKENS)", fillcolor="#A5D6A7"];
+        auto_refill [label="Авто-пополнение ×10\n(REFILL_TOKENS)\nпри обнулении баланса", fillcolor="#A5D6A7"];
+    }
+    
+    subgraph cluster_lifecycle {
+        label="Жизненный цикл токенов";
+        style=filled;
+        fillcolor="#E3F2FD";
+        color="#1565C0";
+        
+        reserve [label="💰 Reserve\n(Gateway блокирует\nоценочные токены)", fillcolor="#90CAF9"];
+        inference [label="🤖 Inference\n(vLLM генерирует\nответ)", fillcolor="#64B5F6"];
+        settle [label="📊 Settle\n(Gateway корректирует\nпо фактическому\nкол-ву токенов)", fillcolor="#42A5F5"];
+        reaper [label="♻ Reaper (cron 60s)\nВозврат залипших\nрезервов > 5 мин", fillcolor="#BBDEFB"];
+    }
+    
+    subgraph cluster_payment {
+        label="Пополнение (в планах)";
+        style=filled;
+        fillcolor="#FFF3E0";
+        color="#E65100";
+        
+        yookassa [label="ЮKassa\n(тестовый режим)", fillcolor="#FFE0B2", style=dashed];
+        topup [label="Пополнение\nбаланса", fillcolor="#FFE0B2", style=dashed];
+    }
+    
+    register -> new_user;
+    new_user -> starter;
+    starter -> auto_refill;
+    
+    auto_refill -> reserve [label="запрос"];
+    reserve -> inference;
+    inference -> settle;
+    settle -> auto_refill [label="остаток"];
+    
+    reserve -> reaper [label="залип > 5 мин", color="#FF8F00"];
+    reaper -> auto_refill [label="возврат", color="#FF8F00", style=dashed];
+    
+    yookassa -> topup [style=dashed];
+    topup -> auto_refill [style=dashed, label="ручное\nпополнение"];
+}
+```
 
 ### Как работает биллинг
 
