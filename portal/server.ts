@@ -17,6 +17,14 @@ const pool = new Pool({
   database: process.env.PG_DB || "portal",
 });
 
+// K8s PostgreSQL pool (for API key replication to Gateway)
+const k8sPool = new Pool({
+  host: process.env.K8S_PG_HOST || "10.129.13.78",
+  port: Number(process.env.K8S_PG_PORT) || 31113,
+  user: process.env.K8S_PG_USER || "aither",
+  database: process.env.K8S_PG_DB || "aither",
+});
+
 function signToken(userId: string): string {
   return jwt.sign({ user_id: userId }, JWT_SECRET, { expiresIn: "24h" });
 }
@@ -541,6 +549,12 @@ async function main() {
       `INSERT INTO portal_api_keys (org_id, api_key, api_key_prefix, name)
        VALUES ($1,$2,$3,$4) RETURNING key_id, api_key_prefix, name, status, created_at`,
       [orgId, apiKey, apiKeyPrefix, name]);
+    // Replicate to K8s PG for Gateway auth
+    k8sPool.query(
+      `INSERT INTO portal_api_keys (org_id, user_id, api_key, api_key_prefix, name)
+       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (api_key) DO NOTHING`,
+      [orgId, p.user_id, apiKey, apiKeyPrefix, name]
+    ).catch(e => console.log("[k8s-replicate] create key error:", e.message));
     return { key: { ...r.rows[0], api_key: apiKey } };
   });
 
@@ -552,7 +566,77 @@ async function main() {
       "UPDATE portal_api_keys SET status='revoked' WHERE key_id=$1 AND org_id=$2 RETURNING key_id, status",
       [keyId, orgId]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "key not found" });
+    // Replicate to K8s PG
+    k8sPool.query(
+      "UPDATE portal_api_keys SET status='revoked' WHERE key_id=$1",
+      [keyId]
+    ).catch(e => console.log("[k8s-replicate] revoke key error:", e.message));
     return { key: r.rows[0] };
+  });
+
+  // ==================== EXTERNAL API (api keys) ====================
+
+  app.post("/api/v1/chat/completions", async (req: any, reply) => {
+    // Authenticate via API key (ak-...) in Authorization header
+    const ah = (req.headers.authorization || "") as string;
+    if (!ah.startsWith("Bearer ak-")) {
+      return reply.status(401).send({ error: "invalid_api_key", hint: "Use 'Authorization: Bearer ak-...'" });
+    }
+    const apiKey = ah.slice(7);
+
+    // Lookup API key in local DB
+    const keyRow = await pool.query(
+      "SELECT org_id, name FROM portal_api_keys WHERE api_key=$1 AND status='active' AND (expires_at IS NULL OR expires_at > now())",
+      [apiKey]);
+    if (keyRow.rows.length === 0) {
+      return reply.status(401).send({ error: "invalid_or_revoked_api_key" });
+    }
+
+    const { org_id } = keyRow.rows[0];
+
+    // Update last_used_at
+    pool.query("UPDATE portal_api_keys SET last_used_at=now() WHERE api_key=$1", [apiKey])
+      .catch(e => console.log("[api] last_used update:", e.message));
+
+    // Generate delegation token for Gateway
+    const delegationToken = jwt.sign(
+      { org_id, key_id: "api" },
+      DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-api" });
+
+    // Read request body
+    const body: any = req.body || {};
+    if (!body.messages) {
+      return reply.status(400).send({ error: "messages is required" });
+    }
+
+    // Forward to Gateway
+    try {
+      const gwResp = await fetch(`http://10.129.13.78:30900/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + delegationToken,
+        },
+        body: JSON.stringify({
+          model: body.model || "qwen2.5-14b",
+          messages: body.messages,
+          max_tokens: body.max_tokens || 2048,
+          temperature: body.temperature ?? 0.7,
+          stream: false,
+        }),
+      });
+
+      const responseJson = await gwResp.json();
+
+      if (!gwResp.ok) {
+        return reply.status(gwResp.status).send(responseJson);
+      }
+
+      // Return OpenAI-compatible response
+      return reply.send(responseJson);
+    } catch (e: any) {
+      return reply.status(502).send({ error: "gateway_unreachable", detail: e.message });
+    }
   });
 
   // ==================== DELEGATION ====================
