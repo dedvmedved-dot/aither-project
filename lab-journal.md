@@ -2663,5 +2663,103 @@ curl -s -X POST http://gateway:30900/api/chat -d '{
 | SHA | Описание |
 |---|---|
 | `d29bd83` | feat: LoRA PEFT converter + gateway model list + ROADMAP update |
-| `xxxxxxxx` | docs: lab-journal Day 17 — LoRA fix, Этап 4 закрыт |
-   с автоматическим перезапуском (systemd, supervisor).
+| `b7077bc` | docs: lab-journal Day 17 — LoRA fix, Этап 4 закрыт |
+
+---
+
+## День 18: Этап 5 — Тарифные планы (09.07.2026)
+
+### Контекст
+
+Необходима многоуровневая система тарифов с разными лимитами и доступом к моделям:
+- **Free** — 14B, 100 запросов/день, без RAG
+- **Standard** — 14B + 32B, 1000 запросов/день, без RAG
+- **VIP** — все модели + LoRA, 10000 запросов/день, RAG
+- **Enterprise** — безлимит, on-premise, кастомные модели
+
+### Реализация
+
+**1. SQL-миграция** (`db/migrations/007_subscription_tiers.sql`)
+
+```sql
+CREATE TABLE subscription_tiers (
+    tier_id TEXT PRIMARY KEY,
+    rpm_limit INTEGER, tpm_limit INTEGER, daily_request_limit INTEGER,
+    models TEXT[], rag_enabled BOOL, priority INTEGER,
+    price_rub_month INTEGER, features TEXT[]
+);
+ALTER TABLE billing_accounts ADD COLUMN tier TEXT DEFAULT 'free';
+```
+
+**2. Gateway: tier-based rate limiting**
+
+```python
+def _get_org_tier(org_id) -> str:  # Redis-cached, 60s TTL
+def _get_tier_limits(tier_id) -> dict:  # Redis-cached tier config
+```
+
+Замена хардкодных `RATE_LIMIT_RPM`/`RATE_LIMIT_TPM` на динамические лимиты из БД.
+Добавлен дневной лимит запросов (`rl:{org_id}:daily:{today}`).
+
+**3. Gateway: model access control**
+
+После routing проверяется, есть ли модель в `limits["models"]`.
+Free tier → 32B: `{"error":"model_not_available","tier":"free","allowed":["qwen2.5-14b"]}`
+
+**4. Gateway: RAG access control**
+
+RAG-эндпоинт проверяет `limits["rag"]` перед выполнением запроса.
+Free tier → RAG: `{"error":"rag_not_available"}`
+
+**5. Portal BFF**
+
+- `GET /api/v1/tiers` — список тарифов с лимитами и features
+- `GET /api/v1/org/tier?org_id=X` — текущий тариф организации
+
+**6. Portal UI**
+
+Новая вкладка «Тарифы» — сетка карточек с эмодзи, ценами, лимитами, списком возможностей.
+Текущий тариф выделен рамкой accent + подписью «✅ Ваш текущий тариф».
+
+### Проблемы и решения
+
+| # | Проблема | Решение |
+|---|---|---|
+| 1 | ConfigMap gateway-code потерял security.py при перезаписи | Пересоздал ConfigMap со всеми 5 файлами |
+| 2 | Миграция не применена на портале VPS2 | `psql -h localhost -U portal -d portal` отдельно |
+| 3 | Redis кэширует старый tier после апгрейда | `redis-cli DEL org_tier:{id}` для сброса |
+| 4 | `r.setex` deprecation warning | Заменён на `r.set(key, val, ex=60)` |
+
+### Верификация
+
+```bash
+# Model access control
+$ curl ... -d '{"model":"qwen2.5-32b"}'  # Free tier
+{"error":"model_not_available","tier":"free","requested":"qwen2.5-32b","allowed":["qwen2.5-14b"]}
+
+# 14B доступна
+$ curl ... -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"1+1"}],"max_tokens":5}'
+{"choices":[{"message":{"content":"1+1 equals "}}]}
+
+# Tiers API
+$ curl http://127.0.0.1:3000/api/v1/tiers
+{"tiers":[{"tier_id":"free","name":"Free","rpm_limit":30,...},...]}
+```
+
+### Результат
+
+- ✅ 4 тарифа: Free → Standard → VIP → Enterprise
+- ✅ Tier-based RPM/TPM/daily limits
+- ✅ Model access control (ограничение моделей по тарифу)
+- ✅ RAG access control (только VIP/Enterprise)
+- ✅ Redis-cached tier lookup (60s TTL)
+- ✅ Portal UI: карточки тарифов с сравнением
+- ✅ BFF endpoints: tiers list + org tier
+
+### Коммит
+
+| SHA | Описание |
+|---|---|
+| `a59ab42` | feat: Stage 5 — Multi-tenant tariff plans (Free/Standard/VIP/Enterprise) |
+
+**Прогресс: 58% (21/36)**
