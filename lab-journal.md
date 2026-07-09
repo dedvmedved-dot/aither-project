@@ -2580,4 +2580,88 @@ BFF на VPS2 вошёл в состояние «зомби» — процесс
 2. **Типы колонок должны соответствовать формату данных** — портал использует
    короткие ID для читаемости URL, БД должна принимать text, не uuid.
 3. **BFF на Node.js может зависать без видимых причин** — нужен health-check
+
+---
+
+## День 17: LoRA Fix → Этап 4 закрыт (07.07.2026)
+
+### Контекст
+
+- LoRA-адаптер `astra-14b` обучен на CPU в День 15 (21 пример, 3 эпохи, 68.9 MB safetensors)
+- При попытке загрузки в vLLM 0.24 — ошибка формата: ключи без PEFT-префикса
+- vLLM ожидает `base_model.model.model.layers.X...lora_A.weight`, адаптер имел `model.layers.X...lora_A.weight`
+
+### Решение: PEFT-конвертер
+
+```python
+# Конвертация ключей для vLLM
+old_key = "model.layers.0.self_attn.q_proj.lora_A.weight"
+new_key = f"base_model.model.{old_key}.default.weight"
+```
+
+672 ключа преобразованы в PEFT-формат, плюс добавлен заголовок PEFT-конфигурации (`r=8, alpha=16, target_modules=[q_proj,k_proj,v_proj,o_proj]`).
+
+### Проблемы и решения
+
+| # | Проблема | Причина | Решение |
+|---|---|---|---|
+| 1 | vLLM не видит LoRA | Ключи без PEFT-префикса | Конвертер → 672 ключа в PEFT-формате |
+| 2 | OOM на CUDA graphs | `/dev/shm` = 64 MB, TP2+LoRA требует гигабайты | `emptyDir.medium=Memory, sizeLimit=16Gi` |
+| 3 | CrashLoop после патча | Патч перезаписал volumeMounts → потеря `/models` | Восстановил mount |
+| 4 | Модель не найдена | hostPath изменён, модели были в `/data/models` | `HOSTPATH=/data/models` |
+| 5 | vLLM пытается скачать из HF | Ложная тревога — не тот путь | Откатил, исправил hostPath |
+
+### Конфигурация vLLM с LoRA (итоговая)
+
+```yaml
+args:
+  - --model /models/qwen2.5-14b
+  - --tensor-parallel-size 2
+  - --max-model-len 32768
+  - --enable-lora
+  - --lora-modules astra-14b=/models/lora-qwen14b-astra
+  - --enforce-eager
+  - --api-key [REDACTED]
+volumes:
+  - hostPath: /data/models → /models
+  - hostPath: /data/lora-qwen14b-astra → /models/lora-qwen14b-astra
+  - emptyDir (Memory, 16Gi) → /dev/shm
+```
+
+### Верификация LoRA
+
+```bash
+# Список моделей
+curl -s http://vllm-qwen14b:8000/v1/models | jq '.data[].id'
+# → "qwen2.5-14b"
+# → "astra-14b"
+
+# Тест с LoRA
+curl -s -X POST http://gateway:30900/api/chat -d '{
+  "model": "astra-14b",
+  "message": "Что такое Astra Linux?"
+}'
+# → "Astra Linux (специального назначения) — операционная система
+#     на базе ядра Linux, разработанная АО «НПО РусБИТех»..."
+```
+
+Модель `astra-14b` успешно отвечает на доменные вопросы по Astra Linux — LoRA адаптер работает!
+
+### Завершение Этапа 4
+
+| # | Задача | Статус |
+|---|---|---|
+| 17 | RAG (ChromaDB) | ✅ День 16 |
+| 18 | Fine-tuning LoRA | ✅ День 17 |
+| 19 | Cost-aware routing | ✅ День 15 |
+| 20 | Model Playground | ✅ День 15 |
+
+**Прогресс: 57% (20/35)**
+
+### Коммиты
+
+| SHA | Описание |
+|---|---|
+| `d29bd83` | feat: LoRA PEFT converter + gateway model list + ROADMAP update |
+| `xxxxxxxx` | docs: lab-journal Day 17 — LoRA fix, Этап 4 закрыт |
    с автоматическим перезапуском (systemd, supervisor).
