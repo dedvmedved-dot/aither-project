@@ -159,7 +159,7 @@ Gateway анализирует запрос и выбирает модель:
 | 35 | <mark>**SIEM-интеграция**</mark> (syslog CEF + security log storage) | P0 | ✅ | 2 дня |
 | 36 | <mark>**Vault-интеграция**</mark> (внешняя ген. API-ключей + политики ИБ) | P0 | ✅ | 4 дня |
 | 37 | <mark>**LLM-Wiki + гибридный RAG**</mark> (Wiki graph search) | P0 | ✅ | 4 дня |
-| 23a | <mark>**LDAP-аутентификация**</mark> (FreeIPA/ALD Pro) | P0 | ⬜ | 3 дня |
+| 23a | <mark>**LDAP-аутентификация**</mark> (FreeIPA/ALD Pro) | P0 | ✅ | 3 дня |
 | 38 | <mark>**Профили организаций**</mark> (security policy per org) | P1 | ⬜ | 2 дня |
 | 39 | <mark>**API Gateway management API**</mark> (очереди, модели, drain) | P1 | ⬜ | 2 дня |
 | 40 | <mark>**TTFT-мониторинг**</mark> (Time To First Token, Prometheus) | P1 | ⬜ | 1 день |
