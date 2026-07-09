@@ -1,0 +1,19 @@
+[Unit]
+Description=Aither Portal BFF (Primary)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/aither-project/portal
+EnvironmentFile=/root/aither-project/portal/.env
+Environment=PG_HOST=10.129.13.78
+Environment=PG_PORT=31113
+Environment=PG_USER=aither
+Environment=PG_DB=aither
+ExecStart=/usr/local/bin/node dist/server.js
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
