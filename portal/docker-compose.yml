@@ -2,6 +2,8 @@ version: "3.8"
 services:
   portal-db:
     image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: portal
       POSTGRES_PASSWORD: portal
@@ -20,8 +22,11 @@ services:
       PG_PORT: "5432"
       PG_USER: portal
       PG_PASSWORD: portal
+      PGPASSWORD: portal
       PG_DB: portal
       JWT_SECRET: "dev-jwt-secret-change-me"
+      NODE_ENV: production
+      CORS_ORIGIN: "http://130.17.1.90"
       CORE_API: "http://10.129.13.78:30900"
     network_mode: host
     depends_on:
