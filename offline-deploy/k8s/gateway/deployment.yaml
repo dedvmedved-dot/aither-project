@@ -9,7 +9,7 @@ data:
     models:
       - name: qwen2.5-14b
         display_name: "Qwen 2.5 14B"
-        backend: "http://vllm-qwen.aither:8000"
+        backend: "http://vllm-qwen:8000"
         model_path: "/models/Qwen2.5-14B-Instruct"
         max_tokens: 4096
         tokens_per_ruble: 100
@@ -17,7 +17,7 @@ data:
         status: active
       - name: qwen2.5-32b
         display_name: "Qwen 2.5 32B"
-        backend: "http://vllm-qwen32b.aither:8000"
+        backend: "http://vllm-qwen32b:8000"
         model_path: "/models/Qwen2.5-32B-Instruct-GPTQ"
         max_tokens: 8192
         tokens_per_ruble: 30
