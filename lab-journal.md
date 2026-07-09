@@ -3604,3 +3604,38 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 
 **Репозитории запушены:** 16/16 ✅
 
+
+---
+
+## День 7a (09.07.2026) — Восстановление портала после сбоя
+
+**Проблема:** Портал не работает — OAuth "not configured", BFF падает.
+
+### #34 Исправление OAuth и BFF
+
+**Диагностика:**
+- BFF-контейнер падал: `Cannot find module 'dotenv/config'`
+- `.env` файл отсутствовал на VPS2
+- OAuth redirect URI были старые (`130.17.1.90` вместо `fb1.spb.ru:10443`)
+- Docker Compose упорно использовал кешированный образ
+
+**Решение:**
+- BFF запущен напрямую на хосте (не в Docker) — `nohup node dist/server.js`
+- `.env` создан с полными OAuth-ключами + `PGPASSWORD=portal` + `JWT_SECRET` + `CORE_API=http://vps1:30900`
+- Redirect URI обновлены на `https://fb1.spb.ru:10443/auth/*/callback`
+- Убран дубликат роута `/api/v1/status`
+- PostgreSQL на хосте остановлен (конфликт порта 5432 с Docker)
+- `dotenv` добавлен в `package.json` (на будущее)
+- `secrets.env` сохранён в репозиторий
+- Systemd-юнит `/etc/systemd/system/aither-bff.service` для автозапуска
+- Скрипт `/tmp/restart-bff.sh` обновлён
+
+**Результат:**
+- Портал: `https://fb1.spb.ru:10443` ✅
+- Админка: `https://fb1.spb.ru:10443/admin` ✅
+- OAuth: GitHub/Google/Yandex — все 302 ✅
+- API: `/api/v1/status` → `{"version":"0.5.0","orgs":38,"users":38}` ✅
+- Grafana: `http://fb1.spb.ru:30300` ✅
+
+**Процесс BFF:** PID 473898, порт 127.0.0.1:3000
+**Секреты:** `/root/aither-project/portal/secrets.env` (НЕ коммитить в публичный репо!)
