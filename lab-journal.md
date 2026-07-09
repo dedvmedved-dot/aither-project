@@ -3421,3 +3421,186 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 **Готовность:** 67% (30/45)
 
 Статус: ✅ Stage 5a P1 — #38 + #39 из 4
+
+---
+
+### #23b Чат опционально — 10.07.2026 01:00 МСК
+
+**Цель:** Возможность включения/отключения чат-интерфейса в настройках организации.
+
+**Выполнено:**
+- `portal/policies.ts` — поле `chat_enabled` (DDL + default true)
+- `portal/server.ts` — gate `checkChatEnabled()` на 6 чат-эндпоинтах
+- Тесты: disable → 403 "chat_disabled", enable → 200
+
+**Коммит:** `5faf786`
+
+Статус: ✅ Stage 5a полностью закрыт (9/9)
+
+---
+
+### #27 Промышленная эксплуатация — 10.07.2026 14:00 МСК
+
+**Цель:** Pilot → Production: инвентаризация, runbook, health-check, фиксы.
+
+**Выполнено:**
+- Инвентаризация кластера: 42 пода, 2 узла (n7 + n8), 10 сервисов
+- Фикс GPU на n7: перезапуск nvidia-device-plugin → `nvidia.com/gpu: 2`
+- Фикс Embeddings CrashLoopBackOff: init-контейнер с `PYTHONPATH`
+- Production Runbook: `docs/production-runbook.md` (340 строк)
+- Health-check скрипт: `scripts/health-check.sh`
+
+**Коммит:** `69b79cc`
+
+Статус: ✅
+
+---
+
+### #28 Автомасштабирование — 10.07.2026 16:00 МСК
+
+**Цель:** K8s HPA для Gateway и vLLM.
+
+**Выполнено:**
+- Prometheus Adapter установлен (external metrics API)
+- Gateway HPA: CPU 70%, Memory 80% (1→3 реплики)
+- vLLM HPA: мониторинг (max=1 из-за GPU-лимита)
+- Исправлено: код Stage 5a (admin.py, metrics.py) отсутствовал в ConfigMap
+
+**Коммит:** `efda2e9`
+
+Статус: ✅
+
+---
+
+### #29 CI/CD — 10.07.2026 18:00 МСК
+
+**Цель:** GitHub Actions — lint на PR + авто-деплой.
+
+**Выполнено:**
+- `.github/workflows/ci.yml` — ruff, pyflakes, shellcheck, kubeconform
+- `.github/workflows/deploy.yml` — SSH-деплой через `appleboy/ssh-action`
+- `scripts/deploy.sh` — компонентный деплой (gateway, vllm, portal, config, hpa, all)
+- Ручной деплой: `ssh vps2 "cd aither-project && git pull && bash scripts/deploy.sh all"`
+
+**Авто-CD требует GitHub Secrets:** VPS2_HOST, VPS2_USER, VPS2_SSH_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+**Коммит:** `3b212dd`
+
+Статус: ✅
+
+---
+
+### #30 API Gateway — 11.07.2026 11:00 МСК
+
+**Цель:** Внешний OpenAI-совместимый API для клиентских интеграций.
+
+**Выполнено:**
+- `portal/api-gateway.ts` (170 строк) — внешний API-модуль
+- `POST /api/v1/chat/completions` — API-key auth, SSE-streaming
+- `GET /api/v1/models` — публичный каталог
+- `GET /api/v1/health` — health check
+- `docs/openapi.yaml` — Swagger-спецификация
+- Развёрнуто: VPS2 → `docker compose up --build`
+
+**Коммит:** `450daff`
+
+**Готовность:** 82% (37/45)
+
+Статус: ✅
+
+---
+
+### #31 Аудит безопасности — 11.07.2026 12:00 МСК
+
+**Цель:** Полное пентест-тестирование перед production.
+
+**Найдено:** 18 находок (6 критических, 6 средних, 5 инфо)
+
+**Исправлено немедленно:**
+- VPS2: fail2ban установлен + UFW active (закрыты RDP 3389, VNC 5901, 1080, 8080, 9443, 9444)
+- VPS3: fail2ban установлен + UFW active
+
+**Выявлено (осталось):**
+- K8s: все поды от root, нет NetworkPolicies — 5 ч работы
+- Portal: нет rate limiting на публичных эндпоинтах — 1 ч
+- nginx: нет Content-Security-Policy — 30 мин
+
+**Документ:** `docs/security-audit-2026-07-11.md` (9.2K, 7 разделов)
+
+**Коммит:** `7c41c5d`
+
+Статус: ✅ (критические закрыты, остальные в бэклог)
+
+---
+
+### #32 Документация — 11.07.2026 13:00 МСК
+
+**Цель:** Документация для внешних пользователей.
+
+**Обновлено:**
+- `docs/user-guide.md` — v0.5→v1.0 (790 строк): +LDAP, +профили безопасности, +API Gateway, +troubleshooting
+- `docs/api-reference.md` — обновлён (streaming поддерживается, OpenAPI spec)
+- `docs/model-catalog.md` — без изменений (внутренний документ)
+
+**Коммит:** `53d75cd`
+
+**Готовность:** 87% (39/45). Stage 6 ЗАКРЫТ.
+
+Статус: ✅
+
+---
+
+### #33 Офлайн-пакет — 11.07.2026 14:00 МСК
+
+**Цель:** Самодостаточный пакет для развёртывания в закрытом контуре без интернета.
+
+**Создано:** `offline-deploy/` — 45 файлов, 60 KB
+
+**Состав:**
+- **docs/** (8): архитектура, деплой, админ, пользователь, безопасность, troubleshooting, API, upgrade
+- **k8s/** (8): namespace, postgres, redis, chromadb, gateway, vllm-14b, vllm-32b, monitoring
+- **scripts/** (7): health-check, backup, restore, rotate-keys, create-admin, collect-logs, seed-data
+- **configs/** (4): nginx, BFF .env, gateway config, vllm args
+- **offline/** (8): docker save/load, pip download/install, npm install, models transfer
+- **tests/** (3): smoke, api, security
+- README.md, VERSION, Makefile, CHANGELOG.md
+
+**Makefile-команды:** `make deploy`, `make test`, `make bundle`, `make offline-load`, `make backup`, `make restore`
+
+**Критерии приёмки:**
+- `make deploy` на чистой Astra Linux → платформа за ≤1 час
+- `make test` → все тесты проходят
+- Документация позволяет администратору выполнить бэкап/восстановление
+- Идемпотентность: повторный запуск не ломает
+
+**Коммит:** `4db8dda`
+
+**Готовность:** 89% (40/45). Stage 7 ЗАКРЫТ.
+
+Статус: ✅
+
+---
+
+## Сводка по этапам (финал)
+
+| Этап | Задач | Выполнено | Статус |
+|---|---|---|---|
+| 1. MVP | 7 | 7 | ✅ |
+| 2. Биллинг + каталог | 4 | 4 | ✅ |
+| 3. Observability + продакшен | 6 | 4 | 🟡 (ЮKassa, Parsec) |
+| 4. RAG + кастомизация | 4 | 4 | ✅ |
+| 5. Продакшен-класс | 7 | 3 | 🟡 (Multi-tenant, HA, NVLink, 70B) |
+| 5a. Требования руководства | 9 | 9 | ✅ |
+| 6. Эксплуатация | 6 | 6 | ✅ |
+| 7. Закрытый контур | 1 | 1 | ✅ |
+| **Итого** | **45** | **40** | **89%** |
+
+**Осталось 5 задач:**
+- #13 ЮKassa боевой режим
+- #15 Parsec на n7
+- #21 Multi-tenant изоляция
+- #24 HA K8s control plane
+- #25/#26 NVLink + 70B модели (заблокированы)
+
+**Репозитории запушены:** 16/16 ✅
+
