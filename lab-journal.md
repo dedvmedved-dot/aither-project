@@ -3017,7 +3017,51 @@ upstream portal_backend {
 - Stage 6: NVLink, 70B+ модели
 - Stage 7: Full offline package
 
-**Прогресс: 64% (23/36)**
+---
+
+## День 22: Security Gateway Egress (#34) — 09.07.2026
+
+**Задача:** Реализовать выходной ДСП-фильтр — проверка ответов LLM перед отправкой клиенту.
+
+### Реализация
+
+Новый модуль `gateway/security_egress.py` (250 строк):
+
+| Категория | Паттернов | Severity | Примеры |
+|---|---|---|---|
+| **DSP** | 11 | critical | «Для служебного пользования», «ДСП», «Секретно», TOP SECRET |
+| **System Leaks** | 10 | high | Internal IP, hostname, /etc/kubernetes/, JWT eyJ..., API key sk-... |
+| **PII** | 6 | medium | Credit cards, паспорт, СНИЛС, ИНН, телефон, email |
+| **Toxicity** | 2 | low | Экстремизм, self-harm |
+
+### Интеграция в Gateway
+
+- `gateway.py`: импорт `check_egress`, вызов после `_proxy()` к vLLM
+- При блокировке: refund биллинга + usage_record со статусом `blocked_egress` + 403 ответ
+- Audit log: PostgreSQL `security_events` (авто-создание таблицы) + JSON Lines файл
+- Хеширование request body для отслеживания
+
+### E2E-тесты
+
+| Тест | Ожидание | Результат |
+|---|---|---|
+| Нормальный запрос | pass | ✅ 200 |
+| ДСП «для служебного пользования» | egress_dsp | ✅ 403 `dsp_marker` |
+| ДСП «ДСП» | egress_dsp | ✅ 403 `dsp_abbreviation` |
+| System path (/etc/kubernetes/) | egress_system | ✅ 403 `sensitive_file_path` |
+| Internal IP | ingress_block | ✅ 403 (ingress DLP) |
+
+### Деплой
+
+- ConfigMap `gateway-code` обновлён (6 файлов: +security_egress.py)
+- Gateway Deployment: rolling restart, оба пода Ready
+- Статья: `docs/security-gateway-egress.md` (5 DOT-схем)
+
+### Коммит
+
+`707fcca` feat: Security Gateway Egress (#34)
+
+**Прогресс: 56% (25/45)**
 
 ---
 
