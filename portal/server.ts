@@ -722,6 +722,7 @@ async function main() {
       "custom_rpm", "custom_tpm", "max_concurrent_requests",
       "allowed_models", "max_tokens_per_request",
       "chat_retention_days", "audit_log_retention_days",
+      "chat_enabled",
     ];
 
     const updates: any = {};
@@ -810,6 +811,25 @@ async function main() {
 
   // ==================== CHATS ====================
 
+  /** Check if chat is enabled for any org the user belongs to. Returns true if enabled. */
+  async function checkChatEnabled(userId: string, reply: any): Promise<boolean> {
+    const orgs = await pool.query(
+      `SELECT o.org_id FROM portal_organizations o
+       JOIN portal_org_members m ON o.org_id = m.org_id
+       WHERE m.user_id = $1 AND m.status = 'active'
+       LIMIT 1`, [userId]);
+    if (orgs.rows.length === 0) {
+      reply.status(403).send({ error: "chat_disabled", detail: "no active organization" });
+      return false;
+    }
+    const policy = await loadPolicy(pool, orgs.rows[0].org_id);
+    if (!policy.chat_enabled) {
+      reply.status(403).send({ error: "chat_disabled", detail: "чат отключён в настройках безопасности организации" });
+      return false;
+    }
+    return true;
+  }
+
   // Get org's active API key (for delegation in chat)
   async function getOrgApiKey(orgId: string): Promise<string | null> {
     const r = await pool.query(
@@ -837,6 +857,7 @@ async function main() {
   // List chats
   app.get("/api/v1/chats", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
+    if (!await checkChatEnabled(p.user_id, reply)) return;
     const r = await pool.query(
       `SELECT chat_id, title, model, share_token, created_at, updated_at
        FROM chats WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50`,
@@ -847,6 +868,7 @@ async function main() {
   // Create chat
   app.post("/api/v1/chats", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
+    if (!await checkChatEnabled(p.user_id, reply)) return;
     const { title, model }: any = req.body || {};
     const r = await pool.query(
       `INSERT INTO chats (user_id, title, model) VALUES ($1,$2,$3)
@@ -858,6 +880,7 @@ async function main() {
   // Get chat with messages
   app.get("/api/v1/chats/:chatId", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
+    if (!await checkChatEnabled(p.user_id, reply)) return;
     const { chatId } = req.params;
     const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
     if (c.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
@@ -870,6 +893,7 @@ async function main() {
   // Delete chat
   app.delete("/api/v1/chats/:chatId", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
+    if (!await checkChatEnabled(p.user_id, reply)) return;
     const { chatId } = req.params;
     const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 RETURNING chat_id", [chatId, p.user_id]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
@@ -879,6 +903,7 @@ async function main() {
   // Share chat (generate token)
   app.post("/api/v1/chats/:chatId/share", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
+    if (!await checkChatEnabled(p.user_id, reply)) return;
     const { chatId } = req.params;
     const shareToken = randomBytes(16).toString("hex");
     const r = await pool.query(
@@ -902,6 +927,7 @@ async function main() {
   // Send message + stream AI response
   app.post("/api/v1/chats/:chatId/messages", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
+    if (!await checkChatEnabled(p.user_id, reply)) return;
     const { chatId } = req.params;
     const { content, org_id }: any = req.body || {};
     if (!content) return reply.status(400).send({ error: "content required" });

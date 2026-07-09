@@ -671,6 +671,7 @@ async function main() {
             "custom_rpm", "custom_tpm", "max_concurrent_requests",
             "allowed_models", "max_tokens_per_request",
             "chat_retention_days", "audit_log_retention_days",
+            "chat_enabled",
         ];
         const updates = {};
         for (const key of allowedKeys) {
@@ -761,6 +762,23 @@ async function main() {
         return { delegation_token: delegationToken, expires_in: 300 };
     });
     // ==================== CHATS ====================
+    /** Check if chat is enabled for any org the user belongs to. Returns true if enabled. */
+    async function checkChatEnabled(userId, reply) {
+        const orgs = await pool.query(`SELECT o.org_id FROM portal_organizations o
+       JOIN portal_org_members m ON o.org_id = m.org_id
+       WHERE m.user_id = $1 AND m.status = 'active'
+       LIMIT 1`, [userId]);
+        if (orgs.rows.length === 0) {
+            reply.status(403).send({ error: "chat_disabled", detail: "no active organization" });
+            return false;
+        }
+        const policy = await (0, policies_1.loadPolicy)(pool, orgs.rows[0].org_id);
+        if (!policy.chat_enabled) {
+            reply.status(403).send({ error: "chat_disabled", detail: "чат отключён в настройках безопасности организации" });
+            return false;
+        }
+        return true;
+    }
     // Get org's active API key (for delegation in chat)
     async function getOrgApiKey(orgId) {
         const r = await pool.query("SELECT api_key FROM portal_api_keys WHERE org_id=$1 AND status='active' ORDER BY created_at ASC LIMIT 1", [orgId]);
@@ -782,6 +800,8 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
+        if (!await checkChatEnabled(p.user_id, reply))
+            return;
         const r = await pool.query(`SELECT chat_id, title, model, share_token, created_at, updated_at
        FROM chats WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50`, [p.user_id]);
         return { chats: r.rows };
@@ -790,6 +810,8 @@ async function main() {
     app.post("/api/v1/chats", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
+            return;
+        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { title, model } = req.body || {};
         const r = await pool.query(`INSERT INTO chats (user_id, title, model) VALUES ($1,$2,$3)
@@ -800,6 +822,8 @@ async function main() {
     app.get("/api/v1/chats/:chatId", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
+            return;
+        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { chatId } = req.params;
         const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
@@ -813,6 +837,8 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
+        if (!await checkChatEnabled(p.user_id, reply))
+            return;
         const { chatId } = req.params;
         const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 RETURNING chat_id", [chatId, p.user_id]);
         if (r.rows.length === 0)
@@ -823,6 +849,8 @@ async function main() {
     app.post("/api/v1/chats/:chatId/share", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
+            return;
+        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { chatId } = req.params;
         const shareToken = (0, crypto_1.randomBytes)(16).toString("hex");
@@ -844,6 +872,8 @@ async function main() {
     app.post("/api/v1/chats/:chatId/messages", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
+            return;
+        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { chatId } = req.params;
         const { content, org_id } = req.body || {};

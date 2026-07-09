@@ -37,6 +37,9 @@ export interface OrgPolicy {
   // Data retention
   chat_retention_days: number;
   audit_log_retention_days: number;
+
+  // Feature toggles
+  chat_enabled: boolean;
 }
 
 // ---- DEFAULTS ----
@@ -57,6 +60,7 @@ export const DEFAULT_POLICY: OrgPolicy = {
   max_tokens_per_request: null,         // no limit
   chat_retention_days: 90,
   audit_log_retention_days: 365,
+  chat_enabled: true,
 };
 
 // ---- DDL ----
@@ -92,6 +96,9 @@ export const POLICIES_DDL = `
     chat_retention_days    INTEGER   NOT NULL DEFAULT 90,
     audit_log_retention_days INTEGER  NOT NULL DEFAULT 365,
 
+    -- Feature toggles
+    chat_enabled           BOOLEAN   NOT NULL DEFAULT true,
+
     -- Metadata
     created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -122,6 +129,7 @@ export async function loadPolicy(pool: Pool, orgId: string): Promise<OrgPolicy> 
     max_tokens_per_request:   row.max_tokens_per_request,
     chat_retention_days:      row.chat_retention_days,
     audit_log_retention_days: row.audit_log_retention_days,
+    chat_enabled:             row.chat_enabled ?? DEFAULT_POLICY.chat_enabled,
   };
 }
 
@@ -137,8 +145,8 @@ export async function savePolicy(pool: Pool, orgId: string, policy: Partial<OrgP
       api_key_max_age_days, api_key_rotation_required,
       custom_rpm, custom_tpm, max_concurrent_requests,
       allowed_models, max_tokens_per_request,
-      chat_retention_days, audit_log_retention_days, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now())
+      chat_retention_days, audit_log_retention_days, chat_enabled, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now())
     ON CONFLICT (org_id) DO UPDATE SET
       dlp_enabled              = EXCLUDED.dlp_enabled,
       jailbreak_detection      = EXCLUDED.jailbreak_detection,
@@ -155,6 +163,7 @@ export async function savePolicy(pool: Pool, orgId: string, policy: Partial<OrgP
       max_tokens_per_request    = EXCLUDED.max_tokens_per_request,
       chat_retention_days      = EXCLUDED.chat_retention_days,
       audit_log_retention_days = EXCLUDED.audit_log_retention_days,
+      chat_enabled             = EXCLUDED.chat_enabled,
       updated_at               = now()
   `, [
     orgId,
@@ -173,6 +182,7 @@ export async function savePolicy(pool: Pool, orgId: string, policy: Partial<OrgP
     merged.max_tokens_per_request,
     merged.chat_retention_days,
     merged.audit_log_retention_days,
+    merged.chat_enabled,
   ]);
 
   return merged;
