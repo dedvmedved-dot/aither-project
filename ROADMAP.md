@@ -185,6 +185,165 @@ Gateway анализирует запрос и выбирает модель:
 
 ---
 
+---
+
+## Этап 7: Пакет для закрытого контура (неделя 7)
+
+| # | Задача | Приоритет | Статус | Оценка |
+|---|---|---|---|---|
+| 33 | **Пакет документации и развёртывания** (offline-deploy kit) | P0 | ⬜ | 5 дней |
+
+### Спецификация пакета `aither-offline-deploy/`
+
+Финальный артефакт — самодостаточный каталог, переносимый на флеш-носителе
+в изолированный контур без доступа в Интернет.
+
+```
+aither-offline-deploy/
+│
+├── README.md                          # Общая инструкция: что это, как использовать
+│
+├── docs/                              # Документация
+│   ├── 01-architecture.md             # Архитектура платформы (DOT-схемы + описание)
+│   ├── 02-deployment-guide.md         # Пошаговое развёртывание с нуля
+│   ├── 03-admin-guide.md              # Руководство администратора
+│   ├── 04-user-guide.md               # Руководство пользователя (адаптация user-guide.md)
+│   ├── 05-security-model.md           # Модель угроз, меры защиты, DLP-фильтры
+│   ├── 06-troubleshooting.md          # Типовые проблемы и их решение
+│   ├── 07-api-reference.md            # OpenAPI-спецификация, примеры запросов
+│   └── 08-upgrade-guide.md            # Процедура обновления версий
+│
+├── playbooks/                         # Ansible playbooks
+│   ├── ansible.cfg                    # Конфигурация Ansible
+│   ├── inventory.yml.template         # Шаблон инвентаря (хосты, переменные)
+│   ├── site.yml                       # Главный playbook (запускает всё)
+│   ├── 01-prerequisites.yml           # Подготовка ОС (Astra Linux)
+│   ├── 02-gpu-setup.yml               # NVIDIA-драйверы, containerd, nvidia-runtime
+│   ├── 03-k8s-deploy.yml              # Развёртывание Kubernetes
+│   ├── 04-storage.yml                 # Настройка хранилища (Longhorn/local-path)
+│   ├── 05-vllm-deploy.yml             # Запуск vLLM с моделями
+│   ├── 06-gateway-deploy.yml          # Gateway + Redis + PostgreSQL
+│   ├── 07-portal-deploy.yml           # Портал (SPA + BFF + ChromaDB)
+│   ├── 08-monitoring-deploy.yml       # Prometheus + Grafana + DCGM
+│   └── 09-post-deploy.yml             # Финальные проверки, seed-данные
+│
+├── k8s/                               # Kubernetes-манифесты
+│   ├── namespace.yaml                 # Namespace aither
+│   ├── gateway/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── configmap.yaml
+│   ├── vllm-14b/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── vllm-32b/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── postgres/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── init-schema.sql
+│   ├── redis/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── chromadb/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   └── monitoring/
+│       ├── prometheus.yaml
+│       ├── grafana.yaml
+│       └── dashboards/
+│           ├── gpu-overview.json
+│           ├── inference.json
+│           └── billing.json
+│
+├── offline/                           # Офлайн-зависимости
+│   ├── README.md                      # Инструкция по переносу офлайн-пакета
+│   ├── docker/
+│   │   ├── images.txt                 # Список Docker-образов с тегами
+│   │   ├── save.sh                    # Скрипт: docker save все образы в tar
+│   │   ├── load.sh                    # Скрипт: docker load из tar на целевой машине
+│   │   └── images.tar.gz              # Архив с образами (перенос на флешке)
+│   ├── pip/
+│   │   ├── requirements.txt           # Все Python-зависимости
+│   │   ├── download.sh               # Скрипт: pip download все пакеты
+│   │   ├── install.sh                # Скрипт: pip install --no-index из локальной папки
+│   │   └── packages/                  # .whl и .tar.gz файлы
+│   ├── npm/
+│   │   ├── portal-offline.tgz         # Собранный портал (npm pack)
+│   │   └── install.sh
+│   ├── models/
+│   │   ├── transfer.sh                # Инструкция: перенос моделей через внешний диск
+│   │   └── model-list.txt            # Список моделей, пути, размеры, SHA256
+│   ├── helm/
+│   │   └── charts/                    # Helm-чарты (если будут)
+│   └── checksums.sha256               # Контрольные суммы всех файлов
+│
+├── scripts/                           # Скрипты эксплуатации
+│   ├── health-check.sh                # Проверка всех компонентов (одна команда)
+│   ├── backup.sh                      # Резервное копирование (БД, конфиги, ключи)
+│   ├── restore.sh                     # Восстановление из бэкапа
+│   ├── rotate-keys.sh                 # Ротация API-ключей
+│   ├── seed-data.sql                  # Начальные данные (admin-пользователь, org)
+│   ├── create-admin.sh                # Создание первого администратора
+│   └── collect-logs.sh                # Сбор логов для диагностики
+│
+├── configs/                           # Эталонные конфигурации
+│   ├── nginx/
+│   │   └── nginx.conf
+│   ├── bff/
+│   │   └── .env.template             # Шаблон переменных окружения BFF
+│   ├── gateway/
+│   │   └── config.yaml.template      # Шаблон конфигурации Gateway
+│   └── vllm/
+│       └── args.txt                   # Аргументы запуска vLLM
+│
+├── tests/                             # Приёмо-сдаточные тесты
+│   ├── 01-smoke.sh                    # Дымовые тесты (все компоненты живы?)
+│   ├── 02-api.sh                      # Функциональные тесты API
+│   ├── 03-security.sh                 # Тесты безопасности (injection, DLP)
+│   ├── 04-load.sh                     # Нагрузочное тестирование (опционально)
+│   └── expected/                      # Ожидаемые результаты
+│
+├── CHANGELOG.md                       # История версий
+├── VERSION                            # Версия пакета
+└── Makefile                           # make deploy / make test / make docs
+```
+
+### Что входит в задачу
+
+| Подзадача | Содержание | Дни |
+|---|---|---|
+| **Документация** | 8 документов (архитектура, деплой, админ, пользователь, безопасность, troubleshooting, API, upgrade) | 1.5 |
+| **Ansible playbooks** | 10 playbooks для полного цикла развёртывания (ОС → GPU → K8s → vLLM → Gateway → Портал → Мониторинг) | 1.5 |
+| **K8s-манифесты** | Все YAML-манифесты с проверенными параметрами (requests/limits, probes, volumes) | 0.5 |
+| **Офлайн-пакет** | Скрипты save/load для Docker-образов, pip wheels, npm pack, инструкция переноса моделей | 0.5 |
+| **Скрипты эксплуатации** | health-check, backup/restore, ротация ключей, seed-данные, сбор логов | 0.5 |
+| **Приёмо-сдаточные тесты** | 4 тестовых скрипта с ожидаемыми результатами (smoke, API, security, load) | 0.5 |
+
+**Итого:** 5 дней.
+
+### Ключевое требование
+
+Пакет должен позволять специалисту **без доступа в Интернет**:
+
+1. Скопировать каталог на флеш-носитель
+2. Перенести на целевую машину (Astra Linux)
+3. Загрузить все офлайн-зависимости одной командой
+4. Запустить `ansible-playbook site.yml` — и получить работающую платформу
+5. Пройти приёмо-сдаточные тесты (`make test`)
+
+### Критерии приёмки
+
+- [ ] `make deploy` на чистой Astra Linux поднимает платформу за ≤ 1 час
+- [ ] `make test` — все тесты проходят
+- [ ] Документация позволяет администратору выполнить резервное копирование и восстановление
+- [ ] Документация позволяет пользователю работать с чатом и API без дополнительных вопросов
+- [ ] Все скрипты и playbooks идемпотентны (повторный запуск не ломает)
+- [ ] Контрольные суммы всех файлов совпадают с `checksums.sha256`
+
+---
+
 ## Блокировки
 
 | Задача | Блокер | Статус |
@@ -206,9 +365,10 @@ Gateway анализирует запрос и выбирает модель:
 | 4. RAG + кастомизация | 4 | 1 | 3 |
 | 5. Продакшен-класс | 7 | 0 | 7 |
 | 6. Эксплуатация | 6 | 0 | 6 |
-| **Итого** | **35** | **17** | **18** |
+| 7. Закрытый контур | 1 | 0 | 1 |
+| **Итого** | **36** | **17** | **19** |
 
-**Готовность:** 49% (17/35 — MVP + биллинг + каталог + Observability + Security + Gateway K8s + Портал + RAG)
+**Готовность:** 47% (17/36 — MVP + биллинг + каталог + Observability + Security + Gateway K8s + Портал + RAG)
 
 **Ближайший шаг:** ЮKassa боевой режим — день 14.
 
