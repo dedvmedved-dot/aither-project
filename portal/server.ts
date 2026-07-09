@@ -1,13 +1,16 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import jwt from "jsonwebtoken";
 import { Pool } from "pg";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, scryptSync, timingSafeEqual } from "crypto";
 
 const PORT = 3000;
-const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-me";
-const CORE_API = process.env.CORE_API || "http://10.129.13.78:32293";
-const CORE_API_32B = process.env.CORE_API_32B || "http://10.129.13.77:32294";
+const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
+const CORE_API = process.env.CORE_API || "http://gateway:8080";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const PUBLIC_HOST = process.env.PUBLIC_HOST || "localhost";
+const CORS_ORIGIN = process.env.CORS_ORIGIN || (IS_PRODUCTION ? `https://${PUBLIC_HOST}` : `http://${PUBLIC_HOST}`);
 
 const pool = new Pool({
   host: process.env.PG_HOST || "10.129.13.78",
@@ -63,12 +66,24 @@ async function ensurePersonalOrg(userId: string): Promise<string> {
 }
 
 function hashPassword(password: string): string {
-  return createHash("sha256").update(password + "aither-salt").digest("hex");
+  // scrypt: 64-bit salt + 64-byte hash, base64-encoded
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const derived = scryptSync(password, salt, 64).toString("hex");
+  return timingSafeEqual(Buffer.from(hash), Buffer.from(derived));
 }
 
 async function main() {
   const app = Fastify({ logger: false });
-  await app.register(cors, { origin: "*" });
+  await app.register(cors, { origin: CORS_ORIGIN, credentials: true });
+
+  // Rate limiting: 100 req/min per IP
+  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
 
   // DDL
   await pool.query(`
@@ -384,7 +399,9 @@ async function main() {
     }
   });
 
-  app.post("/auth/dev/login", async (req) => {
+  app.post("/auth/dev/login", async (req, reply) => {
+    // Dev-провайдер отключён в продакшене
+    if (IS_PRODUCTION) return reply.status(403).send({ error: "dev login disabled in production" });
     const { name }: any = req.body;
     if (!name) return { error: "name required" };
     const oid = name.toLowerCase().replace(/[^a-z0-9]/g, "-");
@@ -458,8 +475,7 @@ async function main() {
     const r = await pool.query("SELECT user_id, password_hash, display_name FROM portal_users WHERE email=$1 AND oauth_provider='email'", [email]);
     if (r.rows.length === 0) return reply.status(401).send({ error: "invalid credentials" });
 
-    const hash = hashPassword(password);
-    if (hash !== r.rows[0].password_hash) return reply.status(401).send({ error: "invalid credentials" });
+    if (!verifyPassword(password, r.rows[0].password_hash)) return reply.status(401).send({ error: "invalid credentials" });
 
     await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [r.rows[0].user_id]);
     const tok = signToken(r.rows[0].user_id);
@@ -523,7 +539,8 @@ async function main() {
     }
   });
 
-  app.get("/api/v1/users", async () => {
+  app.get("/api/v1/users", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
     const r = await pool.query("SELECT user_id, display_name, email, oauth_provider, created_at FROM portal_users ORDER BY created_at DESC");
     return { users: r.rows };
   });
@@ -763,7 +780,7 @@ async function main() {
       // Translate model short name → vLLM path
       const modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
       const vllmModel = modelInfo.vllm_path;
-      const vllmEndpoint = chat.model === "qwen2.5-32b" ? CORE_API_32B : CORE_API;
+      const vllmEndpoint = CORE_API;
 
       // Call vLLM with streaming
       const vllmRes = await fetch(vllmEndpoint + "/v1/chat/completions", {
@@ -1129,7 +1146,9 @@ async function main() {
     return reply.send({ ok: true, tier: r.rows[0] });
   });
 
-  await app.listen({ port: PORT, host: "0.0.0.0" });
-  console.log("Portal BFF v0.5.0 (with chat) on :" + PORT);
+  // При production: слушаем только localhost (nginx проксирует)
+  const listenHost = IS_PRODUCTION ? "127.0.0.1" : "0.0.0.0";
+  await app.listen({ port: PORT, host: listenHost });
+  console.log(`Portal BFF v0.6.0 (security-hardened) on ${listenHost}:${PORT}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
