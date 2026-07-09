@@ -1,0 +1,33 @@
+# config.yaml.template — конфигурация Gateway
+# Скопируйте в gateway/config.yaml
+
+# Каталог моделей
+models:
+  - name: qwen2.5-14b
+    display_name: "Qwen 2.5 14B"
+    backend: "http://YOUR_K8S_NODE_IP:32293"
+    model_path: "/models/Qwen2.5-14B-Instruct"
+    max_tokens: 4096
+    tokens_per_ruble: 100
+    tags: [chat, code, fast]
+    status: active
+
+  - name: qwen2.5-32b
+    display_name: "Qwen 2.5 32B"
+    backend: "http://YOUR_K8S_NODE_IP:32294"
+    model_path: "/models/Qwen2.5-32B-Instruct-GPTQ"
+    max_tokens: 8192
+    tokens_per_ruble: 30
+    tags: [code, analysis, large-context]
+    status: active
+
+# Rate Limiting
+rate_limit:
+  rpm: 60          # запросов/мин на организацию
+  tpm: 100000      # токенов/мин на организацию
+
+# Безопасность
+security:
+  dlp_enabled: true
+  prompt_injection_enabled: true
+  jailbreak_detection: true

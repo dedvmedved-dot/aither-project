@@ -1,0 +1,10 @@
+# Docker images list
+postgres:16
+redis:7-alpine
+vllm/vllm-openai:latest
+chromadb/chroma:latest
+prom/prometheus:latest
+grafana/grafana:latest
+python:3.11-slim
+node:20-alpine
+nginx:alpine
