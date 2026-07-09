@@ -3378,9 +3378,28 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 
 **Коммит:** `1fbcb81` → `7f36bda`
 
-**Готовность:** 67% (30/45)
+**Готовность:** 69% (31/45)
 
-Статус: ✅ Stage 5a P0 закрыт полностью, P1 — #38 + #39 из 4
+Статус: ✅ Stage 5a P0 закрыт полностью, P1 — #38 + #39 + #40 из 4
+
+---
+
+### #40 TTFT-мониторинг — 09.07.2026 22:00 МСК
+
+**Цель:** Prometheus-метрики Gateway: TTFT per model, счётчики запросов, активные соединения.
+
+**Выполнено:**
+- `gateway/metrics.py` (140 строк) — класс Metrics: histogram TTFT, counters (requests/tokens/errors/drain), gauge active_requests
+- `gateway/gateway.py` (+30 строк) — `/metrics` (Prometheus), `/admin/metrics` (JSON-сводка), TTFT timing в completion flow
+- `docs/ttft-monitoring.md` — документация
+
+**7 метрик:** histogram TTFT (buckets 0.1–60s), requests_total, tokens_total, billing_errors_total, drain_blocks_total, active_requests, uptime_seconds
+
+**Коммит:** `8e622f8`
+
+**Готовность:** 69% (31/45)
+
+Статус: ✅ Stage 5a P1 — #38 + #39 + #40 из 4
 
 ---
 
