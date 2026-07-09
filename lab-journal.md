@@ -3344,3 +3344,40 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 - 🔲 WAF
 
 Статус: ✅ Критические дыры закрыты на всех трёх серверах
+
+---
+
+### #23a LDAP-аутентификация — 09.07.2026 20:10 МСК
+
+**Цель:** FreeIPA/ALD Pro интеграция для корпоративных пользователей.
+
+**Выполнено:**
+- `portal/ldap.ts` (187 строк) — LDAP-клиент: service bind → user search → bind → groups → roles
+- `POST /auth/ldap` — новый эндпоинт
+- `portal/Dockerfile` — COPY ldap.ts
+- `docs/ldap-integration.md` — документация
+
+**Развёрнуто:** VPS2 (501 "LDAP not configured"), VPS3 (501). При указании LDAP_URL — полноценная аутентификация.
+
+**Коммит:** `1c0cac9` → `ca0a5ff`
+
+---
+
+### #38 Профили безопасности организаций — 09.07.2026 21:35 МСК
+
+**Цель:** 14 параметров безопасности per-org: DLP, IP-whitelist, MFA, сроки ключей, кастомные rate limits, ретеншн.
+
+**Выполнено:**
+- `portal/policies.ts` (196 строк) — типы, DDL, loadPolicy(), savePolicy(), validatePolicy()
+- `server.ts` — `GET/PUT /api/v1/orgs/:orgId/policy`, DDL авто-создание таблицы
+- `docs/org-security-policies.md` — полная документация (API, примеры, схема БД)
+
+**Развёрнуто:**
+- VPS2: ✅ Docker rebuild, таблица создана, GET/PUT протестированы (200 OK)
+- VPS3: ✅ bare node rebuild, эндпоинт доступен (401 без токена = корректно)
+
+**Коммит:** `1fbcb81` → `7f36bda`
+
+**Готовность:** 64% (29/45)
+
+Статус: ✅ Stage 5a P0 закрыт полностью, P1 — #38 из 4
