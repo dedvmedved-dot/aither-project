@@ -311,13 +311,38 @@ async function loadHealth() {
     const h = await api('/health');
     const comps = h.components || {};
     const cards = [];
+
     for (const [name, c] of Object.entries(comps)) {
-      const badge = (c.status === 'healthy' || c.alive === true)
-        ? '<span class="badge badge-healthy">✓ Healthy</span>'
-        : '<span class="badge badge-unhealthy">✗ Down</span>';
+      let badge = '';
       let detail = '';
-      if (c.models) detail = `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Модели: ${c.models.join(', ')}</div>`;
-      if (c.last_run) detail = `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Последний запуск: ${c.last_run}</div>`;
+
+      if (name === 'backends') {
+        // Nested: {total, healthy, unhealthy, details: {url: {healthy, models}}}
+        const allOk = c.unhealthy === 0;
+        badge = allOk
+          ? `<span class="badge badge-healthy">✓ ${c.healthy}/${c.total} Healthy</span>`
+          : `<span class="badge badge-unhealthy">✗ ${c.unhealthy}/${c.total} Down</span>`;
+        if (c.details) {
+          detail = Object.entries(c.details).map(([url, d]) =>
+            `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${d.healthy ? '🟢' : '🔴'} ${url.split('//')[1]?.split(':')[0] || url}: ${(d.models||[]).join(', ')}</div>`
+          ).join('');
+        }
+      } else if (name === 'reaper') {
+        // {last_run, last_refunded} — active if last_run exists
+        const recent = c.last_run && c.last_run !== 'never';
+        badge = recent
+          ? `<span class="badge badge-healthy">✓ Active</span>`
+          : `<span class="badge badge-unhealthy">✗ Inactive</span>`;
+        detail = `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Запуск: ${c.last_run || 'never'}</div>`;
+        if (c.last_refunded) detail += `<div style="font-size:10px;color:var(--text-muted);">Возвращено: ${c.last_refunded} токенов</div>`;
+      } else {
+        // Flat: {status: 'healthy'/'unhealthy'}
+        const ok = c.status === 'healthy' || c.alive === true;
+        badge = ok
+          ? '<span class="badge badge-healthy">✓ Healthy</span>'
+          : '<span class="badge badge-unhealthy">✗ Down</span>';
+      }
+
       cards.push(`<div class="status-item">
         <div class="label">${name}</div>${badge}${detail}
       </div>`);
