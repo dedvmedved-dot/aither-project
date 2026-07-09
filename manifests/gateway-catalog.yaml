@@ -66,6 +66,10 @@ spec:
           value: "8080"
         - name: TOKEN_COST
           value: "1"
+        - name: CHROMA_URL
+          value: "http://chromadb:8000"
+        - name: WIKI_ROOT
+          value: "/app/wiki"
         - name: PG_URL
           valueFrom:
             secretKeyRef:
@@ -92,11 +96,31 @@ spec:
           mountPath: /app/security.py
           subPath: security.py
         - name: code
+          mountPath: /app/security_egress.py
+          subPath: security_egress.py
+        - name: code
+          mountPath: /app/vault.py
+          subPath: vault.py
+        - name: code
           mountPath: /app/catalog.py
           subPath: catalog.py
+        - name: code
+          mountPath: /app/routing.py
+          subPath: routing.py
+        - name: code
+          mountPath: /app/reaper.py
+          subPath: reaper.py
+        - name: code
+          mountPath: /app/wiki_graph.py
+          subPath: wiki_graph.py
+        - name: code
+          mountPath: /app/hybrid_rag.py
+          subPath: hybrid_rag.py
         - name: catalog
           mountPath: /app/catalog.yaml
           subPath: catalog.yaml
+        - name: wiki
+          mountPath: /app/wiki
         - name: delegation-key
           mountPath: /app/delegation
       volumes:
@@ -106,6 +130,9 @@ spec:
       - name: catalog
         configMap:
           name: gateway-catalog
+      - name: wiki
+        configMap:
+          name: gateway-wiki
       - name: delegation-key
         configMap:
           name: delegation-public-key
