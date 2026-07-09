@@ -26,7 +26,7 @@ services:
       PG_DB: portal
       JWT_SECRET: "dev-jwt-secret-change-me"
       NODE_ENV: production
-      CORS_ORIGIN: "http://130.17.1.90"
+      CORS_ORIGIN: "https://fb1.spb.ru"
       INVITE_CODE: "aither-2026"
       CORE_API: "http://10.129.13.78:30900"
       # LDAP (закомментировано — раскомментировать при настройке)

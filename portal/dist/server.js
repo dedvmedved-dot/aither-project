@@ -10,7 +10,6 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const pg_1 = require("pg");
 const crypto_1 = require("crypto");
 const ldap_1 = require("./ldap");
-const policies_1 = require("./policies");
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
 const CORE_API = process.env.CORE_API || "http://gateway:8080";
@@ -191,7 +190,6 @@ async function main() {
       total_tokens bigint NOT NULL DEFAULT 0
     );
   `);
-    await pool.query(policies_1.POLICIES_DDL);
     // ==================== AUTH ====================
     // GitHub OAuth
     const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
@@ -639,58 +637,6 @@ async function main() {
             return reply.status(404).send({ error: "org not found" });
         return { org: r.rows[0] };
     });
-    // ==================== ORG SECURITY POLICIES ====================
-    app.get("/api/v1/orgs/:orgId/policy", async (req, reply) => {
-        const p = auth(req, reply);
-        if (!p)
-            return;
-        const { orgId } = req.params;
-        const m = await pool.query("SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [orgId, p.user_id]);
-        if (m.rows.length === 0)
-            return reply.status(403).send({ error: "not a member" });
-        try {
-            const policy = await (0, policies_1.loadPolicy)(pool, orgId);
-            return { org_id: orgId, policy };
-        }
-        catch (e) {
-            return reply.status(500).send({ error: safeError(e) });
-        }
-    });
-    app.put("/api/v1/orgs/:orgId/policy", async (req, reply) => {
-        const p = auth(req, reply);
-        if (!p)
-            return;
-        const { orgId } = req.params;
-        if (!await checkOrgOwner(orgId, p.user_id))
-            return reply.status(403).send({ error: "owner only" });
-        const body = req.body || {};
-        const allowedKeys = [
-            "dlp_enabled", "jailbreak_detection", "sensitive_data_patterns",
-            "allowed_ip_cidrs", "mfa_required", "session_timeout_min",
-            "api_key_max_age_days", "api_key_rotation_required",
-            "custom_rpm", "custom_tpm", "max_concurrent_requests",
-            "allowed_models", "max_tokens_per_request",
-            "chat_retention_days", "audit_log_retention_days",
-            "chat_enabled",
-        ];
-        const updates = {};
-        for (const key of allowedKeys) {
-            if (key in body)
-                updates[key] = body[key];
-        }
-        if (Object.keys(updates).length === 0)
-            return reply.status(400).send({ error: "no valid policy fields provided" });
-        const err = (0, policies_1.validatePolicy)(updates);
-        if (err)
-            return reply.status(400).send({ error: err });
-        try {
-            const policy = await (0, policies_1.savePolicy)(pool, orgId, updates);
-            return { org_id: orgId, policy };
-        }
-        catch (e) {
-            return reply.status(500).send({ error: safeError(e) });
-        }
-    });
     // ==================== API KEYS ====================
     app.get("/api/v1/orgs/:orgId/api-keys", async (req, reply) => {
         const p = auth(req, reply);
@@ -762,23 +708,6 @@ async function main() {
         return { delegation_token: delegationToken, expires_in: 300 };
     });
     // ==================== CHATS ====================
-    /** Check if chat is enabled for any org the user belongs to. Returns true if enabled. */
-    async function checkChatEnabled(userId, reply) {
-        const orgs = await pool.query(`SELECT o.org_id FROM portal_organizations o
-       JOIN portal_org_members m ON o.org_id = m.org_id
-       WHERE m.user_id = $1 AND m.status = 'active'
-       LIMIT 1`, [userId]);
-        if (orgs.rows.length === 0) {
-            reply.status(403).send({ error: "chat_disabled", detail: "no active organization" });
-            return false;
-        }
-        const policy = await (0, policies_1.loadPolicy)(pool, orgs.rows[0].org_id);
-        if (!policy.chat_enabled) {
-            reply.status(403).send({ error: "chat_disabled", detail: "чат отключён в настройках безопасности организации" });
-            return false;
-        }
-        return true;
-    }
     // Get org's active API key (for delegation in chat)
     async function getOrgApiKey(orgId) {
         const r = await pool.query("SELECT api_key FROM portal_api_keys WHERE org_id=$1 AND status='active' ORDER BY created_at ASC LIMIT 1", [orgId]);
@@ -800,8 +729,6 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
-        if (!await checkChatEnabled(p.user_id, reply))
-            return;
         const r = await pool.query(`SELECT chat_id, title, model, share_token, created_at, updated_at
        FROM chats WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50`, [p.user_id]);
         return { chats: r.rows };
@@ -810,8 +737,6 @@ async function main() {
     app.post("/api/v1/chats", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
-            return;
-        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { title, model } = req.body || {};
         const r = await pool.query(`INSERT INTO chats (user_id, title, model) VALUES ($1,$2,$3)
@@ -822,8 +747,6 @@ async function main() {
     app.get("/api/v1/chats/:chatId", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
-            return;
-        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { chatId } = req.params;
         const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
@@ -837,8 +760,6 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
-        if (!await checkChatEnabled(p.user_id, reply))
-            return;
         const { chatId } = req.params;
         const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 RETURNING chat_id", [chatId, p.user_id]);
         if (r.rows.length === 0)
@@ -849,8 +770,6 @@ async function main() {
     app.post("/api/v1/chats/:chatId/share", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
-            return;
-        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { chatId } = req.params;
         const shareToken = (0, crypto_1.randomBytes)(16).toString("hex");
@@ -872,8 +791,6 @@ async function main() {
     app.post("/api/v1/chats/:chatId/messages", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
-            return;
-        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { chatId } = req.params;
         const { content, org_id } = req.body || {};
@@ -1220,41 +1137,6 @@ async function main() {
         const r = await pool.query(`SELECT b.tier, t.name, t.rpm_limit, t.tpm_limit, t.daily_request_limit, t.models, t.rag_enabled, t.priority
        FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier = t.tier_id WHERE b.org_id=$1`, [orgId]);
         return reply.send({ ok: true, tier: r.rows[0] });
-    });
-    // ==================== ADMIN PROXY ====================
-    const ADMIN_KEY = process.env.ADMIN_KEY || "";
-    // Proxy /api/v1/admin/* → Gateway /admin/*
-    app.all("/api/v1/admin/*", async (req, reply) => {
-        const p = auth(req, reply);
-        if (!p)
-            return;
-        // Check if user is org owner for any org (admin gate)
-        const orgs = await pool.query("SELECT role FROM portal_org_members WHERE user_id=$1 AND role='owner' AND status='active' LIMIT 1", [p.user_id]);
-        if (orgs.rows.length === 0 && ADMIN_KEY) {
-            // If ADMIN_KEY is set and user provides it, allow global admin
-            const adminHeader = req.headers["x-admin-key"] || "";
-            if (adminHeader !== ADMIN_KEY)
-                return reply.status(403).send({ error: "admin access required" });
-        }
-        const path = req.params["*"];
-        const gwUrl = `${CORE_API}/admin/${path}`;
-        try {
-            const method = req.method;
-            const headers = { "Content-Type": "application/json" };
-            if (ADMIN_KEY)
-                headers["Authorization"] = `Bearer ${ADMIN_KEY}`;
-            let body;
-            if (method === "POST" || method === "PUT") {
-                body = JSON.stringify(req.body);
-                headers["Content-Length"] = String(body.length);
-            }
-            const resp = await fetch(gwUrl, { method, headers, body });
-            const data = await resp.json();
-            return reply.status(resp.status).send(data);
-        }
-        catch (e) {
-            return reply.status(502).send({ error: "gateway unreachable", detail: safeError(e) });
-        }
     });
     // При production: слушаем только localhost (nginx проксирует)
     const listenHost = IS_PRODUCTION ? "127.0.0.1" : "0.0.0.0";
