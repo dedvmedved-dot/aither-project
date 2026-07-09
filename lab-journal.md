@@ -3215,3 +3215,67 @@ manifests/ — 20 файлов (K8s + документация)
 grafana/   — 3 файла (дашборды GPU/inference + nginx)
 portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 ```
+
+---
+
+### День 22: #37 LLM-Wiki + гибридный RAG (10.07.2026)
+
+**Цель:** построить Karpathy-style knowledge base с гибридным поиском
+(keyword + wikilinks graph).
+
+**Исходное состояние:**
+- ChromaDB: v0.6.3, сервер имеет внутренние ошибки API (`KeyError('_type')`, coroutine errors)
+- Embeddings service: развёрнут, но тянет PyTorch 526MB — нестабилен
+- Gateway: базовый RAG через ChromaDB ONNX (rag_query/rag_ingest)
+
+**Выполнено:**
+
+1. **Wiki-граф (gateway/wiki_graph.py, 315 строк):**
+   - Парсинг YAML frontmatter + `[[wikilinks]]`
+   - Индексация: прямые и обратные ссылки
+   - BFS-обход графа с настраиваемым радиусом
+   - Полнотекстовый поиск по заголовкам/тегам/контенту
+   - Поддержка иерархической и плоской (ConfigMap) структуры
+
+2. **Контент wiki (wiki/ — 8 страниц, 16 KB):**
+   - entities: AI Gateway, vLLM Inference, ChromaDB, Security Egress, SIEM Integration, Vault PKI
+   - concepts: LLM-Wiki, Multi-Tenant Architecture
+   - SCHEMA.md, index.md, log.md
+
+3. **Гибридный RAG (gateway/hybrid_rag.py, 170 строк):**
+   - Алгоритм: keyword search → graph expansion (1-hop) → merge → re-rank
+   - Re-rank: keyword_score × 0.7 + wiki_score × 0.3
+   - Wiki_score = min(0.3 + 0.15 × inlink_count, 1.0)
+   - Graph-only fill для недобора результатов
+
+4. **API эндпоинты в Gateway:**
+   - `POST /v1/rag/hybrid-query` — гибридный поиск
+   - `POST /v1/rag/wiki-ingest` — перезагрузка графа
+   - `GET /v1/rag/status` — статус
+
+5. **Деплой в K8s:**
+   - ConfigMaps: gateway-code (9 Python), gateway-wiki (11 markdown)
+   - Gateway под с 0 зависимостями (без chromadb/onnx — чистый Python)
+   - Старт: ~5 секунд (было ~45 секунд с ONNX)
+
+**Результаты тестирования:**
+
+| Запрос | Топ-результат | Score |
+|---|---|---|
+| «безопасность и фильтрация» | AI Gateway | 0.70 |
+| «архитектура AI» | AI Gateway | 0.79 |
+| «изоляция организаций» | Multi-Tenant Architecture | 0.79 |
+
+**Принятые решения:**
+- Отказ от ChromaDB из-за нестабильности сервера 0.6.3
+- Чисто-графовый RAG (Karpathy-style) — compile-once, query-many
+- Без внешних зависимостей — только Python stdlib + pyyaml
+
+**Артефакты:**
+- `gateway/wiki_graph.py` — движок вики-графа
+- `gateway/hybrid_rag.py` — гибридный RAG
+- `wiki/` — 11 файлов знаний о платформе
+- `docs/llm-wiki-hybrid-rag.md` — архитектурная статья
+- `manifests/gateway-catalog.yaml` — обновлённый деплой
+
+Статус: ✅ OK

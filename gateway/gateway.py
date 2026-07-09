@@ -9,6 +9,8 @@ import psycopg2.pool
 from security import check_security
 from security_egress import check_egress
 from vault import vault_validate_key
+from hybrid_rag import hybrid_query, wiki_ingest, wiki_status
+from wiki_graph import get_wiki_graph
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
@@ -488,6 +490,60 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": "query_failed", "detail": str(e)})
             return
 
+        # ── Hybrid RAG endpoints ──────────────────────────────
+        if self.path == "/v1/rag/hybrid-query":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body_str = self.rfile.read(length).decode() if length else "{}"
+                req_data = json.loads(body_str)
+                query = req_data.get("query", "")
+                top_k = req_data.get("top_k", 5)
+                wiki_radius = req_data.get("wiki_radius", 1)
+                if not query:
+                    self._json(400, {"error": "query required"})
+                    return
+                _oid = payload.get("org_id", "unknown")
+                _tier = _get_org_tier(_oid)
+                _limits = _get_tier_limits(_tier)
+                if not _limits["rag"]:
+                    self._json(403, {"error": "rag_not_available", "tier": _tier})
+                    return
+                results = hybrid_query(query, top_k=top_k, wiki_radius=wiki_radius)
+                self._json(200, {"query": query, "results": results, "mode": "hybrid"})
+            except Exception as e:
+                traceback.print_exc()
+                self._json(500, {"error": "hybrid_query_failed", "detail": str(e)})
+            return
+
+        if self.path == "/v1/rag/wiki-ingest":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                result = wiki_ingest()
+                self._json(200, result)
+            except Exception as e:
+                traceback.print_exc()
+                self._json(500, {"error": "wiki_ingest_failed", "detail": str(e)})
+            return
+
+        if self.path == "/v1/rag/status":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                status = wiki_status()
+                self._json(200, status)
+            except Exception as e:
+                self._json(500, {"error": "status_failed", "detail": str(e)})
+            return
+
         # Validate JWT
         payload = self._check_jwt()
         if payload is None:
@@ -773,6 +829,13 @@ if __name__ == "__main__":
         print("[Init] ONNX embedding model ready", flush=True)
     except Exception as e:
         print(f"[Init] ONNX warmup failed (will retry on first request): {e}", flush=True)
+    # Pre-load wiki graph at startup
+    print("[Init] Loading wiki graph...", flush=True)
+    try:
+        wg = get_wiki_graph()
+        print(f"[Init] Wiki graph loaded: {wg.page_count} pages", flush=True)
+    except Exception as e:
+        print(f"[Init] Wiki graph load failed (will retry on first request): {e}", flush=True)
     port = int(os.environ.get("PORT", "8080"))
     server = HTTPServer(("0.0.0.0", port), Gateway)
     print(f"Gateway listening on :{port}", flush=True)
