@@ -27,6 +27,7 @@ interface ApiKeyPayload {
   org_id: string;
   key_id: string;
   name: string;
+  api_key: string;
 }
 
 async function authApiKey(req: any, reply: any, pool: Pool): Promise<ApiKeyPayload | null> {
@@ -55,7 +56,7 @@ async function authApiKey(req: any, reply: any, pool: Pool): Promise<ApiKeyPaylo
   // Update last_used_at
   await pool.query("UPDATE portal_api_keys SET last_used_at=now() WHERE key_id=$1", [k.key_id]);
 
-  return { org_id: k.org_id, key_id: k.key_id, name: k.name };
+  return { org_id: k.org_id, key_id: k.key_id, name: k.name, api_key: apiKey };
 }
 
 // ── Routes ────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ export function registerApiGateway(app: any, pool: Pool, CORE_API: string) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": "Bearer " + key.api_key,
           "X-Org-Id": key.org_id,
           "X-Api-Key-Id": key.key_id,
         },
