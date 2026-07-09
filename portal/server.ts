@@ -86,28 +86,32 @@ function safeError(e: any): string {
   return IS_PRODUCTION ? "internal_error" : e.message || String(e);
 }
 
-/** Store OAuth state in cookie, return state value */
-function setOAuthState(reply: any, prefix: string): string {
+/** In-memory OAuth state store — avoids cookie issues */
+const oauthStates = new Map<string, { prefix: string; expires: number }>();
+
+// Cleanup expired states every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of oauthStates) {
+    if (v.expires < now) oauthStates.delete(k);
+  }
+}, 300_000);
+
+/** Store OAuth state in memory, return state value */
+function setOAuthState(_reply: any, prefix: string): string {
   const state = randomBytes(16).toString("hex");
-  reply.header("Set-Cookie",
-    `oauth_state=${prefix}:${state}; Path=/; HttpOnly; SameSite=None; Max-Age=600` +
-    (IS_PRODUCTION ? "; Secure" : ""));
+  oauthStates.set(state, { prefix, expires: Date.now() + 600_000 });
   return state;
 }
 
-/** Validate OAuth state from cookie. Clears cookie. Returns true if valid. */
-function validateOAuthState(req: any, reply: any, prefix: string): boolean {
-  const cookieState = (req.headers.cookie || "")
-    .split(";").map((c: string) => c.trim())
-    .find((c: string) => c.startsWith("oauth_state="))
-    ?.split("=")[1];
+/** Validate OAuth state from memory. Returns true if valid. */
+function validateOAuthState(req: any, _reply: any, prefix: string): boolean {
   const queryState = (req.query as any)?.state || "";
-  // Clear cookie
-  reply.header("Set-Cookie",
-    "oauth_state=; Path=/; HttpOnly; SameSite=None; Max-Age=0" +
-    (IS_PRODUCTION ? "; Secure" : ""));
-  if (!cookieState || !queryState) return false;
-  return cookieState === `${prefix}:${queryState}`;
+  if (!queryState) return false;
+  const entry = oauthStates.get(queryState);
+  if (!entry) return false;
+  oauthStates.delete(queryState);
+  return entry.prefix === prefix && entry.expires > Date.now();
 }
 
 async function main() {
