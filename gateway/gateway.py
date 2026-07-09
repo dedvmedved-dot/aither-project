@@ -8,6 +8,7 @@ import psycopg2
 import psycopg2.pool
 from security import check_security
 from security_egress import check_egress
+from vault import vault_validate_key
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
@@ -256,6 +257,18 @@ class Gateway(BaseHTTPRequestHandler):
         token = auth[7:]
                 # ── API Key auth (ak-...) ──────────────────────────────
         if token.startswith("ak-"):
+            # 🆕 Try Vault first (corporate key management)
+            vault_result = vault_validate_key(token, redis_module=redis)
+            if vault_result.get("valid"):
+                return {
+                    "org_id": vault_result["org_id"],
+                    "user_id": vault_result.get("user_id", ""),
+                    "api_key": True,
+                    "key_name": vault_result.get("key_name", "vault"),
+                    "vault_policies": vault_result.get("policies", {}),
+                }
+
+            # Fallback: local PostgreSQL (for non-Vault keys / dev mode)
             conn = db_pool.getconn()
             try:
                 with conn:
