@@ -2951,5 +2951,62 @@ upstream portal_backend {
 |---|---|
 | `80deb88` | feat: VPS3 failover — конфиги pg-tunnel, bff-wrapper, nginx |
 | `e353810` | docs: VPS3 Failover #22 → ✅ (22/36 = 61%)
+| `03b3cfc` | feat: SaaS portal #23 — signup/login/billing dashboard/tiers/upgrade
+
+
+## День 21: SaaS-портал (#23) — 09.07.2026
+
+**Задача:** Реализовать портал самообслуживания (signup/login, биллинг-дашборд, тарифы, смена тарифа) — #23 из ROADMAP.
+
+### Backend (server.ts → dist/server.js)
+
+Реализованы эндпоинты:
+
+| Метод | Путь | Описание |
+|---|---|---|
+| POST | `/auth/signup` | Регистрация: email + password → создание user, org, api_key, billing_account |
+| POST | `/auth/login` | Логин: email + password → JWT |
+| GET | `/api/v1/billing/dashboard?org_id=X` | Баланс (total_tokens, reserved), дневная/месячная/по-моделям статистика |
+| GET | `/api/v1/tiers` | 4 тарифа: Free, Standard (1990₽), VIP (4990₽), Enterprise |
+| POST | `/api/v1/orgs/:orgId/upgrade` | Смена тарифа организации |
+
+### UI (index.html)
+
+- **Регистрация:** форма email/password/org_name → `/auth/signup`
+- **Логин:** форма email/password → `/auth/login`
+- **Тарифы:** сетка 4 тарифов, текущий выделен рамкой, кнопка «Перейти»
+- **Биллинг-дашборд:** интеграция с `/api/v1/billing/dashboard`
+
+### Миграции SQL
+
+- `portal_users.password_hash` — bcrypt-хеш пароля (ранее только OAuth)
+- `billing_accounts.balance` — стартовый баланс 100 000 токенов при регистрации
+
+### E2E-тесты (все пройдены)
+
+1. **Signup** → user_id, org_id, api_key получены ✅
+2. **Login** → JWT получен ✅
+3. **Billing Dashboard** → баланс 100 000 токенов ✅
+4. **Tiers** → 4 тарифа возвращаются ✅
+5. **Tier Upgrade** → free → standard (rpm 60, tpm 100 000) ✅
+
+### Деплой
+
+- VPS2: `dist/server.js` обновлён через scp, перезапуск через systemd `aither-bff`
+- Маршруты работают без префикса `/api/v1` для auth: `/auth/signup`, `/auth/login`
+
+### Проблемы
+
+- **VPS3 SSH отвалился** — ключ есть в `authorized_keys`, но сервер его не принимает. Подозрение на смену конфигурации или переустановку. Требуется ручное вмешательство.
+- **Password truncation** — пароли в heredoc на VPS3 обрезались Hermes. Workaround: `bff-wrapper.sh` с разбивкой пароля на части.
+
+### Статус дорожной карты
+
+- Выполнено: 23/36 (64%)
+- Осталось в Stage 5:
+  - #21 Multi-tenant isolation
+  - #24 HA K8s control plane
+- Stage 6: NVLink, 70B+ модели
+- Stage 7: Full offline package
 
 **Прогресс: 61% (22/36)**
