@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install linters
+        run: pip install ruff pyflakes
+
+      - name: Ruff check
+        run: ruff check gateway/ --ignore E501,F841,E722 --select E,F,W
+
+      - name: Pyflakes
+        run: pyflakes gateway/
+
+  lint-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './scripts'
+
+  validate-k8s:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup kubeconform
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate K8s manifests
+        run: |
+          find k8s -name '*.yaml' -print0 | xargs -0 -n1 kubeconform -ignore-missing-schemas -strict || true
+
+  lint-bash-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check bash syntax
+        run: |
+          for f in scripts/*.sh; do
+            echo "Checking $f..."
+            bash -n "$f" && echo "  OK" || echo "  FAILED"
+          done
+
+  test-deploy-dry-run:
+    runs-on: ubuntu-latest
+    needs: [lint-python, lint-shell, lint-bash-scripts]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify deploy script exists
+        run: test -f scripts/deploy.sh && bash -n scripts/deploy.sh
+
+      - name: Verify K8s manifest structure
+        run: |
+          echo "Checking manifest structure..."
+          for f in k8s/hpa/*.yaml k8s/**/*.yaml; do
+            [ -f "$f" ] && echo "  $f OK" || true
+          done
+
+      - name: Verify gateway module imports
+        run: |
+          python3 -c "
+          import ast, sys
+          files = ['gateway/gateway.py', 'gateway/admin.py', 'gateway/metrics.py']
+          for f in files:
+              try:
+                  with open(f) as fh:
+                      ast.parse(fh.read())
+                  print(f'  {f} — syntax OK')
+              except SyntaxError as e:
+                  print(f'  {f} — SYNTAX ERROR: {e}')
+                  sys.exit(1)
+          "

@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/**'
+      - 'k8s/**'
+      - 'configs/**'
+      - 'portal/**'
+      - 'scripts/deploy.sh'
+  workflow_dispatch:
+    inputs:
+      component:
+        description: 'Component to deploy (gateway/vllm/portal/all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - gateway
+          - vllm
+          - portal
+          - config
+
+jobs:
+  deploy-k8s:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip-deploy]'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to VPS2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          script: |
+            cd /root/aither-project
+            git pull origin main
+            bash scripts/deploy.sh ${{ github.event.inputs.component || 'all' }}
+
+      - name: Notify Telegram
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            🚀 Deploy #${{ github.run_number }}
+            Репо: ${{ github.repository }}
+            Ветка: ${{ github.ref_name }}
+            Коммит: ${{ github.sha }}
+            Автор: ${{ github.actor }}
+            Статус: ${{ job.status }}
