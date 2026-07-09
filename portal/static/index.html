@@ -1909,40 +1909,64 @@ async function renderTiers() {
     if (tResp.ok) currentTier = tResp.data?.tier || 'free';
   }
 
-  $('#main-content').innerHTML = `
-    <div class="page-header">
-      <h2>📦 Тарифные планы</h2>
-      <p>Выберите тариф под свои задачи. Текущий тариф выделен рамкой.</p>
+  // Build nav (same as renderApp)
+  const pages = [
+    { id:'chats', label:'Чаты' },
+    { id:'dashboard', label:'Дашборд' },
+    { id:'orgs', label:'Организации' },
+    { id:'tiers', label:'Тарифы' },
+  ];
+  const navHtml = pages.map(p =>
+    `<button class="nav-btn${p.id==='tiers'?' active':''}" onclick="navigate('${p.id}')">${p.label}</button>`
+  ).join('');
+
+  $('#app').innerHTML = `
+    <div class="header">
+      <div class="header-left">
+        <span class="logo">Aither</span>
+        <span class="header-subtitle">Пилотный проект Управления виртуализации и облачных сервисов (Группа разработки AI-систем), АО «Гринатом»</span>
+        <nav class="nav">${navHtml}</nav>
+      </div>
+      <div class="header-right">
+        <span class="user-name">${state.user ? state.user.display_name : ''}</span>
+        <button class="btn-logout" onclick="logout()">Выйти</button>
+      </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
-      ${tiers.map(t => `
-        <div style="background:var(--bg-input);border:2px solid ${t.tier_id===currentTier?'var(--accent)':'var(--border)'};border-radius:var(--radius);padding:24px;${t.tier_id===currentTier?'box-shadow:0 0 12px var(--accent-alpha);':''}">
-          <div style="font-size:32px;margin-bottom:4px;">${tierEmojis[t.tier_id]||'📌'}</div>
-          <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(t.name)}</div>
-          <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">${esc(t.description)}</div>
-          <div style="font-size:32px;font-weight:800;margin-bottom:4px;">
-            ${t.price_rub_month ? t.price_rub_month.toLocaleString()+' ₽' : 'Бесплатно'}
-            ${t.price_rub_month ? '<span style="font-size:14px;color:var(--text-dim);"> /мес</span>' : ''}
+    <div class="main">
+      <div class="page-header">
+        <h2>📦 Тарифные планы</h2>
+        <p>Выберите тариф под свои задачи. Текущий тариф выделен рамкой.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
+        ${tiers.map(t => `
+          <div style="background:var(--bg-input);border:2px solid ${t.tier_id===currentTier?'var(--accent)':'var(--border)'};border-radius:var(--radius);padding:24px;${t.tier_id===currentTier?'box-shadow:0 0 12px var(--accent-alpha);':''}">
+            <div style="font-size:32px;margin-bottom:4px;">${tierEmojis[t.tier_id]||'📌'}</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(t.name)}</div>
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">${esc(t.description)}</div>
+            <div style="font-size:32px;font-weight:800;margin-bottom:4px;">
+              ${t.price_rub_month ? t.price_rub_month.toLocaleString()+' ₽' : 'Бесплатно'}
+              ${t.price_rub_month ? '<span style="font-size:14px;color:var(--text-dim);"> /мес</span>' : ''}
+            </div>
+            <hr style="border-color:var(--border);margin:16px 0;">
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Лимиты:</div>
+            <div style="font-size:13px;line-height:1.8;">
+              📊 <b>${t.rpm_limit}</b> запросов/мин<br>
+              🔤 <b>${t.tpm_limit.toLocaleString()}</b> токенов/мин<br>
+              ${t.daily_request_limit ? '📅 <b>'+t.daily_request_limit.toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
+              🧠 Модели: <b>${(t.models||[]).join(', ')}</b><br>
+              ${t.rag_enabled ? '📚 RAG: <b style="color:var(--success)">✅ Доступен</b><br>' : '📚 RAG: <b style="color:var(--text-dim)">❌</b><br>'}
+            </div>
+            <hr style="border-color:var(--border);margin:16px 0;">
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Возможности:</div>
+            <ul style="font-size:13px;line-height:1.8;padding-left:20px;margin:0;">
+              ${(t.features||[]).map(f => `<li>${esc(f)}</li>`).join('')}
+            </ul>
+            ${t.tier_id===currentTier
+              ? '<div style="margin-top:16px;text-align:center;padding:8px;background:var(--accent-alpha);border-radius:var(--radius-sm);font-weight:600;font-size:13px;">✅ Ваш текущий тариф</div>'
+              : '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier(\'' + (state.selectedOrg?.org_id||'') + '\',\'' + t.tier_id + '\')">Перейти</button>'}
           </div>
-          <hr style="border-color:var(--border);margin:16px 0;">
-          <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Лимиты:</div>
-          <div style="font-size:13px;line-height:1.8;">
-            📊 <b>${t.rpm_limit}</b> запросов/мин<br>
-            🔤 <b>${t.tpm_limit.toLocaleString()}</b> токенов/мин<br>
-            ${t.daily_request_limit ? '📅 <b>'+t.daily_request_limit.toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
-            🧠 Модели: <b>${(t.models||[]).join(', ')}</b><br>
-            ${t.rag_enabled ? '📚 RAG: <b style="color:var(--success)">✅ Доступен</b><br>' : '📚 RAG: <b style="color:var(--text-dim)">❌</b><br>'}
-          </div>
-          <hr style="border-color:var(--border);margin:16px 0;">
-          <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Возможности:</div>
-          <ul style="font-size:13px;line-height:1.8;padding-left:20px;margin:0;">
-            ${(t.features||[]).map(f => `<li>${esc(f)}</li>`).join('')}
-          </ul>
-          ${t.tier_id===currentTier
-            ? '<div style="margin-top:16px;text-align:center;padding:8px;background:var(--accent-alpha);border-radius:var(--radius-sm);font-weight:600;font-size:13px;">✅ Ваш текущий тариф</div>'
-            : '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier(\'' + (state.selectedOrg?.org_id||'') + '\',\'' + t.tier_id + '\')">Перейти</button>'}
-        </div>
-      `).join('')}
+        `).join('')}
+      </div>
     </div>`;
 }
 
