@@ -103,9 +103,9 @@ Grafana → Prometheus → nvidia-dcgm-exporter (GPU-метрики)
 | # | Задача | Приоритет | Статус | Оценка |
 |---|---|---|---|---|
 | 17 | **RAG-подсистема** (ChromaDB + embeddings) | P1 | ✅ | 2 дня |
-| 18 | **Fine-tuning пайплайн** (LoRA) | P1 | ⬜ | 2 дня |
+| 18 | **Fine-tuning пайплайн** (LoRA) | P1 | 🔄 | 2 дня |
 | 19 | **Cost-aware routing** | P1 | ✅ | 1 день |
-| 20 | **Model playground** (сравнение A/B) | P2 | ⬜ | 1 день |
+| 20 | **Model playground** (сравнение A/B) | P2 | ✅ | 1 день |
 
 ### 17. RAG (дни 15–16)
 

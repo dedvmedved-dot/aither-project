@@ -1,0 +1,70 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lora-train-14b
+  labels:
+    app: lora-training
+spec:
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      nodeName: bootsman-k8s-clnt01-n8-gpu
+      restartPolicy: Never
+      containers:
+      - name: trainer
+        image: vllm/vllm-openai:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "=== Установка зависимостей ==="
+          pip install peft datasets --quiet
+
+          echo "=== Загрузка модели Qwen 2.5 14B ==="
+          export HF_HOME=/mnt/models/.cache
+          export HF_HUB_ENABLE_HF_TRANSFER=1
+
+          # Создаём рабочую директорию и копируем файлы
+          mkdir -p /data
+          cp /training-data/dataset.jsonl /data/dataset.jsonl
+          cp /training-data/train.py /data/train.py
+
+          echo "=== Запуск обучения ==="
+          cd /data
+          python3 train.py
+
+          echo "=== Проверка результата ==="
+          ls -la /mnt/models/lora-qwen14b-astra/
+          echo "=== ГОТОВО ==="
+
+        env:
+        - name: HF_TOKEN
+          value: ""
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+            memory: 64Gi
+            cpu: 16
+          requests:
+            nvidia.com/gpu: 1
+            memory: 32Gi
+            cpu: 8
+
+        volumeMounts:
+        - name: models
+          mountPath: /mnt/models
+        - name: training-data
+          mountPath: /training-data
+
+      volumes:
+      - name: models
+        hostPath:
+          path: /mnt/models
+          type: DirectoryOrCreate
+      - name: training-data
+        configMap:
+          name: lora-training-files
