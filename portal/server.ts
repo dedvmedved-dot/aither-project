@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { Pool } from "pg";
 import { randomBytes, createHash, scryptSync, timingSafeEqual } from "crypto";
 import { authenticateViaLDAP, isLDAPEnabled } from "./ldap";
+import { POLICIES_DDL, loadPolicy, savePolicy, validatePolicy } from "./policies";
 
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
@@ -192,6 +193,7 @@ async function main() {
       total_tokens bigint NOT NULL DEFAULT 0
     );
   `);
+  await pool.query(POLICIES_DDL);
 
   // ==================== AUTH ====================
 
@@ -687,6 +689,58 @@ async function main() {
        WHERE o.org_id = $1 AND m.user_id = $2`, [orgId, p.user_id]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "org not found" });
     return { org: r.rows[0] };
+  });
+
+  // ==================== ORG SECURITY POLICIES ====================
+
+  app.get("/api/v1/orgs/:orgId/policy", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { orgId } = req.params;
+    const m = await pool.query(
+      "SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'",
+      [orgId, p.user_id]);
+    if (m.rows.length === 0) return reply.status(403).send({ error: "not a member" });
+    try {
+      const policy = await loadPolicy(pool, orgId);
+      return { org_id: orgId, policy };
+    } catch (e: any) {
+      return reply.status(500).send({ error: safeError(e) });
+    }
+  });
+
+  app.put("/api/v1/orgs/:orgId/policy", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { orgId } = req.params;
+    if (!await checkOrgOwner(orgId, p.user_id))
+      return reply.status(403).send({ error: "owner only" });
+
+    const body: any = req.body || {};
+    const allowedKeys = [
+      "dlp_enabled", "jailbreak_detection", "sensitive_data_patterns",
+      "allowed_ip_cidrs", "mfa_required", "session_timeout_min",
+      "api_key_max_age_days", "api_key_rotation_required",
+      "custom_rpm", "custom_tpm", "max_concurrent_requests",
+      "allowed_models", "max_tokens_per_request",
+      "chat_retention_days", "audit_log_retention_days",
+    ];
+
+    const updates: any = {};
+    for (const key of allowedKeys) {
+      if (key in body) updates[key] = body[key];
+    }
+
+    if (Object.keys(updates).length === 0)
+      return reply.status(400).send({ error: "no valid policy fields provided" });
+
+    const err = validatePolicy(updates);
+    if (err) return reply.status(400).send({ error: err });
+
+    try {
+      const policy = await savePolicy(pool, orgId, updates);
+      return { org_id: orgId, policy };
+    } catch (e: any) {
+      return reply.status(500).send({ error: safeError(e) });
+    }
   });
 
   // ==================== API KEYS ====================

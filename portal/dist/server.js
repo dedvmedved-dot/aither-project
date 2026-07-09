@@ -5,13 +5,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fastify_1 = __importDefault(require("fastify"));
 const cors_1 = __importDefault(require("@fastify/cors"));
+const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const pg_1 = require("pg");
 const crypto_1 = require("crypto");
+const ldap_1 = require("./ldap");
+const policies_1 = require("./policies");
 const PORT = 3000;
-const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-me";
-const CORE_API = process.env.CORE_API || "http://10.129.13.78:32293";
-const CORE_API_32B = process.env.CORE_API_32B || "http://10.129.13.77:32294";
+const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
+const CORE_API = process.env.CORE_API || "http://gateway:8080";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const PUBLIC_HOST = process.env.PUBLIC_HOST || "localhost";
+const CORS_ORIGIN = process.env.CORS_ORIGIN || (IS_PRODUCTION ? `https://${PUBLIC_HOST}` : `http://${PUBLIC_HOST}`);
 const pool = new pg_1.Pool({
     host: process.env.PG_HOST || "10.129.13.78",
     port: Number(process.env.PG_PORT) || 31113,
@@ -67,11 +72,47 @@ async function ensurePersonalOrg(userId) {
     return orgId;
 }
 function hashPassword(password) {
-    return (0, crypto_1.createHash)("sha256").update(password + "aither-salt").digest("hex");
+    // scrypt: 64-bit salt + 64-byte hash, base64-encoded
+    const salt = (0, crypto_1.randomBytes)(16).toString("hex");
+    const hash = (0, crypto_1.scryptSync)(password, salt, 64).toString("hex");
+    return `${salt}:${hash}`;
+}
+function verifyPassword(password, stored) {
+    const [salt, hash] = stored.split(":");
+    if (!salt || !hash)
+        return false;
+    const derived = (0, crypto_1.scryptSync)(password, salt, 64).toString("hex");
+    return (0, crypto_1.timingSafeEqual)(Buffer.from(hash), Buffer.from(derived));
+}
+function safeError(e) {
+    return IS_PRODUCTION ? "internal_error" : e.message || String(e);
+}
+/** Store OAuth state in cookie, return state value */
+function setOAuthState(reply, prefix) {
+    const state = (0, crypto_1.randomBytes)(16).toString("hex");
+    reply.header("Set-Cookie", `oauth_state=${prefix}:${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600` +
+        (IS_PRODUCTION ? "; Secure" : ""));
+    return state;
+}
+/** Validate OAuth state from cookie. Clears cookie. Returns true if valid. */
+function validateOAuthState(req, reply, prefix) {
+    const cookieState = (req.headers.cookie || "")
+        .split(";").map((c) => c.trim())
+        .find((c) => c.startsWith("oauth_state="))
+        ?.split("=")[1];
+    const queryState = req.query?.state || "";
+    // Clear cookie
+    reply.header("Set-Cookie", "oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" +
+        (IS_PRODUCTION ? "; Secure" : ""));
+    if (!cookieState || !queryState)
+        return false;
+    return cookieState === `${prefix}:${queryState}`;
 }
 async function main() {
     const app = (0, fastify_1.default)({ logger: false });
-    await app.register(cors_1.default, { origin: "*" });
+    await app.register(cors_1.default, { origin: CORS_ORIGIN, credentials: true });
+    // Rate limiting: 100 req/min per IP
+    await app.register(rate_limit_1.default, { max: 100, timeWindow: "1 minute" });
     // DDL
     await pool.query(`
     CREATE TABLE IF NOT EXISTS portal_users (
@@ -150,6 +191,7 @@ async function main() {
       total_tokens bigint NOT NULL DEFAULT 0
     );
   `);
+    await pool.query(policies_1.POLICIES_DDL);
     // ==================== AUTH ====================
     // GitHub OAuth
     const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
@@ -157,7 +199,7 @@ async function main() {
     app.get("/auth/github", async (_req, reply) => {
         if (!GITHUB_CLIENT_ID)
             return reply.status(500).send({ error: "GitHub OAuth not configured" });
-        const state = (0, crypto_1.randomBytes)(16).toString("hex");
+        const state = setOAuthState(reply, "github");
         const params = new URLSearchParams({
             client_id: GITHUB_CLIENT_ID,
             redirect_uri: process.env.GITHUB_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/github/callback`,
@@ -172,6 +214,8 @@ async function main() {
         const { code, state } = req.query;
         if (!code)
             return reply.status(400).send({ error: "missing code" });
+        if (!validateOAuthState(req, reply, "github"))
+            return reply.status(403).send({ error: "invalid_state" });
         try {
             // Exchange code for access token
             const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
@@ -217,7 +261,7 @@ async function main() {
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
-            return reply.status(502).send({ error: "GitHub OAuth error: " + e.message });
+            return reply.status(502).send({ error: "GitHub OAuth error: " + safeError(e) });
         }
     });
     // Google OAuth
@@ -226,7 +270,7 @@ async function main() {
     app.get("/auth/google", async (_req, reply) => {
         if (!GOOGLE_CLIENT_ID)
             return reply.status(500).send({ error: "Google OAuth not configured" });
-        const state = (0, crypto_1.randomBytes)(16).toString("hex");
+        const state = setOAuthState(reply, "google");
         const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/google/callback`;
         const params = new URLSearchParams({
             client_id: GOOGLE_CLIENT_ID,
@@ -243,6 +287,8 @@ async function main() {
         const { code } = req.query;
         if (!code)
             return reply.status(400).send({ error: "missing code" });
+        if (!validateOAuthState(req, reply, "google"))
+            return reply.status(403).send({ error: "invalid_state" });
         try {
             const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/google/callback`;
             const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -285,7 +331,7 @@ async function main() {
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
-            return reply.status(502).send({ error: "Google OAuth error: " + e.message });
+            return reply.status(502).send({ error: "Google OAuth error: " + safeError(e) });
         }
     });
     // Yandex OAuth
@@ -294,7 +340,7 @@ async function main() {
     app.get("/auth/yandex", async (_req, reply) => {
         if (!YANDEX_CLIENT_ID)
             return reply.status(500).send({ error: "Yandex OAuth not configured" });
-        const state = (0, crypto_1.randomBytes)(16).toString("hex");
+        const state = setOAuthState(reply, "yandex");
         const params = new URLSearchParams({
             client_id: YANDEX_CLIENT_ID,
             redirect_uri: process.env.YANDEX_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/yandex/callback`,
@@ -310,6 +356,8 @@ async function main() {
         const { code } = req.query;
         if (!code)
             return reply.status(400).send({ error: "missing code" });
+        if (!validateOAuthState(req, reply, "yandex"))
+            return reply.status(403).send({ error: "invalid_state" });
         try {
             const tokenRes = await fetch("https://oauth.yandex.ru/token", {
                 method: "POST",
@@ -351,10 +399,51 @@ async function main() {
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
-            return reply.status(502).send({ error: "Yandex OAuth error: " + e.message });
+            return reply.status(502).send({ error: "Yandex OAuth error: " + safeError(e) });
         }
     });
-    app.post("/auth/dev/login", async (req) => {
+    // === LDAP Authentication (FreeIPA / ALD Pro / OpenLDAP) ===
+    app.post("/auth/ldap", async (req, reply) => {
+        if (!(0, ldap_1.isLDAPEnabled)())
+            return reply.status(501).send({ error: "LDAP not configured" });
+        const { username, password } = req.body || {};
+        if (!username || !password)
+            return reply.status(400).send({ error: "username and password required" });
+        try {
+            const ldapUser = await (0, ldap_1.authenticateViaLDAP)(username, password);
+            if (!ldapUser)
+                return reply.status(401).send({ error: "invalid ldap credentials" });
+            // Upsert portal user
+            const oauthId = `ldap:${ldapUser.uid}`;
+            const provider = "ldap";
+            let user = await pool.query("SELECT user_id FROM portal_users WHERE oauth_provider=$1 AND oauth_id=$2", [provider, oauthId]);
+            let userId;
+            if (user.rows.length === 0) {
+                const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, last_login_at)
+           VALUES ($1,$2,$3,$4,now()) RETURNING user_id`, [provider, oauthId, ldapUser.email, ldapUser.displayName]);
+                userId = ins.rows[0].user_id;
+                await ensurePersonalOrg(userId);
+            }
+            else {
+                userId = user.rows[0].user_id;
+                await pool.query("UPDATE portal_users SET email=$1, display_name=$2, last_login_at=now() WHERE user_id=$3", [ldapUser.email, ldapUser.displayName, userId]);
+            }
+            const tok = signToken(userId);
+            return {
+                access_token: tok,
+                user: { user_id: userId, login: ldapUser.uid, email: ldapUser.email },
+                ldap_groups: ldapUser.groups,
+                ldap_role: ldapUser.role,
+            };
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "LDAP error: " + safeError(e) });
+        }
+    });
+    app.post("/auth/dev/login", async (req, reply) => {
+        // Dev-провайдер отключён в продакшене (404 — endpoint не существует)
+        if (IS_PRODUCTION)
+            return reply.status(404).send({ error: "not_found" });
         const { name } = req.body;
         if (!name)
             return { error: "name required" };
@@ -376,11 +465,15 @@ async function main() {
     });
     // === SaaS Signup ===
     app.post("/auth/signup", async (req, reply) => {
-        const { email, password, org_name } = req.body || {};
+        const { email, password, org_name, invite_code } = req.body || {};
         if (!email || !password)
             return reply.status(400).send({ error: "email and password required" });
         if (password.length < 6)
             return reply.status(400).send({ error: "password must be at least 6 characters" });
+        // Invitation-only: if INVITE_CODE set in env, must match
+        const requiredCode = process.env.INVITE_CODE || "";
+        if (requiredCode && invite_code !== requiredCode)
+            return reply.status(403).send({ error: "registration requires valid invitation code" });
         const existing = await pool.query("SELECT user_id FROM portal_users WHERE email=$1 AND oauth_provider='email'", [email]);
         if (existing.rows.length > 0)
             return reply.status(409).send({ error: "email already registered" });
@@ -417,8 +510,7 @@ async function main() {
         const r = await pool.query("SELECT user_id, password_hash, display_name FROM portal_users WHERE email=$1 AND oauth_provider='email'", [email]);
         if (r.rows.length === 0)
             return reply.status(401).send({ error: "invalid credentials" });
-        const hash = hashPassword(password);
-        if (hash !== r.rows[0].password_hash)
+        if (!verifyPassword(password, r.rows[0].password_hash))
             return reply.status(401).send({ error: "invalid credentials" });
         await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [r.rows[0].user_id]);
         const tok = signToken(r.rows[0].user_id);
@@ -482,11 +574,21 @@ async function main() {
             }
         }
         catch (e) {
-            return reply.send({ status: "unreachable", error: e.message });
+            return reply.send({ status: "unreachable", error: safeError(e) });
         }
     });
-    app.get("/api/v1/users", async () => {
-        const r = await pool.query("SELECT user_id, display_name, email, oauth_provider, created_at FROM portal_users ORDER BY created_at DESC");
+    app.get("/api/v1/users", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        // Only show users who share an organization with the requester
+        const r = await pool.query(`SELECT DISTINCT u.user_id, u.display_name, u.email, u.oauth_provider, u.created_at
+       FROM portal_users u
+       JOIN portal_org_members m ON u.user_id = m.user_id
+       WHERE m.org_id IN (
+         SELECT org_id FROM portal_org_members WHERE user_id = $1
+       )
+       ORDER BY u.created_at DESC`, [p.user_id]);
         return { users: r.rows };
     });
     // ==================== ORGS ====================
@@ -519,7 +621,7 @@ async function main() {
         }
         catch (e) {
             await client.query("ROLLBACK");
-            return reply.status(500).send({ error: e.message });
+            return reply.status(500).send({ error: safeError(e) });
         }
         finally {
             client.release();
@@ -536,6 +638,57 @@ async function main() {
         if (r.rows.length === 0)
             return reply.status(404).send({ error: "org not found" });
         return { org: r.rows[0] };
+    });
+    // ==================== ORG SECURITY POLICIES ====================
+    app.get("/api/v1/orgs/:orgId/policy", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        const { orgId } = req.params;
+        const m = await pool.query("SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [orgId, p.user_id]);
+        if (m.rows.length === 0)
+            return reply.status(403).send({ error: "not a member" });
+        try {
+            const policy = await (0, policies_1.loadPolicy)(pool, orgId);
+            return { org_id: orgId, policy };
+        }
+        catch (e) {
+            return reply.status(500).send({ error: safeError(e) });
+        }
+    });
+    app.put("/api/v1/orgs/:orgId/policy", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        const { orgId } = req.params;
+        if (!await checkOrgOwner(orgId, p.user_id))
+            return reply.status(403).send({ error: "owner only" });
+        const body = req.body || {};
+        const allowedKeys = [
+            "dlp_enabled", "jailbreak_detection", "sensitive_data_patterns",
+            "allowed_ip_cidrs", "mfa_required", "session_timeout_min",
+            "api_key_max_age_days", "api_key_rotation_required",
+            "custom_rpm", "custom_tpm", "max_concurrent_requests",
+            "allowed_models", "max_tokens_per_request",
+            "chat_retention_days", "audit_log_retention_days",
+        ];
+        const updates = {};
+        for (const key of allowedKeys) {
+            if (key in body)
+                updates[key] = body[key];
+        }
+        if (Object.keys(updates).length === 0)
+            return reply.status(400).send({ error: "no valid policy fields provided" });
+        const err = (0, policies_1.validatePolicy)(updates);
+        if (err)
+            return reply.status(400).send({ error: err });
+        try {
+            const policy = await (0, policies_1.savePolicy)(pool, orgId, updates);
+            return { org_id: orgId, policy };
+        }
+        catch (e) {
+            return reply.status(500).send({ error: safeError(e) });
+        }
     });
     // ==================== API KEYS ====================
     app.get("/api/v1/orgs/:orgId/api-keys", async (req, reply) => {
@@ -716,7 +869,7 @@ async function main() {
             // Translate model short name → vLLM path
             const modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
             const vllmModel = modelInfo.vllm_path;
-            const vllmEndpoint = chat.model === "qwen2.5-32b" ? CORE_API_32B : CORE_API;
+            const vllmEndpoint = CORE_API;
             // Call vLLM with streaming
             const vllmRes = await fetch(vllmEndpoint + "/v1/chat/completions", {
                 method: "POST",
@@ -785,7 +938,7 @@ async function main() {
             // Delete user message on error
             await pool.query("DELETE FROM chat_messages WHERE message_id=$1", [userMsg.rows[0].message_id]);
             if (!reply.raw.headersSent) {
-                return reply.status(502).send({ error: "stream error: " + e.message });
+                return reply.status(502).send({ error: "stream error: " + safeError(e) });
             }
             reply.raw.end();
         }
@@ -870,7 +1023,7 @@ async function main() {
             });
         }
         catch (e) {
-            return reply.status(500).send({ error: e.message });
+            return reply.status(500).send({ error: safeError(e) });
         }
     });
     // ==================== PAYMENTS (YooKassa) ====================
@@ -939,7 +1092,7 @@ async function main() {
             return reply.status(502).send({ error: "yookassa error", detail: ykData });
         }
         catch (e) {
-            return reply.status(502).send({ error: "yookassa error: " + e.message });
+            return reply.status(502).send({ error: "yookassa error: " + safeError(e) });
         }
     });
     // YooKassa webhook — called by YooKassa when payment status changes
@@ -969,7 +1122,7 @@ async function main() {
             return reply.send({ ok: true, status: "ignored", event });
         }
         catch (e) {
-            return reply.status(500).send({ ok: false, error: e.message });
+            return reply.status(500).send({ ok: false, error: safeError(e) });
         }
     });
     // List payment transactions for org
@@ -994,7 +1147,7 @@ async function main() {
             return reply.send({ tiers: r.rows });
         }
         catch (e) {
-            return reply.status(500).send({ error: e.message });
+            return reply.status(500).send({ error: safeError(e) });
         }
     });
     app.get("/api/v1/org/tier", async (req, reply) => {
@@ -1012,7 +1165,7 @@ async function main() {
             return reply.send(r.rows[0]);
         }
         catch (e) {
-            return reply.status(500).send({ error: e.message });
+            return reply.status(500).send({ error: safeError(e) });
         }
     });
     // === Tier upgrade ===
@@ -1038,7 +1191,9 @@ async function main() {
        FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier = t.tier_id WHERE b.org_id=$1`, [orgId]);
         return reply.send({ ok: true, tier: r.rows[0] });
     });
-    await app.listen({ port: PORT, host: "0.0.0.0" });
-    console.log("Portal BFF v0.5.0 (with chat) on :" + PORT);
+    // При production: слушаем только localhost (nginx проксирует)
+    const listenHost = IS_PRODUCTION ? "127.0.0.1" : "0.0.0.0";
+    await app.listen({ port: PORT, host: listenHost });
+    console.log(`Portal BFF v0.6.0 (security-hardened) on ${listenHost}:${PORT}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
