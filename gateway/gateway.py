@@ -15,6 +15,7 @@ from admin import (
     admin_queues, admin_models, admin_drain, admin_undrain,
     admin_health, admin_org_detail, admin_reaper, is_model_drained,
 )
+from metrics import metrics, metrics_summary
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
@@ -341,6 +342,13 @@ class Gateway(BaseHTTPRequestHandler):
         if self.path == "/health":
             self._json(200, {"status": "ok", "billing": "enabled"})
             return
+        if self.path == "/metrics":
+            body = metrics.prometheus_text()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4")
+            self.end_headers()
+            self.wfile.write(body.encode())
+            return
         # ── Admin Management API ─────────────────────────────────
         if self.path == "/admin/queues":
             self._check_admin()
@@ -372,6 +380,14 @@ class Gateway(BaseHTTPRequestHandler):
             self._check_admin()
             try:
                 data = admin_reaper(r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path == "/admin/metrics":
+            self._check_admin()
+            try:
+                data = metrics_summary()
                 self._json(200, data)
             except Exception as e:
                 self._json(500, {"error": str(e)})
@@ -710,6 +726,7 @@ class Gateway(BaseHTTPRequestHandler):
 
             # Drain check (admin-controlled model availability)
             if is_model_drained(model_id, r):
+                metrics.incr_drain_block(model_id)
                 self._json(503, {"error": "model_drained", "model": model_id,
                     "detail": "Модель временно недоступна. Попробуйте другую модель."})
                 return
@@ -730,6 +747,7 @@ class Gateway(BaseHTTPRequestHandler):
         # Reserve tokens
         ok, bal, err = billing_op(org_id, "reserve", reserve_amount, ref)
         if not ok:
+            metrics.incr_billing_error(org_id, err[:50] if err else "unknown")
             self._json(402, {
                 "error": "insufficient_balance",
                 "detail": err,
@@ -738,13 +756,23 @@ class Gateway(BaseHTTPRequestHandler):
             })
             return
 
-        # Proxy to vLLM
+        metrics.incr_active()
+
+        # Proxy to vLLM (measure TTFT)
+        ttft_start = time.time()
         try:
             status, resp_body, ct = self._proxy("POST", self.path, body_str)
         except Exception as e:
+            metrics.decr_active()
+            metrics.incr_request(model_id, org_id, "error")
             billing_op(org_id, "refund", reserve_amount, ref)
             self._json(502, {"error": "vllm_error", "detail": str(e)})
             return
+        ttft_seconds = time.time() - ttft_start
+        metrics.decr_active()
+
+        # Record TTFT
+        metrics.observe_ttft(model_id, ttft_seconds)
 
         # Count actual tokens
         actual_tokens = reserve_amount  # fallback
@@ -796,6 +824,9 @@ class Gateway(BaseHTTPRequestHandler):
             # Cap settle at reserved amount (actual can exceed estimate)
             settle_amount = min(actual_tokens, reserve_amount)
             billing_op(org_id, "settle", settle_amount, ref)
+            # Track metrics
+            metrics.incr_request(model_id, org_id, "success")
+            metrics.incr_tokens(model_id, org_id, "total", actual_tokens)
             # Insert usage record to PostgreSQL
             try:
                 conn = db_pool.getconn()
@@ -822,6 +853,7 @@ class Gateway(BaseHTTPRequestHandler):
             r.expire(f"usage:tk:{org_id}:{today}", 86400 * 2)
         else:
             billing_op(org_id, "refund", reserve_amount, ref)
+            metrics.incr_request(model_id, org_id, "error")
             # Insert error usage record
             try:
                 conn = db_pool.getconn()
