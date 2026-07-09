@@ -2763,3 +2763,107 @@ $ curl http://127.0.0.1:3000/api/v1/tiers
 | `a59ab42` | feat: Stage 5 — Multi-tenant tariff plans (Free/Standard/VIP/Enterprise) |
 
 **Прогресс: 58% (21/36)**
+
+---
+
+## День 19: VPS3 Failover — DB миграция + Stateless BFF (09.07.2026)
+
+### Контекст
+
+Задача #22 ROADMAP: горячий резерв портала на VPS3.
+VPS2 — единая точка отказа. При падении VPS2 портал недоступен.
+
+### Решение: Stateless BFF + nginx reverse proxy
+
+Вместо синхронизации двух независимых PostgreSQL (VPS2 ↔ VPS3), все auth-таблицы
+перенесены в K8s PostgreSQL. BFF на VPS2 и VPS3 — идентичные stateless узлы.
+
+### Архитектура
+
+```
+Пользователь → VPS1:443 (nginx)
+                 ├─ VPS2:80 (primary)
+                 └─ VPS3:80 (backup) ← авто-переключение при падении VPS2
+                        │
+                 ┌──────┴──────┐
+                 │  K8s PG     │ ← единая БД для всех
+                 │  (все auth   │
+                 │   + биллинг) │
+                 └─────────────┘
+```
+
+**Механика failover:**
+- VPS1 nginx health-check каждые 30с (`max_fails=3 fail_timeout=30s`)
+- VPS3 в upstream помечен `backup` — получает трафик только при падении VPS2
+- Переключение ≤ 30 секунд
+- Возврат на VPS2 автоматический при восстановлении
+
+### Выполнено
+
+**1. Статья** (`docs/vps3-failover.md`, 24 KB)
+- 8 разделов: архитектура (DOT-схемы), механика failover, миграция, настройка, тестирование
+- 2 диаграммы: текущая vs целевая схема
+- Чек-лист приёмки, риски, трудозатраты
+
+**2. Миграция auth-таблиц** (`db/migrations/008_auth_tables_k8s.sql`)
+
+| Таблица | Строк | Статус |
+|---|---|---|
+| portal_users | 35 | ✅ |
+| portal_organizations | 35 | ✅ |
+| portal_org_members | 35 | ✅ |
+| portal_api_keys | 44 | ✅ |
+| chats | 64 | ✅ |
+| chat_messages | 9 | ✅ |
+| payment_transactions | 4 | ✅ |
+| security_audit | 4 | ✅ |
+
+**Проблема:** схема таблиц на VPS2 (локальный PG) отличалась от K8s PG
+(колонки `chat_id` vs `id`, `shared` boolean, `amount_rub numeric(12,2)` vs integer).
+Решение: `DROP ... CASCADE` + воссоздание с точной схемой VPS2 + `--column-inserts` для импорта.
+
+**3. Stateless BFF** (`portal/dist/server.js`)
+
+```javascript
+// Было: два пула (локальный PG + K8s PG)
+// Стало: единый пул → K8s PG
+const pool = new Pool({
+    host: "10.129.13.78", port: 31113,
+    user: "aither", password: process.env.PGPASSWORD,
+    database: "aither",
+});
+const k8sPool = pool;  // legacy alias
+```
+
+**4. VPS1 nginx reverse proxy** (`configs/nginx-failover.conf`)
+
+```nginx
+upstream portal_backend {
+    server 130.17.1.90:80 max_fails=3 fail_timeout=30s;   # VPS2
+    # server 89.127.217.88:80 backup;                      # VPS3 (ждёт SSH)
+}
+```
+
+SSL (самоподписанный), HTTP→HTTPS редирект, SSE-совместимость.
+
+### Блокировки
+
+| Блокер | Статус |
+|---|---|
+| VPS3 SSH-доступ | 🔒 `Permission denied (publickey,password)` — ключи не совпадают |
+| Nginx 443 на VPS1 | 🔄 Конфликт с существующим конфигом `aither-portal` (listen 80) |
+
+### Что осталось
+
+1. **VPS3** — восстановить SSH, развернуть nginx + BFF
+2. **VPS1 nginx** — разрешить конфликт портов, проверить 443
+3. **Тестирование** — kill VPS2 → проверка работы через VPS3
+4. **Мониторинг** — добавить health-check алерт в Telegram
+
+### Коммит
+
+| SHA | Описание |
+|---|---|
+| `d2e43d7` | feat: VPS3 Failover — DB migration + stateless BFF + nginx reverse proxy |
+
+**Прогресс: 58% (21/36)**
