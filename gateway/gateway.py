@@ -11,6 +11,10 @@ from security_egress import check_egress
 from vault import vault_validate_key
 from hybrid_rag import hybrid_query, wiki_ingest, wiki_status
 from wiki_graph import get_wiki_graph
+from admin import (
+    admin_queues, admin_models, admin_drain, admin_undrain,
+    admin_health, admin_org_detail, admin_reaper, is_model_drained,
+)
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
@@ -311,10 +315,77 @@ class Gateway(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
+
+    def _check_admin(self):
+        """Check admin access via API key or JWT. Returns True if authorized."""
+        auth = self.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
+            # Admin API key from env
+            if self.ADMIN_KEY and token == self.ADMIN_KEY:
+                return True
+            # JWT with admin role
+            try:
+                if PUBLIC_KEY:
+                    payload = pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"],
+                                          options={"verify_exp": True, "verify_iss": False})
+                    if payload.get("role") == "admin":
+                        return True
+            except:
+                pass
+        self._json(403, {"error": "admin access required"})
+        return False
+
     def do_GET(self):
         if self.path == "/health":
             self._json(200, {"status": "ok", "billing": "enabled"})
             return
+        # ── Admin Management API ─────────────────────────────────
+        if self.path == "/admin/queues":
+            self._check_admin()
+            try:
+                data = admin_queues(r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path == "/admin/models":
+            self._check_admin()
+            try:
+                from catalog import _registry
+                models = admin_models(_registry, r)
+                self._json(200, {"models": models})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path == "/admin/health":
+            self._check_admin()
+            try:
+                from catalog import _registry
+                data = admin_health(db_pool, r, _registry)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path == "/admin/reaper":
+            self._check_admin()
+            try:
+                data = admin_reaper(r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path.startswith("/admin/orgs/"):
+            self._check_admin()
+            org_id = self.path.split("/admin/orgs/")[1].split("?")[0]
+            try:
+                data = admin_org_detail(org_id, db_pool, r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ─────────────────────────────────────────────────────────
         if self.path.startswith("/v1/billing/"):
             # Get balance for org
             auth = self.headers.get("Authorization", "")
@@ -435,6 +506,26 @@ class Gateway(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/health":
             self._json(200, {"status": "ok"})
+            return
+
+        # ── Admin drain/undrain ─────────────────────────────────
+        if self.path.startswith("/admin/models/") and self.path.endswith("/drain"):
+            model_name = self.path.split("/admin/models/")[1].split("/drain")[0]
+            if not self._check_admin(): return
+            try:
+                data = admin_drain(model_name, r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path.startswith("/admin/models/") and self.path.endswith("/undrain"):
+            model_name = self.path.split("/admin/models/")[1].split("/undrain")[0]
+            if not self._check_admin(): return
+            try:
+                data = admin_undrain(model_name, r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
             return
 
         if not self.path.startswith("/v1/"):
@@ -616,6 +707,12 @@ class Gateway(BaseHTTPRequestHandler):
                     self._json(403, {"error": "model_not_available", "tier": tier,
                         "requested": model_id, "allowed": limits["models"]})
                     return
+
+            # Drain check (admin-controlled model availability)
+            if is_model_drained(model_id, r):
+                self._json(503, {"error": "model_drained", "model": model_id,
+                    "detail": "Модель временно недоступна. Попробуйте другую модель."})
+                return
 
             # Security check: prompt injection + DLP
             messages = req_data.get("messages", [])
@@ -814,6 +911,13 @@ def reaper_loop():
             count = reap_stuck()
             if count > 0:
                 print(f"[Reaper] Refunded {count} stuck reservation(s)", flush=True)
+            # Track in Redis for admin API
+            try:
+                r.set("admin:reaper:last_run", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+                if count >= 0:
+                    r.set("admin:reaper:last_refunded", str(count))
+            except:
+                pass
         except Exception as e:
             print(f"[Reaper] Loop error: {e}", flush=True)
 
