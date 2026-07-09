@@ -14,6 +14,9 @@ from wiki_graph import get_wiki_graph
 from admin import (
     admin_queues, admin_models, admin_drain, admin_undrain,
     admin_health, admin_org_detail, admin_reaper, is_model_drained,
+    admin_users, admin_user_detail, admin_user_update_role,
+    admin_tokens_add, admin_tokens_subtract,
+    admin_tiers, admin_tier_set_limits, admin_org_set_tier,
 )
 from metrics import metrics, metrics_summary
 
@@ -401,6 +404,32 @@ class Gateway(BaseHTTPRequestHandler):
             except Exception as e:
                 self._json(500, {"error": str(e)})
             return
+        if self.path == "/admin/users":
+            if not self._check_admin(): return
+            try:
+                data = admin_users(db_pool)
+                self._json(200, {"users": data})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path.startswith("/admin/users/"):
+            if not self._check_admin(): return
+            user_id = self.path.split("/admin/users/")[1].split("?")[0]
+            try:
+                data = admin_user_detail(user_id, db_pool)
+                code = 404 if "error" in data else 200
+                self._json(code, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path == "/admin/tiers":
+            if not self._check_admin(): return
+            try:
+                data = admin_tiers(db_pool)
+                self._json(200, {"tiers": data})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
         # ─────────────────────────────────────────────────────────
         if self.path.startswith("/v1/billing/"):
             # Get balance for org
@@ -540,6 +569,73 @@ class Gateway(BaseHTTPRequestHandler):
             try:
                 data = admin_undrain(model_name, r)
                 self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ── Admin: token management ───────────────────────────
+        if self.path.startswith("/admin/orgs/") and self.path.endswith("/tokens/add"):
+            if not self._check_admin(): return
+            org_id = self.path.split("/admin/orgs/")[1].split("/tokens/add")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                amount = int(body.get("amount", 0))
+                data = admin_tokens_add(org_id, amount, db_pool)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path.startswith("/admin/orgs/") and self.path.endswith("/tokens/subtract"):
+            if not self._check_admin(): return
+            org_id = self.path.split("/admin/orgs/")[1].split("/tokens/subtract")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                amount = int(body.get("amount", 0))
+                data = admin_tokens_subtract(org_id, amount, db_pool)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ── Admin: tier limits ────────────────────────────────
+        if self.path.startswith("/admin/tiers/") and self.path.endswith("/limits"):
+            if not self._check_admin(): return
+            tier_id = self.path.split("/admin/tiers/")[1].split("/limits")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                rpm = int(body.get("rpm", 300))
+                tpm = int(body.get("tpm", 100000))
+                daily = int(body.get("daily", 0))
+                data = admin_tier_set_limits(tier_id, rpm, tpm, daily, db_pool)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ── Admin: org tier change ────────────────────────────
+        if self.path.startswith("/admin/orgs/") and self.path.endswith("/tier"):
+            if not self._check_admin(): return
+            org_id = self.path.split("/admin/orgs/")[1].split("/tier")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                tier = body.get("tier", "free")
+                data = admin_org_set_tier(org_id, tier, db_pool, r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ── Admin: user role update ───────────────────────────
+        if self.path.startswith("/admin/users/") and self.path.endswith("/role"):
+            if not self._check_admin(): return
+            user_id = self.path.split("/admin/users/")[1].split("/role")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                role = body.get("role", "developer")
+                data = admin_user_update_role(user_id, role, db_pool)
+                code = 400 if "error" in data else 200
+                self._json(code, data)
             except Exception as e:
                 self._json(500, {"error": str(e)})
             return

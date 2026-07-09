@@ -163,6 +163,10 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <a href="#queues" data-panel="queues"><span class="icon">📊</span> Очереди</a>
     <a href="#orgs" data-panel="orgs"><span class="icon">🏢</span> Организации</a>
     <a href="#reaper" data-panel="reaper"><span class="icon">⏱️</span> Reaper</a>
+    <div class="section">Управление</div>
+    <a href="#users" data-panel="users"><span class="icon">👥</span> Пользователи</a>
+    <a href="#tokens" data-panel="tokens"><span class="icon">💰</span> Токены</a>
+    <a href="#tiers" data-panel="tiers"><span class="icon">⚙️</span> Тарифы</a>
     <div class="section">Этап 5а</div>
     <a href="#stage5a" data-panel="stage5a"><span class="icon">🗺️</span> Статус 5а</a>
   </nav>
@@ -200,6 +204,39 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <!-- REAPER -->
     <div id="panel-reaper" class="panel">
       <div class="card"><h3>⏱️ Reservation Reaper</h3><div id="reaper-body">Загрузка…</div></div>
+    </div>
+
+    <!-- USERS -->
+    <div id="panel-users" class="panel">
+      <div class="card"><h3>👥 Пользователи</h3><div id="users-body">Загрузка…</div></div>
+    </div>
+
+    <!-- TOKENS -->
+    <div id="panel-tokens" class="panel">
+      <div class="card">
+        <h3>💰 Управление токенами</h3>
+        <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="token-org-input" placeholder="UUID организации" style="max-width:340px;">
+          <input type="number" id="token-amount-input" placeholder="Сумма токенов" style="max-width:160px;" value="100000">
+          <button class="btn" onclick="tokensAdd()" style="background:var(--green-bg);color:var(--green);border-color:var(--green);">+ Начислить</button>
+          <button class="btn btn-danger" onclick="tokensSubtract()">− Списать</button>
+        </div>
+        <div id="token-result" style="font-size:13px;color:var(--text-muted);">Введите UUID организации и сумму.</div>
+      </div>
+    </div>
+
+    <!-- TIERS -->
+    <div id="panel-tiers" class="panel">
+      <div class="card">
+        <h3>⚙️ Тарифные планы</h3>
+        <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12px;color:var(--text-muted);">Сменить тариф организации:</span>
+          <input type="text" id="tier-org-input" placeholder="UUID организации" style="max-width:280px;">
+          <select id="tier-select" style="max-width:140px;"></select>
+          <button class="btn" onclick="orgSetTier()">Применить</button>
+        </div>
+        <div id="tiers-body">Загрузка…</div>
+      </div>
     </div>
 
     <!-- STAGE 5A -->
@@ -273,19 +310,8 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
 const ADMIN_KEY = 'hs256-shared-secret-key-for-admin-api-2026';
 const API_BASE = window.location.origin + '/api/v1/admin';
 
-// ── Navigation ──
-document.querySelectorAll('.sidebar a[data-panel]').forEach(a => {
-  a.addEventListener('click', e => {
-    e.preventDefault();
-    document.querySelectorAll('.sidebar a').forEach(x => x.classList.remove('active'));
-    a.classList.add('active');
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    document.getElementById('panel-' + a.dataset.panel).classList.add('active');
-    // Auto-load
-    const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper };
-    if (loaders[a.dataset.panel]) loaders[a.dataset.panel]();
-  });
-});
+// ── Auto-load ──
+const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper, users: loadUsers, tiers: loadTiers };
 
 // ── Toast ──
 function toast(msg, ok) {
@@ -304,7 +330,152 @@ async function api(path) {
   return r.json();
 }
 
-// ── HEALTH ──
+document.querySelectorAll('.sidebar a[data-panel]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.sidebar a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + a.dataset.panel).classList.add('active');
+    if (loaders[a.dataset.panel]) loaders[a.dataset.panel]();
+  });
+});
+
+// ── USERS ──
+async function loadUsers() {
+  const el = document.getElementById('users-body');
+  try {
+    const data = await api('/users');
+    const users = data.users || [];
+    if (!users.length) { el.innerHTML = '<span style="color:var(--text-muted);">Нет пользователей.</span>'; return; }
+    const rows = users.map(u => `<tr>
+      <td><span class="mono" style="font-size:10px;">${u.user_id}</span></td>
+      <td>${u.display_name || '—'}</td>
+      <td>${u.email || '—'}</td>
+      <td>${u.provider}</td>
+      <td>${u.org_count}</td>
+      <td>
+        <select onchange="userSetRole('${u.user_id}', this.value)" style="width:120px;font-size:11px;">
+          <option value="">Роль…</option>
+          <option value="owner">owner</option>
+          <option value="billing_admin">billing_admin</option>
+          <option value="developer">developer</option>
+          <option value="viewer">viewer</option>
+        </select>
+      </td>
+    </tr>`).join('');
+    el.innerHTML = `<table><thead><tr><th>User ID</th><th>Имя</th><th>Email</th><th>OAuth</th><th>Orgs</th><th>Сменить роль</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+async function userSetRole(userId, role) {
+  if (!role) return;
+  try {
+    const r = await fetch(API_BASE + '/users/' + userId + '/role', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role })
+    });
+    const d = await r.json();
+    if (r.ok) toast(`✅ Роль изменена: ${d.updated_memberships} участий`, true);
+    else toast('❌ ' + (d.error || r.status), false);
+  } catch (e) { toast('❌ ' + e.message, false); }
+}
+
+// ── TOKENS ──
+async function tokensAdd() {
+  const orgId = document.getElementById('token-org-input').value.trim();
+  const amount = parseInt(document.getElementById('token-amount-input').value) || 0;
+  if (!orgId || !amount) return;
+  const el = document.getElementById('token-result');
+  el.innerHTML = '<span class="spinner"></span> Начисление…';
+  try {
+    const r = await fetch(API_BASE + '/orgs/' + orgId + '/tokens/add', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+    const d = await r.json();
+    if (r.ok) el.innerHTML = `✅ Начислено <b>${d.added.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
+    else el.innerHTML = `❌ ${d.error || r.status}`;
+  } catch (e) { el.innerHTML = `❌ ${e.message}`; }
+}
+
+async function tokensSubtract() {
+  const orgId = document.getElementById('token-org-input').value.trim();
+  const amount = parseInt(document.getElementById('token-amount-input').value) || 0;
+  if (!orgId || !amount) return;
+  const el = document.getElementById('token-result');
+  el.innerHTML = '<span class="spinner"></span> Списание…';
+  try {
+    const r = await fetch(API_BASE + '/orgs/' + orgId + '/tokens/subtract', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+    const d = await r.json();
+    if (r.ok) el.innerHTML = `✅ Списано <b>${d.subtracted.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
+    else el.innerHTML = `❌ ${d.error || r.status}`;
+  } catch (e) { el.innerHTML = `❌ ${e.message}`; }
+}
+
+// ── TIERS ──
+async function loadTiers() {
+  const el = document.getElementById('tiers-body');
+  const sel = document.getElementById('tier-select');
+  try {
+    const data = await api('/tiers');
+    const tiers = data.tiers || [];
+    sel.innerHTML = tiers.map(t => `<option value="${t.tier_id}">${t.name} (${t.tier_id})</option>`).join('');
+
+    const rows = tiers.map(t => `<tr>
+      <td><b>${t.name}</b><br><span class="mono" style="font-size:10px;color:var(--text-muted);">${t.tier_id}</span></td>
+      <td><span class="mono">${t.rpm_limit}</span></td>
+      <td><span class="mono">${t.tpm_limit?.toLocaleString()}</span></td>
+      <td><span class="mono">${t.daily_limit || '—'}</span></td>
+      <td>${t.price_rub ? t.price_rub + ' ₽/мес' : '—'}</td>
+      <td>
+        <button class="btn btn-sm" onclick="tierEditLimits('${t.tier_id}', ${t.rpm_limit}, ${t.tpm_limit}, ${t.daily_limit||0})">⚙️</button>
+      </td>
+    </tr>`).join('');
+    el.innerHTML = `<table><thead><tr><th>Тариф</th><th>RPM</th><th>TPM</th><th>Daily</th><th>Цена</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+function tierEditLimits(tierId, rpm, tpm, daily) {
+  const nr = prompt(`Тариф «${tierId}»\nRPM:`, rpm);
+  if (nr === null) return;
+  const nt = prompt(`TPM:`, tpm);
+  if (nt === null) return;
+  const nd = prompt(`Daily limit (0=безлимит):`, daily);
+  if (nd === null) return;
+  tierSetLimits(tierId, parseInt(nr), parseInt(nt), parseInt(nd));
+}
+
+async function tierSetLimits(tierId, rpm, tpm, daily) {
+  try {
+    const r = await fetch(API_BASE + '/tiers/' + tierId + '/limits', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rpm, tpm, daily })
+    });
+    if (r.ok) { toast(`✅ Лимиты «${tierId}» обновлены`, true); loadTiers(); }
+    else { const d = await r.json(); toast('❌ ' + (d.error || r.status), false); }
+  } catch (e) { toast('❌ ' + e.message, false); }
+}
+
+async function orgSetTier() {
+  const orgId = document.getElementById('tier-org-input').value.trim();
+  const tier = document.getElementById('tier-select').value;
+  if (!orgId || !tier) return;
+  try {
+    const r = await fetch(API_BASE + '/orgs/' + orgId + '/tier', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier })
+    });
+    const d = await r.json();
+    if (r.ok) toast(`✅ Тариф «${orgId}» → ${d.tier} (баланс: ${d.balance.toLocaleString()})`, true);
+    else toast('❌ ' + (d.error || r.status), false);
+  } catch (e) { toast('❌ ' + e.message, false); }
+}
+
+// ── Auto-load health ──
 async function loadHealth() {
   const el = document.getElementById('health-body');
   try {

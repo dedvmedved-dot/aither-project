@@ -288,3 +288,195 @@ def admin_reaper(r) -> dict:
         }
     except:
         return {"last_run": "unknown", "last_refunded": 0}
+
+
+# ── User Management ───────────────────────────────────────────────
+
+def admin_users(db_pool) -> list:
+    """List all users with org count."""
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT u.user_id, u.email, u.display_name, u.oauth_provider,
+                       u.created_at, u.last_login_at,
+                       count(m.org_id) as org_count
+                FROM portal_users u
+                LEFT JOIN portal_org_members m ON u.user_id=m.user_id AND m.status='active'
+                GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT 100
+            """)
+            rows = cur.fetchall()
+            return [
+                {
+                    "user_id": str(r[0]), "email": r[1], "display_name": r[2],
+                    "provider": r[3], "created_at": str(r[4]),
+                    "last_login": str(r[5]) if r[5] else None,
+                    "org_count": r[6],
+                }
+                for r in rows
+            ]
+    finally:
+        db_pool.putconn(conn)
+
+
+def admin_user_detail(user_id: str, db_pool) -> dict:
+    """User detail with memberships."""
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT user_id, email, display_name, oauth_provider, created_at, last_login_at "
+                "FROM portal_users WHERE user_id::text=%s", (user_id,))
+            u = cur.fetchone()
+            if not u:
+                return {"error": "user not found"}
+
+            cur.execute("""
+                SELECT m.org_id, o.name, m.role, m.status
+                FROM portal_org_members m
+                JOIN portal_organizations o ON m.org_id=o.org_id
+                WHERE m.user_id::text=%s
+            """, (user_id,))
+            orgs = [{"org_id": str(r[0]), "name": r[1], "role": r[2], "status": r[3]} for r in cur.fetchall()]
+
+            return {
+                "user_id": str(u[0]), "email": u[1], "display_name": u[2],
+                "provider": u[3], "created_at": str(u[4]),
+                "last_login": str(u[5]) if u[5] else None,
+                "orgs": orgs,
+            }
+    finally:
+        db_pool.putconn(conn)
+
+
+def admin_user_update_role(user_id: str, role: str, db_pool) -> dict:
+    """Update a user's role in all their org memberships."""
+    valid_roles = {"owner", "billing_admin", "developer", "viewer"}
+    if role not in valid_roles:
+        return {"error": f"invalid role: {role}, must be one of {valid_roles}"}
+
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE portal_org_members SET role=%s WHERE user_id::text=%s",
+                (role, user_id))
+            updated = cur.rowcount
+        conn.commit()
+        return {"user_id": user_id, "role": role, "updated_memberships": updated}
+    finally:
+        db_pool.putconn(conn)
+
+
+# ── Token Management ──────────────────────────────────────────────
+
+def admin_tokens_add(org_id: str, amount: int, db_pool) -> dict:
+    """Add tokens to org balance."""
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE billing_accounts SET balance=balance+%s, updated_at=now() "
+                "WHERE org_id=%s RETURNING balance",
+                (amount, org_id))
+            row = cur.fetchone()
+            if not row:
+                return {"error": "org not found"}
+        conn.commit()
+        return {"org_id": org_id, "added": amount, "new_balance": int(row[0])}
+    finally:
+        db_pool.putconn(conn)
+
+
+def admin_tokens_subtract(org_id: str, amount: int, db_pool) -> dict:
+    """Subtract tokens from org balance."""
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE billing_accounts SET balance=GREATEST(0, balance-%s), updated_at=now() "
+                "WHERE org_id=%s RETURNING balance",
+                (amount, org_id))
+            row = cur.fetchone()
+            if not row:
+                return {"error": "org not found"}
+        conn.commit()
+        return {"org_id": org_id, "subtracted": amount, "new_balance": int(row[0])}
+    finally:
+        db_pool.putconn(conn)
+
+
+# ── Tier Management ────────────────────────────────────────────────
+
+def admin_tiers(db_pool) -> list:
+    """List all subscription tiers with limits."""
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT tier_id, name, description, rpm_limit, tpm_limit,
+                       daily_request_limit, models, rag_enabled, priority,
+                       price_rub_month, features
+                FROM subscription_tiers ORDER BY priority
+            """)
+            return [
+                {
+                    "tier_id": r[0], "name": r[1], "description": r[2],
+                    "rpm_limit": r[3], "tpm_limit": r[4],
+                    "daily_limit": r[5], "models": r[6], "rag": r[7],
+                    "priority": r[8], "price_rub": r[9], "features": r[10],
+                }
+                for r in cur.fetchall()
+            ]
+    finally:
+        db_pool.putconn(conn)
+
+
+def admin_tier_set_limits(tier_id: str, rpm: int, tpm: int, daily: int, db_pool) -> dict:
+    """Update tier rate limits."""
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE subscription_tiers SET rpm_limit=%s, tpm_limit=%s, "
+                "daily_request_limit=%s WHERE tier_id=%s",
+                (rpm, tpm, daily, tier_id))
+            if cur.rowcount == 0:
+                return {"error": "tier not found"}
+        conn.commit()
+        # Also update Redis cache
+        return {"tier_id": tier_id, "rpm": rpm, "tpm": tpm, "daily": daily}
+    finally:
+        db_pool.putconn(conn)
+
+
+def admin_org_set_tier(org_id: str, tier: str, db_pool, r) -> dict:
+    """Change org subscription tier."""
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE billing_accounts SET tier=%s, updated_at=now() "
+                "WHERE org_id=%s RETURNING balance",
+                (tier, org_id))
+            row = cur.fetchone()
+            if not row:
+                return {"error": "org not found"}
+        conn.commit()
+        # Update Redis tier cache
+        try:
+            r.set(f"org_tier:{org_id}", tier)
+            # Also cache tier limits for rate limiter
+            tl = r.hgetall(f"tier:{tier}")
+            if not tl:
+                cur.execute(
+                    "SELECT rpm_limit, tpm_limit FROM subscription_tiers WHERE tier_id=%s",
+                    (tier,))
+                tr = cur.fetchone()
+                if tr:
+                    r.hset(f"tier:{tier}", mapping={"rpm": tr[0], "tpm": tr[1]})
+        except:
+            pass
+        return {"org_id": org_id, "tier": tier, "balance": int(row[0])}
+    finally:
+        db_pool.putconn(conn)
