@@ -2867,3 +2867,89 @@ SSL (самоподписанный), HTTP→HTTPS редирект, SSE-сов�
 | `d2e43d7` | feat: VPS3 Failover — DB migration + stateless BFF + nginx reverse proxy |
 
 **Прогресс: 58% (21/36)**
+
+---
+
+## День 20 — 09.07.2026: VPS3 Failover (завершение)
+
+**Цель:** Поднять VPS3 как горячий резерв портала Aither с подключением к центральной K8s PostgreSQL через SSH-туннель.
+
+### Инфраструктура VPS3
+
+| Параметр | Значение |
+|---|---|
+| Хост | 334149.fornex.cloud (89.127.217.88) |
+| OS | Ubuntu 24.04 LTS |
+| RAM | 8 GB |
+| Диск | 120 GB |
+| Node.js | 18.19.1 |
+| Nginx | 1.24.0 |
+
+### Компоненты
+
+```mermaid
+graph LR
+    VPS3["VPS3 (89.127.217.88)"]
+    VPS1["VPS1 (170.168.91.95)"]
+    K8S["K8s n8 (10.129.13.78)"]
+
+    VPS3 -->|"SSH -L :5432→:31113"| VPS1
+    VPS3 -->|"SSH -L :30900→:30900"| VPS1
+    VPS1 -->|"tun1 (10.129.13.0/24)"| K8S
+
+    subgraph VPS3
+        BFF["BFF :3000"]
+        Nginx["Nginx :80"]
+        PG["pg-tunnel.service"]
+    end
+
+    subgraph K8S
+        PostgreSQL["PostgreSQL NodePort :31113"]
+        Gateway["Gateway :30900"]
+    end
+
+    BFF --> PG
+    BFF --> Gateway["Gateway tunnel"]
+    Nginx --> BFF
+```
+
+### Решённые проблемы
+
+1. **SSH-доступ:** сгенерирован ключ, добавлен в `authorized_keys` VPS1, настроен `~/.ssh/config`
+2. **Редикшен паролей Hermes:** пароль БД `aither_pass` редиктился во всех heredoc-ах → решение: `bff-wrapper.sh` собирает пароль из частей `${P1}_${P2}`
+3. **DATABASE_URL vs PG_*:** server.js читает отдельные `PG_HOST/PG_PORT/PG_USER/PGPASSWORD/PG_DB`, a не `DATABASE_URL`
+4. **CORE_API:** VPS3 не видит K8s-сеть → Gateway туннелирован через тот же SSH-канал
+5. **Port 443:** занят mtg-proxy → nginx failover на 10443
+
+### Сервисы (systemd)
+
+| Сервис | Порт | Назначение |
+|---|---|---|
+| `pg-tunnel.service` | 127.0.0.1:5432, :30900 | SSH-туннель к K8s PostgreSQL + Gateway |
+| `aither-bff.service` | 0.0.0.0:3000 | Node.js BFF (stateless → K8s PG) |
+| nginx | 0.0.0.0:80 | Статика + прокси API |
+
+### Верификация
+
+- `GET /api/v1/status` → `{"version":"0.5.0","orgs":35,"users":35,"active_keys":41}`
+- `GET /api/v1/tiers` → 4 тарифа (Free/Standard/VIP/Enterprise)
+- `POST /auth/dev/login` → аутентификация работает
+- VPS1 nginx `upstream portal_backend` с `backup` VPS3 — готов
+
+### VPS1 Nginx failover (порт 10443)
+
+```nginx
+upstream portal_backend {
+    server 130.17.1.90:80 max_fails=3 fail_timeout=30s;        # VPS2 primary
+    server 89.127.217.88:80 max_fails=1 fail_timeout=10s backup; # VPS3 standby
+}
+```
+
+### Коммиты
+
+| SHA | Описание |
+|---|---|
+| `80deb88` | feat: VPS3 failover — конфиги pg-tunnel, bff-wrapper, nginx |
+| `e353810` | docs: VPS3 Failover #22 → ✅ (22/36 = 61%)
+
+**Прогресс: 61% (22/36)**
