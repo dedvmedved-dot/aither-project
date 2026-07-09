@@ -1,0 +1,22 @@
+# model-list.txt — список моделей для переноса в закрытый контур
+#
+# Модели НЕ входят в офлайн-пакет (слишком большие ~50 GB).
+# Их нужно перенести отдельно на внешнем диске.
+
+Qwen2.5-14B-Instruct         ~28 GB    /mnt/models/Qwen2.5-14B-Instruct/
+Qwen2.5-32B-Instruct-GPTQ    ~20 GB    /mnt/models/Qwen2.5-32B-Instruct-GPTQ/
+nomic-embed-text             ~274 MB   загружается через ollama pull
+
+# Инструкция по переносу:
+# 1. На машине с интернетом:
+#    pip install huggingface_hub
+#    huggingface-cli download Qwen/Qwen2.5-14B-Instruct --local-dir /mnt/models/Qwen2.5-14B-Instruct
+#    huggingface-cli download Qwen/Qwen2.5-32B-Instruct-GPTQ --local-dir /mnt/models/Qwen2.5-32B-Instruct-GPTQ
+#
+# 2. Скопируйте /mnt/models/ на внешний диск
+#
+# 3. На целевой машине скопируйте в /mnt/models/
+#
+# 4. Проверьте:
+#    ls -la /mnt/models/Qwen2.5-14B-Instruct/
+#    ls -la /mnt/models/Qwen2.5-32B-Instruct-GPTQ/

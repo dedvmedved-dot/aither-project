@@ -1,0 +1,18 @@
+# args.txt — аргументы запуска vLLM
+# Для 14B модели:
+--model /models/Qwen2.5-14B-Instruct
+--dtype half
+--max-model-len 4096
+--gpu-memory-utilization 0.90
+
+# Для 32B модели (GPTQ):
+# --model /models/Qwen2.5-32B-Instruct-GPTQ
+# --dtype half
+# --max-model-len 8192
+# --gpu-memory-utilization 0.90
+# --quantization gptq
+
+# Опционально:
+# --tensor-parallel-size 2    # если 2 GPU
+# --enable-prefix-caching     # кэширование префиксов
+# --max-num-seqs 32           # максимум одновременных запросов
