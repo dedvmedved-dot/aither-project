@@ -1,0 +1,15 @@
+[Unit]
+Description=Aither Portal BFF (Standby)
+After=network.target pg-tunnel.service
+Requires=pg-tunnel.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/aither-portal
+ExecStart=/bin/bash /root/aither-portal/bff-wrapper.sh
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

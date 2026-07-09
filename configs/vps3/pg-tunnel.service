@@ -1,0 +1,16 @@
+[Unit]
+Description=SSH Tunnel to K8s (PG + Gateway) via VPS1
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 \
+  -L 127.0.0.1:5432:10.129.13.78:31113 \
+  -L 127.0.0.1:30900:10.129.13.78:30900 \
+  -N root@170.168.91.95
+Restart=always
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target
