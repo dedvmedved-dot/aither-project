@@ -742,6 +742,23 @@ code, .mono {
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .stat-value { font-size: 24px; }
 }
+
+/* Auth tabs */
+.auth-tabs { display:flex; gap:4px; margin-bottom:16px; background:var(--bg-input); border-radius:var(--radius); padding:3px; }
+.auth-tab { flex:1; padding:8px 16px; border:none; background:transparent; color:var(--text-muted); cursor:pointer; border-radius:var(--radius-sm); font-size:13px; font-weight:500; transition:all .2s; }
+.auth-tab.active { background:var(--accent); color:#fff; }
+.auth-tab:hover:not(.active) { color:var(--text); }
+#auth-login input, #auth-signup input { width:100%; padding:10px 12px; margin-bottom:8px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:13px; }
+#auth-login input:focus, #auth-signup input:focus { border-color:var(--accent); outline:none; }
+
+/* Dashboard stats */
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.stat-card { background:var(--bg-card); border-radius:var(--radius); padding:16px; text-align:center; }
+.stat-val { font-size:24px; font-weight:700; color:var(--accent); }
+.stat-label { font-size:11px; color:var(--text-muted); margin-top:4px; }
+.chart-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.chart-box { background:var(--bg-card); border-radius:var(--radius); padding:16px; }
+.chart-box canvas { max-height:280px; }
 </style>
 </head>
 <body>
@@ -838,6 +855,7 @@ async function render() {
     case 'chats': await renderChats(); break;
     case 'shared': await renderShared(); break;
     case 'tiers': await renderTiers(); break;
+    case 'dashboard': await renderDashboard(); break;
   }
 }
 
@@ -849,34 +867,100 @@ function renderLogin() {
         <h1>Aither</h1>
         <p>Token‑as‑a‑Service — платформа для инференса LLM</p>
         <p style="font-size:11px;color:var(--text-dim);margin-bottom:20px;line-height:1.4;">Пилотный проект Управления виртуализации и облачных сервисов<br>(Группа разработки AI-систем), АО «Гринатом»</p>
-        <button class="btn-oauth btn-github" onclick="loginWith('github')">🐙 Войти через GitHub</button>
-        <button class="btn-oauth btn-google" onclick="loginWith('google')"><b>G</b> Войти через Google</button>
-        <button class="btn-oauth btn-yandex" onclick="loginWith('yandex')"><b>Я</b> Войти через Яндекс</button>
-        <div class="login-divider"><span>или</span></div>
-        <input type="text" id="login-name" placeholder="Ваше имя" autofocus>
-        <button onclick="doLogin()" style="margin-top:12px;width:100%;">Войти (dev)</button>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="switchAuthTab('login')" id="tab-login">Вход</button>
+          <button class="auth-tab" onclick="switchAuthTab('signup')" id="tab-signup">Регистрация</button>
+        </div>
+
+        <!-- Login form -->
+        <div id="auth-login">
+          <input type="email" id="login-email" placeholder="Email">
+          <input type="password" id="login-password" placeholder="Пароль">
+          <button onclick="doLogin()" style="margin-top:12px;width:100%;">Войти</button>
+          <div style="margin:12px 0;text-align:center;color:var(--text-muted);font-size:12px">или через соцсети</div>
+        </div>
+
+        <!-- Signup form (hidden by default) -->
+        <div id="auth-signup" style="display:none">
+          <input type="email" id="signup-email" placeholder="Email">
+          <input type="password" id="signup-password" placeholder="Пароль (мин. 6 символов)">
+          <input type="text" id="signup-org" placeholder="Название организации">
+          <button onclick="doSignup()" style="margin-top:12px;width:100%;">Зарегистрироваться</button>
+        </div>
+
+        <button class="btn-oauth btn-github" onclick="loginWith('github')">🐙 GitHub</button>
+        <button class="btn-oauth btn-google" onclick="loginWith('google')"><b>G</b> Google</button>
+        <button class="btn-oauth btn-yandex" onclick="loginWith('yandex')"><b>Я</b> Яндекс</button>
+
+        <div style="margin-top:8px;text-align:center">
+          <button onclick="doDevLogin()" style="font-size:10px;color:var(--text-dim);background:none;border:none;cursor:pointer;text-decoration:underline;">Dev-вход (по имени)</button>
+        </div>
+
         <div class="login-error" id="login-error"></div>
       </div>
     </div>`;
-  $$('#login-name').forEach(el => el.addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); }));
+  $$('#login-email,#login-password,#signup-email,#signup-password,#signup-org').forEach(el =>
+    el.addEventListener('keydown', e => { if (e.key==='Enter') { const id=el.id; id.startsWith('signup')?doSignup():doLogin(); }}));
 }
 
-function loginWith(provider) {
-  window.location.href = '/auth/' + provider;
+function switchAuthTab(mode) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+mode).classList.add('active');
+  document.getElementById('auth-login').style.display = mode==='login'?'block':'none';
+  document.getElementById('auth-signup').style.display = mode==='signup'?'block':'none';
+  document.getElementById('login-error').style.display = 'none';
 }
 
 async function doLogin() {
-  const name = $('#login-name').value.trim();
+  const email = $('#login-email')?.value?.trim();
+  const password = $('#login-password')?.value?.trim();
+  if (!email || !password) { showLoginError('Введите email и пароль'); return; }
+  const { ok, data } = await api('/auth/login', { method:'POST', body: JSON.stringify({email, password}) });
+  if (ok && data.access_token) {
+    state.token = data.access_token;
+    localStorage.setItem('aither_token', state.token);
+    render();
+  } else {
+    showLoginError((data||{}).error || 'Неверный email или пароль');
+  }
+}
+
+async function doSignup() {
+  const email = $('#signup-email')?.value?.trim();
+  const password = $('#signup-password')?.value?.trim();
+  const org_name = $('#signup-org')?.value?.trim();
+  if (!email || !password) { showLoginError('Введите email и пароль'); return; }
+  if (password.length < 6) { showLoginError('Пароль должен быть не менее 6 символов'); return; }
+  const { ok, data } = await api('/auth/signup', { method:'POST', body: JSON.stringify({email, password, org_name: org_name||undefined}) });
+  if (ok && data.access_token) {
+    state.token = data.access_token;
+    localStorage.setItem('aither_token', state.token);
+    alert('Регистрация успешна! Ваш API-ключ: ' + data.api_key + '\n\nСохраните его — он больше не будет показан.');
+    render();
+  } else {
+    showLoginError((data||{}).error || 'Ошибка регистрации');
+  }
+}
+
+function showLoginError(msg) {
+  const el = $('#login-error');
+  if (el) { el.style.display = 'block'; el.textContent = msg; }
+}
+
+async function doDevLogin() {
+  const name = prompt('Введите имя для dev-входа:');
   if (!name) return;
   const { ok, data } = await api('/auth/dev/login', { method:'POST', body: JSON.stringify({name}) });
   if (ok && data.access_token) {
     state.token = data.access_token;
     localStorage.setItem('aither_token', state.token);
     render();
-  } else {
-    $('#login-error').style.display = 'block';
-    $('#login-error').textContent = (data||{}).error || 'Ошибка входа';
   }
+}
+
+function loginWith(provider) {
+  window.location.href = '/auth/' + provider;
 }
 
 // ===== APP SHELL =====
@@ -1858,7 +1942,7 @@ async function renderTiers() {
             </ul>
             ${t.tier_id===currentTier
               ? '<div style="margin-top:16px;text-align:center;padding:8px;background:var(--accent-alpha);border-radius:var(--radius-sm);font-weight:600;font-size:13px;">✅ Ваш текущий тариф</div>'
-              : '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="alert(\'Для смены тарифа обратитесь к администратору\')">Перейти</button>'}
+              : '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier(\'' + (state.selectedOrg?.org_id||'') + '\',\'' + t.tier_id + '\')">Перейти</button>'}
           </div>
         `).join('')}
       </div>
@@ -1943,6 +2027,32 @@ function highlightCode(el) {
   code = code.replace(/\b(\w+)(?=\s*\()/g, '<span class="hljs-function">$1</span>');
 
   el.innerHTML = code;
+
+// ===== DASHBOARD =====
+async function renderDashboard() {
+  const orgId = state.selectedOrg?.org_id;
+  if (!orgId) { $$("#view").innerHTML = '<div class="empty">Выберите организацию</div>'; return; }
+  const { ok, data } = await api("/api/v1/billing/dashboard?org_id=" + orgId);
+  if (!ok) { $$("#view").innerHTML = '<div class="empty">Ошибка загрузки</div>'; return; }
+  const bal = data.balance || {};
+  const month = data.month || {};
+  const daily = data.daily || [];
+  const byModel = data.by_model || [];
+  $$("#view").innerHTML = `<h2>Дашборд</h2>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val">${(bal.total_tokens||0).toLocaleString()}</div><div class="stat-label">Токенов на счету</div></div>
+      <div class="stat-card"><div class="stat-val">${(month.total||0).toLocaleString()}</div><div class="stat-label">Токенов за месяц</div></div>
+      <div class="stat-card"><div class="stat-val">${(month.count||0)}</div><div class="stat-label">Запросов за месяц</div></div>
+      <div class="stat-card"><div class="stat-val">${(bal.reserved||0).toLocaleString()}</div><div class="stat-label">Зарезервировано</div></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-box"><canvas id="dailyChart"></canvas></div>
+      <div class="chart-box"><canvas id="modelChart"></canvas></div>
+    </div>`;
+  if (daily.length) { new Chart(document.getElementById("dailyChart"),{type:"line",data:{labels:daily.map(d=>d.day.slice(5)),datasets:[{label:"Токенов",data:daily.map(d=>+d.tokens),borderColor:"#6366f1",backgroundColor:"rgba(99,102,241,0.1)",fill:true,tension:0.3}]},options:{responsive:true,plugins:{legend:{labels:{color:"#71718a"}}},scales:{x:{ticks:{color:"#4a4a5e"}},y:{ticks:{color:"#4a4a5e"}}}}}); }
+  if (byModel.length) { new Chart(document.getElementById("modelChart"),{type:"doughnut",data:{labels:byModel.map(m=>m.model),datasets:[{data:byModel.map(m=>+m.tokens),backgroundColor:["#6366f1","#34d399","#fbbf24","#f87171","#818cf8","#a78bfa"]}]},options:{responsive:true,plugins:{legend:{position:"bottom",labels:{color:"#71718a",padding:12}}}}}); }
+}
+async function upgradeTier(orgId,tier){if(!confirm("Перейти на тариф "+tier.toUpperCase()+"?"))return;const{ok,data}=await api("/api/v1/orgs/"+orgId+"/upgrade",{method:"POST",body:JSON.stringify({tier})});if(ok){alert("Тариф обновлён!");render();}else{alert("Ошибка: "+((data||{}).error||"неизвестно"));}}
 }
 </script>
 </body>
