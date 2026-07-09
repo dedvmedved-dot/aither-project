@@ -933,7 +933,11 @@ async function main() {
       "INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2) RETURNING message_id, created_at",
       [chatId, content]);
 
-    // Skip delegation token — direct to vLLM
+    // Create delegation token for Gateway
+    const delegationToken = DELEGATION_PRIVATE_KEY ? jwt.sign(
+      { org_id: org_id || "", user_id: p.user_id },
+      DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" }
+    ) : "";
 
     // Build message history
     const history = await pool.query(
@@ -957,6 +961,7 @@ async function main() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(delegationToken ? { "Authorization": "Bearer " + delegationToken } : {}),
         },
         body: JSON.stringify({
           model: vllmModel,
