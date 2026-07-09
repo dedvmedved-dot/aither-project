@@ -28,6 +28,7 @@ exports.DEFAULT_POLICY = {
     max_tokens_per_request: null, // no limit
     chat_retention_days: 90,
     audit_log_retention_days: 365,
+    chat_enabled: true,
 };
 // ---- DDL ----
 exports.POLICIES_DDL = `
@@ -61,6 +62,9 @@ exports.POLICIES_DDL = `
     chat_retention_days    INTEGER   NOT NULL DEFAULT 90,
     audit_log_retention_days INTEGER  NOT NULL DEFAULT 365,
 
+    -- Feature toggles
+    chat_enabled           BOOLEAN   NOT NULL DEFAULT true,
+
     -- Metadata
     created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -89,6 +93,7 @@ async function loadPolicy(pool, orgId) {
         max_tokens_per_request: row.max_tokens_per_request,
         chat_retention_days: row.chat_retention_days,
         audit_log_retention_days: row.audit_log_retention_days,
+        chat_enabled: row.chat_enabled ?? exports.DEFAULT_POLICY.chat_enabled,
     };
 }
 /** Upsert policy for org. */
@@ -102,8 +107,8 @@ async function savePolicy(pool, orgId, policy) {
       api_key_max_age_days, api_key_rotation_required,
       custom_rpm, custom_tpm, max_concurrent_requests,
       allowed_models, max_tokens_per_request,
-      chat_retention_days, audit_log_retention_days, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now())
+      chat_retention_days, audit_log_retention_days, chat_enabled, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now())
     ON CONFLICT (org_id) DO UPDATE SET
       dlp_enabled              = EXCLUDED.dlp_enabled,
       jailbreak_detection      = EXCLUDED.jailbreak_detection,
@@ -120,6 +125,7 @@ async function savePolicy(pool, orgId, policy) {
       max_tokens_per_request    = EXCLUDED.max_tokens_per_request,
       chat_retention_days      = EXCLUDED.chat_retention_days,
       audit_log_retention_days = EXCLUDED.audit_log_retention_days,
+      chat_enabled             = EXCLUDED.chat_enabled,
       updated_at               = now()
   `, [
         orgId,
@@ -138,6 +144,7 @@ async function savePolicy(pool, orgId, policy) {
         merged.max_tokens_per_request,
         merged.chat_retention_days,
         merged.audit_log_retention_days,
+        merged.chat_enabled,
     ]);
     return merged;
 }
