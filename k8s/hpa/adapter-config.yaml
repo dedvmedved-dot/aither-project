@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adapter-config
+  namespace: custom-metrics
+data:
+  config.yaml: |
+    rules:
+    # Gateway metrics — external (not tied to specific pods)
+    external:
+    - seriesQuery: 'gateway_active_requests'
+      metricsQuery: 'gateway_active_requests'
+      name:
+        as: "gateway_active_requests"
+    - seriesQuery: 'gateway_requests_total'
+      metricsQuery: 'rate(gateway_requests_total[2m])'
+      name:
+        as: "gateway_requests_per_second"
+    # GPU metrics (DCGM) — custom (per pod, uses PodMon-style labeling)
+    - seriesQuery: 'DCGM_FI_DEV_GPU_UTIL{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "DCGM_FI_DEV_GPU_UTIL"
+        as: "gpu_utilization_percent"
+      metricsQuery: 'avg by (pod) (DCGM_FI_DEV_GPU_UTIL{namespace!="",pod!=""})'
+    - seriesQuery: 'DCGM_FI_DEV_FB_USED{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "DCGM_FI_DEV_FB_USED"
+        as: "gpu_memory_used_bytes"
+      metricsQuery: 'avg by (pod) (DCGM_FI_DEV_FB_USED{namespace!="",pod!=""})'

@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+- job_name: 'dcgm-exporter'
+  kubernetes_sd_configs:
+  - role: endpoints
+    namespaces:
+      names: [monitoring]
+  relabel_configs:
+  - source_labels: [__meta_kubernetes_service_label_app]
+    action: keep
+    regex: dcgm-exporter
+
+- job_name: 'gateway'
+  kubernetes_sd_configs:
+  - role: endpoints
+    namespaces:
+      names: [default]
+  relabel_configs:
+  - source_labels: [__meta_kubernetes_service_name]
+    action: keep
+    regex: gateway
+  metrics_path: /metrics
+
+- job_name: 'vllm'
+  static_configs:
+  - targets: ['10.244.0.168:8000']
+    labels:
+      model: 'qwen-14b'
+      node: 'n8'
+  - targets: ['10.244.1.47:8000']
+    labels:
+      model: 'qwen-32b'
+      node: 'n7'
+  metrics_path: /metrics
+
+- job_name: 'vllm-nodeport'
+  static_configs:
+  - targets: ['10.129.13.78:32293']
+    labels:
+      model: 'qwen-14b'
+  - targets: ['10.129.13.77:32294']
+    labels:
+      model: 'qwen-32b'
+  metrics_path: /metrics
