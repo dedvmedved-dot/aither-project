@@ -1308,7 +1308,7 @@ async function renderOrgDetail() {
         <div id="delegate-result" style="display:none;margin-top:16px;">
           <label class="form-label">Delegation Token (JWT RS256)</label>
           <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all;color:var(--green);" id="delegate-token-value"></div>
-          <p style="color:var(--text-dim);font-size:12px;margin-top:4px;">Используйте: <code>Authorization: Bearer &lt;token&gt;</code> → <code>http://10.129.13.78:30900/v1/chat/completions</code></p>
+          <p style="color:var(--text-dim);font-size:12px;margin-top:4px;">Используйте: <code>Authorization: Bearer &lt;to...ode> → <code>https://YOUR_HOST/v1/chat/completions</code></p>
         </div>
       </div>
     </div>
@@ -1347,7 +1347,7 @@ async function getDelegationToken() {
 }
 
 async function loadUsage(delegationToken) {
-  const GATEWAY = 'http://10.129.13.78:30900';
+  const GATEWAY = window.location.origin.replace(':80','').replace(':443','') + ':8080';
   try {
     const [usageR, billingR, historyR] = await Promise.all([
       fetch(`${GATEWAY}/v1/usage/`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
