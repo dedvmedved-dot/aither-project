@@ -1327,25 +1327,35 @@ async function main() {
 
   // Proxy /api/v1/admin/* → Gateway /admin/*
   app.all("/api/v1/admin/*", async (req: any, reply) => {
-    const p = auth(req, reply); if (!p) return;
+    // Admin key bypass: skip user auth for automated/admin-panel access
+    const adminHeader = req.headers["x-admin-key"] || "";
+    const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
 
-    // Check if user is org owner for any org (admin gate)
-    const orgs = await pool.query(
-      "SELECT role FROM portal_org_members WHERE user_id=$1 AND role='owner' AND status='active' LIMIT 1",
-      [p.user_id]);
-    if (orgs.rows.length === 0 && ADMIN_KEY) {
-      // If ADMIN_KEY is set and user provides it, allow global admin
-      const adminHeader = req.headers["x-admin-key"] || "";
-      if (adminHeader !== ADMIN_KEY)
+    if (!isAdminKey) {
+      // Normal flow: require authenticated user + org owner role
+      const p = auth(req, reply); if (!p) return;
+      const orgs = await pool.query(
+        "SELECT role FROM portal_org_members WHERE user_id=$1 AND role='owner' AND status='active' LIMIT 1",
+        [p.user_id]);
+      if (orgs.rows.length === 0)
         return reply.status(403).send({ error: "admin access required" });
     }
 
     const path = (req.params as any)["*"];
-    const gwUrl = `${CORE_API}/admin/${path}`;
+    // Admin API is at Gateway root, not under /v1
+    const gwUrl = `${CORE_API.replace(/\/v1\/?$/, "")}/admin/${path}`;
     try {
       const method = req.method;
       const headers: any = { "Content-Type": "application/json" };
-      if (ADMIN_KEY) headers["Authorization"] = `Bearer ${ADMIN_KEY}`;
+      // Generate admin JWT — Gateway verifies with shared secret
+      // Default Gateway secret is "aither-admin-secret" (JWT_SECRET env or ADMIN_SECRET fallback)
+      const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "aither-admin-secret";
+      const adminToken = jwt.sign(
+        { role: "admin", iat: Math.floor(Date.now() / 1000) },
+        ADMIN_JWT_SECRET,
+        { algorithm: "HS256", expiresIn: "5m" }
+      );
+      headers["Authorization"] = `Bearer ${adminToken}`;
 
       let body: string | undefined;
       if (method === "POST" || method === "PUT") {

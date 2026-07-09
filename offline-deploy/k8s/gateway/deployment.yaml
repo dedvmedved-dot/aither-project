@@ -63,6 +63,8 @@ spec:
             secretKeyRef:
               name: gateway-secret
               key: jwt-public.pem
+        - name: JWT_SECRET
+          value: "aither-jwt-secret-key-2026-production"
         resources:
           requests:
             memory: "256Mi"

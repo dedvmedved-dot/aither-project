@@ -326,15 +326,15 @@ class Gateway(BaseHTTPRequestHandler):
             # Admin API key from env
             if self.ADMIN_KEY and token == self.ADMIN_KEY:
                 return True
-            # JWT with admin role
+            # JWT with admin role (HS256 — no cryptography needed)
             try:
-                if PUBLIC_KEY:
-                    payload = pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"],
-                                          options={"verify_exp": True, "verify_iss": False})
-                    if payload.get("role") == "admin":
-                        return True
-            except:
-                pass
+                jwt_secret = os.environ.get("JWT_SECRET", os.environ.get("ADMIN_SECRET", "aither-admin-secret"))
+                payload = pyjwt.decode(token, jwt_secret, algorithms=["HS256"],
+                                      options={"verify_exp": True, "verify_iss": False})
+                if payload.get("role") == "admin":
+                    return True
+            except Exception as e:
+                print(f"[admin] JWT decode failed: {e}", flush=True)
         self._json(403, {"error": "admin access required"})
         return False
 
@@ -351,7 +351,7 @@ class Gateway(BaseHTTPRequestHandler):
             return
         # ── Admin Management API ─────────────────────────────────
         if self.path == "/admin/queues":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 data = admin_queues(r)
                 self._json(200, data)
@@ -359,7 +359,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/models":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 from catalog import _registry
                 models = admin_models(_registry, r)
@@ -368,7 +368,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/health":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 from catalog import _registry
                 data = admin_health(db_pool, r, _registry)
@@ -377,7 +377,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/reaper":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 data = admin_reaper(r)
                 self._json(200, data)
@@ -385,7 +385,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/metrics":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 data = metrics_summary()
                 self._json(200, data)
@@ -393,7 +393,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path.startswith("/admin/orgs/"):
-            self._check_admin()
+            if not self._check_admin(): return
             org_id = self.path.split("/admin/orgs/")[1].split("?")[0]
             try:
                 data = admin_org_detail(org_id, db_pool, r)
