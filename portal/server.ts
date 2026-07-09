@@ -459,9 +459,14 @@ async function main() {
 
   // === SaaS Signup ===
   app.post("/auth/signup", async (req: any, reply) => {
-    const { email, password, org_name } = req.body || {};
+    const { email, password, org_name, invite_code } = req.body || {};
     if (!email || !password) return reply.status(400).send({ error: "email and password required" });
     if (password.length < 6) return reply.status(400).send({ error: "password must be at least 6 characters" });
+
+    // Invitation-only: if INVITE_CODE set in env, must match
+    const requiredCode = process.env.INVITE_CODE || "";
+    if (requiredCode && invite_code !== requiredCode)
+      return reply.status(403).send({ error: "registration requires valid invitation code" });
 
     const existing = await pool.query("SELECT user_id FROM portal_users WHERE email=$1 AND oauth_provider='email'", [email]);
     if (existing.rows.length > 0) return reply.status(409).send({ error: "email already registered" });
@@ -575,7 +580,15 @@ async function main() {
 
   app.get("/api/v1/users", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
-    const r = await pool.query("SELECT user_id, display_name, email, oauth_provider, created_at FROM portal_users ORDER BY created_at DESC");
+    // Only show users who share an organization with the requester
+    const r = await pool.query(
+      `SELECT DISTINCT u.user_id, u.display_name, u.email, u.oauth_provider, u.created_at
+       FROM portal_users u
+       JOIN portal_org_members m ON u.user_id = m.user_id
+       WHERE m.org_id IN (
+         SELECT org_id FROM portal_org_members WHERE user_id = $1
+       )
+       ORDER BY u.created_at DESC`, [p.user_id]);
     return { users: r.rows };
   });
 
