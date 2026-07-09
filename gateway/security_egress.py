@@ -1,20 +1,30 @@
 """
-AI Security Gateway — EGRESS filter.
+AI Security Gateway — EGRESS filter + SIEM integration.
 Checks LLM responses for DSP markers, PII leaks, system info, and toxic content
 BEFORE they reach the client.
 
-ДСП-фильтр на выходе: проверка ответов модели на наличие информации
-ограниченного распространения.
+ДСП-фильтр на выходе + syslog CEF для SIEM-систем.
 """
 import re
 import json
 import os
 import logging
+import socket
 from datetime import datetime, timezone
 
-# ── Logging setup ──────────────────────────────────────────────────────
+# ── SIEM Configuration ─────────────────────────────────────────────────
+
+SIEM_ENABLED = os.environ.get("SIEM_ENABLED", "true").lower() == "true"
+SIEM_HOST = os.environ.get("SIEM_HOST", "127.0.0.1")
+SIEM_PORT = int(os.environ.get("SIEM_PORT", "514"))
+SIEM_PROTO = os.environ.get("SIEM_PROTO", "udp")  # udp or tcp
+SIEM_FACILITY = os.environ.get("SIEM_FACILITY", "local0")
+SIEM_APP_NAME = os.environ.get("SIEM_APP_NAME", "aither-gateway")
+
+# ── Security Log Retention ─────────────────────────────────────────────
 
 LOG_DIR = os.environ.get("SECURITY_LOG_DIR", "/var/log/aither")
+LOG_RETENTION_DAYS = int(os.environ.get("SECURITY_LOG_RETENTION", "30"))
 os.makedirs(LOG_DIR, exist_ok=True)
 
 logger = logging.getLogger("security_egress")
@@ -22,6 +32,134 @@ logger.setLevel(logging.INFO)
 fh = logging.FileHandler(os.path.join(LOG_DIR, "security.log"))
 fh.setFormatter(logging.Formatter('%(message)s'))
 logger.addHandler(fh)
+
+# Syslog severity mapping
+SYSLOG_SEVERITY = {
+    "critical": 2,  # CRIT
+    "high": 4,      # WARNING
+    "medium": 5,    # NOTICE
+    "low": 6,       # INFO
+}
+
+# Facility codes
+SYSLOG_FACILITY_CODES = {
+    "local0": 16, "local1": 17, "local2": 18, "local3": 19,
+    "local4": 20, "local5": 21, "local6": 22, "local7": 23,
+}
+
+# ── CEF Formatter ───────────────────────────────────────────────────────
+
+def _sanitize_cef(value: str, max_len: int = 1023) -> str:
+    """Escape CEF header values: replace = \\ \n with \\= \\\\ \\n."""
+    if not isinstance(value, str):
+        value = str(value)
+    value = value.replace("\\", "\\\\").replace("=", "\\=").replace("\n", "\\n").replace("\r", "")
+    return value[:max_len]
+
+
+def format_cef(record: dict) -> str:
+    """
+    Format audit record as CEF (Common Event Format) syslog message.
+
+    CEF:0|Vendor|Product|Version|Signature ID|Name|Severity|Extension
+
+    RFC 5424 header: <PRI>VERSION TIMESTAMP HOSTNAME APPNAME PROCID MSGID [SD] CEF:0|...
+    """
+    now = datetime.now(timezone.utc)
+    timestamp = now.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    hostname = socket.gethostname()
+
+    facility_code = SYSLOG_FACILITY_CODES.get(SIEM_FACILITY.lower(), 16)
+    severity_code = SYSLOG_SEVERITY.get(record.get("severity", "low"), 6)
+    pri = facility_code * 8 + severity_code
+
+    # CEF Header
+    vendor = "Aither"
+    product = "SecurityGateway"
+    version = "1.0"
+    signature_id = record.get("rule_name", "unknown")
+    name = f"Egress {record.get('rule_category', 'unknown')}"
+    cef_severity = {"critical": 10, "high": 7, "medium": 5, "low": 3}.get(
+        record.get("severity", "low"), 3)
+
+    # CEF Extension (key-value pairs)
+    ext = {
+        "orgId": record.get("org_id", "unknown"),
+        "requestId": record.get("request_id", ""),
+        "model": record.get("model", "unknown"),
+        "direction": record.get("direction", "egress"),
+        "ruleCategory": record.get("rule_category", ""),
+        "action": record.get("action", "block"),
+        "requestHash": record.get("request_hash", ""),
+        "snippet": record.get("matched_snippet", "")[:200],
+        "msg": f"Security egress: {record.get('rule_category')}/{record.get('rule_name')}",
+    }
+    ext_str = " ".join(f"{k}={_sanitize_cef(v)}" for k, v in ext.items())
+
+    # Full CEF message
+    cef = f"CEF:0|{vendor}|{product}|{version}|{signature_id}|{name}|{cef_severity}|{ext_str}"
+
+    # RFC 5424 header
+    syslog_msg = f"<{pri}>1 {timestamp} {hostname} {SIEM_APP_NAME} - - - {cef}"
+
+    return syslog_msg
+
+
+# ── Syslog Sender ──────────────────────────────────────────────────────
+
+_siem_sock = None
+
+
+def _get_siem_socket():
+    """Lazy-init SIEM socket (UDP or TCP)."""
+    global _siem_sock
+    if _siem_sock is None and SIEM_ENABLED:
+        try:
+            if SIEM_PROTO == "tcp":
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+                sock.connect((SIEM_HOST, SIEM_PORT))
+            else:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            _siem_sock = sock
+        except Exception as e:
+            print(f"[SIEM] Socket init failed: {e}", flush=True)
+    return _siem_sock
+
+
+def send_to_siem(record: dict):
+    """Send audit record to SIEM via syslog CEF."""
+    if not SIEM_ENABLED:
+        return
+    sock = _get_siem_socket()
+    if sock is None:
+        return
+    try:
+        msg = format_cef(record)
+        msg_bytes = (msg + "\n").encode("utf-8")
+        if SIEM_PROTO == "tcp":
+            sock.sendall(msg_bytes)
+        else:
+            sock.sendto(msg_bytes, (SIEM_HOST, SIEM_PORT))
+    except Exception as e:
+        print(f"[SIEM] Send error: {e}", flush=True)
+
+
+def send_siem_heartbeat():
+    """Send periodic heartbeat to SIEM to verify connectivity."""
+    record = {
+        "severity": "low",
+        "rule_name": "heartbeat",
+        "rule_category": "health",
+        "org_id": "system",
+        "request_id": "",
+        "model": "",
+        "direction": "internal",
+        "action": "heartbeat",
+        "request_hash": "",
+        "matched_snippet": "SIEM heartbeat",
+    }
+    send_to_siem(record)
 
 # ── DSP (Для Служебного Пользования) Patterns ──────────────────────────
 
@@ -142,9 +280,12 @@ def _build_audit_record(org_id: str, request_id: str, model: str,
 
 
 def log_security_event(record: dict, db_pool=None):
-    """Log security event to file (JSON Lines) and optionally PostgreSQL."""
+    """Log security event to file (JSON Lines), PostgreSQL, and SIEM."""
     # File log (always)
     logger.info(json.dumps(record, ensure_ascii=False))
+
+    # SIEM syslog (if enabled)
+    send_to_siem(record)
 
     # PostgreSQL (if pool available)
     if db_pool:
