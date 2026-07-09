@@ -3000,6 +3000,14 @@ upstream portal_backend {
 - **VPS3 SSH отвалился** — ключ есть в `authorized_keys`, но сервер его не принимает. Подозрение на смену конфигурации или переустановку. Требуется ручное вмешательство.
 - **Password truncation** — пароли в heredoc на VPS3 обрезались Hermes. Workaround: `bff-wrapper.sh` с разбивкой пароля на части.
 
+### VPS3 recovery (09.07.2026 16:00 МСК)
+
+- **Причина:** VPS3 переустановлен на Ubuntu 24.04. В `authorized_keys` был чужой ключ (`aither-project-deploy`).
+- **Исправление:** Добавлен ключ VPS1 (`hermes@vps1`), доступ восстановлен.
+- **Синхронизация:** `dist/server.js` + `index.html` скопированы с VPS1, BFF перезапущен.
+- **Верификация:** signup/login/dashboard/tiers/upgrade — все 5 эндпоинтов работают на VPS3.
+- **Failover:** VPS1:10443 → VPS2 (primary) → VPS3 (backup) — проверен, работает.
+
 ### Статус дорожной карты
 
 - Выполнено: 23/36 (64%)
