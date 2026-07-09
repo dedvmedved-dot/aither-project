@@ -29,6 +29,12 @@ services:
       CORS_ORIGIN: "http://130.17.1.90"
       INVITE_CODE: "aither-2026"
       CORE_API: "http://10.129.13.78:30900"
+      # LDAP (закомментировано — раскомментировать при настройке)
+      # LDAP_URL: "ldap://freeipa.example.com:389"
+      # LDAP_BASE_DN: "dc=example,dc=com"
+      # LDAP_BIND_DN: "uid=admin,cn=users,cn=accounts,dc=example,dc=com"
+      # LDAP_BIND_PASSWORD: "changeme"
+      # LDAP_USER_BASE: "cn=users,cn=accounts,dc=example,dc=com"
     network_mode: host
     depends_on:
       portal-db:

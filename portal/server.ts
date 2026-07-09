@@ -4,6 +4,7 @@ import rateLimit from "@fastify/rate-limit";
 import jwt from "jsonwebtoken";
 import { Pool } from "pg";
 import { randomBytes, createHash, scryptSync, timingSafeEqual } from "crypto";
+import { authenticateViaLDAP, isLDAPEnabled } from "./ldap";
 
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
@@ -430,6 +431,57 @@ async function main() {
       return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
     } catch (e: any) {
       return reply.status(502).send({ error: "Yandex OAuth error: " + safeError(e) });
+    }
+  });
+
+  // === LDAP Authentication (FreeIPA / ALD Pro / OpenLDAP) ===
+  app.post("/auth/ldap", async (req: any, reply) => {
+    if (!isLDAPEnabled())
+      return reply.status(501).send({ error: "LDAP not configured" });
+
+    const { username, password } = req.body || {};
+    if (!username || !password)
+      return reply.status(400).send({ error: "username and password required" });
+
+    try {
+      const ldapUser = await authenticateViaLDAP(username, password);
+      if (!ldapUser)
+        return reply.status(401).send({ error: "invalid ldap credentials" });
+
+      // Upsert portal user
+      const oauthId = `ldap:${ldapUser.uid}`;
+      const provider = "ldap";
+
+      let user = await pool.query(
+        "SELECT user_id FROM portal_users WHERE oauth_provider=$1 AND oauth_id=$2",
+        [provider, oauthId]
+      );
+      let userId: string;
+      if (user.rows.length === 0) {
+        const ins = await pool.query(
+          `INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, last_login_at)
+           VALUES ($1,$2,$3,$4,now()) RETURNING user_id`,
+          [provider, oauthId, ldapUser.email, ldapUser.displayName]
+        );
+        userId = ins.rows[0].user_id;
+        await ensurePersonalOrg(userId);
+      } else {
+        userId = user.rows[0].user_id;
+        await pool.query(
+          "UPDATE portal_users SET email=$1, display_name=$2, last_login_at=now() WHERE user_id=$3",
+          [ldapUser.email, ldapUser.displayName, userId]
+        );
+      }
+
+      const tok = signToken(userId);
+      return {
+        access_token: tok,
+        user: { user_id: userId, login: ldapUser.uid, email: ldapUser.email },
+        ldap_groups: ldapUser.groups,
+        ldap_role: ldapUser.role,
+      };
+    } catch (e: any) {
+      return reply.status(502).send({ error: "LDAP error: " + safeError(e) });
     }
   });
 
