@@ -11,6 +11,17 @@ import re
 VLLM_14B_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 VLLM_32B_URL = os.environ.get("VLLM_32B_URL", "http://vllm-qwen32b:8000")
 
+# LoRA adapter paths
+LORA_ADAPTER_14B = os.environ.get("LORA_14B_PATH", "/models/lora-qwen14b-astra")
+LORA_ADAPTER_32B = os.environ.get("LORA_32B_PATH", "/models/lora-qwen32b-astra")
+
+# Available LoRA adapters (auto-detected)
+AVAILABLE_ADAPTERS = {}
+if os.path.isdir(LORA_ADAPTER_14B):
+    AVAILABLE_ADAPTERS["astra-14b"] = LORA_ADAPTER_14B
+if os.path.isdir(LORA_ADAPTER_32B):
+    AVAILABLE_ADAPTERS["astra-32b"] = LORA_ADAPTER_32B
+
 # Complexity keywords (Russian + English)
 COMPLEX_KEYWORDS = [
     "объясни", "сравни", "анализ", "проанализируй", "опиши подробно",
