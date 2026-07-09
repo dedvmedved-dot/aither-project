@@ -1,5 +1,5 @@
 """Aither API Gateway — proxy to vLLM with JWT RS256, Redis rate limiting, and billing."""
-import os, json, time, uuid, traceback, threading
+import os, json, time, uuid, traceback, threading, hashlib
 from urllib.request import Request, urlopen
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import redis
@@ -7,6 +7,7 @@ import jwt as pyjwt
 import psycopg2
 import psycopg2.pool
 from security import check_security
+from security_egress import check_egress
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
@@ -518,6 +519,7 @@ class Gateway(BaseHTTPRequestHandler):
         body_str = self.rfile.read(length).decode() if length else "{}"
 
         # Parse request to estimate tokens
+        req_data = {}
         try:
             req_data = json.loads(body_str)
             max_tokens = req_data.get("max_tokens", 256)
@@ -580,12 +582,49 @@ class Gateway(BaseHTTPRequestHandler):
 
         # Count actual tokens
         actual_tokens = reserve_amount  # fallback
+        resp_data = {}
         try:
             resp_data = json.loads(resp_body.decode())
             if "usage" in resp_data:
                 actual_tokens = resp_data["usage"].get("total_tokens", reserve_amount)
         except:
             pass
+
+        # ── EGRESS Security Check (DSP/PII/System Leak) ──────────────
+        request_hash = hashlib.sha256(body_str.encode()).hexdigest()[:16] if body_str else ""
+        egress_ok, egress_reason, egress_audit = check_egress(
+            resp_data,
+            org_id=str(org_id),
+            request_id=ref,
+            model=req_data.get("model", "unknown"),
+            request_hash=request_hash,
+            db_pool=db_pool,
+        )
+        if not egress_ok:
+            # Block response, refund, log incident
+            billing_op(org_id, "refund", reserve_amount, ref)
+            # Insert blocked usage record
+            try:
+                conn = db_pool.getconn()
+                try:
+                    with conn:
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                "INSERT INTO usage_records"
+                                " (org_id, request_id, model, input_tokens, output_tokens, total_tokens, status, latency_ms)"
+                                " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                                (org_id, ref, req_data.get("model","?"),
+                                 0, 0, 0, "blocked_egress", None))
+                finally:
+                    db_pool.putconn(conn)
+            except Exception as e:
+                print(f"Usage record error: {e}", flush=True)
+            self._json(403, {
+                "error": "content_filtered",
+                "reason": "Ответ содержит информацию ограниченного распространения и был отфильтрован",
+                "code": egress_reason,
+            })
+            return
 
         if status == 200:
             # Cap settle at reserved amount (actual can exceed estimate)
