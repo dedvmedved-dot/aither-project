@@ -3113,7 +3113,52 @@ orgId=... requestId=... model=... direction=egress ruleCategory=dsp action=block
 
 `9d6eff6` feat: SIEM-интеграция (#35) — syslog CEF + security log storage
 
-**Прогресс: 58% (26/45)**
+---
+
+## День 22c: Vault-интеграция (#36) — 09.07.2026
+
+**Задача:** Внешний корпоративный Vault для генерации API-ключей и применения политик ИБ.
+
+### Реализация
+
+Новый модуль `gateway/vault.py` (250 строк):
+
+| Функция | Назначение |
+|---|---|
+| `vault_create_api_key()` | Выпуск ключа через Vault PKI → `ak-<sha256(serial)>` |
+| `vault_validate_key()` | Валидация: Redis (60s) → Vault KV → PostgreSQL |
+| `vault_revoke_key()` | Отзыв ключа в Vault + очистка кэша |
+| `vault_health()` | Проверка связности sys/health |
+
+### Архитектура
+
+```
+BFF → Vault PKI (create key) → cache in PostgreSQL
+Gateway → Redis (60s TTL) → Vault KV (validate) → PG fallback
+```
+
+### Политики ИБ из Vault
+
+| Политика | Применение |
+|---|---|
+| `max_rpm` | Rate Limiter: запросов/мин |
+| `max_tpm` | Rate Limiter: токенов/мин |
+| `allowed_models` | Model Access: блокировка моделей вне списка |
+| `ip_whitelist` | IP Restriction: только из разрешённых подсетей |
+| `expires_at` | Expiry: авто-блокировка просроченных ключей |
+
+### Режимы
+
+| Режим | VAULT_ENABLED | Поведение |
+|---|---|---|
+| Production | true | Vault → Redis → PG |
+| Development | false | Только PostgreSQL |
+
+### Коммит
+
+`dc48e98` feat: Vault-интеграция (#36) — внешняя ген. API-ключей + политики ИБ
+
+**Прогресс: 60% (27/45)**
 
 ---
 
