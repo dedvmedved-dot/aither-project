@@ -32,7 +32,7 @@
 
 | Система | URL | Задача 5а |
 |---|---|---|
-| **Grafana** | `https://grafana.130.17.1.90.nip.io` | #40 TTFT-мониторинг |
+| **Grafana** | `https://fb1.spb.ru:10443/grafana` | #40 TTFT-мониторинг |
 | **SIEM (syslog)** | `10.129.13.78:514` (CEF) | #35 SIEM-интеграция |
 | **Security Egress** | `/var/log/aither/egress.log` на n8 | #34 Security Gateway Egress |
 | **LLM-Wiki (RAG)** | ChromaDB на n8, API через Gateway | #37 Гибридный RAG |
