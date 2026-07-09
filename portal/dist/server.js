@@ -13,19 +13,16 @@ const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-me";
 const CORE_API = process.env.CORE_API || "http://10.129.13.78:30900";
 const CORE_API_32B = process.env.CORE_API_32B || "http://10.129.13.78:30900"; // Gateway handles model routing
+// Unified K8s PostgreSQL pool — all data (auth, billing, orgs) in one DB
 const pool = new pg_1.Pool({
-    host: process.env.PG_HOST || "127.0.0.1",
-    port: Number(process.env.PG_PORT) || 5432,
-    user: process.env.PG_USER || "portal",
-    database: process.env.PG_DB || "portal",
+    host: process.env.PG_HOST || "10.129.13.78",
+    port: Number(process.env.PG_PORT) || 31113,
+    user: process.env.PG_USER || "aither",
+    password: process.env.PGPASSWORD || "",
+    database: process.env.PG_DB || "aither",
 });
-// K8s PostgreSQL pool (for API key replication to Gateway)
-const k8sPool = new pg_1.Pool({
-    host: process.env.K8S_PG_HOST || "10.129.13.78",
-    port: Number(process.env.K8S_PG_PORT) || 31113,
-    user: process.env.K8S_PG_USER || "aither",
-    database: process.env.K8S_PG_DB || "aither",
-});
+// Legacy alias (removed — pool now IS K8s pool)
+const k8sPool = pool;
 function signToken(userId) {
     return jsonwebtoken_1.default.sign({ user_id: userId }, JWT_SECRET, { expiresIn: "24h" });
 }
