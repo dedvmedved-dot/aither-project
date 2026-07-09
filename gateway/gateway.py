@@ -17,6 +17,71 @@ TOKEN_COST = int(os.environ.get("TOKEN_COST", "1"))  # tokens to reserve per req
 
 r = redis.Redis(host=REDIS_URL, port=6379, decode_responses=True, socket_connect_timeout=2)
 db_pool = psycopg2.pool.SimpleConnectionPool(1, 10, PG_URL)
+
+# ── Tier-based rate limiting ──
+
+def _get_org_tier(org_id: str) -> str:
+    """Get organisation's tier, cached in Redis (60s)."""
+    tier = r.get(f"org_tier:{org_id}")
+    if tier:
+        return tier
+    tier = "free"
+    try:
+        conn = db_pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT tier FROM billing_accounts WHERE org_id = %s", (org_id,))
+                row = cur.fetchone()
+                if row:
+                    tier = row[0]
+        finally:
+            db_pool.putconn(conn)
+    except:
+        pass
+    r.set(f"org_tier:{org_id}", tier, ex=60)
+    return tier
+
+
+def _get_tier_limits(tier_id: str) -> dict:
+    """Get tier limits from Redis cache or PostgreSQL."""
+    cached = r.hgetall(f"tier:{tier_id}")
+    if cached:
+        return {
+            "rpm": int(cached.get("rpm", RATE_LIMIT_RPM)),
+            "tpm": int(cached.get("tpm", RATE_LIMIT_TPM)),
+            "daily": int(cached["daily"]) if cached.get("daily") else None,
+            "models": cached.get("models", "").split(",") if cached.get("models") else [],
+            "rag": cached.get("rag") == "1",
+        }
+    # Cache miss: query PostgreSQL
+    limits = {"rpm": RATE_LIMIT_RPM, "tpm": RATE_LIMIT_TPM, "daily": None, "models": [], "rag": False}
+    try:
+        conn = db_pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT rpm_limit, tpm_limit, daily_request_limit, models, rag_enabled "
+                    "FROM subscription_tiers WHERE tier_id = %s", (tier_id,))
+                row = cur.fetchone()
+                if row:
+                    limits = {"rpm": row[0], "tpm": row[1], "daily": row[2],
+                              "models": row[3] if row[3] else [], "rag": row[4]}
+        finally:
+            db_pool.putconn(conn)
+    except Exception as e:
+        print(f"Tier lookup failed: {e}", flush=True)
+    # Cache in Redis (60s)
+    try:
+        r.hset(f"tier:{tier_id}", mapping={
+            "rpm": str(limits["rpm"]), "tpm": str(limits["tpm"]),
+            "daily": str(limits["daily"] or ""),
+            "models": ",".join(limits["models"]),
+            "rag": "1" if limits["rag"] else "0",
+        })
+        r.expire(f"tier:{tier_id}", 60)
+    except:
+        pass
+    return limits
 # Ensure usage_records table exists
 _conn = db_pool.getconn()
 try:
@@ -394,6 +459,15 @@ class Gateway(BaseHTTPRequestHandler):
                 if not query:
                     self._json(400, {"error": "query required"})
                     return
+                # Tier check: RAG access
+                _payload = self._check_jwt()
+                if _payload and _payload != "expired":
+                    _oid = _payload.get("org_id", "unknown")
+                    _tier = _get_org_tier(_oid)
+                    _limits = _get_tier_limits(_tier)
+                    if not _limits["rag"]:
+                        self._json(403, {"error": "rag_not_available", "tier": _tier})
+                        return
                 results = rag_query(query, top_k)
                 self._json(200, {"query": query, "results": results})
             except Exception as e:
@@ -411,7 +485,9 @@ class Gateway(BaseHTTPRequestHandler):
 
         org_id = payload.get("org_id", "unknown")
 
-        # Rate limit (RPM + TPM)
+        # --- Tier-based rate limiting + model access + RAG access ---
+        tier = _get_org_tier(org_id)
+        limits = _get_tier_limits(tier)
         now = int(time.time())
         window = now // 60
         body_len = int(self.headers.get("Content-Length", 0))
@@ -421,10 +497,19 @@ class Gateway(BaseHTTPRequestHandler):
             if rpm == 1: r.expire(f"rl:{org_id}:rpm:{window}", 120)
             tpm = r.incrby(f"rl:{org_id}:tpm:{window}", token_est)
             if tpm <= token_est: r.expire(f"rl:{org_id}:tpm:{window}", 120)
-            if rpm > RATE_LIMIT_RPM or tpm > RATE_LIMIT_TPM:
-                self._json(429, {"error": "rate_limit_exceeded", "rpm": rpm, "tpm": tpm,
-                    "rpm_limit": RATE_LIMIT_RPM, "tpm_limit": RATE_LIMIT_TPM})
+            if rpm > limits["rpm"] or tpm > limits["tpm"]:
+                self._json(429, {"error": "rate_limit_exceeded", "tier": tier, "rpm": rpm, "tpm": tpm,
+                    "rpm_limit": limits["rpm"], "tpm_limit": limits["tpm"]})
                 return
+            # Daily request limit
+            if limits["daily"]:
+                today = time.strftime("%Y-%m-%d")
+                daily = r.incr(f"rl:{org_id}:daily:{today}")
+                if daily == 1: r.expire(f"rl:{org_id}:daily:{today}", 86400 * 2)
+                if daily > limits["daily"]:
+                    self._json(429, {"error": "daily_limit_exceeded", "tier": tier,
+                        "daily": daily, "daily_limit": limits["daily"]})
+                    return
         except Exception as e:
             pass  # Redis down: let request through
 
@@ -452,6 +537,14 @@ class Gateway(BaseHTTPRequestHandler):
             req_data["model"] = model_path
             body_str = json.dumps(req_data)
             print(f"[Route] {reason} → {self.vllm_url}{req_data['model']} (chars={sum(len(m.get('content','')) for m in messages)})", flush=True)
+
+            # Tier check: model access
+            if limits["models"]:
+                if model_id not in limits["models"] and f"qwen2.5-{model_id}" not in [m.split("/")[-1] for m in limits["models"]]:
+                    allowed_list = ", ".join(limits["models"])
+                    self._json(403, {"error": "model_not_available", "tier": tier,
+                        "requested": model_id, "allowed": limits["models"]})
+                    return
 
             # Security check: prompt injection + DLP
             messages = req_data.get("messages", [])

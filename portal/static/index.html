@@ -837,6 +837,7 @@ async function render() {
     case 'org-detail': await renderOrgDetail(); break;
     case 'chats': await renderChats(); break;
     case 'shared': await renderShared(); break;
+    case 'tiers': await renderTiers(); break;
   }
 }
 
@@ -884,6 +885,7 @@ function renderApp() {
     { id:'chats', label:'Чаты' },
     { id:'dashboard', label:'Дашборд' },
     { id:'orgs', label:'Организации' },
+    { id:'tiers', label:'Тарифы' },
   ];
   if (state.selectedOrg && state.page==='org-detail') {
     pages.push({ id:'org-detail', label: state.selectedOrg.name });
@@ -1802,6 +1804,66 @@ async function renderShared() {
         </div>
       `).join('')}
     </div>`;
+}
+
+// ===== TARIFFS PAGE =====
+async function renderTiers() {
+  const { ok, data } = await api('/api/v1/tiers');
+  const tiers = ok ? data?.tiers || [] : [];
+
+  const tierColors = {
+    free: 'var(--border)', standard: 'var(--warning)', vip: 'var(--danger)', enterprise: 'var(--info)'
+  };
+  const tierEmojis = { free: '🆓', standard: '⚡', vip: '👑', enterprise: '🏢' };
+
+  let currentTier = 'free';
+  if (state.selectedOrg) {
+    const tResp = await api('/api/v1/org/tier?org_id=' + state.selectedOrg.org_id);
+    if (tResp.ok) currentTier = tResp.data?.tier || 'free';
+  }
+
+  $('#app').innerHTML = `
+    <div class="header">
+      <div class="header-left"><span class="logo">Aither</span><span class="header-sub">Тарифные планы</span></div>
+      <div class="header-right" id="user-zone"></div>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <h2>📦 Тарифные планы</h2>
+        <p>Выберите тариф под свои задачи. Текущий тариф выделен рамкой.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
+        ${tiers.map(t => `
+          <div style="background:var(--bg-input);border:2px solid ${t.tier_id===currentTier?'var(--accent)':'var(--border)'};border-radius:var(--radius);padding:24px;${t.tier_id===currentTier?'box-shadow:0 0 12px var(--accent-alpha);':''}">
+            <div style="font-size:32px;margin-bottom:4px;">${tierEmojis[t.tier_id]||'📌'}</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(t.name)}</div>
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">${esc(t.description)}</div>
+            <div style="font-size:32px;font-weight:800;margin-bottom:4px;">
+              ${t.price_rub_month ? t.price_rub_month.toLocaleString()+' ₽' : 'Бесплатно'}
+              ${t.price_rub_month ? '<span style="font-size:14px;color:var(--text-dim);"> /мес</span>' : ''}
+            </div>
+            <hr style="border-color:var(--border);margin:16px 0;">
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Лимиты:</div>
+            <div style="font-size:13px;line-height:1.8;">
+              📊 <b>${t.rpm_limit}</b> запросов/мин<br>
+              🔤 <b>${t.tpm_limit.toLocaleString()}</b> токенов/мин<br>
+              ${t.daily_request_limit ? '📅 <b>'+t.daily_request_limit.toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
+              🧠 Модели: <b>${(t.models||[]).join(', ')}</b><br>
+              ${t.rag_enabled ? '📚 RAG: <b style="color:var(--success)">✅ Доступен</b><br>' : '📚 RAG: <b style="color:var(--text-dim)">❌</b><br>'}
+            </div>
+            <hr style="border-color:var(--border);margin:16px 0;">
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Возможности:</div>
+            <ul style="font-size:13px;line-height:1.8;padding-left:20px;margin:0;">
+              ${(t.features||[]).map(f => `<li>${esc(f)}</li>`).join('')}
+            </ul>
+            ${t.tier_id===currentTier
+              ? '<div style="margin-top:16px;text-align:center;padding:8px;background:var(--accent-alpha);border-radius:var(--radius-sm);font-weight:600;font-size:13px;">✅ Ваш текущий тариф</div>'
+              : '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="alert(\'Для смены тарифа обратитесь к администратору\')">Перейти</button>'}
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  renderUserZone();
 }
 
 // ===== INIT =====

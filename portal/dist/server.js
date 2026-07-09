@@ -951,6 +951,30 @@ async function main() {
        FROM payment_transactions WHERE org_id=$1 ORDER BY created_at DESC LIMIT 50`, [orgId]);
         return reply.send({ payments: r.rows });
     });
+    // --- Tariff plans ---
+    app.get("/api/v1/tiers", async (_req, reply) => {
+        try {
+            const r = await pool.query("SELECT tier_id, name, description, rpm_limit, tpm_limit, daily_request_limit, models, rag_enabled, priority, price_rub_month, features FROM subscription_tiers ORDER BY priority");
+            return reply.send({ tiers: r.rows });
+        } catch (e) {
+            return reply.status(500).send({ error: e.message });
+        }
+    });
+    app.get("/api/v1/org/tier", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p) return;
+        const orgId = req.query.org_id;
+        if (!orgId) return reply.status(400).send({ error: "org_id required" });
+        try {
+            const r = await pool.query(
+                "SELECT b.tier, t.name, t.rpm_limit, t.tpm_limit, t.daily_request_limit, t.models, t.rag_enabled, t.priority, t.features FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier = t.tier_id WHERE b.org_id=$1",
+                [orgId]);
+            if (r.rows.length === 0) return reply.send({ org_id: orgId, tier: "free", name: "Free" });
+            return reply.send(r.rows[0]);
+        } catch (e) {
+            return reply.status(500).send({ error: e.message });
+        }
+    });
     await app.listen({ port: PORT, host: "0.0.0.0" });
     console.log("Portal BFF v0.5.0 (with chat) on :" + PORT);
 }
