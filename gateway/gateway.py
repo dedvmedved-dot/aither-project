@@ -438,15 +438,20 @@ class Gateway(BaseHTTPRequestHandler):
             max_tokens = req_data.get("max_tokens", 256)
             input_tokens = len(req_data.get("messages", [])) * 20  # rough estimate
             reserve_amount = (max_tokens + input_tokens) * TOKEN_COST
-            # Multi-model routing
-            model = req_data.get("model", "qwen")
-            if "saiga" in model.lower():
-                self.vllm_url = os.environ.get("VLLM_SAIGA_URL", "http://vllm-saiga:8000") or "http://vllm-saiga:8000"
-                req_data["model"] = "/models/saiga_llama3_8b"
+            # Multi-model routing with cost-aware selection
+            from routing import select_model, check_fallback
+            messages = req_data.get("messages", [])
+            explicit_model = req_data.get("model", None)
+            # If user passed an explicit model_id (not vLLM path), use it for routing
+            if explicit_model and "/models/" not in explicit_model:
+                model_id, vllm_url, model_path, reason = select_model(messages, explicit_model)
             else:
-                self.vllm_url = os.environ.get("VLLM_URL", "http://vllm:8000") or "http://vllm:8000"
-                req_data["model"] = "/models/Qwen2.5-14B-Instruct"
+                model_id, vllm_url, model_path, reason = select_model(messages)
+            # Apply routing
+            self.vllm_url = check_fallback(vllm_url)
+            req_data["model"] = model_path
             body_str = json.dumps(req_data)
+            print(f"[Route] {reason} → {self.vllm_url}{req_data['model']} (chars={sum(len(m.get('content','')) for m in messages)})", flush=True)
 
             # Security check: prompt injection + DLP
             messages = req_data.get("messages", [])
