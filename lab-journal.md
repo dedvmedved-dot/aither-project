@@ -3061,7 +3061,59 @@ upstream portal_backend {
 
 `707fcca` feat: Security Gateway Egress (#34)
 
-**Прогресс: 56% (25/45)**
+---
+
+## День 22b: SIEM-интеграция (#35) — 09.07.2026
+
+**Задача:** syslog CEF формат + security log storage для внешних SIEM-систем.
+
+### Реализация
+
+Расширен `gateway/security_egress.py` (+120 строк):
+
+| Компонент | Описание |
+|---|---|
+| **CEF Formatter** | `format_cef()` — RFC 5424 header + CEF:0 body |
+| **Syslog Sender** | `send_to_siem()` — UDP/TCP настраиваемый |
+| **Heartbeat** | `send_siem_heartbeat()` — проверка связности |
+| **Retention** | `SECURITY_LOG_RETENTION=30` дней |
+
+### 3 канала логирования
+
+1. **PostgreSQL** `security_events` — структурированные SQL-запросы
+2. **JSON Lines** `/var/log/aither/security.log` — файловая ротация 30 дней
+3. **🆕 Syslog CEF** → внешний SIEM (ArcSight/QRadar/Splunk/MaxPatrol)
+
+### CEF-сообщение (пример)
+
+```
+<130>1 2026-07-09T14:29:48.000Z skravchuk-vps-1 aither-gateway - - -
+CEF:0|Aither|SecurityGateway|1.0|dsp_marker|Egress dsp|10|
+orgId=... requestId=... model=... direction=egress ruleCategory=dsp action=block
+```
+
+- PRI = 130 = local0 × 8 + CRIT(2)
+- CEF Severity = 10 (critical)
+- Все поля экранированы по стандарту CEF
+
+### Конфигурация (8 переменных окружения)
+
+| Переменная | По умолчанию |
+|---|---|
+| `SIEM_ENABLED` | true |
+| `SIEM_HOST` | 127.0.0.1 |
+| `SIEM_PORT` | 514 |
+| `SIEM_PROTO` | udp |
+| `SIEM_FACILITY` | local0 |
+| `SIEM_APP_NAME` | aither-gateway |
+| `SECURITY_LOG_DIR` | /var/log/aither |
+| `SECURITY_LOG_RETENTION` | 30 |
+
+### Коммит
+
+`9d6eff6` feat: SIEM-интеграция (#35) — syslog CEF + security log storage
+
+**Прогресс: 58% (26/45)**
 
 ---
 
