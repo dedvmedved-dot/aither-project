@@ -1191,6 +1191,41 @@ async function main() {
        FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier = t.tier_id WHERE b.org_id=$1`, [orgId]);
         return reply.send({ ok: true, tier: r.rows[0] });
     });
+    // ==================== ADMIN PROXY ====================
+    const ADMIN_KEY = process.env.ADMIN_KEY || "";
+    // Proxy /api/v1/admin/* → Gateway /admin/*
+    app.all("/api/v1/admin/*", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        // Check if user is org owner for any org (admin gate)
+        const orgs = await pool.query("SELECT role FROM portal_org_members WHERE user_id=$1 AND role='owner' AND status='active' LIMIT 1", [p.user_id]);
+        if (orgs.rows.length === 0 && ADMIN_KEY) {
+            // If ADMIN_KEY is set and user provides it, allow global admin
+            const adminHeader = req.headers["x-admin-key"] || "";
+            if (adminHeader !== ADMIN_KEY)
+                return reply.status(403).send({ error: "admin access required" });
+        }
+        const path = req.params["*"];
+        const gwUrl = `${CORE_API}/admin/${path}`;
+        try {
+            const method = req.method;
+            const headers = { "Content-Type": "application/json" };
+            if (ADMIN_KEY)
+                headers["Authorization"] = `Bearer ${ADMIN_KEY}`;
+            let body;
+            if (method === "POST" || method === "PUT") {
+                body = JSON.stringify(req.body);
+                headers["Content-Length"] = String(body.length);
+            }
+            const resp = await fetch(gwUrl, { method, headers, body });
+            const data = await resp.json();
+            return reply.status(resp.status).send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "gateway unreachable", detail: safeError(e) });
+        }
+    });
     // При production: слушаем только localhost (nginx проксирует)
     const listenHost = IS_PRODUCTION ? "127.0.0.1" : "0.0.0.0";
     await app.listen({ port: PORT, host: listenHost });
