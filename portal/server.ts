@@ -90,7 +90,7 @@ function safeError(e: any): string {
 function setOAuthState(reply: any, prefix: string): string {
   const state = randomBytes(16).toString("hex");
   reply.header("Set-Cookie",
-    `oauth_state=${prefix}:${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600` +
+    `oauth_state=${prefix}:${state}; Path=/; HttpOnly; SameSite=None; Max-Age=600` +
     (IS_PRODUCTION ? "; Secure" : ""));
   return state;
 }
@@ -104,7 +104,7 @@ function validateOAuthState(req: any, reply: any, prefix: string): boolean {
   const queryState = (req.query as any)?.state || "";
   // Clear cookie
   reply.header("Set-Cookie",
-    "oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" +
+    "oauth_state=; Path=/; HttpOnly; SameSite=None; Max-Age=0" +
     (IS_PRODUCTION ? "; Secure" : ""));
   if (!cookieState || !queryState) return false;
   return cookieState === `${prefix}:${queryState}`;
