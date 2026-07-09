@@ -78,6 +78,34 @@ function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(Buffer.from(hash), Buffer.from(derived));
 }
 
+function safeError(e: any): string {
+  return IS_PRODUCTION ? "internal_error" : e.message || String(e);
+}
+
+/** Store OAuth state in cookie, return state value */
+function setOAuthState(reply: any, prefix: string): string {
+  const state = randomBytes(16).toString("hex");
+  reply.header("Set-Cookie",
+    `oauth_state=${prefix}:${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600` +
+    (IS_PRODUCTION ? "; Secure" : ""));
+  return state;
+}
+
+/** Validate OAuth state from cookie. Clears cookie. Returns true if valid. */
+function validateOAuthState(req: any, reply: any, prefix: string): boolean {
+  const cookieState = (req.headers.cookie || "")
+    .split(";").map((c: string) => c.trim())
+    .find((c: string) => c.startsWith("oauth_state="))
+    ?.split("=")[1];
+  const queryState = (req.query as any)?.state || "";
+  // Clear cookie
+  reply.header("Set-Cookie",
+    "oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" +
+    (IS_PRODUCTION ? "; Secure" : ""));
+  if (!cookieState || !queryState) return false;
+  return cookieState === `${prefix}:${queryState}`;
+}
+
 async function main() {
   const app = Fastify({ logger: false });
   await app.register(cors, { origin: CORS_ORIGIN, credentials: true });
@@ -172,7 +200,7 @@ async function main() {
 
   app.get("/auth/github", async (_req, reply) => {
     if (!GITHUB_CLIENT_ID) return reply.status(500).send({ error: "GitHub OAuth not configured" });
-    const state = randomBytes(16).toString("hex");
+    const state = setOAuthState(reply, "github");
     const params = new URLSearchParams({
       client_id: GITHUB_CLIENT_ID,
       redirect_uri: process.env.GITHUB_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/github/callback`,
@@ -188,6 +216,8 @@ async function main() {
 
     const { code, state } = req.query;
     if (!code) return reply.status(400).send({ error: "missing code" });
+    if (!validateOAuthState(req, reply, "github"))
+      return reply.status(403).send({ error: "invalid_state" });
 
     try {
       // Exchange code for access token
@@ -245,7 +275,7 @@ async function main() {
       const redirectHost = process.env.PUBLIC_HOST || "localhost";
       return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
     } catch (e: any) {
-      return reply.status(502).send({ error: "GitHub OAuth error: " + e.message });
+      return reply.status(502).send({ error: "GitHub OAuth error: " + safeError(e) });
     }
   });
 
@@ -255,7 +285,7 @@ async function main() {
 
   app.get("/auth/google", async (_req, reply) => {
     if (!GOOGLE_CLIENT_ID) return reply.status(500).send({ error: "Google OAuth not configured" });
-    const state = randomBytes(16).toString("hex");
+    const state = setOAuthState(reply, "google");
     const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/google/callback`;
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
@@ -273,6 +303,8 @@ async function main() {
 
     const { code } = req.query;
     if (!code) return reply.status(400).send({ error: "missing code" });
+    if (!validateOAuthState(req, reply, "google"))
+      return reply.status(403).send({ error: "invalid_state" });
 
     try {
       const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/google/callback`;
@@ -321,7 +353,7 @@ async function main() {
       const redirectHost = process.env.PUBLIC_HOST || "localhost";
       return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
     } catch (e: any) {
-      return reply.status(502).send({ error: "Google OAuth error: " + e.message });
+      return reply.status(502).send({ error: "Google OAuth error: " + safeError(e) });
     }
   });
 
@@ -331,7 +363,7 @@ async function main() {
 
   app.get("/auth/yandex", async (_req, reply) => {
     if (!YANDEX_CLIENT_ID) return reply.status(500).send({ error: "Yandex OAuth not configured" });
-    const state = randomBytes(16).toString("hex");
+    const state = setOAuthState(reply, "yandex");
     const params = new URLSearchParams({
       client_id: YANDEX_CLIENT_ID,
       redirect_uri: process.env.YANDEX_REDIRECT_URI || `http://${process.env.PUBLIC_HOST || "localhost"}/auth/yandex/callback`,
@@ -348,6 +380,8 @@ async function main() {
 
     const { code } = req.query;
     if (!code) return reply.status(400).send({ error: "missing code" });
+    if (!validateOAuthState(req, reply, "yandex"))
+      return reply.status(403).send({ error: "invalid_state" });
 
     try {
       const tokenRes = await fetch("https://oauth.yandex.ru/token", {
@@ -395,13 +429,13 @@ async function main() {
       const redirectHost = process.env.PUBLIC_HOST || "localhost";
       return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
     } catch (e: any) {
-      return reply.status(502).send({ error: "Yandex OAuth error: " + e.message });
+      return reply.status(502).send({ error: "Yandex OAuth error: " + safeError(e) });
     }
   });
 
   app.post("/auth/dev/login", async (req, reply) => {
-    // Dev-провайдер отключён в продакшене
-    if (IS_PRODUCTION) return reply.status(403).send({ error: "dev login disabled in production" });
+    // Dev-провайдер отключён в продакшене (404 — endpoint не существует)
+    if (IS_PRODUCTION) return reply.status(404).send({ error: "not_found" });
     const { name }: any = req.body;
     if (!name) return { error: "name required" };
     const oid = name.toLowerCase().replace(/[^a-z0-9]/g, "-");
@@ -535,7 +569,7 @@ async function main() {
       try { return reply.send(JSON.parse(text)); }
       catch { return reply.send({ status: "ok", raw: text.slice(0, 200) }); }
     } catch (e: any) {
-      return reply.send({ status: "unreachable", error: e.message });
+      return reply.send({ status: "unreachable", error: safeError(e) });
     }
   });
 
@@ -575,7 +609,7 @@ async function main() {
         [o.org_id, p.user_id]);
       await client.query("COMMIT");
       return { org: { ...o, role: "owner" } };
-    } catch (e: any) { await client.query("ROLLBACK"); return reply.status(500).send({ error: e.message }); }
+    } catch (e: any) { await client.query("ROLLBACK"); return reply.status(500).send({ error: safeError(e) }); }
     finally { client.release(); }
   });
 
@@ -855,7 +889,7 @@ async function main() {
       // Delete user message on error
       await pool.query("DELETE FROM chat_messages WHERE message_id=$1", [userMsg.rows[0].message_id]);
       if (!reply.raw.headersSent) {
-        return reply.status(502).send({ error: "stream error: " + e.message });
+        return reply.status(502).send({ error: "stream error: " + safeError(e) });
       }
       reply.raw.end();
     }
@@ -945,7 +979,7 @@ async function main() {
         by_model: byModel.rows,
       });
     } catch (e: any) {
-      return reply.status(500).send({ error: e.message });
+      return reply.status(500).send({ error: safeError(e) });
     }
   });
 
@@ -1033,7 +1067,7 @@ async function main() {
 
       return reply.status(502).send({ error: "yookassa error", detail: ykData });
     } catch (e: any) {
-      return reply.status(502).send({ error: "yookassa error: " + e.message });
+      return reply.status(502).send({ error: "yookassa error: " + safeError(e) });
     }
   });
 
@@ -1072,7 +1106,7 @@ async function main() {
 
       return reply.send({ ok: true, status: "ignored", event });
     } catch (e: any) {
-      return reply.status(500).send({ ok: false, error: e.message });
+      return reply.status(500).send({ ok: false, error: safeError(e) });
     }
   });
 
@@ -1101,7 +1135,7 @@ async function main() {
         "SELECT tier_id, name, description, rpm_limit, tpm_limit, daily_request_limit, models, rag_enabled, priority, price_rub_month, features FROM subscription_tiers ORDER BY priority");
       return reply.send({ tiers: r.rows });
     } catch (e: any) {
-      return reply.status(500).send({ error: e.message });
+      return reply.status(500).send({ error: safeError(e) });
     }
   });
 
@@ -1116,7 +1150,7 @@ async function main() {
       if (r.rows.length === 0) return reply.send({ org_id: orgId, tier: "free", name: "Free" });
       return reply.send(r.rows[0]);
     } catch (e: any) {
-      return reply.status(500).send({ error: e.message });
+      return reply.status(500).send({ error: safeError(e) });
     }
   });
 
