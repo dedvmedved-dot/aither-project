@@ -3017,4 +3017,60 @@ upstream portal_backend {
 - Stage 6: NVLink, 70B+ модели
 - Stage 7: Full offline package
 
-**Прогресс: 61% (22/36)**
+**Прогресс: 64% (23/36)**
+
+---
+
+## Полный снапшот конфигурации — 09.07.2026 16:15 МСК
+
+Коммит: `713ec47` — все конфигурационные файлы собраны в `configs/`.
+
+### VPS1 (170.168.91.95) — Reverse Proxy
+
+| Файл | Назначение |
+|---|---|
+| `configs/vps1/nginx-aither-failover.conf` | Nginx reverse proxy :10443, upstream VPS2+VPS3 backup |
+
+### VPS2 (130.17.1.90) — Primary BFF
+
+| Файл | Назначение |
+|---|---|
+| `configs/vps2/aither-bff.service` | Systemd unit: Node.js BFF, порт 3000, env: PG_HOST/PORT/USER/DB |
+
+### VPS3 (89.127.217.88) — Standby BFF
+
+| Файл | Назначение |
+|---|---|
+| `configs/vps3/aither-bff.service` | Systemd unit: BFF через bff-wrapper.sh |
+| `configs/vps3/pg-tunnel.service` | SSH-туннель → VPS1 → K8s (PG:31113, GW:30900) |
+| `configs/vps3/nginx-aither.conf` | Nginx: статика + прокси /api → :3000 |
+| `configs/vps3/bff-wrapper.sh` | Сборка PGPASSWORD из частей + запуск Node |
+
+### K8s (bootsman-k8s-clnt01) — Инфраструктура
+
+| Файл | Назначение |
+|---|---|
+| `manifests/gateway-deploy.yaml` | AI Gateway (Python, 423 строки) |
+| `manifests/gateway-catalog.yaml` | Каталог моделей + rate limits |
+| `manifests/vllm-qwen-deploy.yaml` | vLLM Qwen2.5-32B + Coder-14B |
+| `manifests/postgres.yaml` | PostgreSQL (auth + billing) |
+| `manifests/redis.yaml` | Redis (rate limiting + caching) |
+| `manifests/observability/prometheus.yaml` | Prometheus + DCGM |
+| `manifests/observability/grafana.yaml` | Grafana dashboards |
+
+### Все файлы конфигурации в репозитории
+
+```
+configs/
+├── nginx-failover.conf            1.9K  (старая версия, дубликат)
+├── vps1/nginx-aither-failover.conf 1.9K  Reverse proxy :10443
+├── vps2/aither-bff.service         417B  Primary BFF
+├── vps3/aither-bff.service         304B  Standby BFF
+├── vps3/bff-wrapper.sh             429B  Обход обрезания паролей
+├── vps3/nginx-aither.conf          727B  Static + proxy
+└── vps3/pg-tunnel.service          368B  SSH tunnel → K8s
+
+manifests/ — 20 файлов (K8s + документация)
+grafana/   — 3 файла (дашборды GPU/inference + nginx)
+portal/bff/— Dockerfile, package.json, tsconfig, server.ts
+```
