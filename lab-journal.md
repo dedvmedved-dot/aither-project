@@ -3378,6 +3378,27 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 
 **Коммит:** `1fbcb81` → `7f36bda`
 
-**Готовность:** 64% (29/45)
+**Готовность:** 67% (30/45)
 
-Статус: ✅ Stage 5a P0 закрыт полностью, P1 — #38 из 4
+Статус: ✅ Stage 5a P0 закрыт полностью, P1 — #38 + #39 из 4
+
+---
+
+### #39 Gateway Management API — 09.07.2026 21:45 МСК
+
+**Цель:** API для администрирования Gateway: очереди, модели, drain/undrain, health-check.
+
+**Выполнено:**
+- `gateway/admin.py` (280 строк) — admin_queues, admin_models, admin_drain/undrain, admin_health, admin_org_detail, admin_reaper
+- `gateway/gateway.py` (+50 строк) — `/admin/*` маршруты (7 endpoints), `_check_admin()`, drain-check в completion flow
+- `portal/server.ts` (+35 строк) — прокси `/api/v1/admin/*` → Gateway
+- `docs/gateway-management-api.md` — документация
+
+**Развёрнуто:**
+- VPS2 (Portal): ✅ proxy активен (ждёт обновления Gateway на n8)
+
+**Коммит:** `ea0d502`
+
+**Готовность:** 67% (30/45)
+
+Статус: ✅ Stage 5a P1 — #38 + #39 из 4
