@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { randomBytes, createHash, scryptSync, timingSafeEqual } from "crypto";
 import { authenticateViaLDAP, isLDAPEnabled } from "./ldap";
 import { POLICIES_DDL, loadPolicy, savePolicy, validatePolicy } from "./policies";
+import { registerApiGateway } from "./api-gateway";
 
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
@@ -578,18 +579,14 @@ async function main() {
     };
   });
 
+  // ── External API Gateway (API-key auth, OpenAI-compatible) ──
+  registerApiGateway(app, pool, CORE_API);
+
   app.get("/api/v1/me", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
     const r = await pool.query("SELECT user_id, display_name, email, avatar_url, oauth_provider, created_at FROM portal_users WHERE user_id=$1", [p.user_id]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "user not found" });
     return { user: r.rows[0] };
-  });
-
-  app.get("/api/v1/status", async () => {
-    const o = await pool.query("SELECT count(*) FROM portal_organizations");
-    const u = await pool.query("SELECT count(*) FROM portal_users");
-    const k = await pool.query("SELECT count(*) FROM portal_api_keys WHERE status='active'");
-    return { version: "0.5.0", orgs: Number(o.rows[0].count), users: Number(u.rows[0].count), active_keys: Number(k.rows[0].count) };
   });
 
   // Model catalog — maps short names to vLLM paths
@@ -606,20 +603,13 @@ async function main() {
     },
   };
 
-  app.get("/api/v1/models", async (_r, reply) => {
+  app.get("/api/v1/status", async (_r, reply) => {
+    const k = await pool.query("SELECT count(*) FROM portal_api_keys WHERE status='active'");
     return reply.send({
-      object: "list",
-      data: Object.entries(MODEL_MAP).map(([id, m]) => ({
-        id,
-        object: "model",
-        display_name: m.display_name,
-        description: m.description,
-        max_tokens: id.endsWith("32b") ? 8192 : 4096,
-        tags: id.endsWith("32b") ? ["code", "analysis"] : ["chat", "code", "fast"],
-      })),
+      active_api_keys: Number(k.rows[0].count),
     });
   });
-
+  
   app.get("/api/v1/core/status", async (_r, reply) => {
     try {
       const r = await fetch(CORE_API + "/health");
