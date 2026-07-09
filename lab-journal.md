@@ -3279,3 +3279,68 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 - `manifests/gateway-catalog.yaml` — обновлённый деплой
 
 Статус: ✅ OK
+
+---
+
+## День 16 (экстренный) — 09.07.2026: Security hardening
+
+**Контекст:** пентест портала Aither выявил критические уязвимости на VPS2 и VPS3.
+
+### Обнаружено (VPS2 и VPS3)
+
+| # | Уязвимость | Severity |
+|---|---|---|
+| 1 | `/api/v1/users` без auth → 47 пользователей | 🔴 CRITICAL |
+| 2 | `/auth/dev/login` без пароля → JWT admin | 🔴 CRITICAL |
+| 3 | Внутренний IP в JS (`10.129.13.78:30900`) | 🟠 HIGH |
+| 4 | CORS `*` (кросс-доменные атаки) | 🟠 HIGH |
+| 5 | Порт 3000 в интернет (в обход nginx) | 🟠 HIGH |
+| 6 | SHA256 + статическая соль для паролей | 🟡 MEDIUM |
+| 7 | JWT secret `"dev-jwt-secret-change-me"` | 🟡 MEDIUM |
+| 8 | Отсутствие security headers | 🟠 HIGH |
+| 9 | Нет rate limiting | 🟡 MEDIUM |
+
+### Выполнено (VPS2 — 130.17.1.90)
+
+- ✅ `auth(req, reply)` на `/api/v1/users`
+- ✅ `IS_PRODUCTION` guard на `/auth/dev/login`
+- ✅ `window.location.origin` вместо хардкода IP
+- ✅ `scryptSync` + `timingSafeEqual` для паролей
+- ✅ `JWT_SECRET` из env (required, без дефолта)
+- ✅ CORS: конкретный origin, не `*`
+- ✅ BFF → `127.0.0.1:3000` (порт 3000 закрыт извне)
+- ✅ `@fastify/rate-limit`: 100 req/min
+- ✅ Security headers через nginx (X-Frame, X-Content-Type, CSP)
+- ✅ Верификация: все 9 тестов пройдены
+
+### Выполнено (VPS3 — 89.127.217.88)
+
+- ✅ `git pull` → код с фиксами
+- ✅ `cp dist + node_modules` → v0.6.0 (security-hardened)
+- ✅ `bff-wrapper.sh` → новый JWT_SECRET + NODE_ENV=production
+- ✅ `systemctl restart aither-bff` → порт 3000 на 127.0.0.1
+- ✅ Nginx security headers (include конфиг)
+- ✅ Верификация: порт 3000 CLOSED, 401/403, security headers
+
+### Проверено (VPS1 — 170.168.91.95)
+
+- ✅ Порт 10443: nginx с security headers
+- ✅ `/api/v1/users` → 401, `/auth/dev/login` → 403
+- ✅ Порты 3000, 30900, 8080: CLOSED
+- ✅ Порт 80: 301 → HTTPS
+
+### Артефакты
+
+- `docs/portal-security-audit-2026-07-09.md` — полный отчёт (523 строки)
+- `docs/portal-security-hardening.md` — краткий фикс-лист
+- `scripts/portal-security-check.sh` — авто-проверка безопасности
+- Навык `portal-security-testing` — методика пентеста (6 фаз)
+
+### Осталось (backlog)
+
+- 🔲 HTTPS (Let's Encrypt) на VPS2 и VPS3
+- 🔲 Удалить 25 dev-аккаунтов из БД
+- 🔲 Хешировать API-ключи в БД
+- 🔲 WAF
+
+Статус: ✅ Критические дыры закрыты на всех трёх серверах
