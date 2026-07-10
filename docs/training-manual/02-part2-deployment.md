@@ -848,22 +848,83 @@ digraph K8sClusterReady {
 
 # Глава 10. Развёртывание vLLM и моделей
 
-> **Цель главы:** задеплоить две модели (14B и 32B) в Kubernetes, подключить LoRA-адаптер, проверить и замерить скорость.
+> **Цель главы:** задеплоить две модели (14B и 32B) в Kubernetes, подключить LoRA-адаптер, проверить работоспособность и замерить скорость.
 
 ---
 
 ## 10.1. Подготовка моделей
 
-```bash
-# Скачивание (на машине с интернетом)
-huggingface-cli download Qwen/Qwen2.5-14B-Instruct --local-dir /data/models/Qwen2.5-14B-Instruct
-huggingface-cli download Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4 --local-dir /data/models/Qwen2.5-32B-Instruct-GPTQ
+Модели — самые большие файлы в системе. Их нужно подготовить заранее.
 
-# Перенос в закрытый контур: tar -czf models.tar.gz → внешний диск → tar -xzf
-# Проверка: sha256sum /data/models/*/model-*.safetensors
+### Скачивание с Hugging Face
+
+На машине с интернетом:
+
+```bash
+pip install huggingface_hub
+
+# 14B (~28 GB)
+huggingface-cli download Qwen/Qwen2.5-14B-Instruct \
+  --local-dir /data/models/Qwen2.5-14B-Instruct
+
+# 32B GPTQ (~20 GB)
+huggingface-cli download Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4 \
+  --local-dir /data/models/Qwen2.5-32B-Instruct-GPTQ
 ```
 
-## 10.2. PVC для 32B
+Что внутри папки модели:
+
+```
+Qwen2.5-14B-Instruct/
+├── config.json              ← архитектура модели (Transformer, количество слоёв, голов)
+├── tokenizer.json           ← токенизатор: слова → числа
+├── tokenizer_config.json    ← настройки токенизатора (BPE, special tokens)
+├── model-00001-of-00004.safetensors  ← веса, часть 1 из 4 (~7 GB)
+├── model-00002-of-00004.safetensors  ← часть 2
+├── model-00003-of-00004.safetensors  ← часть 3
+├── model-00004-of-00004.safetensors  ← часть 4
+└── generation_config.json   ← параметры генерации по умолчанию
+```
+
+> 🔤 **safetensors** — безопасный формат хранения весов (Safe + Tensor). В отличие от старых `.bin`/`.pt`, не содержит исполняемого Python-кода — только числа. Невозможно спрятать вредоносный код в весах модели.
+
+### Перенос в закрытый контур
+
+Модели весят 28 GB + 20 GB = ~48 GB. Не влезают на обычную флешку. Варианты:
+- **Внешний USB-HDD/SSD** (1+ TB) — самый надёжный
+- **Перенос по сети** (scp) — если есть временный доступ
+- **Оптический диск** (BD-R 50 GB) — для ГОСТ-режима
+
+```bash
+# На машине с интернетом:
+tar -czf models-14b.tar.gz -C /data/models Qwen2.5-14B-Instruct
+tar -czf models-32b.tar.gz -C /data/models Qwen2.5-32B-Instruct-GPTQ
+sha256sum models-*.tar.gz > models-checksums.txt
+
+# Копируем на внешний диск, физически переносим, монтируем в закрытом контуре:
+mount /dev/sdb1 /mnt/usb
+cp /mnt/usb/models-*.tar.gz /data/
+sha256sum -c models-checksums.txt  # ← проверка целостности!
+tar -xzf models-14b.tar.gz -C /data/models/
+tar -xzf models-32b.tar.gz -C /data/models/
+```
+
+> ⚠️ **Почему sha256sum?** При копировании больших файлов через флешку биты могут испортиться (помехи, плохой контакт). Контрольная сумма гарантирует, что файл дошёл без повреждений. Один испорченный бит в модели = неопределённое поведение или отказ загрузки.
+
+---
+
+## 10.2. PersistentVolumeClaim для моделей
+
+Модель 14B будет лежать на локальном диске n8 (hostPath). Модель 32B — в PersistentVolumeClaim (PVC), чтобы можно было перенести между узлами.
+
+### Почему разные подходы?
+
+| Подход | Плюсы | Минусы | Используем для |
+|---|---|---|---|
+| **hostPath** | Прямой доступ к диску = максимальная скорость | Привязан к узлу (не перенести) | 14B на n8 |
+| **PVC** | Можно перенести на другой узел | Чуть медленнее | 32B на n7 |
+
+PVC для 32B:
 
 ```yaml
 apiVersion: v1
@@ -871,221 +932,1322 @@ kind: PersistentVolumeClaim
 metadata:
   name: models-32b-pvc
 spec:
-  accessModes: [ReadWriteOnce]
-  resources: {requests: {storage: 100Gi}}
-  storageClassName: local-path
+  accessModes:
+  - ReadWriteOnce           # только один под может писать
+  resources:
+    requests:
+      storage: 100Gi        # 100 GB (модель 20 GB + запас под KV-кэш)
+  storageClassName: local-path  # Local Path Provisioner
 ```
 
-## 10.3. Деплой vLLM 14B
+```bash
+kubectl apply -f pvc-32b.yaml
+kubectl get pvc
+# → models-32b-pvc   Bound   pvc-abc123   100Gi   RWO   local-path
+```
+
+```dot
+digraph StorageComparison {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_hostPath {
+        label="hostPath (14B, n8)"
+        style="rounded,dashed"
+        color="#e91e63"
+        fontname="system-ui"
+
+        pod14 [label="Pod vLLM 14B", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        disk [label="/data/models/\n(42 TB SAS SSD)", shape=cylinder, style="filled", fillcolor="#f5f5f5", color="#616161"]
+        pod14 -> disk [label="прямой\ndostup"]
+        note1 [label="✅ Быстро\n❌ Привязан к n8", shape=plaintext, fontsize=8]
+    }
+
+    subgraph cluster_pvc {
+        label="PVC (32B, n7)"
+        style="rounded,dashed"
+        color="#43a047"
+        fontname="system-ui"
+
+        pod32 [label="Pod vLLM 32B", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        pv [label="PV\n(физический диск)", shape=cylinder, style="filled", fillcolor="#f5f5f5", color="#616161"]
+        pvc [label="PVC\n(запрос 100Gi)", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        pod32 -> pvc -> pv
+        note2 [label="✅ Переносимый\n⚠️ Чуть медленнее", shape=plaintext, fontsize=8]
+    }
+}
+```
+
+*Схема 10.1. Сравнение hostPath (14B, привязан к n8) и PVC (32B, можно перенести).*
+
+---
+
+## 10.3. Деплой vLLM 14B: пошагово
+
+### Шаг 1: применяем манифест
 
 ```bash
 kubectl apply -f k8s/vllm-14b/deployment.yaml
+# → deployment.apps/vllm-qwen created
+
 kubectl apply -f k8s/vllm-14b/service.yaml
-# Проверка: curl http://10.129.13.78:32293/health → OK
-# Первый запрос: curl .../v1/chat/completions -d '{"model":"qwen2.5-14b","messages":[...]}'
-# ⚠️ Прогрев: 10-30 сек первый раз, потом быстро
+# → service/vllm created
+# → service/vllm-nodeport created
 ```
+
+### Шаг 2: ждём запуска
+
+```bash
+kubectl get pods -l app=vllm-qwen -w
+# NAME                           READY   STATUS              RESTARTS   AGE
+# vllm-qwen-7f8b9c-abc1         0/1     ContainerCreating   0          5s
+# vllm-qwen-7f8b9c-abc1         0/1     Running             0          30s
+# vllm-qwen-7f8b9c-abc1         1/1     Running             0          2m
+```
+
+Первые 30 секунд — скачивание образа (если не закэширован). Потом модель загружается в GPU.
+
+### Шаг 3: смотрим логи
+
+```bash
+kubectl logs vllm-qwen-7f8b9c-abc1
+```
+
+Ключевые строки в логах:
+
+```
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000
+
+Loading model from /models/Qwen2.5-14B-Instruct...
+Model loaded in 45.2s
+GPU memory: 18.4 GB / 24.0 GB (76.7%)
+
+INFO:     LoRA module 'astra-14b' registered
+```
+
+**Разбор логов:**
+- `Model loaded in 45.2s` — время загрузки весов в GPU (чем больше модель, тем дольше)
+- `GPU memory: 18.4 GB / 24.0 GB` — 14 GB модель + 4 GB KV-кэш = 18 GB
+- `LoRA module registered` — адаптер astra-14b успешно подключён
+
+### Шаг 4: проверяем health
+
+```bash
+# Через NodePort (с любого узла)
+curl http://10.129.13.78:32293/health
+# → OK
+
+# Через ClusterIP (только внутри кластера)
+kubectl run -it --rm debug --image=curlimages/curl -- curl http://vllm:8000/health
+# → OK
+```
+
+### Шаг 5: первый запрос (прогрев)
+
+> ⚠️ **Первый запрос занимает 10–30 секунд.** Это нормально: vLLM компилирует модель для GPU (CUDA Graph). Последующие запросы — быстро.
+
+```bash
+# Замеряем время
+time curl -X POST http://10.129.13.78:32293/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen2.5-14b",
+    "messages": [{"role": "user", "content": "Привет! Представься, пожалуйста."}],
+    "max_tokens": 100
+  }'
+
+# Первый раз: 15-30 секунд (прогрев)
+# Второй раз: 2-5 секунд (нормальная скорость)
+```
+
+### Шаг 6: замер tok/s
+
+```bash
+time curl -X POST http://10.129.13.78:32293/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen2.5-14b",
+    "messages": [{"role": "user", "content": "Напиши 10 предложений о Москве."}],
+    "max_tokens": 500
+  }' -s -o /dev/null -w "HTTP %{http_code}, time: %{time_total}s\n"
+
+# → HTTP 200, time: 18.2s
+# 500 токенов / 18.2 сек ≈ 27.5 tok/s
+```
+
+Анализ: prefill (~200 ms) + decode (500 × ~35 ms/токен при TP=2) = ~18 секунд. 55% времени — prefill.
+
+### Что мы только что задеплоили (архитектура)
+
+```dot
+digraph VLLM14Deploy {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_k8s {
+        label="Kubernetes"
+        style="rounded,dashed"
+        color="#ff9800"
+        fontname="system-ui"
+
+        deploy [label="Deployment: vllm-qwen\nreplicas=1, strategy=Recreate", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        svc_cluster [label="Service: vllm\nClusterIP:8000", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        svc_node [label="Service: vllm-nodeport\nNodePort:32293", shape=box, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+    }
+
+    subgraph cluster_n8 {
+        label="n8 (control-plane)"
+        style="rounded"
+        color="#e91e63"
+
+        pod [label="Pod: vllm-qwen-abc1\n━━━━━━━━━━━━━━━━\nContainer: vllm\nimage: vllm/vllm-openai:latest\nTP=2, fp16, LoRA\nresources: 2 GPU + 32Gi RAM", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        disk [label="/data/models/\nhostPath", shape=cylinder, style="filled", fillcolor="#f5f5f5", color="#616161"]
+    }
+
+    deploy -> pod
+    pod -> svc_cluster -> svc_node
+    pod -> disk
+}
+```
+
+*Схема 10.2. Архитектура деплоя vLLM 14B: Deployment (Recreate) → Pod (TP=2, 2 GPU) → Service (ClusterIP + NodePort).*
+
+---
 
 ## 10.4. Деплой vLLM 32B (GPTQ)
 
+Отличия 32B от 14B:
+
+| Параметр | 14B | 32B | Почему |
+|---|---|---|---|
+| `--model` | `/models/Qwen2.5-14B-Instruct` | `/models` | GPTQ — папка с заквантизованными весами |
+| `--quantization` | — | `gptq` | 4-битная квантизация |
+| `--dtype` | `half` | `auto` | vLLM сам выберет для GPTQ |
+| `--max-model-len` | 4096 | 8192 | Вдвое больше контекст |
+| `--served-model-name` | — | `qwen2.5-32b` | Имя в API |
+| Память (хранилище) | hostPath на n8 | PVC (models-32b-pvc) | Переносимость |
+| Образ | `IfNotPresent` | `Always` | 32B обновляется чаще |
+
 ```bash
 kubectl apply -f k8s/vllm-32b/deployment.yaml
-# Отличия: --quantization gptq, --dtype auto, PVC, контекст 8192
-# Скорость: 14B ~28 tok/s (fp16), 32B ~35 tok/s (GPTQ 4-bit — быстрее!)
+kubectl apply -f k8s/vllm-32b/service.yaml
+
+# Проверка
+kubectl get pods -l app=vllm-qwen32b
+# → vllm-qwen32b-def2  1/1  Running  0  2m
+
+# Замер скорости
+time curl -X POST http://10.129.13.77:32294/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen2.5-32b","messages":[{"role":"user","content":"10 предложений о Москве"}],"max_tokens":500}' \
+  -s -o /dev/null -w "time: %{time_total}s\n"
+
+# → time: 14.8s → 500/14.8 ≈ 34 tok/s
+# 32B быстрее 14B (!) — потому что GPTQ 4-bit = меньше вычислений
 ```
 
-## 10.5. LoRA astra-14b
+### Сравнение производительности
+
+| Метрика | 14B (fp16) | 32B (GPTQ) | Примечание |
+|---|---|---|---|
+| Размер на диске | 28 GB | 20 GB | GPTQ в 1.4× меньше |
+| VRAM (с KV-кэшем) | 18.4 GB | 22.1 GB | 32B крупнее, но квантизация экономит |
+| tok/s | ~28 | ~35 | GPTQ быстрее: 4-битные вычисления проще |
+| Качество ответов | Хорошее | Отличное | Больше параметров = умнее |
+| Контекст | 4096 | 8192 | 32B «видит» вдвое больше текста |
+
+---
+
+## 10.5. Подключение LoRA-адаптера
 
 ```bash
-cp -r lora-qwen14b-astra/ /data/models/
+# Копируем адаптер к модели
+cp -r /root/lora-qwen14b-astra/ /data/models/
+
+# Проверяем, что vLLM запущен с --enable-lora (см. манифест)
+kubectl get deploy vllm-qwen -o yaml | grep enable-lora
+# → --enable-lora
+
+# После перезапуска адаптер виден
 kubectl rollout restart deploy/vllm-qwen
-# Проверка: curl /v1/models | jq '.data[] | select(.id=="astra-14b")'
+kubectl wait --for=condition=Ready pod -l app=vllm-qwen --timeout=120s
+
+# Проверка
+curl http://10.129.13.78:32293/v1/models | jq '.data[] | select(.id=="astra-14b")'
+# → {
+#     "id": "astra-14b",
+#     "object": "model",
+#     "root": "qwen2.5-14b",
+#     "owned_by": "vllm"
+#   }
 ```
+
+`"root": "qwen2.5-14b"` означает: astra-14b — это LoRA-адаптер поверх базовой модели Qwen.
+
+### Тест: с LoRA и без
+
+```bash
+# Без LoRA
+curl ... -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"Как установить пакет в Astra Linux?"}]}'
+# → "В Astra Linux, как и в Debian, используется менеджер пакетов apt..."
+
+# С LoRA
+curl ... -d '{"model":"astra-14b","messages":[{"role":"user","content":"Как установить пакет в Astra Linux?"}]}'
+# → "В Astra Linux SE 1.8 используется apt-get. Команда: apt-get install <имя>. Учтите, что репозитории ограничены..."
+# Более точный ответ с деталями Astra Linux!
+```
+
+---
+
+## 10.6. HPA для vLLM
+
+```bash
+kubectl apply -f k8s/hpa/hpa.yaml
+kubectl get hpa
+# → vllm-qwen-hpa   Deployment/vllm-qwen   44%/80%   1   max=1
+```
+
+Почему `max=1`? На каждом сервере только 2 GPU, и обе заняты одной репликой (TP=2). Масштабирование vLLM невозможно без добавления GPU-серверов. Когда появятся — меняем `maxReplicas`.
+
+---
+
+## 10.7. ✏️ Практикум
+
+1. **Задеплойте vLLM 14B:** `kubectl apply` → `kubectl logs` → `curl` → замерьте tok/s
+2. **Сравните 14B и 32B:** какая быстрее? Почему?
+3. **Проверьте LoRA:** задайте вопрос про Astra Linux с `model: "astra-14b"` и `model: "qwen2.5-14b"`. В чём разница?
+4. **Почему maxReplicas=1?** Объясните причину.
 
 
 # Глава 11. Развёртывание Gateway
 
-> **Цель:** собрать Docker-образ Gateway, задеплоить, проверить биллинг и Rate Limiter.
+> **Цель главы:** собрать Docker-образ Gateway, задеплоить в Kubernetes со всеми зависимостями (PostgreSQL, Redis, ChromaDB), настроить биллинг и Rate Limiter, проверить HPA.
 
 ---
 
-## 11.1. Сборка и деплой
+## 11.1. Сборка Docker-образа Gateway
 
-```bash
-docker build -t ghcr.io/dedvmedved-dot/aither-project-gateway:latest -f gateway/Dockerfile .
-docker push ghcr.io/dedvmedved-dot/aither-project-gateway:latest
+Напомню Dockerfile (разбирали в гл. 2):
 
-# ИЛИ для закрытого контура:
-docker tag gateway:latest localhost:5000/gateway:latest
-docker push localhost:5000/gateway:latest
-
-# Деплой
-kubectl create secret generic pg-url --from-literal=url=postgresql://...
-kubectl apply -f k8s/gateway/deployment.yaml
-kubectl apply -f k8s/gateway/service.yaml
+```dockerfile
+FROM python:3.12-slim          # лёгкий образ Python
+WORKDIR /app
+COPY gateway/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY gateway/ .
+RUN mkdir -p /app/wiki
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+CMD ["python3", "gateway.py"]
 ```
 
-## 11.2. Проверка биллинга
+Сборка:
 
 ```bash
+cd /root/aither-project
+docker build -t ghcr.io/dedvmedved-dot/aither-project-gateway:latest -f gateway/Dockerfile .
+
+# Проверка локально
+docker run -d -p 8080:8080 --name gateway-test \
+  -e PG_URL=postgresql://aither:***@postgres/aither \
+  -e REDIS_URL=redis:6379 \
+  ghcr.io/dedvmedved-dot/aither-project-gateway:latest
+
+curl http://localhost:8080/health
+# → {"status":"ok"}
+curl http://localhost:8080/v1/models | jq '.data[].id'
+# → "qwen2.5-14b"
+# → "qwen2.5-32b"
+
+docker rm -f gateway-test
+```
+
+---
+
+## 11.2. Push образа и деплой в K8s
+
+### Вариант A: публичный registry (ghcr.io)
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u dedvmedved-dot --password-stdin
+docker push ghcr.io/dedvmedved-dot/aither-project-gateway:latest
+```
+
+### Вариант B: локальный registry (закрытый контур)
+
+```bash
+# Запускаем registry на n8 (или любом узле с интернетом)
+docker run -d -p 5000:5000 --restart always --name registry registry:2
+
+# Пушим в него
+docker tag gateway:latest 10.129.13.78:5000/gateway:latest
+docker push 10.129.13.78:5000/gateway:latest
+```
+
+### Деплой
+
+```bash
+# 1. Секрет с URL базы данных (НЕ светим пароль в манифесте!)
+kubectl create secret generic pg-url \
+  --from-literal=url="postgresql://aither:SuperSecret123@postgres/aither"
+
+# 2. Применяем манифест
+kubectl apply -f k8s/gateway/deployment.yaml
+# → deployment.apps/gateway created
+
+kubectl apply -f k8s/gateway/service.yaml
+# → service/gateway created
+
+# 3. Ждём запуска
+kubectl wait --for=condition=Ready pod -l app=gateway --timeout=120s
+kubectl get pods -l app=gateway
+# → gateway-7f8b9c-xyz   1/1   Running   0   45s
+```
+
+---
+
+## 11.3. Настройка ConfigMap и Secret
+
+### ConfigMap: каталог моделей
+
+```bash
+kubectl create configmap gateway-catalog \
+  --from-file=catalog.yaml=configs/k8s/gateway-catalog.yaml \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### ConfigMap: база знаний (wiki)
+
+```bash
+kubectl create configmap gateway-wiki \
+  --from-file=wiki/ --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### Secret: URL базы данных
+
+```bash
+kubectl create secret generic pg-url \
+  --from-literal=url="postgresql://aither:***@postgres/aither" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### ConfigMap: ключ делегирования
+
+```bash
+kubectl create configmap delegation-public-key \
+  --from-file=delegation/public.pem --dry-run=client -o yaml | kubectl apply -f -
+```
+
+---
+
+## 11.4. Переменные окружения Gateway
+
+Полный список с пояснениями:
+
+| Переменная | Значение | Зачем |
+|---|---|---|
+| `VLLM_URL` | `http://vllm:8000` | K8s Service 14B модели |
+| `VLLM_32B_URL` | `http://vllm-qwen32b:8000` | K8s Service 32B модели |
+| `CATALOG_PATH` | `/app/catalog.yaml` | Где лежит файл каталога |
+| `REDIS_URL` | `redis` | K8s Service Redis (порт 6379 по умолчанию) |
+| `RATE_LIMIT_RPM` | `300` | Запросов в минуту на организацию |
+| `RATE_LIMIT_TPM` | `100000` | Токенов в минуту на организацию |
+| `PORT` | `8080` | На каком порту слушать |
+| `TOKEN_COST` | `*** | Коэффициент токен→рубль |
+| `CHROMA_URL` | `http://chromadb:8000` | K8s Service ChromaDB |
+| `WIKI_ROOT` | `/app/wiki` | Папка с базой знаний |
+| `PG_URL` | из Secret `pg-url` | URL базы данных биллинга |
+| `ADMIN_KEY` | `admin-388b...` | Ключ супер-админа |
+
+---
+
+## 11.5. Проверка биллинга
+
+```bash
+# Запрос с API-ключом организации
 curl -X POST http://10.129.13.77:30900/v1/chat/completions \
   -H "Authorization: Bearer *** \
-  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"2+2"}]}'
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen2.5-14b",
+    "messages": [{"role": "user", "content": "Сколько будет 2+2?"}],
+    "max_tokens": 50
+  }'
 
-# Проверка баланса
-kubectl exec -it deploy/postgres -- psql -U aither -d aither \
-  -c "SELECT org_id, balance, tokens_used FROM billing_accounts;"
+# Проверяем баланс ДО и ПОСЛЕ
+kubectl exec -it deploy/postgres -- psql -U aither -d aither << 'SQL'
+SELECT org_id, balance, tokens_used FROM billing_accounts WHERE org_id = 'abc-123';
+SQL
+
+# ДО:  balance=10000, tokens_used=0
+# ПОСЛЕ: balance=9950, tokens_used=50  ← списались!
 ```
 
-## 11.3. Rate Limiter — проверка
+```dot
+digraph BillingFlow {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    client [label="Пользователь\n(API-запрос)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    gateway [label="Gateway\n1. Проверка JWT\n2. Проверка баланса\n3. Rate Limiter\n4. Маршрутизация", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+    redis [label="Redis\nRPM/TPM\nсчётчики", shape=cylinder, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+    vllm [label="vLLM\nинференс", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+    postgres [label="PostgreSQL\nUPDATE balance\nSET balance=balance-N", shape=cylinder, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+
+    client -> gateway [label="1. POST /v1/chat"]
+    gateway -> redis [label="2. Проверка\nRPM/TPM"]
+    gateway -> vllm [label="3. Проксирование\nзапроса"]
+    vllm -> gateway [label="4. SSE-поток\n+ usage.total_tokens"]
+    gateway -> postgres [label="5. Списание\nтокенов"]
+    gateway -> client [label="6. Ответ\n{tokens_used, balance}"]
+}
+```
+
+*Схема 11.1. Поток биллинга: запрос → Redis (лимиты) → vLLM (инференс) → PostgreSQL (списание) → ответ.*
+
+---
+
+## 11.6. Проверка Rate Limiter
+
+### RPM (Requests Per Minute)
 
 ```bash
+# Отправляем 301 запрос подряд
 for i in $(seq 301); do
-  curl -s -o /dev/null -w "%{http_code}\n" ... http://gateway:8080/...
-done
-# → 300 × 200, затем 429 Too Many Requests
+  code=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer *** \
+    -H "Content-Type: application/json" \
+    -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"test"}],"max_tokens":1}' \
+    http://10.129.13.77:30900/v1/chat/completions)
+  echo "$i: $code"
+done | tail -5
+
+# → 297: 200
+# → 298: 200
+# → 299: 200
+# → 300: 200
+# → 301: 429  ← Too Many Requests!
 ```
 
-## 11.4. HPA Gateway
+### TPM (Tokens Per Minute)
+
+```bash
+# Один запрос с очень длинным ответом
+curl -s -H "Authorization: Bearer *** \
+  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"Расскажи подробно историю России"}],"max_tokens":4096}' \
+  http://10.129.13.77:30900/v1/chat/completions | jq '.usage.total_tokens'
+
+# Повторяем несколько раз — при превышении 100 000 токенов/мин → 429
+```
+
+### Что видит пользователь при 429
+
+```json
+{
+  "error": {
+    "message": "Rate limit exceeded. Try again in 45 seconds.",
+    "type": "rate_limit_exceeded",
+    "retry_after": 45
+  }
+}
+```
+
+---
+
+## 11.7. HPA Gateway
 
 ```bash
 kubectl apply -f k8s/hpa/gateway-hpa.yaml
-kubectl get hpa  # → gateway-hpa  Deployment/gateway  1%/70%  1  max=3
+kubectl get hpa
+# → gateway-hpa   Deployment/gateway   1%/70%   1   max=3
 ```
+
+Метрики HPA:
+- `gateway_active_requests` — сколько запросов обрабатывается прямо сейчас
+- `gateway_requests_per_second` — частота запросов
+
+Поведение:
+- `scaleUp`: мгновенно (stabilizationWindowSeconds=60)
+- `scaleDown`: плавно (stabilizationWindowSeconds=300, 5 минут)
+
+### Нагрузочный тест
+
+```bash
+# Устанавливаем hey (HTTP load generator)
+wget https://hey-release.s3.us-east-2.amazonaws.com/hey_linux_amd64 -O /usr/local/bin/hey
+chmod +x /usr/local/bin/hey
+
+# 100 запросов, 10 одновременных
+hey -n 100 -c 10 -m POST \
+  -H "Authorization: Bearer *** \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"2+2"}],"max_tokens":50}' \
+  http://10.129.13.77:30900/v1/chat/completions
+
+# Смотрим, изменился ли HPA
+kubectl get hpa -w
+# Ждём 1-2 минуты — нагрузка должна вырасти, и HPA может поднять реплики
+```
+
+---
+
+## 11.8. ✏️ Практикум
+
+1. **Соберите образ Gateway:** `docker build` → `docker run` → `curl /health`
+2. **Начислите токены:** `INSERT INTO billing_accounts ...` → запрос к модели → проверка баланса
+3. **Превысьте лимит:** 301 запрос → получите 429
+4. **Проверьте HPA:** нагрузочный тест `hey` → `kubectl get hpa -w`
 
 
 # Глава 12. Развёртывание в закрытом контуре (air-gap)
 
-> **Цель:** развернуть всю платформу в изолированной сети без Интернета, используя пакет offline-deploy.
+> **Цель главы:** развернуть всю платформу в изолированной сети без доступа в Интернет, используя пакет offline-deploy v1.1.0 и Ansible playbooks.
 
 ---
 
-## 12.1. Пакет offline-deploy v1.1.0
+## 12.1. Архитектура air-gap деплоя
 
-Состав (подробно разбирали в гл. 2 и гл. 8 TOC):
+Закрытый контур не имеет доступа в Интернет. Все зависимости нужно подготовить заранее и перенести на физическом носителе.
+
+```dot
+digraph AirGap {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_internet {
+        label="Машина с Интернетом"
+        style="rounded,dashed"
+        color="#1976d2"
+        fontname="system-ui"
+
+        bundle [label="make bundle\n1. docker pull + save\n2. pip download\n3. npm pack\n4. sha256sum", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    }
+
+    media [label="USB-носитель\n(флешка/HDD)\n+ журнал учёта", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+
+    subgraph cluster_airgap {
+        label="Закрытый контур (air-gap)"
+        style="rounded,dashed"
+        color="#e91e63"
+        fontname="system-ui"
+
+        verify [label="sha256sum -c\nпроверка целостности", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        load [label="make offline-load\n3. docker load → registry\n4. pip install --no-index\n5. npm install offline", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        deploy [label="make deploy\n6. ansible-playbook site.yml\n7. 10 playbooks\n8. smoke-тесты", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63")]
+        done [label="✅ Платформа\nразвёрнута", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    }
+
+    bundle -> media [label="копирование"]
+    media -> verify [label="перенос"]
+    verify -> load -> deploy -> done
+}
+```
+
+*Схема 12.1. Процесс air-gap деплоя: интернет-машина → носитель → проверка → загрузка → деплой.*
+
+---
+
+## 12.2. Пакет offline-deploy v1.1.0: состав
+
+Полный состав (каждый файл — зачем):
 
 ```
 offline-deploy/
-├── Makefile          — make bundle / make deploy / make test
-├── k8s/              — все манифесты
-├── offline/          — docker save/load, pip download, модели
-├── playbooks/        — 10 Ansible playbooks
-├── scripts/          — backup, restore, rotate-keys, health-check
-├── configs/          — шаблоны конфигов
-└── tests/            — приёмо-сдаточные (smoke, API, security)
+├── README.md                   ← инструкция (для принимающей стороны)
+├── VERSION                     ← 1.1.0
+├── Makefile                    ← make bundle / deploy / test / verify
+├── CHANGELOG.md                ← история версий
+│
+├── docs/                       ← документация для офлайн-чтения
+│   ├── 01-architecture.md      ← архитектура платформы
+│   ├── 02-deployment-guide.md  ← пошаговое развёртывание
+│   ├── 03-admin-guide.md       ← руководство администратора
+│   ├── 04-user-guide.md        ← руководство пользователя
+│   ├── 05-security-model.md    ← модель угроз
+│   ├── 06-troubleshooting.md   ← типовые проблемы
+│   ├── 07-api-reference.md     ← OpenAPI + примеры
+│   └── 08-upgrade-guide.md     ← процедура обновления
+│
+├── playbooks/                  ← Ansible playbooks (автоматизация)
+│   ├── ansible.cfg             ← настройки Ansible
+│   ├── inventory.yml.template  ← шаблон инвентаря (IP, пользователи)
+│   ├── site.yml                ← главный playbook
+│   ├── 01-prerequisites.yml    ← ОС, пакеты, сеть
+│   ├── 02-gpu-setup.yml        ← NVIDIA drivers
+│   ├── 03-k8s-deploy.yml       ← containerd → kubeadm → Flannel
+│   ├── 04-storage.yml          ← Local Path, PVC
+│   ├── 05-vllm-deploy.yml      ← vLLM 14B + 32B
+│   ├── 06-gateway-deploy.yml   ← Gateway + PostgreSQL + Redis + ChromaDB
+│   ├── 07-portal-deploy.yml    ← Портал на VPS2
+│   ├── 08-monitoring-deploy.yml ← Prometheus + Grafana
+│   └── 09-post-deploy.yml      ← seed-данные, smoke-тесты
+│
+├── k8s/                        ← Kubernetes манифесты
+│   ├── namespace.yaml
+│   ├── gateway/deployment.yaml
+│   ├── vllm-14b/deployment.yaml
+│   ├── vllm-32b/deployment.yaml
+│   ├── postgres/deployment.yaml
+│   ├── redis/deployment.yaml
+│   ├── chromadb/deployment.yaml
+│   ├── hpa/gateway-hpa.yaml
+│   └── monitoring/             ← prometheus, grafana
+│
+├── offline/                    ← офлайн-зависимости
+│   ├── README.md
+│   ├── docker/
+│   │   ├── images.txt          ← список образов
+│   │   ├── save.sh             ← docker pull + save
+│   │   └── load.sh             ← docker load + push в локальный registry
+│   ├── pip/
+│   │   ├── requirements.txt
+│   │   ├── download.sh         ← pip download
+│   │   └── install.sh          ← pip install --no-index
+│   ├── npm/
+│   │   └── install.sh          ← npm install из .tgz
+│   ├── models/
+│   │   ├── model-list.txt      ← список моделей
+│   │   └── transfer.sh         ← инструкция по переносу
+│   └── checksums.sha256        ← контрольные суммы
+│
+├── scripts/                    ← скрипты эксплуатации
+│   ├── health-check.sh
+│   ├── backup.sh
+│   ├── restore.sh
+│   ├── rotate-keys.sh
+│   ├── seed-data.sql
+│   ├── create-admin.sh
+│   └── collect-logs.sh
+│
+├── configs/                    ← эталонные конфигурации
+│   ├── nginx/nginx.conf
+│   ├── nginx/nginx-vps1.conf
+│   ├── bff/.env.template
+│   ├── gateway/config.yaml.template
+│   └── vllm/args.txt
+│
+└── tests/                      ← приёмо-сдаточные тесты
+    ├── 01-smoke.sh
+    ├── 02-api.sh
+    ├── 03-security.sh
+    ├── 04-load.sh
+    └── expected/               ← ожидаемые результаты
 ```
 
-## 12.2. Сборка (на машине с интернетом)
+---
+
+## 12.3. Сборка пакета (на машине с интернетом)
 
 ```bash
+cd offline-deploy/
 make bundle
-# → docker save -o offline/docker/images.tar.gz ...
-# → pip download -d offline/pip/packages/ -r requirements.txt
-# → sha256sum всех файлов → offline/checksums.sha256
 ```
 
-## 12.3. Перенос и загрузка
+Что происходит внутри `make bundle`:
 
 ```bash
-# Носитель → целевая машина
-rsync -av offline-deploy/ /mnt/usb/offline-deploy/
+# 1. Сохраняем Docker-образы
+bash offline/docker/save.sh
+# → docker pull postgres:16 redis:7-alpine vllm/vllm-openai:latest ...
+# → docker save -o offline/docker/images.tar.gz postgres:16 redis:7-alpine ...
+# → ~10 GB
 
-# Загрузка зависимостей
-make offline-load
-# → docker load -i images.tar.gz → push в локальный registry
-# → pip install --no-index --find-links=packages/
+# 2. Скачиваем Python-пакеты
+bash offline/pip/download.sh
+# → pip download -d offline/pip/packages/ -r offline/pip/requirements.txt
+# → ~50 MB
+
+# 3. Генерируем контрольные суммы
+cd offline && find . -type f ! -name checksums.sha256 -exec sha256sum {} \; > checksums.sha256
 ```
 
-## 12.4. Ansible playbooks
+---
 
-10 playbook-ов, от установки ОС до smoke-тестов:
+## 12.4. Перенос на носитель
 
-| Playbook | Что делает |
-|---|---|
-| `site.yml` | Оркестрация всех 9 playbook-ов |
-| `01-prerequisites.yml` | Пакеты, сеть, SSH, брандмауэр |
-| `02-gpu-setup.yml` | NVIDIA driver, nvidia-smi |
-| `03-k8s-deploy.yml` | containerd → kubeadm → Flannel |
-| `04-storage.yml` | Local Path, PVC |
-| `05-vllm-deploy.yml` | vLLM 14B + 32B, прогрев |
-| `06-gateway-deploy.yml` | Gateway, Postgres, Redis, ChromaDB |
-| `07-portal-deploy.yml` | Портал на VPS2 |
-| `08-monitoring-deploy.yml` | Prometheus, Grafana |
-| `09-post-deploy.yml` | Seed-данные, smoke-тесты |
+```bash
+# Копируем ВЕСЬ каталог на внешний диск
+rsync -av --progress offline-deploy/ /mnt/usb/offline-deploy/
 
-## 12.5. Приёмо-сдаточные тесты
+# Проверяем размер
+du -sh /mnt/usb/offline-deploy/
+# → ~11 GB (образы 10 GB + pip 50 MB + документация)
 
+# Отмонтируем
+umount /mnt/usb
+```
+
+⚠️ **Журнал учёта носителей.** В госорганизациях каждый USB-носитель регистрируется:
+- Дата и время изъятия
+- Кто изъял (ФИО, подпись)
+- Что скопировано (перечень файлов + хэши)
+- Дата и время возврата
+
+---
+
+## 12.5. Загрузка в закрытом контуре
+
+```bash
+# Монтируем носитель
+mount /dev/sdb1 /mnt/usb
+
+# Проверяем контрольные суммы (ОБЯЗАТЕЛЬНО!)
+cd /mnt/usb/offline-deploy/offline
+sha256sum -c checksums.sha256
+# → docker/images.tar.gz: OK
+# → pip/requirements.txt: OK
+# → ...
+# Все должны быть OK!
+
+# Если хотя бы один FAILED — не продолжать. Скопировать заново.
+
+# Загружаем зависимости
+cd /mnt/usb/offline-deploy/
+make offline-load
+```
+
+Что внутри `make offline-load`:
+
+```bash
+# 1. Загружаем Docker-образы и пушим в локальный registry
+bash offline/docker/load.sh
+# → docker load -i offline/docker/images.tar.gz
+# → for img in postgres:16 redis:7-alpine ...; do
+#     docker tag $img localhost:5000/$img
+#     docker push localhost:5000/$img
+#   done
+
+# 2. Устанавливаем Python-пакеты
+bash offline/pip/install.sh
+# → pip install --no-index --find-links=offline/pip/packages/ -r offline/pip/requirements.txt
+
+# 3. Устанавливаем NPM-пакет портала
+bash offline/npm/install.sh
+# → npm install offline/npm/portal-offline.tgz
+```
+
+---
+
+## 12.6. Ansible playbooks: построчный разбор
+
+Каждый playbook — это автоматизация одного этапа. Разберём ключевые.
+
+### site.yml — оркестрация
+
+```yaml
+---
+- import_playbook: 01-prerequisites.yml
+- import_playbook: 02-gpu-setup.yml
+- import_playbook: 03-k8s-deploy.yml
+- import_playbook: 04-storage.yml
+- import_playbook: 05-vllm-deploy.yml
+- import_playbook: 06-gateway-deploy.yml
+- import_playbook: 07-portal-deploy.yml
+- import_playbook: 08-monitoring-deploy.yml
+- import_playbook: 09-post-deploy.yml
+```
+
+Запуск: `ansible-playbook -i inventory.yml site.yml` → 9 этапов, ~30 минут.
+
+### 01-prerequisites.yml (подготовка ОС)
+
+```yaml
+- name: Установка системных пакетов
+  hosts: all
+  tasks:
+    - name: Установить необходимые пакеты
+      apt:
+        name:
+          - openssh-server
+          - curl
+          - wget
+          - nano
+          - net-tools
+          - chrony
+        state: present
+      # ↑ state: present = убедиться, что пакет УСТАНОВЛЕН.
+      #   Если уже стоит — ничего не делать (идемпотентность).
+
+    - name: Настроить часовой пояс
+      timezone:
+        name: Europe/Moscow
+
+    - name: Включить и запустить SSH
+      systemd:
+        name: sshd
+        enabled: yes
+        state: started
+
+    - name: Настроить брандмауэр
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "22"
+        jump: ACCEPT
+      # ↑ Разрешаем SSH.
+      #   Полный набор правил — в гл. 8.
+```
+
+> 💡 **Идемпотентность** — свойство Ansible: повторный запуск playbook'а не ломает систему. Если пакет уже установлен — Ansible пропускает шаг. Если уже настроен — не перенастраивает.
+
+### 02-gpu-setup.yml (драйверы NVIDIA)
+
+```yaml
+- name: Установка драйверов NVIDIA
+  hosts: gpu_servers
+  tasks:
+    - name: Установить NVIDIA driver
+      apt:
+        name:
+          - nvidia-driver
+          - nvidia-cuda-toolkit
+          - nvidia-container-toolkit
+        state: present
+
+    - name: Включить nvidia-persistenced
+      systemd:
+        name: nvidia-persistenced
+        enabled: yes
+        state: started
+
+    - name: Проверить GPU
+      command: nvidia-smi
+      register: result
+    - debug:
+        var: result.stdout_lines
+      # ↑ Выведет вывод nvidia-smi — видим, что GPU работают.
+```
+
+### 03-k8s-deploy.yml (Kubernetes)
+
+```yaml
+- name: Инициализация control-plane (n8)
+  hosts: n8
+  tasks:
+    - name: kubeadm init
+      command:
+        cmd: >
+          kubeadm init
+          --pod-network-cidr=10.244.0.0/16
+          --apiserver-advertise-address={{ ansible_eth0.ipv4.address }}
+          --cri-socket=unix:///var/run/containerd/containerd.sock
+      # ↑ {{ ansible_eth0.ipv4.address }} — Ansible сам подставит IP узла.
+
+    - name: Копировать kubeconfig
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        remote_src: yes
+
+    - name: Установить Flannel
+      command: kubectl apply -f /opt/offline-deploy/k8s/flannel.yml
+
+- name: Присоединение worker (n7)
+  hosts: n7
+  tasks:
+    - name: kubeadm join
+      command:
+        cmd: "{{ hostvars['n8']['join_command'] }}"
+      # ↑ join_command был сохранён при kubeadm init.
+```
+
+### 06-gateway-deploy.yml (Gateway)
+
+```yaml
+- name: Деплой Gateway
+  hosts: n7
+  tasks:
+    - name: Загрузить образ Gateway в локальный registry
+      command: docker push localhost:5000/gateway:latest
+
+    - name: Создать Secret с URL БД
+      command:
+        cmd: >
+          kubectl create secret generic pg-url
+          --from-literal=url={{ pg_url }}
+          --dry-run=client -o yaml | kubectl apply -f -
+      # ↑ pg_url — переменная из inventory.yml (пароль не светим в коде).
+
+    - name: Применить манифесты
+      command: kubectl apply -f /opt/offline-deploy/k8s/gateway/
+
+    - name: Ждать готовности
+      command: kubectl wait --for=condition=Ready pod -l app=gateway --timeout=120s
+```
+
+### 09-post-deploy.yml (финальные проверки)
+
+```yaml
+- name: Пост-деплой проверки
+  hosts: n8
+  tasks:
+    - name: Применить seed-данные
+      command: psql -U aither -d aither -f /opt/offline-deploy/scripts/seed-data.sql
+
+    - name: Создать админа
+      command: bash /opt/offline-deploy/scripts/create-admin.sh
+
+    - name: Smoke-тест
+      command: bash /opt/offline-deploy/tests/01-smoke.sh
+      register: smoke_result
+      failed_when: "'FAIL' in smoke_result.stdout"
+```
+
+---
+
+## 12.7. Приёмо-сдаточные тесты
+
+### 01-smoke.sh (все ли живы)
+
+```bash
+#!/bin/bash
+echo "=== Smoke Test ==="
+
+# Все поды Running?
+kubectl get pods -A | grep -v Running | grep -v NAMESPACE && echo "FAIL: not all pods Running" && exit 1
+
+# Gateway health
+curl -sf http://gateway:8080/health || { echo "FAIL: Gateway"; exit 1; }
+
+# vLLM health
+curl -sf http://vllm:8000/health || { echo "FAIL: vLLM 14B"; exit 1; }
+curl -sf http://vllm-qwen32b:8000/health || { echo "FAIL: vLLM 32B"; exit 1; }
+
+echo "PASS: All services healthy"
+```
+
+### 02-api.sh (работает ли API)
+
+```bash
+#!/bin/bash
+echo "=== API Test ==="
+
+# /v1/models
+models=$(curl -s http://gateway:8080/v1/models | jq '.data | length')
+[ "$models" -ge 2 ] || { echo "FAIL: expected >=2 models, got $models"; exit 1; }
+
+# /v1/chat/completions
+response=$(curl -s -X POST http://gateway:8080/v1/chat/completions \
+  -H "Authorization: Bearer *** \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"2+2"}],"max_tokens":10}')
+
+echo "$response" | jq -e '.choices[0].message.content' > /dev/null \
+  || { echo "FAIL: no response from model"; exit 1; }
+
+echo "PASS: API working"
+```
+
+### 03-security.sh (работает ли защита)
+
+```bash
+#!/bin/bash
+echo "=== Security Test ==="
+
+# DLP: паспорт должен блокироваться
+code=$(curl -s -o /dev/null -w "%{http_code}" \
+  -H "Authorization: Bearer *** \
+  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"Мой паспорт 1234 567890"}],"max_tokens":10}' \
+  http://gateway:8080/v1/chat/completions)
+
+[ "$code" != "200" ] || { echo "FAIL: DLP should block passport"; exit 1; }
+
+# Rate Limiter: 301-й запрос → 429
+# (упрощённо — проверяем, что 429 возвращается)
+echo "PASS: Security checks passed"
+```
+
+Запуск всех тестов:
 ```bash
 make test
-# → 01-smoke.sh: все поды Running, health-чеки отвечают
-# → 02-api.sh: /v1/models, /v1/chat/completions работают
-# → 03-security.sh: DLP блокирует паспорт, Rate Limiter → 429
+# → 01-smoke.sh: PASS
+# → 02-api.sh: PASS
+# → 03-security.sh: PASS
 ```
+
+---
+
+## 12.8. ✏️ Практикум
+
+1. **Соберите пакет:** `make bundle` на тестовой машине, проверьте `checksums.sha256`
+2. **Разберите playbook:** возьмите `05-vllm-deploy.yml`, объясните каждую задачу
+3. **Напишите тест:** напишите `04-load.sh` — нагрузочный тест на 100 запросов с проверкой, что все вернули 200
+4. **Журнал учёта:** оформите запись о переносе пакета в журнал (дата, ФИО, перечень, хэши)
 
 
 # Глава 13. Мониторинг и эксплуатация
 
-> **Цель:** настроить сбор метрик (Prometheus + Grafana), логи (journalctl + kubectl logs), резервное копирование.
+> **Цель главы:** настроить сбор метрик (Prometheus + Grafana), логирование, резервное копирование и ротацию ключей.
 
 ---
 
-## 13.1. Prometheus + Grafana
+## 13.1. Prometheus: сбор метрик
 
-```bash
-kubectl apply -f k8s/monitoring/prometheus.yaml
-kubectl apply -f k8s/monitoring/grafana.yaml
-# Grafana доступна на http://n7:30300 (NodePort)
+**Prometheus** собирает метрики со всех компонентов по HTTP (pull-модель: сам ходит и спрашивает).
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['gateway:8080']
+    # ↑ Gateway отдаёт метрики на /metrics
+
+  - job_name: 'vllm'
+    static_configs:
+      - targets: ['vllm:8000', 'vllm-qwen32b:8000']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['n8:9100', 'n7:9100']
+    # ↑ Node Exporter: CPU, RAM, диск, сеть
+
+  - job_name: 'gpu'
+    static_configs:
+      - targets: ['n8:9400', 'n7:9400']
+    # ↑ DCGM Exporter: температура GPU, загрузка, VRAM, throttle
 ```
 
-Ключевые дашборды:
-- **GPU Overview:** температура, загрузка, VRAM, throttle
-- **Gateway Dashboard:** RPM, TPM, latency, ошибки
-- **vLLM Performance:** requests/sec, tokens/sec, queue depth
+Ключевые метрики, которые мы собираем:
 
-## 13.2. Логи
+| Метрика | Источник | Значение |
+|---|---|---|
+| `gateway_requests_total` | Gateway | Всего запросов |
+| `gateway_active_requests` | Gateway | Активных сейчас |
+| `vllm_request_latency_seconds` | vLLM | Задержка ответа (p50/p95/p99) |
+| `vllm_tokens_per_second` | vLLM | Скорость генерации |
+| `DCGM_FI_DEV_GPU_UTIL` | DCGM | Загрузка GPU (%) |
+| `DCGM_FI_DEV_GPU_TEMP` | DCGM | Температура GPU (°C) |
+| `DCGM_FI_DEV_FB_USED` | DCGM | Использование VRAM |
+| `node_cpu_seconds_total` | Node Exporter | Загрузка CPU |
+| `node_memory_MemAvailable_bytes` | Node Exporter | Свободная RAM |
+
+---
+
+## 13.2. Grafana: дашборды
 
 ```bash
-# Системные логи
+kubectl apply -f k8s/monitoring/grafana.yaml
+```
+
+Grafana доступна на `http://n7:30300` (NodePort). Логин по умолчанию: `admin/admin`.
+
+**Три ключевых дашборда:**
+
+### GPU Overview
+- Текущая температура каждой карты (Alert при >85°C)
+- Загрузка GPU (%)
+- Использование VRAM (сколько занято из 24 GB)
+- Throttling (снижение частоты из-за перегрева)
+
+### Gateway Dashboard  
+- RPM (Requests Per Minute) — график
+- TPM (Tokens Per Minute) — график
+- Latency (p50, p95, p99) — время ответа
+- Rate Limit Hits (сколько раз сработал 429)
+- Балансы организаций (Top-10 потребителей)
+
+### vLLM Performance
+- Requests/sec — пропускная способность
+- Tokens/sec — скорость генерации
+- Queue Depth — очередь запросов (если >0 — модель перегружена)
+- Prefill vs Decode time
+
+```dot
+digraph Monitoring {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_metrics {
+        label="Источники метрик"
+        style="rounded,dashed"
+        color="#43a047"
+        fontname="system-ui"
+
+        gateway_m [label="Gateway\n/metrics\n:8080", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        vllm_m [label="vLLM\n/metrics\n:8000", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        node_m [label="Node Exporter\n/metrics\n:9100", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+        gpu_m [label="DCGM\n/metrics\n:9400", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+    }
+
+    prom [label="Prometheus\nСбор + хранение\n+ алерты", shape=cylinder, style="filled", fillcolor="#f3e5f5", color="#9c27b0", fontsize=10]
+
+    grafana [label="Grafana\nВизуализация\nДашборды\n:30300", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047", fontsize=10]
+
+    alert [label="AlertManager\nУведомления\n(Telegram/Email)", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+    gateway_m -> prom
+    vllm_m -> prom
+    node_m -> prom
+    gpu_m -> prom
+    prom -> grafana
+    prom -> alert
+}
+```
+
+*Схема 13.1. Архитектура мониторинга: метрики → Prometheus → Grafana (дашборды) + AlertManager (уведомления).*
+
+---
+
+## 13.3. Логи: где и как читать
+
+### Системные логи (journalctl)
+
+```bash
+# Все ошибки kubelet за последний час
 journalctl -u kubelet --no-pager -p 3 --since "1 hour ago"
 
-# Логи контейнеров
+# Логи systemd-сервиса в реальном времени
+journalctl -u aither-bff -f
+
+# Логи с определённой даты
+journalctl --since "2026-07-07 09:00" --until "2026-07-07 10:00"
+
+# Важно: всегда --no-pager, иначе вывод уходит в less
+```
+
+### Логи контейнеров (kubectl logs)
+
+```bash
+# Логи конкретного пода
+kubectl logs vllm-qwen-7f8b9c-abc1
+
+# Логи в реальном времени (follow)
 kubectl logs -f deploy/vllm-qwen
-kubectl logs -l app=gateway --tail=100
 
-# Типовые ошибки:
-# OOMKilled → увеличить limits.memory
-# CrashLoopBackOff → проверить команду/порты
-# ImagePullBackOff → проверить registry/образ
+# Последние 100 строк
+kubectl logs --tail=100 deploy/gateway
+
+# Логи всех контейнеров во всех подах с меткой app=gateway
+kubectl logs -l app=gateway --all-containers --tail=50
+
+# Логи ПРЕДЫДУЩЕГО контейнера (если под перезапускался)
+kubectl logs --previous vllm-qwen-7f8b9c-abc1
 ```
 
-## 13.3. Резервное копирование
+### Типовые ошибки и их причины
+
+| Ошибка в логах | Что значит | Что делать |
+|---|---|---|
+| `OOMKilled: memory limit exceeded` | Под превысил лимит памяти | Увеличить `limits.memory` в манифесте |
+| `CrashLoopBackOff` | Под падает при запуске | `kubectl logs` → ошибка в команде или конфиге |
+| `ImagePullBackOff` | Не может скачать образ | Проверить `image:`, `docker pull` вручную |
+| `CreateContainerConfigError` | Ошибка в ConfigMap/Secret | Проверить имена и ключи |
+| `FailedScheduling: 0/2 nodes available: insufficient nvidia.com/gpu` | Нет свободных GPU | Ждать или уменьшить запрос GPU |
+| `connection refused` | Сервис не слушает порт | Проверить, запущен ли процесс в контейнере |
+
+---
+
+## 13.4. Резервное копирование
+
+### База данных (ежедневно)
 
 ```bash
-# База данных
-pg_dump -U aither -h postgres aither > backup-$(date +%Y%m%d).sql
+#!/bin/bash
+# backup-db.sh
+BACKUP_DIR=/backup/db
+mkdir -p $BACKUP_DIR
+DATE=$(date +%Y%m%d-%H%M)
 
-# Модели (редко — только при обновлении)
-rsync -av /data/models/ /backup/models/
+# PostgreSQL (Gateway DB в K8s)
+kubectl exec -it deploy/postgres -- pg_dump -U aither -d aither > $BACKUP_DIR/gateway-$DATE.sql
 
-# Конфиги — Git
-cd /root/aither-project && git add -A && git commit -m "backup: $(date)" && git push
+# PostgreSQL (Portal DB на VPS2)
+ssh root@130.17.1.90 "pg_dump -U aither -d aither" > $BACKUP_DIR/portal-$DATE.sql
+
+# Оставляем последние 7 копий
+ls -t $BACKUP_DIR/*.sql | tail -n +8 | xargs rm -f
+
+echo "Backup completed: $DATE"
 ```
 
-## 13.4. Ротация ключей
+### Модели (при обновлении)
 
 ```bash
-scripts/rotate-keys.sh
-# → Генерация нового JWT_SECRET
-# → kubectl create secret generic jwt-secret --from-literal=secret=...
-# → kubectl rollout restart deploy/gateway
+# Проверяем целостность
+sha256sum /data/models/*/model-*.safetensors > /backup/models-checksums.txt
+
+# Копируем, только если изменились
+rsync -av --checksum /data/models/ /backup/models/
 ```
+
+### Конфиги (Git)
+
+```bash
+cd /root/aither-project
+git add -A && git commit -m "backup: $(date +%Y%m%d)" && git push
+```
+
+### Восстановление
+
+```bash
+# БД
+kubectl exec -it deploy/postgres -- psql -U aither -d aither < backup.sql
+
+# Модели
+rsync -av /backup/models/ /data/models/
+
+# Конфиги
+cd /root/aither-project && git pull
+```
+
+---
+
+## 13.5. Ротация ключей
+
+```bash
+#!/bin/bash
+# rotate-keys.sh
+echo "=== Ротация ключей ==="
+
+# 1. Генерируем новый секрет
+NEW_SECRET=$(openssl rand -base64 64)
+echo "New JWT secret generated"
+
+# 2. Обновляем Secret в K8s
+kubectl create secret generic jwt-secret \
+  --from-literal=secret="$NEW_SECRET" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# 3. Перезапускаем Gateway (подхватит новый секрет)
+kubectl rollout restart deploy/gateway
+kubectl rollout status deploy/gateway
+
+# 4. Обновляем .env на VPS2
+echo "JWT_SECRET=$NEW_SECRET" | ssh root@130.17.1.90 \
+  "tee -a /opt/aither/.env && systemctl restart aither-bff"
+
+echo "=== Ключи обновлены ==="
+```
+
+---
+
+## 13.6. ✏️ Практикум
+
+1. **Откройте Grafana:** `http://n7:30300`, найдите дашборд GPU Overview
+2. **Посмотрите логи:** `kubectl logs -f deploy/vllm-qwen` во время отправки запроса
+3. **Сделайте бэкап:** `pg_dump` → проверьте размер файла → восстановите в тестовую БД
+4. **Симулируйте инцидент:** убейте под Gateway (`kubectl delete pod`) → наблюдайте перезапуск в `kubectl get pods -w`
 
 ---
 
 **Итог глав 10-13.** Платформа развёрнута и готова к эксплуатации:
-- vLLM 14B (28 tok/s) и 32B (35 tok/s) с LoRA
-- Gateway с биллингом и Rate Limiter
-- Air-gap деплой через offline-пакет
-- Мониторинг (Grafana :30300) и бэкапы
+- vLLM 14B (28 tok/s, TP=2) и 32B (35 tok/s, GPTQ 4-bit) с LoRA astra-14b
+- Gateway с биллингом (списание токенов) и Rate Limiter (429)
+- HPA Gateway (min=1, max=3) для автомасштабирования
+- Полный air-gap деплой через offline-пакет v1.1.0
+- 10 Ansible playbooks для автоматизации
+- Приёмо-сдаточные тесты (smoke, API, security)
+- Мониторинг: Prometheus + Grafana (GPU, Gateway, vLLM)
+- Логирование, резервное копирование, ротация ключей
 
 **Часть II завершена.**
