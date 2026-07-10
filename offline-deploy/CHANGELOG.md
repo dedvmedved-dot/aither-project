@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.2.0] — 10.07.2026
+
+### Добавлено
+
+- **chroma-proxy**: новый компонент (Deployment + Service + ConfigMap `chroma-proxy-script`)
+- **hybrid_rag.py**: гибридный RAG (Wiki Graph + ChromaDB через прокси) в Gateway
+- **k8s/chromadb/chroma-proxy.yaml**: полный манифест (ConfigMap с proxy.py, Deployment, Service)
+- **PVC chromadb-data**: ReadWriteOnce, 20Gi, привязан к n7-gpu
+- **Gateway**: env `CHROMA_PROXY_URL`, 13 модулей (добавлен `hybrid_rag.py`)
+- `docs/02-deployment-guide.md`: шаг проверки RAG после деплоя
+
+### Изменено
+
+- **ChromaDB**: образ `chromadb/chroma:0.5.23` (НЕ latest — 0.6.3 REST API сломан)
+- **ChromaDB**: namespace `default`, PVC RWO, nodeSelector на n7-gpu
+- **Gateway**: комментарий о 13 модулях (было 11)
+- **images.txt**: `chromadb/chroma:latest` → `chromadb/chroma:0.5.23`, примечание о версии
+- **01-architecture.md**: добавлен chroma-proxy в диаграмму и таблицу компонентов, секция RAG-архитектуры
+- **config.yaml.template**: добавлен `CHROMA_PROXY_URL`
+
+### Архитектура RAG
+
+```
+Gateway (hybrid_rag.py)
+  ├─ Wiki Graph (keyword, 8 стр.)
+  └─ chroma-proxy :9000 → all-MiniLM-L6-v2 → ChromaDB :8000
+```
+
+Gateway НЕ содержит зависимостей chromadb/sentence-transformers — всё в прокси.
+
 ## [1.1.0] — 07.07.2026
 
 ### Изменено

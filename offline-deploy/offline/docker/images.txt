@@ -1,4 +1,4 @@
-# Docker images list — версия 1.1.0
+# Docker images list — версия 1.2.0
 # Образы, необходимые для развёртывания в закрытом контуре
 # Сборка:  make bundle  (docker save в images.tar.gz)
 
@@ -14,8 +14,9 @@ ghcr.io/dedvmedved-dot/aither-project-gateway:latest
 postgres:16
 redis:7-alpine
 
-# RAG
-chromadb/chroma:latest
+# RAG (ChromaDB 0.5.23 — прокси использует тот же образ)
+# ВАЖНО: 0.5.23, НЕ latest (0.6.3 — REST API сломан)
+chromadb/chroma:0.5.23
 
 # Мониторинг
 prom/prometheus:latest

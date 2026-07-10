@@ -1,10 +1,13 @@
-# Gateway — Docker-образ с биллингом, Rate Limiter, AI Security, мультимодельностью
+# Gateway — Docker-образ с биллингом, Rate Limiter, AI Security, мультимодельностью, RAG
 #
-# Версия: 1.1.0 (синхронизировано с живым деплойментом 2026-07-07)
+# Версия: 1.2.0 (синхронизировано с живым деплойментом 2026-07-10)
 # Образ: ghcr.io/dedvmedved-dot/aither-project-gateway:latest
 # Dockerfile: gateway/Dockerfile (python:3.12-slim)
-# Код: 11 модулей (gateway.py, auth.py, admin.py, billing.py, routing.py,
-#       dlp.py, rag.py, delegation.py, usage-collector.py, reservation-reaper.py, catalog.py)
+# Код: 13 модулей (gateway.py, auth.py, admin.py, billing.py, routing.py,
+#       dlp.py, hybrid_rag.py, delegation.py, usage-collector.py,
+#       reservation-reaper.py, catalog.py, metrics.py, wiki_graph.py)
+#
+# RAG: Gateway → chroma-proxy :9000 (эмбеддинги внутри) → ChromaDB :8000
 
 ---
 apiVersion: v1
@@ -83,6 +86,8 @@ spec:
           value: "1"
         - name: CHROMA_URL
           value: http://chromadb:8000
+        - name: CHROMA_PROXY_URL
+          value: http://chroma-proxy.default.svc.cluster.local:9000
         - name: WIKI_ROOT
           value: /app/wiki
         - name: PG_URL

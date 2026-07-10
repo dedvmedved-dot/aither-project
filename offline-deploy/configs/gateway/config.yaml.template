@@ -1,5 +1,5 @@
 # config.yaml.template — конфигурация Gateway
-# Версия: 1.1.0 (синхронизировано с ConfigMap gateway-catalog)
+# Версия: 1.2.0 (синхронизировано с живым деплойментом 2026-07-10)
 # Используется как основа для ConfigMap в K8s
 
 models:
@@ -32,3 +32,5 @@ models:
 # RATE_LIMIT_TPM=100000
 # PORT=8080
 # TOKEN_COST=1
+# CHROMA_PROXY_URL=http://chroma-proxy.default.svc.cluster.local:9000
+# WIKI_ROOT=/app/wiki

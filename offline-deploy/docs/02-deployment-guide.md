@@ -1,4 +1,4 @@
-# 02-deployment-guide.md — Пошаговое развёртывание
+# 02-deployment-guide.md — Пошаговое развёртывание (v1.2.0)
 
 ## Требования
 
@@ -6,6 +6,7 @@
 - 2 сервера с NVIDIA GPU (минимум 1× RTX 6000 каждый)
 - K8s кластер (1 control-plane + 1 worker)
 - Внешний диск 64+ GB для моделей
+- PVC 20 GB для ChromaDB (на n7-gpu)
 
 ## Шаг 1: Подготовка ОС
 
@@ -59,14 +60,28 @@ cd offline-deploy/
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/postgres/
 kubectl apply -f k8s/redis/
-kubectl apply -f k8s/chromadb/
+kubectl apply -f k8s/chromadb/        # ChromaDB 0.5.23 + PVC + chroma-proxy
 kubectl apply -f k8s/vllm-14b/
 kubectl apply -f k8s/vllm-32b/
 kubectl apply -f k8s/gateway/
 kubectl apply -f k8s/monitoring/
 
 # Проверка
-kubectl get pods -n aither -w
+kubectl get pods -w
+```
+
+### Проверка RAG после деплоя
+
+```bash
+# chroma-proxy должен быть Running
+kubectl get pods -l app=chroma-proxy
+
+# Инжест учебника в ChromaDB
+kubectl exec deploy/chroma-proxy -- python3 /chroma/ingest_textbook.py
+
+# Проверка статуса
+curl http://chroma-proxy.default.svc.cluster.local:9000/status
+# → {"collection":"textbook","documents":322,"embed_dim":384,"status":"ok"}
 ```
 
 ## Шаг 7: Портал (VPS2)
