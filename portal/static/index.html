@@ -1927,6 +1927,12 @@ async function renderShared() {
 // ===== TARIFFS PAGE =====
 async function renderTiers() {
   try {
+  // Load orgs if not cached
+  if (!state.orgs || state.orgs.length === 0) {
+    const orgsR = await api('/api/v1/orgs');
+    if (orgsR.ok && orgsR.data.orgs) state.orgs = orgsR.data.orgs;
+  }
+
   const { ok, data } = await api('/api/v1/tiers');
   const tiers = ok ? (data?.tiers || []).map(t => ({
     ...t,
@@ -1934,18 +1940,21 @@ async function renderTiers() {
     features: safeParse(t.features)
   })) : [];
 
-  const tierColors = {
-    free: 'var(--border)', standard: 'var(--warning)', vip: 'var(--danger)', enterprise: 'var(--info)'
-  };
+  // If org selected but not in state.orgs, find it
+  if (!state.selectedOrg && state.orgs && state.orgs.length > 0) {
+    state.selectedOrg = state.orgs[0];
+  }
+
   const tierEmojis = { free: '🆓', standard: '⚡', vip: '👑', enterprise: '🏢' };
 
   let currentTier = 'free';
-  if (state.selectedOrg) {
-    const tResp = await api('/api/v1/org/tier?org_id=' + state.selectedOrg.org_id);
+  const selOrg = state.selectedOrg;
+  if (selOrg) {
+    const tResp = await api('/api/v1/org/tier?org_id=' + selOrg.org_id);
     if (tResp.ok) currentTier = tResp.data?.tier || 'free';
   }
 
-  // Build nav (same as renderApp)
+  // Build nav
   const pages = [
     { id:'chats', label:'Чаты' },
     { id:'dashboard', label:'Дашборд' },
@@ -1954,6 +1963,12 @@ async function renderTiers() {
   ];
   const navHtml = pages.map(p =>
     `<button class="nav-btn${p.id==='tiers'?' active':''}" onclick="navigate('${p.id}')">${p.label}</button>`
+  ).join('');
+
+  // Build org selector
+  const orgs = state.orgs || [];
+  const orgOpts = orgs.map(o =>
+    `<option value="${o.org_id}" ${selOrg&&selOrg.org_id===o.org_id?'selected':''}>${esc(o.name)} (${esc(o.org_id).slice(0,8)}…)</option>`
   ).join('');
 
   $('#app').innerHTML = `
@@ -1973,6 +1988,21 @@ async function renderTiers() {
         <h2>📦 Тарифные планы</h2>
         <p>Выберите тариф под свои задачи. Текущий тариф выделен рамкой.</p>
       </div>
+
+      <!-- Org selector -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header"><h3>🏢 Организация</h3></div>
+        <div class="card-body">
+          <div style="display:flex;gap:12px;align-items:center;">
+            <select class="form-input" id="tiers-org-select" onchange="onTierOrgSelect(this.value)" style="max-width:400px;">
+              ${orgOpts || '<option value="">— нет организаций —</option>'}
+            </select>
+            ${selOrg ? `<span style="color:var(--text-dim);font-size:13px;">Текущий тариф: <strong style="color:var(--accent);">${currentTier.toUpperCase()}</strong></span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Tariff cards -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
         ${tiers.map(t => `
           <div style="background:var(--bg-input);border:2px solid ${t.tier_id===currentTier?'var(--accent)':'var(--border)'};border-radius:var(--radius);padding:24px;${t.tier_id===currentTier?'box-shadow:0 0 12px var(--accent-alpha);':''}">
@@ -1980,15 +2010,15 @@ async function renderTiers() {
             <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(t.name)}</div>
             <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">${esc(t.description)}</div>
             <div style="font-size:32px;font-weight:800;margin-bottom:4px;">
-              ${t.price_rub_month ? t.price_rub_month.toLocaleString()+' ₽' : 'Бесплатно'}
+              ${t.price_rub_month ? Number(t.price_rub_month).toLocaleString()+' ₽' : 'Бесплатно'}
               ${t.price_rub_month ? '<span style="font-size:14px;color:var(--text-dim);"> /мес</span>' : ''}
             </div>
             <hr style="border-color:var(--border);margin:16px 0;">
             <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Лимиты:</div>
             <div style="font-size:13px;line-height:1.8;">
               📊 <b>${t.rpm_limit}</b> запросов/мин<br>
-              🔤 <b>${t.tpm_limit.toLocaleString()}</b> токенов/мин<br>
-              ${t.daily_request_limit ? '📅 <b>'+t.daily_request_limit.toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
+              🔤 <b>${Number(t.tpm_limit).toLocaleString()}</b> токенов/мин<br>
+              ${t.daily_request_limit ? '📅 <b>'+Number(t.daily_request_limit).toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
               🧠 Модели: <b>${(t.models||[]).join(', ')}</b><br>
               ${t.rag_enabled ? '📚 RAG: <b style="color:var(--success)">✅ Доступен</b><br>' : '📚 RAG: <b style="color:var(--text-dim)">❌</b><br>'}
             </div>
@@ -1999,13 +2029,21 @@ async function renderTiers() {
             </ul>
             ${t.tier_id===currentTier
               ? '<div style="margin-top:16px;text-align:center;padding:8px;background:var(--accent-alpha);border-radius:var(--radius-sm);font-weight:600;font-size:13px;">✅ Ваш текущий тариф</div>'
-              : '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier(\'' + (state.selectedOrg?.org_id||'') + '\',\'' + t.tier_id + '\')">Перейти</button>'}
+              : `<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier('${selOrg ? selOrg.org_id : ''}','${t.tier_id}')">Перейти</button>`}
           </div>
         `).join('')}
       </div>
     </div>`;
   } catch(e) {
     $('#app').innerHTML = '<div class="header"><div class="header-left"><span class="logo">Aither</span></div></div><div class="main"><div class="page-header"><h2>📦 Тарифные планы</h2><p style="color:var(--red);">Ошибка загрузки: ' + esc(e.message) + '</p></div></div>';
+  }
+}
+
+function onTierOrgSelect(orgId) {
+  const org = (state.orgs||[]).find(o => o.org_id === orgId);
+  if (org) {
+    state.selectedOrg = org;
+    renderTiers();
   }
 }
 
