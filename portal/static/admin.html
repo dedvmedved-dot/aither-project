@@ -481,68 +481,83 @@ async function loadHealth() {
   const el = document.getElementById('health-body');
   try {
     const h = await api('/health');
-    // Gateway returns flat response: {status, orgs, transactions_24h}
-    // Also try component-based format
     const comps = h.components || {};
     const cards = [];
 
-    // Show Gateway health summary
-    if (h.status === "ok" && !h.components) {
-      cards.push(`<div class="card" style="padding:12px;margin-bottom:8px;">
-        <span class="badge badge-healthy">✓ Gateway OK</span>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-          Организаций: <b>${h.orgs || 0}</b> &nbsp;|&nbsp;
-          Транзакций за 24ч: <b>${h.transactions_24h || 0}</b>
+    // Gateway card
+    if (comps.gateway) {
+      const g = comps.gateway;
+      const ok = g.status === 'healthy';
+      cards.push(`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid ${ok?'var(--green)':'var(--red)'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>🫀 Gateway</strong>
+          <span class="badge ${ok?'badge-healthy':'badge-unhealthy'}">${ok?'✓ Healthy':'✗ Down'}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">
+          Организаций: <b>${g.orgs||0}</b> &nbsp;|&nbsp; Транзакций за 24ч: <b>${g.transactions_24h||0}</b>
         </div>
       </div>`);
     }
 
-    for (const [name, c] of Object.entries(comps)) {
-      let badge = '';
-      let detail = '';
-
-      if (name === 'backends') {
-        // Nested: {total, healthy, unhealthy, details: {url: {healthy, models}}}
-        const allOk = c.unhealthy === 0;
-        badge = allOk
-          ? `<span class="badge badge-healthy">✓ ${c.healthy}/${c.total} Healthy</span>`
-          : `<span class="badge badge-unhealthy">✗ ${c.unhealthy}/${c.total} Down</span>`;
-        if (c.details) {
-          detail = Object.entries(c.details).map(([url, d]) =>
-            `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${d.healthy ? '🟢' : '🔴'} ${url.split('//')[1]?.split(':')[0] || url}: ${(d.models||[]).join(', ')}</div>`
-          ).join('');
+    // vLLM Backends card
+    if (comps.backends) {
+      const b = comps.backends;
+      const allOk = b.unhealthy === 0;
+      let detailsHtml = '';
+      if (b.details) {
+        for (const [url, d] of Object.entries(b.details)) {
+          const label = url.includes('32b') ? 'Qwen2.5-32B' : 'Qwen2.5-14B / Coder-14B';
+          const models = (d.models||[]).map(m => m.split('/').pop()).join(', ');
+          detailsHtml += `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);">
+            ${d.healthy?'🟢':'🔴'} <b>${label}</b>
+            <span style="color:var(--text-dim);"> — ${models||'нет моделей'}</span>
+            ${d.error?`<br><span style="color:var(--red);font-size:10px;">${d.error}</span>`:''}
+          </div>`;
         }
-      } else if (name === 'reaper') {
-        // {last_run, last_refunded} — active if last_run exists
-        const recent = c.last_run && c.last_run !== 'never';
-        badge = recent
-          ? `<span class="badge badge-healthy">✓ Active</span>`
-          : `<span class="badge badge-unhealthy">✗ Inactive</span>`;
-        detail = `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Запуск: ${c.last_run || 'never'}</div>`;
-        if (c.last_refunded) detail += `<div style="font-size:10px;color:var(--text-muted);">Возвращено: ${c.last_refunded} токенов</div>`;
-      } else {
-        // Flat: {status: 'healthy'/'unhealthy'}
-        const ok = c.status === 'healthy' || c.alive === true;
-        badge = ok
-          ? '<span class="badge badge-healthy">✓ Healthy</span>'
-          : '<span class="badge badge-unhealthy">✗ Down</span>';
       }
-
-      cards.push(`<div class="status-item">
-        <div class="label">${name}</div>${badge}${detail}
+      cards.push(`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid ${allOk?'var(--green)':'var(--red)'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>🧠 vLLM Backends</strong>
+          <span class="badge ${allOk?'badge-healthy':'badge-unhealthy'}">✓ ${b.healthy}/${b.total} Healthy</span>
+        </div>
+        <div style="margin-top:8px;">${detailsHtml}</div>
       </div>`);
     }
-    el.innerHTML = `
-      <div style="margin-bottom:12px;">
-        <span class="badge ${h.status==='ok'?'badge-healthy':'badge-degraded'}">${h.status.toUpperCase()}</span>
-        <span style="font-size:11px;color:var(--text-muted);margin-left:10px;">${h.timestamp}</span>
-      </div>
-      <div class="status-grid">${cards.join('')}</div>`;
+
+    // Redis card
+    if (comps.redis) {
+      const r = comps.redis;
+      const ok = r.status === 'healthy';
+      cards.push(`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid ${ok?'var(--green)':'var(--red)'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>📦 Redis</strong>
+          <span class="badge ${ok?'badge-healthy':'badge-unhealthy'}">${ok?'✓ Healthy':'✗ Down'}</span>
+        </div>
+        ${!ok?`<div style="font-size:11px;color:var(--red);margin-top:4px;">${r.error||''}</div>`:''}
+      </div>`);
+    }
+
+    // Reaper card
+    if (comps.reaper) {
+      const rp = comps.reaper;
+      const recent = rp.last_run && rp.last_run !== 'never';
+      cards.push(`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid ${recent?'var(--green)':'var(--yellow)'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>⏱️ Reaper</strong>
+          <span class="badge" style="background:${recent?'var(--green-bg)':'rgba(251,191,36,0.15)'};color:${recent?'var(--green)':'var(--yellow)'};">${recent?'✓ Active':'⚠ Idle'}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+          Последний запуск: <b>${rp.last_run||'never'}</b>
+          ${rp.last_refunded?`&nbsp;|&nbsp;Возвращено: <b>${rp.last_refunded.toLocaleString()}</b> токенов`:''}
+        </div>
+      </div>`);
+    }
+
+    el.innerHTML = cards.join('') || '<span style="color:var(--text-muted);">Нет данных.</span>';
   } catch (e) {
     el.innerHTML = `<span style="color:var(--red);">❌ Ошибка: ${e.message}</span>`;
   }
 }
-
 // ── MODELS ──
 async function loadModels() {
   const el = document.getElementById('models-body');
