@@ -1457,29 +1457,507 @@ digraph G {
 
 ## Глава 21. Платёжный шлюз и монетизация
 
-> **Состояние:** 🔴 заглушка — ждёт наполнения.
-> **Целевой объём:** 25 стр., 4 DOT-схемы, 5 таблиц.
-> **Детальный TOC:** `05-part4-production-toc.md` § 21.
+> **Состояние:** ✅ готово — текст + 4 DOT-схемы.
+> **Объём:** ~25 стр., 4 схемы, 5 таблиц.
+
+**Цель главы:** подключить реальные деньги к платформе — приём платежей через YooKassa, автоматическое пополнение баланса, двойная запись для аудита.
+
+> ✏️ **Перед прочтением** убедитесь, что вы освоили Главу 6 (Портал) и Главу 20 (Multi-tenant — биллинг per-org).
+
+---
 
 ### 21.1 Модель монетизации Aither
 
-> 🔴 Заглушка · 4 стр. · 1 схема · 1 табл.
+#### Pay-as-you-go: плати за использование
+
+Aither использует модель **pay-as-you-go** (плати за потреблённое):
+
+- Пользователь покупает **пакет токенов** (например, 500 ₽ = 100 000 токенов)
+- При каждом запросе к LLM списывается **точное количество токенов**, которое вернула модель
+- Нет абонентской платы за простой — деньги тратятся только на инференс
+
+#### Тарифные планы
+
+Каждый план определяет не только цену, но и **лимиты** (RPM, TPM, квоты) и **доступ к моделям**:
+
+| План | Цена | Токенов/мес | RPM | Модели | Для кого |
+|---|---|---|---|---|---|
+| **FREE** | 0₽ | 100K стартовых | 10 | 14b | Тестирование |
+| **STANDARD** | 5 000₽ | 1M/день, 30M/мес | 60 | 14b, 32b, LoRA | Разработка |
+| **VIP** | 20 000₽ | 10M/день, 300M/мес | 300 | Все + RAG | Production |
+
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_tiers {
+    label="Тарифные планы"; bgcolor="#f5f7fa"; color="#7b8ca0";
+
+    subgraph cluster_free {
+      label="FREE · 0₽"; bgcolor="#f5f5f5"; color="#9e9e9e";
+      f1 [label="100K токенов\nпри регистрации", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+      f2 [label="10 RPM\n500 TPM", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+      f3 [label="Только qwen2.5-14b", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+    }
+
+    subgraph cluster_std {
+      label="STANDARD · 5 000₽/мес"; bgcolor="#f1f8e9"; color="#43a047";
+      s1 [label="1M токенов/день\n30M/мес", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+      s2 [label="60 RPM\n5 000 TPM", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+      s3 [label="14b + 32b\nLoRA-адаптеры", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    }
+
+    subgraph cluster_vip {
+      label="VIP · 20 000₽/мес"; bgcolor="#f3e5f5"; color="#7b1fa2";
+      v1 [label="10M токенов/день\n300M/мес", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+      v2 [label="300 RPM\n50 000 TPM", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+      v3 [label="Все модели\nRAG, эмбеддинги", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    }
+  }
+
+  subgraph cluster_billing {
+    label="Модель оплаты: Pay-as-you-go"; bgcolor="#e3f2fd"; color="#1565c0";
+    pay [label="Списание за ФАКТИЧЕСКИЕ токены\n(не за запрос)\n\n1 запрос = 143 токена\n→ −143 из баланса", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    auto [label="Автопополнение:\nбаланс < порог →\nавто-платёж YooKassa\nна 100K токенов", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  free -> std [label="апгрейд", style=dashed, color="#43a047"];
+  std -> vip [label="апгрейд", style=dashed, color="#7b1fa2"];
+  pay -> auto [label="баланс\nнизкий"];
+}
+```
+
+> 📊 **Таблица 21.1.** Тарифные планы Aither.
+
+#### Ценообразование: руб/1000 токенов
+
+| Модель | Токенов/сек | Токенов/запрос (~) | Себестоимость/1000 ток | Розница/1000 ток |
+|---|---|---|---|---|
+| qwen2.5-14b | ~30 | 100–200 | ~0.15₽ | 0.50₽ |
+| qwen2.5-32b | ~35 | 150–300 | ~0.30₽ | 1.00₽ |
+| coder-14b | ~25 | 200–500 | ~0.20₽ | 0.70₽ |
+
+> 💡 **Экономика:** себестоимость = электричество + амортизация GPU. При загрузке 50% один RTX 6000 окупается за ~8 месяцев на STANDARD-тарифе.
+
+---
 
 ### 21.2 Архитектура платёжного шлюза
 
-> 🔴 Заглушка · 6 стр. · 1 схема · 1 табл.
+#### Двойная запись (Double-Entry)
+
+Все финансовые операции в Aither проходят через **двойную запись** — каждая транзакция оставляет след в `payment_transactions` (факт платежа) и `billing_ledger` (изменение баланса):
+
+```
+Пользователь → YooKassa (500₽) → Webhook → payment_transactions (pending)
+                                              → payment_transactions (completed)
+                                              → billing_ledger (purchase +100K токенов)
+                                              → billing_accounts (balance += 100K)
+
+Пользователь → Gateway (запрос) → billing_ledger (reserve -143)
+                                → vLLM → 200 OK?
+                                → billing_ledger (settle -143) ← фактически
+                                ИЛИ
+                                → billing_ledger (refund +143) ← отмена
+```
+
+#### Почему двойная запись
+
+- **Аудируемость:** всегда можно восстановить, кто, когда и сколько заплатил/потратил
+- **Атомарность:** `reserve → settle/refund` — токены либо списаны, либо возвращены
+- **Сверка с YooKassa:** сравниваем `payment_transactions` с выпиской YooKassa
+
+#### Поток платежа (7 шагов)
+
+1. **Пользователь** нажимает «Пополнить» в портале, указывает сумму
+2. **BFF** создаёт запись в `payment_transactions` (status=`pending`) и вызывает YooKassa API
+3. **YooKassa** создаёт платёж, возвращает `payment_token` и URL платёжной страницы
+4. **Пользователь** редиректится на страницу YooKassa, вводит данные карты
+5. **YooKassa** обрабатывает платёж и отправляет **webhook** на BFF
+6. **BFF** проверяет подпись webhook'а, обновляет `payment_transactions` (status=`completed`)
+7. **BFF** зачисляет токены: `billing_op(org_id, +100000, "purchase")`
+
+```dot
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_user {
+    label="Пользователь"; bgcolor="#e3f2fd"; color="#1565c0";
+    browser [label="Браузер\n(портал Aither)", shape=cylinder, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_bff {
+    label="BFF (VPS2)"; bgcolor="#fff9c4"; color="#f9a825";
+    create [label="POST /api/v1/payments\n{amount_rub: 500}\n→ payment_id", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    webhook [label="POST /api/v1/payments/webhook\nобработка уведомления\nот YooKassa", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_yookassa {
+    label="YooKassa API"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    yk_api [label="POST /v3/payments\n{amount, currency,\n confirmation, ...}\n→ payment_token", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    yk_page [label="Платёжная страница\nYooKassa\n(банковская карта,\nСБП, кошелёк)", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    yk_webhook [label="Webhook:\nnotification\n→ payment.succeeded", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  subgraph cluster_db {
+    label="PostgreSQL"; bgcolor="#e8f5e9"; color="#43a047";
+    txn [label="payment_transactions\nINSERT {org_id,\n  amount_rub, status='pending'}", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    settle [label="billing_accounts\nUPDATE balance += tokens\nbilling_ledger\nINSERT purchase", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  browser -> create [label="1. Пополнить\nна 500₽"];
+  create -> txn [label="2. Сохранить\npending"];
+  txn -> yk_api [label="3. Создать\nплатёж"];
+  yk_api -> yk_page [label="4. Редирект\nна оплату"];
+  yk_page -> yk_webhook [label="5. Платёж\nвыполнен"];
+  yk_webhook -> webhook [label="6. Уведомление"];
+  webhook -> settle [label="7. Зачислить\nтокены"];
+
+  note [label="Идемпотентность:\nYooKassa может прислать\nwebhook повторно.\nПроверяем txn.status —\nесли 'completed',\nигнорируем.", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  webhook -> note [style=dotted, dir=none];
+}
+```
+
+> 📊 **Таблица 21.2.** Статусы платежа в `payment_transactions`.
+
+| Статус | Описание | Кто меняет |
+|---|---|---|
+| `pending` | Платёж создан, ожидает оплаты | BFF (при создании) |
+| `waiting_for_capture` | Средства зарезервированы, ожидают списания | YooKassa webhook |
+| `completed` | Платёж успешно завершён, токены зачислены | BFF (webhook handler) |
+| `canceled` | Платёж отменён (пользователем или по таймауту) | YooKassa webhook |
+| `failed` | Платёж не прошёл (недостаточно средств и т.п.) | YooKassa webhook |
+
+---
 
 ### 21.3 Подключение YooKassa: test → live
 
-> 🔴 Заглушка · 6 стр. · 1 схема · 1 табл.
+#### Шаг 1–4: Тестовый режим
+
+Тестовый режим позволяет провести платёж **без реальных денег**:
+
+```
+1. Регистрация на https://yookassa.ru → личный кабинет
+2. Создать тестовый магазин → получить shopId + секретный ключ
+3. Добавить в secrets.env:
+   YOOKASSA_SHOP_ID=test_XXXXX
+   YOOKASSA_SECRET_KEY=test_YYYYY
+4. Провести тестовый платёж:
+   - Карта: 5555 5555 5555 4444
+   - Срок: 12/30
+   - CVC: 123
+   - Сумма: любая (реально не списывается)
+```
+
+**Код BFF — создание платежа:**
+
+```typescript
+// portal/server.ts — эндпоинт пополнения (упрощённо)
+app.post("/api/v1/payments", async (req: any, reply) => {
+  const p = auth(req, reply); if (!p) return;
+  const { amount_rub } = req.body;
+
+  // 1. Создать запись в БД
+  const txn = await pool.query(
+    `INSERT INTO payment_transactions (org_id, user_id, amount_rub, status)
+     VALUES ($1, $2, $3, 'pending') RETURNING txn_id`,
+    [p.org_id, p.user_id, amount_rub]);
+
+  // 2. Вызвать YooKassa API
+  const ykResponse = await fetch("https://api.yookassa.ru/v3/payments", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Basic " + Buffer.from(`${shopId}:${secret}`).toString("base64"),
+      "Idempotence-Key": txn.rows[0].txn_id  // защита от повторов
+    },
+    body: JSON.stringify({
+      amount: { value: amount_rub, currency: "RUB" },
+      confirmation: { type: "redirect", return_url: "https://fb1.spb.ru/payments/result" },
+      capture: true,
+      description: "Пополнение баланса Aither"
+    })
+  });
+
+  const payment = await ykResponse.json();
+  // 3. Редиректить пользователя на страницу оплаты
+  return { redirect_url: payment.confirmation.confirmation_url };
+});
+```
+
+**Код BFF — обработка webhook:**
+
+```typescript
+// portal/server.ts — webhook handler
+app.post("/api/v1/payments/webhook", async (req: any, reply) => {
+  const { event, object } = req.body;
+
+  // 1. Проверить подпись (YooKassa подписывает входящие webhook'и)
+  //    (в тестовом режиме можно пропустить)
+
+  if (event === "payment.succeeded") {
+    const txn = await pool.query(
+      "SELECT * FROM payment_transactions WHERE txn_id = $1 FOR UPDATE",
+      [object.id]);  // Idempotence-Key = txn_id
+
+    if (txn.rows[0].status === "completed") {
+      return { ok: true };  // идемпотентность: уже обработан
+    }
+
+    // 2. Обновить статус платежа
+    await pool.query(
+      "UPDATE payment_transactions SET status='completed', provider_payment_id=$1 WHERE txn_id=$2",
+      [object.id, txn.rows[0].txn_id]);
+
+    // 3. Зачислить токены (STARTER_TOKENS = 100000)
+    await pool.query(
+      "UPDATE billing_accounts SET balance = balance + $1 WHERE org_id = $2",
+      [STARTER_TOKENS, txn.rows[0].org_id]);
+
+    // 4. Запись в ledger
+    await pool.query(
+      "INSERT INTO billing_ledger (org_id, user_id, type, tokens, amount_rub) VALUES ($1,$2,'purchase',$3,$4)",
+      [txn.rows[0].org_id, txn.rows[0].user_id, STARTER_TOKENS, txn.rows[0].amount_rub]);
+  }
+
+  return { ok: true };
+});
+```
+
+#### Шаг 5–8: Переход на live
+
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_test {
+    label="TEST-режим"; bgcolor="#f1f8e9"; color="#43a047";
+    t1 [label="1. Регистрация\nв YooKassa", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    t2 [label="2. Получить\nshopId + ключ\n(тестовый)", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    t3 [label="3. secrets.env\nYOOKASSA_SHOP_ID=\nYOOKASSA_SECRET=", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    t4 [label="4. Тестовый платёж\n5555 5555 5555 4444\n→ succeeded ✓", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+  }
+
+  subgraph cluster_live {
+    label="LIVE-режим"; bgcolor="#ffebee"; color="#c62828";
+    l1 [label="5. Заявка на\nбоевой магазин", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    l2 [label="6. Получить\nlive shopId+ключ", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    l3 [label="7. Обновить\nsecrets.env\nперезапустить BFF", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    l4 [label="8. Боевой платёж\nреальная карта\n→ проверка webhook", shape=box, fillcolor="#ef9a9a", color="#b71c1c"];
+
+    checklist [label="Чек-лист перед live:\n✓ Webhook принимается\n✓ SSL-сертификат валиден\n✓ Баланс зачисляется\n✓ Email-уведомления\n   отправляются", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  }
+
+  t1 -> t2 -> t3 -> t4;
+  t4 -> l1 [label="✓ test пройден", color="#c62828", fontcolor="#c62828"];
+  l1 -> l2 -> l3 -> l4;
+  l4 -> checklist [style=dotted, dir=none];
+}
+```
+
+> ⚠️ **Важно:** в боевом режиме YooKassa **подписывает** webhook'и. BFF должен проверять подпись перед обработкой, иначе злоумышленник может подделать уведомление о платеже.
+
+> 📊 **Таблица 21.3.** Отличия test и live режимов YooKassa.
+
+| Параметр | Test | Live |
+|---|---|---|
+| Деньги | Не списываются | Реальные |
+| Карты | 5555 5555 5555 4444 | Любые реальные |
+| Webhook | Не подписывается | HMAC-подпись |
+| shopId | `test_XXXXX` | `live_XXXXX` |
+| Договор | Не нужен | Нужен (заявка) |
+
+---
 
 ### 21.4 Автопополнение и уведомления
 
-> 🔴 Заглушка · 5 стр. · 1 схема · 1 табл.
+#### Проблема
+
+Пользователь может забыть пополнить баланс. Запрос к LLM упадёт с ошибкой `402 Insufficient Funds` — пользователь уйдёт к конкурентам.
+
+**Решение:** автоматическое пополнение баланса при падении ниже порога.
+
+#### Алгоритм
+
+```python
+# gateway/billing.py — логика авто-пополнения
+STARTER_TOKENS = 100_000
+REFILL_THRESHOLD = 10_000   # порог: пополнять при балансе < 10K
+REFILL_LIMIT = 10            # максимум авто-пополнений в день
+
+def ensure_balance(org_id: str):
+    balance = get_balance(org_id)
+    if balance >= REFILL_THRESHOLD:
+        return  # достаточно
+
+    # Сколько раз уже пополняли сегодня?
+    refills_today = redis.get(f"refill:{org_id}:{today}")
+    if refills_today and int(refills_today) >= REFILL_LIMIT:
+        send_email(org_id, "Баланс низкий, авто-пополнение заблокировано")
+        raise InsufficientFunds()
+
+    # Авто-платёж через YooKassa
+    payment = yookassa_create_payment(
+        org_id=org_id,
+        amount_rub=calculate_price(STARTER_TOKENS),
+        idempotence_key=f"auto-{org_id}-{today}-{refills_today}"
+    )
+
+    # Зачислить токены
+    billing_op(org_id, +STARTER_TOKENS, "purchase")
+    redis.incr(f"refill:{org_id}:{today}")
+    redis.expire(f"refill:{org_id}:{today}", 86400)
+
+    send_email(org_id, f"Баланс пополнен на {STARTER_TOKENS} токенов")
+```
+
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  start [label="Пользователь делает\nзапрос к LLM", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_gw {
+    label="Gateway: проверка баланса"; bgcolor="#fff3e0"; color="#e65100";
+    check [label="billing_op(org_id, -143)\nдостаточно токенов?", shape=diamond, fillcolor="#fff9c4", color="#f9a825"];
+    proxy [label="Проксируем\nна vLLM", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_refill {
+    label="Автопополнение"; bgcolor="#e8f5e9"; color="#43a047";
+    low [label="Баланс < порог\n(10 000 токенов)", shape=diamond, fillcolor="#ffcdd2", color="#c62828"];
+    check_limit [label="Счётчик пополнений\n< REFILL_LIMIT (10)?", shape=diamond, fillcolor="#ffcdd2", color="#c62828"];
+    refill [label="Авто-платёж\nYooKassa\nна 100K токенов\n(списание с карты)", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+    blocked [label="✗ Автопополнение\nзаблокировано\n(исчерпан лимит\nна сегодня)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    notify [label="Email\n«Баланс пополнен\nна 100K токенов»", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    notify_low [label="Email\n«Баланс низкий,\nпополнение заблокировано»", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  start -> check;
+  check -> proxy [label="✓ хватает"];
+  check -> low [label="✗ не хватает"];
+  low -> check_limit [label="баланс\n< порог"];
+  check_limit -> refill [label="< 10 раз\nза день"];
+  check_limit -> blocked [label="≥ 10 раз\nза день"];
+  refill -> proxy [label="токены\nзачислены"];
+  refill -> notify [style=dashed];
+  blocked -> notify_low [style=dashed];
+
+  note [label="REFILL_LIMIT = 10:\nзащита от бесконечного цикла.\nЕсли за день уже 10 авто-пополнений\n→ больше не пополняем\n(что-то не так с платежом).", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  check_limit -> note [style=dotted, dir=none];
+}
+```
+
+> ⚠️ **REFILL_LIMIT = 10** — защита от бесконечного цикла. Если платёж почему-то не проходит, а баланс остаётся низким, без этого лимита система будет пытаться создать платёж снова и снова на каждом запросе.
+
+#### Email-уведомления
+
+Aither отправляет email через `smtplib`:
+
+```python
+# gateway/notify.py (упрощённо)
+import smtplib
+from email.mime.text import MIMEText
+
+def send_email(org_id: str, message: str):
+    # Найти email администратора организации
+    admin = get_org_admin(org_id)
+    msg = MIMEText(f"Организация: {org_id}\n{message}")
+    msg["Subject"] = "Aither: уведомление о балансе"
+    msg["From"] = "noreply@aither.ru"
+    msg["To"] = admin.email
+
+    with smtplib.SMTP_SSL("smtp.yandex.ru", 465) as smtp:
+        smtp.login(SMTP_USER, SMTP_PASS)
+        smtp.send_message(msg)
+```
+
+> 📊 **Таблица 21.4.** Пороги и триггеры автопополнения.
+
+| Параметр | Значение | Зачем |
+|---|---|---|
+| `STARTER_TOKENS` | 100 000 | Сколько токенов дать при регистрации и авто-пополнении |
+| `REFILL_THRESHOLD` | 10 000 | При каком остатке запускать авто-пополнение |
+| `REFILL_LIMIT` | 10 | Максимум авто-пополнений в день |
+| `STARTER_TOKENS / REFILL_THRESHOLD` | 10× | Запас: 10 пополнений × 100K = 1M токенов до блокировки |
+
+---
 
 ### 21.5 Сверка и аудит платежей
 
-> 🔴 Заглушка · 4 стр. · 0 схем · 1 табл.
+#### Зачем нужна сверка
+
+Боевая эксплуатация платежей требует **ежемесячной сверки**:
+
+1. Выгрузить все транзакции Aither за месяц (`payment_transactions`)
+2. Выгрузить выписку YooKassa за тот же период (личный кабинет → экспорт CSV)
+3. Сравнить по `provider_payment_id` и суммам
+
+#### Скрипт сверки
+
+```python
+# scripts/reconcile.py (запускается ежемесячно)
+def reconcile(month: str):
+    # 1. Транзакции Aither
+    aither_txns = db.query("""
+        SELECT txn_id, provider_payment_id, amount_rub, status
+        FROM payment_transactions
+        WHERE created_at >= $1 AND created_at < $2
+    """, (f"{month}-01", f"{next_month}-01"))
+
+    # 2. Выписка YooKassa (загружается из CSV)
+    yookassa_txns = load_yookassa_csv(f"yookassa_{month}.csv")
+
+    # 3. Сверка
+    aither_ids = {t.provider_payment_id for t in aither_txns if t.provider_payment_id}
+    yookassa_ids = {t.payment_id for t in yookassa_txns}
+
+    missing_in_aither = yookassa_ids - aither_ids      # Есть в YooKassa, нет в Aither
+    missing_in_yookassa = aither_ids - yookassa_ids    # Есть в Aither, нет в YooKassa
+    amount_mismatch = []                                # Разные суммы
+
+    for t in aither_txns:
+        yt = next((y for y in yookassa_txns if y.payment_id == t.provider_payment_id), None)
+        if yt and abs(float(t.amount_rub) - float(yt.amount)) > 0.01:
+            amount_mismatch.append((t.txn_id, t.amount_rub, yt.amount))
+
+    return {
+        "missing_in_aither": missing_in_aither,
+        "missing_in_yookassa": missing_in_yookassa,
+        "amount_mismatch": amount_mismatch,
+        "status": "OK" if not (missing_in_aither or amount_mismatch) else "MISMATCH"
+    }
+```
+
+> 📊 **Таблица 21.5.** Типы расхождений при сверке.
+
+| Расхождение | Вероятная причина | Действие |
+|---|---|---|
+| Платёж в YooKassa, нет в Aither | Webhook не дошёл (сеть) | Зачислить вручную |
+| Платёж в Aither, нет в YooKassa | Тестовый платёж / ошибка | Пометить `canceled` |
+| Разные суммы | Частичный refund в YooKassa | Проверить историю платежа |
+| Дубликат webhook'а | YooKassa повторил уведомление | Идемпотентность: статус уже `completed` → игнорируем |
+
+---
+
+### Итоги Главы 21
+
+| Вы узнали | Вы научились |
+|---|---|
+| Как работает pay-as-you-go монетизация | Создавать платёж через YooKassa API |
+| Что такое double-entry billing | Обрабатывать webhook'и YooKassa |
+| Как переключиться с test на live | Настраивать авто-пополнение баланса |
+| Зачем нужен REFILL_LIMIT | Делать ежемесячную сверку платежей |
+| Как проверять webhook'и на идемпотентность | Отправлять email-уведомления о балансе |
+
+**Ключевой вывод:** платёжный шлюз — это не только API YooKassa, но и **двойная запись**, **идемпотентность**, **сверка** и **автопополнение**. Пропустите один из этих слоёв — и деньги либо потеряются, либо задвоятся.
 
 ---
 
