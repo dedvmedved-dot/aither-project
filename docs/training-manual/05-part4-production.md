@@ -472,34 +472,475 @@ ETCDCTL_API=3 etcdctl snapshot save /backup/etcd-snapshot-$(date +%Y%m%d-%H%M).d
 
 ## Глава 20. Multi-tenant архитектура: изоляция организаций
 
-> **Состояние:** 🔴 заглушка — ждёт наполнения.
-> **Целевой объём:** 35 стр., 8 DOT-схем, 6 таблиц.
-> **Детальный TOC:** `05-part4-production-toc.md` § 20.
-> **Основа:** задача #21 (реализована в коде, коммиты `1f53b56`, `28f9c9e`).
+> **Состояние:** ✅ готово — текст + 8 DOT-схем.
+> **Объём:** ~35 стр., 8 схем, 6 таблиц.
+> **Основа:** задача #21 (коммиты `1f53b56`, `28f9c9e`).
+
+**Цель главы:** научиться разделять клиентов платформы (организации) так, чтобы один не видел данные другого — ни баланс, ни чаты, ни API-ключи.
+
+> ✏️ **Перед прочтением** убедитесь, что вы освоили Главу 6 (Портал — веб-интерфейс) и Главу 16 (Доработка портала).
+
+---
 
 ### 20.1 Модели изоляции: soft vs hard multi-tenancy
 
-> 🔴 Заглушка · 4 стр. · 1 схема · 1 табл.
+#### Что такое tenant (организация)
+
+Multi-tenancy (мультиарендность) — это архитектурный паттерн, при котором **один экземпляр приложения** обслуживает **несколько независимых клиентов** (tenant'ов, организаций). В Aither tenant = организация (`portal_organizations`).
+
+Представьте многоквартирный дом:
+- **Квартира** = tenant (организация)
+- **Подъезд** = приложение (один Gateway/BFF)
+- **Ключ от квартиры** = API key
+- **Стены между квартирами** = изоляция
+
+#### Два подхода к изоляции
+
+| Критерий | Soft (Aither) | Hard |
+|---|---|---|
+| База данных | Одна, фильтрация `WHERE org_id=$N` | Отдельная БД на tenant |
+| Сервер приложений | Один Gateway + BFF на всех | Отдельный экземпляр на tenant |
+| Стоимость | Низкая (1 инстанс) | N× выше |
+| Изоляция | На уровне кода (SQL WHERE) | На уровне инфраструктуры |
+| Риск утечки | При ошибке в WHERE | Близок к нулю |
+| Развёртывание | Быстрое | Медленное (N тенантов = N деплоев) |
+
+![Soft vs Hard multi-tenancy](diagrams/part4/20-01-soft-vs-hard.svg)
+
+> 📊 **Таблица 20.1.** Сравнение soft и hard multi-tenancy.
+
+**Aither выбрал soft multi-tenancy** по трём причинам:
+1. **Госсектор:** 10–50 организаций, не тысячи — накладные расходы hard неоправданы
+2. **Единая инфраструктура:** GPU-серверы общие, нет смысла разносить Gateway
+3. **Быстрый старт:** организация создаётся за 1 INSERT, не требует развёртывания новой БД
+
+> ⚠️ **Цена выбора:** вся изоляция держится на `WHERE org_id=$N` в каждом SQL-запросе. Пропустили WHERE в одном месте — получили утечку данных между организациями. В следующих разделах мы покажем, как Aither гарантирует изоляцию на каждом слое.
+
+---
 
 ### 20.2 Per-org API keys и JWT delegation
 
-> 🔴 Заглушка · 7 стр. · 2 схемы · 1 табл.
+#### Как организация получает доступ к LLM
+
+В Aither путь выглядит так:
+
+1. Пользователь входит через OAuth (GitHub) → получает JWT входа
+2. Пользователь входит в свою организацию (`portal_org_members`)
+3. BFF создаёт **API key** для организации (`portal_api_keys`)
+4. Для каждого запроса к LLM BFF генерирует **Delegation Token** — JWT с `org_id`
+5. Gateway проверяет Delegation Token и пропускает запрос к vLLM
+
+#### Таблица portal_api_keys
+
+```sql
+CREATE TABLE portal_api_keys (
+  key_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL REFERENCES portal_organizations(org_id),
+  api_key text NOT NULL UNIQUE,          -- "ak-" + 48 hex chars
+  api_key_prefix text NOT NULL,          -- первые 11 символов для UI
+  name text NOT NULL DEFAULT 'default',
+  status text NOT NULL DEFAULT 'active',
+  created_at timestamptz DEFAULT now(),
+  expires_at timestamptz,
+  last_used_at timestamptz
+);
+```
+
+> 🔑 **Формат ключа:** `ak-` + 48 hex-символов (24 байта случайных данных). Пример: `ak-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6`.
+
+#### Как BFF создаёт Delegation Token
+
+BFF хранит **приватный RSA-ключ** (только на VPS2) и подписывает JWT:
+
+```typescript
+// server.ts:863-876
+async function getDelegationToken(orgId: string, userId: string): Promise<string | null> {
+  let apiKey = await getOrgApiKey(orgId);
+  if (!apiKey) {
+    // Авто-создание первого API key
+    apiKey = "ak-" + randomBytes(24).toString("hex");
+    await pool.query(
+      "INSERT INTO portal_api_keys (org_id, api_key, api_key_prefix, name) VALUES ($1,$2,$3,'auto')",
+      [orgId, apiKey, apiKeyPrefix]);
+  }
+  return jwt.sign(
+    { org_id: orgId, key_id: "chat", user_id: userId },
+    DELEGATION_PRIVATE_KEY,
+    { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" }
+  );
+}
+```
+
+**Структура Delegation Token:**
+
+```json
+{
+  "org_id": "699286c5-...",    // ← КЛЮЧЕВОЕ ПОЛЕ для изоляции
+  "key_id": "chat",             // идентификатор API-ключа
+  "user_id": "6d73e035-...",    // кто именно сделал запрос
+  "iat": 1689000000,            // когда выдан
+  "exp": 1689000300,            // через 5 минут
+  "iss": "aither-portal"
+}
+```
+
+#### Как Gateway проверяет Delegation Token
+
+Gateway хранит **публичный RSA-ключ** (в ConfigMap Kubernetes) и проверяет подпись:
+
+```python
+# gateway/auth.py
+import jwt
+
+PUBLIC_KEY = os.environ["DELEGATION_PUBLIC_KEY"]  # из ConfigMap
+
+def verify_delegation(token: str) -> dict | None:
+    try:
+        payload = jwt.decode(token, PUBLIC_KEY, algorithms=["RS256"],
+                            options={"verify_exp": True})
+        return payload  # {"org_id": "...", "user_id": "...", ...}
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+```
+
+![API key → JWT flow](diagrams/part4/20-02-api-key-jwt-flow.svg)
+
+> ⚠️ **Почему 5 минут?** Delegation Token — короткоживущий. Если злоумышленник перехватит токен, у него будет максимум 5 минут. BFF автоматически обновляет токен при каждом новом запросе.
+
+> 📊 **Таблица 20.2.** Ключи и сертификаты в Aither.
+
+| Компонент | Хранит | Где | Для чего |
+|---|---|---|---|
+| BFF | Приватный RSA-ключ | VPS2, `DELEGATION_PRIVATE_KEY` | Подписывает JWT |
+| Gateway | Публичный RSA-ключ | ConfigMap, `DELEGATION_PUBLIC_KEY` | Проверяет подпись |
+| Portal | API key | `portal_api_keys.api_key` | Идентификатор организации |
+| JWT | org_id, user_id, key_id | В заголовке `Authorization: Bearer ...` | Контекст запроса |
+
+---
 
 ### 20.3 Rate Limiting и квоты per-org
 
-> 🔴 Заглушка · 7 стр. · 2 схемы · 1 табл.
+#### Зачем нужны лимиты
+
+Без ограничений одна организация может:
+- Завалить Gateway тысячами запросов в минуту (DoS)
+- Потратить все токены другой организации (если баланс общий)
+- Монополизировать GPU (noisy neighbour)
+
+**Решение:** Redis rate limiting с ключами, привязанными к `org_id`.
+
+#### Ключи Redis
+
+| Ключ | Назначение | TTL |
+|---|---|---|
+| `rl:{org_id}:rpm:{MM:SS}` | Requests per minute | 60 сек |
+| `rl:{org_id}:tpm:{MM:SS}` | Tokens per minute | 60 сек |
+| `rl:{org_id}:daily:{YYYYMMDD}` | Запросов за день | 86400 сек |
+| `tok:{org_id}:daily:{YYYYMMDD}` | Токенов за день | 86400 сек |
+| `tok:{org_id}:monthly:{YYYYMM}` | Токенов за месяц | 2592000 сек |
+
+#### Алгоритм проверки в Gateway
+
+```python
+# gateway/ratelimit.py (упрощённо)
+def check_rate_limit(org_id: str, tier: dict) -> bool:
+    now = datetime.utcnow()
+    window = now.strftime("%H:%M")
+
+    # 1. Requests per minute
+    rpm_key = f"rl:{org_id}:rpm:{window}"
+    rpm = redis.incr(rpm_key)
+    redis.expire(rpm_key, 60)
+    if rpm > tier["rpm_limit"]:
+        return False  # 429 Too Many Requests
+
+    # 2. Tokens per minute
+    tpm_key = f"rl:{org_id}:tpm:{window}"
+    tpm = redis.incrby(tpm_key, estimated_tokens)
+    redis.expire(tpm_key, 60)
+    if tpm > tier["tpm_limit"]:
+        return False
+
+    # 3. Daily token quota
+    daily_key = f"tok:{org_id}:daily:{now.strftime('%Y%m%d')}"
+    daily = redis.get(daily_key) or 0
+    if int(daily) + estimated_tokens > tier["daily_token_limit"]:
+        return False
+
+    # 4. Monthly token quota
+    monthly_key = f"tok:{org_id}:monthly:{now.strftime('%Y%m')}"
+    monthly = redis.get(monthly_key) or 0
+    if int(monthly) + estimated_tokens > tier["monthly_token_limit"]:
+        return False
+
+    return True  # Все проверки пройдены
+```
+
+![Redis rate limiting](diagrams/part4/20-03-rate-limiting.svg)
+
+> ⚠️ **Порядок проверок важен:** сначала быстрые (RPM/TPM в Redis), потом медленные (daily/monthly). Если RPM превышен — сразу 429, без лишних запросов к Redis.
+
+#### Учёт токенов ПОСЛЕ запроса
+
+После того как vLLM вернул ответ с `usage.total_tokens`, Gateway учитывает реальное потребление:
+
+```python
+# После получения SSE-ответа от vLLM
+tokens_used = response["usage"]["total_tokens"]  # 143
+
+# 1. Redis (быстрый путь — для следующей проверки)
+redis.incrby(f"tok:{org_id}:daily:{today}", tokens_used)
+redis.incrby(f"tok:{org_id}:monthly:{month}", tokens_used)
+
+# 2. PostgreSQL (медленный путь — для аудита)
+billing_op(org_id, -tokens_used, "settle")
+```
+
+![Token quota tracking](diagrams/part4/20-06-token-quota.svg)
+
+> 📊 **Таблица 20.3.** Тарифные планы и лимиты (из `subscription_tiers`).
+
+| План | RPM | TPM | Токенов/день | Токенов/мес | Цена |
+|---|---|---|---|---|---|
+| **FREE** | 10 | 500 | 100K | 3M | 0₽ |
+| **STANDARD** | 60 | 5 000 | 1M | 30M | 5 000₽ |
+| **VIP** | 300 | 50 000 | 10M | 300M | 20 000₽ |
+
+---
 
 ### 20.4 Model ACL: кому какую модель можно
 
-> 🔴 Заглушка · 5 стр. · 1 схема · 1 табл.
+#### Проблема
+
+Не все организации должны иметь доступ ко всем моделям. Например:
+- FREE-пользователям — только быстрая qwen2.5-14b
+- STANDARD — 14b + 32b
+- VIP — всё, включая экспериментальные модели
+
+#### Реализация в Gateway
+
+`subscription_tiers` содержит поле `limits` (JSONB):
+
+```json
+{
+  "models": ["qwen2.5-14b", "qwen2.5-32b"],
+  "rpm_limit": 60,
+  "tpm_limit": 5000,
+  "daily_token_limit": 1000000,
+  "monthly_token_limit": 30000000
+}
+```
+
+Gateway проверяет ДО проксирования:
+
+```python
+# gateway/auth.py
+def check_model_acl(org_id: str, model: str, tier: dict) -> bool:
+    allowed_models = tier.get("limits", {}).get("models", [])
+    if model not in allowed_models:
+        logger.warning(f"org={org_id} denied model={model}")
+        return False
+    return True
+```
+
+Если модель не в списке — Gateway возвращает **403 Forbidden** ещё до того, как запрос дойдёт до vLLM.
+
+![Model ACL — tier × model matrix](diagrams/part4/20-04-model-acl.svg)
+
+> 📊 **Таблица 20.4.** Матрица доступа к моделям.
+
+| Модель | FREE | STANDARD | VIP |
+|---|---|---|---|
+| qwen2.5-14b (инференс) | ✅ | ✅ | ✅ |
+| qwen2.5-32b (инференс) | ❌ | ✅ | ✅ |
+| coder-14b (инференс) | ❌ | ❌ | ✅ |
+| LoRA-адаптеры | ❌ | ✅ | ✅ |
+| Эмбеддинги (RAG) | ❌ | ❌ | ✅ |
+
+---
 
 ### 20.5 Изоляция данных: биллинг, чаты, DLP
 
-> 🔴 Заглушка · 6 стр. · 1 схема · 1 табл.
+#### Биллинг: per-org баланс
 
-### 20.6 Итоговая схема: полный путь запроса
+Баланс привязан к `org_id`, а не к пользователю. Одна организация = один счёт:
 
-> 🔴 Заглушка · 6 стр. · 1 схема · 1 табл.
+```sql
+-- billing_accounts
+CREATE TABLE billing_accounts (
+  org_id uuid PRIMARY KEY REFERENCES portal_organizations(org_id),
+  balance bigint NOT NULL DEFAULT 0,       -- доступные токены
+  reserved bigint NOT NULL DEFAULT 0,      -- зарезервировано (в обработке)
+  tier text NOT NULL DEFAULT 'free',
+  total_tokens bigint NOT NULL DEFAULT 0,  -- всего куплено за историю
+  meta jsonb DEFAULT '{}'
+);
+
+-- billing_ledger (аудит)
+CREATE TABLE billing_ledger (
+  txn_id uuid PRIMARY KEY,
+  org_id uuid NOT NULL REFERENCES portal_organizations(org_id),
+  user_id uuid REFERENCES portal_users(user_id),
+  type text NOT NULL,  -- reserve, settle, refund, purchase
+  tokens int NOT NULL,
+  amount_rub numeric(12,2),
+  meta jsonb,
+  created_at timestamptz DEFAULT now()
+);
+```
+
+Все операции с балансом проходят через одну функцию `billing_op(org_id, tokens, type)`, которая:
+1. Проверяет, что на счету достаточно токенов (`balance + tokens >= 0`)
+2. Атомарно обновляет баланс (`SELECT ... FOR UPDATE`)
+3. Пишет запись в `billing_ledger` (аудиторский след)
+
+```python
+# gateway/billing.py (упрощённо)
+def billing_op(org_id: str, tokens: int, op_type: str):
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT balance FROM billing_accounts WHERE org_id=%s FOR UPDATE",
+            (org_id,))
+        balance = cur.fetchone()[0]
+        if balance + tokens < 0:
+            raise InsufficientFunds()
+        cur.execute(
+            "UPDATE billing_accounts SET balance=balance+%s WHERE org_id=%s",
+            (tokens, org_id))
+        cur.execute(
+            "INSERT INTO billing_ledger (org_id, type, tokens) VALUES (%s,%s,%s)",
+            (org_id, op_type, abs(tokens)))
+```
+
+#### Чаты: per-org изоляция
+
+До задачи #21 чаты фильтровались только по `user_id`:
+
+```sql
+-- Было (до #21): пользователь мог видеть все свои чаты,
+-- даже если они созданы под другой организацией
+SELECT * FROM chats WHERE user_id = $1;
+```
+
+После #21 добавлена колонка `org_id`:
+
+```sql
+-- Стало: чаты строго per-org
+ALTER TABLE chats ADD COLUMN org_id uuid REFERENCES portal_organizations(org_id);
+UPDATE chats SET org_id = ...;  -- заполнили 37 существующих чатов
+ALTER TABLE chats ALTER COLUMN org_id SET NOT NULL;
+
+-- Все CRUD-запросы теперь фильтруют по org_id:
+SELECT * FROM chats WHERE user_id = $1 AND org_id = $2;
+```
+
+![Chat isolation — per-org SQL](diagrams/part4/20-08-chat-isolation.svg)
+
+**Функция `checkChatEnabled()`** возвращает `org_id` и проверяет политики:
+
+```typescript
+// server.ts:836-852
+async function checkChatEnabled(userId: string, reply: any): Promise<string | null> {
+  const orgs = await pool.query(
+    `SELECT o.org_id FROM portal_organizations o
+     JOIN portal_org_members m ON o.org_id = m.org_id
+     WHERE m.user_id = $1 AND m.status = 'active' LIMIT 1`, [userId]);
+  if (orgs.rows.length === 0) {
+    reply.status(403).send({ error: "chat_disabled" });
+    return null;
+  }
+  const orgId = orgs.rows[0].org_id;
+  const policy = await loadPolicy(pool, orgId);
+  if (!policy.chat_enabled) {
+    reply.status(403).send({ error: "чат отключён в организации" });
+    return null;
+  }
+  return orgId;  // ← используется во всех эндпоинтах чатов
+}
+```
+
+#### DLP и политики безопасности
+
+`portal_org_policies` позволяет настраивать per-org правила безопасности:
+
+```sql
+CREATE TABLE portal_org_policies (
+  org_id uuid PRIMARY KEY REFERENCES portal_organizations(org_id),
+  chat_enabled boolean DEFAULT true,        -- разрешить чаты?
+  allowed_ip_cidrs text[],                  -- белый список IP
+  mfa_required boolean DEFAULT false,       -- требовать 2FA?
+  session_timeout_min int DEFAULT 60,       -- таймаут сессии
+  chat_retention_days int DEFAULT 90,       -- срок хранения чатов
+  dlp_rules jsonb DEFAULT '{}'              -- правила DLP
+);
+```
+
+Каждая организация может иметь свои правила, не затрагивая другие.
+
+![SQL — per-org изоляция всех таблиц](diagrams/part4/20-05-sql-isolation.svg)
+
+> 📊 **Таблица 20.5.** Где находится `org_id` в схеме данных.
+
+| Таблица | Колонка org_id | Тип изоляции |
+|---|---|---|
+| `billing_accounts` | PK | Один счёт на организацию |
+| `billing_ledger` | FK | Каждая операция привязана к org |
+| `portal_api_keys` | FK | Ключи принадлежат организации |
+| `portal_org_members` | FK | Пользователи в организациях |
+| `portal_org_policies` | PK | Политики per-org |
+| `chats` | FK (★ новое) | Чаты изолированы |
+| `payment_transactions` | FK | Платежи per-org |
+
+---
+
+### 20.6 Итоговая схема: полный путь запроса с изоляцией
+
+Соберём все слои вместе — от пользователя до vLLM и обратно:
+
+1. **Аутентификация:** OAuth (GitHub) → JWT входа
+2. **Авторизация:** BFF находит org_id, создаёт Delegation Token
+3. **Gateway — проверки (последовательно):**
+   - Проверка подписи JWT (публичный ключ)
+   - Rate limit: `rl:{org_id}:rpm` → не превышен ли?
+   - Token quota: `tok:{org_id}:daily` → не превышен ли?
+   - Model ACL: модель в списке разрешённых?
+4. **Инференс:** проксирование на vLLM
+5. **Учёт:** Redis (быстро) + PostgreSQL (аудит)
+6. **Аудит:** `billing_ledger` — кто, когда, сколько токенов
+
+![End-to-end — полный путь с изоляцией](diagrams/part4/20-07-end-to-end.svg)
+
+> 📊 **Таблица 20.6.** Что проверяется и на каком слое.
+
+| Слой | Проверка | Где | При ошибке |
+|---|---|---|---|
+| BFF | Есть ли организация у пользователя? | SQL | 403 (no active org) |
+| BFF | Чат включён в политиках? | `portal_org_policies` | 403 (чат отключён) |
+| BFF | Есть ли API key? | `portal_api_keys` | Создаёт авто |
+| Gateway | Валиден ли JWT? | RSA-подпись | 401 (invalid token) |
+| Gateway | RPM не превышен? | Redis `rl:{org}:rpm` | 429 (rate limit) |
+| Gateway | TPM не превышен? | Redis `rl:{org}:tpm` | 429 |
+| Gateway | Daily quota не превышена? | Redis `tok:{org}:daily` | 429 |
+| Gateway | Monthly quota не превышена? | Redis `tok:{org}:monthly` | 429 |
+| Gateway | Модель разрешена? | `tier.limits.models` | 403 (model denied) |
+| Gateway | Хватает ли баланса? | `billing_accounts` | 402 (insufficient) |
+| После vLLM | Учёт токенов | Redis + SQL | Логгируется |
+
+---
+
+### Итоги Главы 20
+
+| Вы узнали | Вы научились |
+|---|---|
+| Чем soft отличается от hard multi-tenancy | Создавать per-org API keys |
+| Как работает Delegation Token (RS256, 5 мин) | Подписывать и проверять JWT |
+| Как Redis rate limiting изолирует организации | Настраивать RPM/TPM/daily/monthly квоты |
+| Что такое Model ACL и как он работает | Добавлять колонку `org_id` для изоляции данных |
+| Как изолируются чаты, биллинг и DLP | Строить полный аудит-трейс запроса |
+
+**Ключевой вывод:** изоляция в Aither — это не один `if`, а **многослойная система**: API key → JWT → Redis rate limit → token quota → model ACL → SQL WHERE. Каждый слой отказоустойчив: если один проверку пропустил — следующий поймает.
 
 ---
 

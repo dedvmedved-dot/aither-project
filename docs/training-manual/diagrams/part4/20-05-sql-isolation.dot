@@ -1,0 +1,26 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_db {
+    label=" PostgreSQL: per-org изоляция"; bgcolor="#e3f2fd"; color="#1565c0";
+
+    ba [label="billing_accounts\norg_id (PK)\nbalance, reserved\n→ billing_op(org_id)", shape=box, fillcolor="#c8e6c9", color="#2e7d32", width=2.2];
+    ak [label="portal_api_keys\norg_id (FK)\napi_key, status\n→ JWT: {org_id}", shape=box, fillcolor="#ffe0b2", color="#e65100", width=2.2];
+    ch [label="chats\nuser_id, org_id ★\ntitle, model\n→ WHERE org_id=$N", shape=box, fillcolor="#e1bee7", color="#7b1fa2", width=2.2];
+    pol [label="portal_org_policies\norg_id (PK)\nchat_enabled, dlp_rules\n→ loadPolicy(org_id)", shape=box, fillcolor="#ffcdd2", color="#c62828", width=2.2];
+    bl [label="billing_ledger\norg_id (FK), user_id\ntype, tokens, amount\n→ аудит-трейс", shape=box, fillcolor="#cfd8dc", color="#607d8b", width=2.2];
+  }
+
+  org_filter [label="Все запросы:\nWHERE org_id = $current_org\n(из JWT)", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+
+  org_filter -> ba [style=dashed, color="#43a047"];
+  org_filter -> ak [style=dashed, color="#e65100"];
+  org_filter -> ch [style=dashed, color="#7b1fa2"];
+  org_filter -> pol [style=dashed, color="#c62828"];
+  org_filter -> bl [style=dashed, color="#607d8b"];
+
+  cross [label="Пользователь Org Beta\n→ НЕ видит данные Org Alpha\n(WHERE org_id блокирует)", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  ch -> cross [style=dotted, dir=none, color="#c62828"];
+}

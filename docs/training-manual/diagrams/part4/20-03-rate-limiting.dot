@@ -1,0 +1,36 @@
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_redis {
+    label="Redis: ключи rate limiting"; bgcolor="#fff3e0"; color="#e65100";
+    
+    rpm [label="rl:ORG_A:rpm:14:05\n   ↓ INCR\n> 60/min → 429", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    tpm [label="rl:ORG_A:tpm:14:05\n   ↓ INCR\n> 1000/min → 429", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    daily [label="rl:ORG_A:daily:20260710\n   ↓ INCR\n> daily_limit → 429", shape=box, fillcolor="#ffcc80", color="#ef6c00"];
+    monthly [label="tok:ORG_A:monthly:202607\n   ↓ INCR\n> 30M → 429", shape=box, fillcolor="#ffcc80", color="#ef6c00"];
+    
+    window [label="Ключи с TTL:\n• rpm/tpm: 60 сек\n• daily: 86400 сек\n• monthly: 30 дней", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  }
+
+  subgraph cluster_gw {
+    label="Gateway: логика проверки"; bgcolor="#e8f5e9"; color="#43a047";
+    
+    check [label="1. Извлечь org_id\n   из JWT", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    tier [label="2. Загрузить tier\n   (FREE/STD/VIP)", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    limits [label="3. Проверить\n   rpm → tpm → daily\n   → monthly → ACL", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    
+    ok [label="✓ OK\nПроксируем\nна vLLM", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+    reject [label="✗ 429\nRate limit\nexceeded", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  check -> tier -> limits;
+  limits -> rpm [label="INCR"];
+  limits -> tpm [label="INCR"];
+  limits -> daily;
+  limits -> monthly;
+  limits -> ok [label="все проверки\nпройдены"];
+  limits -> reject [label="превышен\nлимит"];
+  rpm -> window [style=dotted, dir=none];
+}

@@ -1,0 +1,49 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=9, style=filled];
+  edge [fontname="Arial", fontsize=8];
+
+  // Layers
+  user [label="👤 Пользователь\nOrg Alpha\n(браузер)", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_layer1 {
+    label="Слой 1: Аутентификация"; bgcolor="#f5f5f5"; color="#9e9e9e";
+    oauth [label="OAuth\nGitHub", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+    bff [label="BFF\n(Fastify)\nVPS2:3000", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_layer2 {
+    label="Слой 2: Авторизация + JWT"; bgcolor="#e8f5e9"; color="#43a047";
+    apikey [label="portal_api_keys\nAPI key: ak-...\norg_id: ORG_A", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    jwt [label="Delegation JWT\n{org_id: ORG_A,\n key_id: chat,\n user_id: USER_X}\nRS256, 5 мин", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_layer3 {
+    label="Слой 3: Gateway — проверки"; bgcolor="#fff3e0"; color="#e65100";
+    verify [label="Проверка\nподписи JWT", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    ratelimit [label="Rate Limit\nrl:ORG_A:rpm\n→ 5/60 ✓", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    quota [label="Token Quota\ntok:ORG_A:daily\n→ 143/100K ✓", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    acl [label="Model ACL\nqwen2.5-14b\n∈ tier.models ✓", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+  }
+
+  subgraph cluster_layer4 {
+    label="Слой 4: Инференс + Учёт"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    vllm [label="vLLM\nGPU RTX6000\nqwen2.5-14b", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    track [label="Учёт\nRedis: +143 ток\nSQL: billing-143", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  subgraph cluster_layer5 {
+    label="Слой 5: Аудит"; bgcolor="#eceff1"; color="#607d8b";
+    audit [label="billing_ledger\nINSERT settle\norg_id=ORG_A\ntokens=143\n⏱ 2026-07-10", shape=box, fillcolor="#cfd8dc", color="#607d8b"];
+  }
+
+  // Flow
+  user -> oauth -> bff;
+  bff -> apikey -> jwt;
+  jwt -> verify -> ratelimit -> quota -> acl;
+  acl -> vllm -> track -> audit;
+
+  // Cross-org блок
+  other [label="👤 Другой пользователь\nOrg Beta\n→ НЕ видит чаты Org Alpha\n→ НЕ видит платежи Org Alpha\n→ rate limit свой", shape=cylinder, fillcolor="#ffcdd2", color="#c62828"];
+  other -> bff [style=dotted, color="#c62828", label="✗ 403\norg mismatch"];
+}

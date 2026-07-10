@@ -1,0 +1,38 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  tiers [label="subscription_tiers\n( PostgreSQL )", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_free {
+    label="FREE · 0₽/мес"; bgcolor="#f5f5f5"; color="#9e9e9e";
+    f_models [label="Модели:\n✅ qwen2.5-14b\n❌ qwen2.5-32b\n❌ coder-14b", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+    f_limits [label="Лимиты:\nRPM: 10\nTPM: 500\nDaily: 100K\nMonthly: 3M", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+  }
+
+  subgraph cluster_std {
+    label="STANDARD · 5 000₽/мес"; bgcolor="#f1f8e9"; color="#43a047";
+    s_models [label="Модели:\n✅ qwen2.5-14b\n✅ qwen2.5-32b\n❌ coder-14b", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    s_limits [label="Лимиты:\nRPM: 60\nTPM: 5000\nDaily: 1M\nMonthly: 30M", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_vip {
+    label="VIP · 20 000₽/мес"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    v_models [label="Модели:\n✅ qwen2.5-14b\n✅ qwen2.5-32b\n✅ coder-14b\n✅ все будущие", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    v_limits [label="Лимиты:\nRPM: 300\nTPM: 50000\nDaily: 10M\nMonthly: 300M", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  gw_filter [label="Gateway: фильтр моделей\nif model not in tier.limits.models:\n    return 403 Forbidden", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+
+  tiers -> f_models [style=dashed];
+  tiers -> s_models [style=dashed];
+  tiers -> v_models [style=dashed];
+  
+  f_models -> gw_filter;
+  s_models -> gw_filter;
+  v_models -> gw_filter;
+
+  note [label="Gateway проверяет\nДО проксирования\nна vLLM", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  gw_filter -> note [style=dotted, dir=none];
+}
