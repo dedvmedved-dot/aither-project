@@ -344,6 +344,20 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
 const ADMIN_KEY = 'hs256-shared-secret-key-for-admin-api-2026';
 const API_BASE = window.location.origin + '/api/v1/admin';
 
+// ── Auth guard: redirect to portal login if not authenticated ──
+(function() {
+  const token = localStorage.getItem('aither_token');
+  if (!token) {
+    // No token — redirect to portal
+    window.location.replace('/');
+    return;
+  }
+  // Validate token by calling a lightweight endpoint
+  fetch('/api/v1/status', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => { if (!r.ok) throw new Error('unauthorized'); })
+    .catch(() => { localStorage.removeItem('aither_token'); window.location.replace('/'); });
+})();
+
 function logout() { localStorage.clear(); window.location.href = '/'; }
 
 // ── Auto-load ──

@@ -1436,6 +1436,42 @@ async function main() {
 
   const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
+  // ── Serve admin.html — only to authenticated users with admin role ──
+  app.get("/admin.html", async (req: any, reply) => {
+    const adminHeader = req.headers["x-admin-key"] || "";
+    const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
+
+    if (!isAdminKey) {
+      const ah = req.headers.authorization || "";
+      if (!ah.startsWith("Bearer ")) {
+        // No auth at all — redirect to portal login
+        return reply.redirect("/");
+      }
+      const p = verifyToken(ah.slice(7));
+      if (!p) {
+        return reply.redirect("/");
+      }
+
+      const orgs = await pool.query(
+        "SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1",
+        [p.user_id]
+      );
+      if (orgs.rows.length === 0) {
+        return reply.status(403).type("text/html").send(
+          "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>403 — Aither Admin</title>" +
+          "<style>body{font-family:system-ui;background:#0a0a0f;color:#e4e4ec;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}" +
+          "div{text-align:center}h1{font-size:72px;margin:0;color:#f87171}p{color:#71718a;margin:8px 0 24px}a{color:#818cf8}</style></head>" +
+          "<body><div><h1>403</h1><p>Доступ запрещён — требуются права администратора</p>" +
+          "<a href='/'>← На портал</a></div></body></html>"
+        );
+      }
+    }
+
+    const fs = await import("fs");
+    const html = fs.readFileSync("/root/aither-project/portal/static/admin.html", "utf8");
+    return reply.type("text/html").send(html);
+  });
+
   // Admin users — handled locally (portal DB, not billing DB)
   app.get("/api/v1/admin/users", async (req: any, reply) => {
     const adminHeader = req.headers["x-admin-key"] || "";
