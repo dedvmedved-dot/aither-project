@@ -1,55 +1,110 @@
-# 01-architecture.md — Архитектура платформы Aither
+# Aither Platform — архитектура (v1.1, 10.07.2026)
 
-> Полная архитектура: см. `docs/user-guide.md` в основном репозитории.
-
-## Обзор
+## Общая схема
 
 ```
-Клиент (браузер / API)
-  │
-  ▼
-Nginx (VPS2:80) — SPA + прокси
-  │
-  ├─ /api/* → BFF (Node.js :3000) — авторизация, чаты, биллинг
-  │              │
-  │              ├─ PostgreSQL (пользователи, чаты)
-  │              └─ Gateway (K8s :30900) — резервирование, rate limit, безопасность
-  │                     │
-  │                     ├─ Redis (Rate Limiter)
-  │                     ├─ PostgreSQL (биллинг)
-  │                     ├─ vLLM 14B (n8, Qwen 2.5 14B, 2× RTX 6000)
-  │                     └─ vLLM 32B (n7, Qwen 2.5 32B, 2× RTX 6000)
-  │
-  └─ / → Статика портала (index.html)
+Пользователь
+    │
+    │ HTTPS :10443
+    ▼
+┌─────────────────────────────────┐
+│  VPS1 (170.168.91.95)           │
+│  ┌───────────────────────────┐  │
+│  │ nginx (aither-failover)   │  │
+│  │  :10443 → портал          │  │
+│  │  /api/* → VPS2:80         │  │
+│  │  /v1/*  → Gateway :30900  │  │
+│  │  /auth/* → VPS2:80        │  │
+│  └───────────────────────────┘  │
+│  ┌───────────────────────────┐  │
+│  │ socat :30900 → Gateway K8s│  │
+│  │ socat :30300 → Grafana    │  │
+│  └───────────────────────────┘  │
+│  ┌───────────────────────────┐  │
+│  │ Grafana :30300            │  │
+│  │ Prometheus                │  │
+│  └───────────────────────────┘  │
+└──────────────┬──────────────────┘
+               │ WireGuard 10.129.13.0/24
+               ▼
+┌─────────────────────────────────┐
+│  n8-gpu (10.129.13.78/40.51)   │
+│  ┌───────────────────────────┐  │
+│  │ K8s (control plane)       │  │
+│  │  • Gateway :30900         │  │
+│  │  • vLLM 14B               │  │
+│  │  • Redis                   │  │
+│  │  • PostgreSQL               │  │
+│  └───────────────────────────┘  │
+│  2× RTX 6000 Ada (48GB)         │
+└─────────────────────────────────┘
+               │
+               │ K8s networking
+               ▼
+┌─────────────────────────────────┐
+│  n7-gpu (10.129.13.77/40.50)   │
+│  ┌───────────────────────────┐  │
+│  │ vLLM 32B                  │  │
+│  └───────────────────────────┘  │
+│  2× RTX 6000 Ada (48GB)         │
+└─────────────────────────────────┘
+
+┌─────────────────────────────────┐
+│  VPS2 (130.17.1.90)            │
+│  ┌───────────────────────────┐  │
+│  │ Docker: nginx :80         │  │
+│  │  → BFF :3000              │  │
+│  │  → static/ (SPA)          │  │
+│  │ Docker: PostgreSQL :5432   │  │
+│  └───────────────────────────┘  │
+│  BFF (systemd):                │
+│  • Fastify + TypeScript         │
+│  • JWT-сессии (HS256)           │
+│  • Делегирование (RS256)        │
+│  • SSE-стриминг для чатов       │
+└─────────────────────────────────┘
 ```
 
-## Компоненты
+## Ключевые порты и протоколы
 
-| Компонент | Технология | Порт | Хост |
+| Компонент | Хост | Порт | Протокол |
 |---|---|---|---|
-| Портал (SPA) | Vanilla JS + SSE | 80 | VPS2 |
-| BFF | Node.js/Fastify | 3000 | VPS2 |
-| Gateway | Python/FastAPI | 30900 | K8s |
-| PostgreSQL | 16 | 5432/31113 | K8s |
-| Redis | 7-alpine | 6379 | K8s |
-| ChromaDB | latest | 8000 | K8s |
-| vLLM 14B | vllm-openai | 32293 | n8 |
-| vLLM 32B | vllm-openai | 32294 | n7 |
-| Prometheus | latest | 30909 | K8s |
-| Grafana | latest | 30300 | K8s |
+| Portal UI | VPS1 → VPS2 | :10443 | HTTPS |
+| BFF API | VPS2 (Docker nginx) | :80 → :3000 | HTTP/SSE |
+| Gateway | VPS1 → n8 | :30900 | HTTP |
+| vLLM 14B | n8 (K8s) | :8000 | HTTP/SSE |
+| vLLM 32B | n7 (K8s) | :8000 | HTTP/SSE |
+| Grafana | VPS1 | :30300 | HTTP |
+| PostgreSQL | VPS2 (Docker) | :5432 | TCP |
+| Redis | n8 (K8s) | :6379 | TCP |
 
-## Поток запроса
+## Поток запроса в чат
 
-1. Клиент → POST /api/v1/chat/completions (Bearer API-Key)
-2. Nginx → BFF (JWT auth)
-3. BFF → Gateway (reserve токенов)
-4. Gateway → vLLM (инференс)
-5. Gateway → BFF (settle + ответ)
-6. BFF → Клиент (SSE-стриминг)
+```
+Браузер → POST /api/v1/chats/:id/messages (SSE)
+  → VPS1 nginx :10443 → VPS2 :80
+    → Docker nginx → BFF :3000
+      → BFF создаёт delegation JWT (RS256)
+        → Gateway :30900 → vLLM :8000 (SSE)
+          ← токены (SSE)
+      ← BFF стримит SSE клиенту
+```
 
-## Безопасность
+## Делегирование и безопасность
 
-- DLP: детекция номеров карт, паспортов, СНИЛС, телефонов
-- Prompt Injection: 23 EN + 6 RU паттернов
-- Rate Limiting: 60 RPM / 100K TPM на организацию
-- JWT RS256 делегирование Portal → Gateway
+1. Пользователь входит через OAuth → BFF выдаёт сессионный JWT (HS256)
+2. Для вызовов Gateway BFF создаёт delegation JWT (RS256, 5 мин)
+3. Gateway проверяет delegation JWT публичным ключом
+4. Gateway резервирует токены → проксирует в vLLM → списывает
+
+## Модели
+
+| Модель | Узел | vLLM path | Память |
+|---|---|---|---|
+| Qwen 2.5 14B Instruct | n8 | /models/Qwen2.5-14B-Instruct | ~28 GB |
+| Qwen 2.5 32B GPTQ | n7 | /models/Qwen2.5-32B-Instruct-GPTQ | ~40 GB |
+
+## Версионирование
+
+- **Текущая версия:** 1.1 (10.07.2026)
+- **Предыдущая:** 1.0 (05.07.2026)

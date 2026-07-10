@@ -1,65 +1,78 @@
-# 06-troubleshooting.md — Типовые проблемы
+# Aither Platform — решение проблем (v1.1, 10.07.2026)
 
-## Под не стартует (ContainerCreating)
+## Чаты: ошибка 502 при отправке сообщений
 
+**Симптом:** вкладка Network показывает 502 на `POST /api/v1/chats/:id/messages`.
+
+**Причина:** Gateway не может обработать запрос — либо vLLM недоступен, либо Gateway заблокирован предыдущим стриминг-запросом (однопоточный режим).
+
+**Решение:**
+1. Проверить Gateway: `curl http://VPS1_IP:30900/health`
+2. Проверить vLLM: `curl http://VPS1_IP:30900/v1/models`
+3. Если Gateway однопоточный — добавить `ThreadingHTTPServer` в gateway.py
+4. Перезапустить: `kubectl rollout restart deploy/gateway`
+
+## Чаты: ошибка 403 «model_not_available» или «security_violation»
+
+**Причина:** включены проверки тарифов/безопасности в Gateway (расширенная версия 43KB).
+
+**Решение:** откатить Gateway к базовой версии (325 строк) без проверок:
 ```bash
-kubectl describe pod -n aither <pod-name> | grep -A5 Events
+kubectl create configmap gateway-code --from-file=gateway.py=gateway-simple.py --dry-run=client -o yaml | kubectl apply -f -
+kubectl rollout restart deploy/gateway
 ```
 
-Частые причины:
-- Docker-образ не загружен → `make offline-load`
-- PVC не создан → `kubectl apply -f k8s/postgres/`
-- GPU не доступен → `nvidia-smi`, проверить `runtimeClassName: nvidia`
+## Пустой дашборд
 
-## Gateway: connection refused
+**Симптом:** вкладка «Дашборд» показывает пустую страницу.
 
+**Причина:** дубликат функции `renderDashboard` в index.html (вторая копия переопределяет оригинал).
+
+**Решение:**
+1. `grep -n "function renderDashboard" portal/static/index.html`
+2. Удалить дубликат (второе вхождение)
+3. Скопировать на VPS1: `scp static/index.html root@VPS1:/var/www/aither-portal/`
+4. Перезагрузить nginx: `systemctl reload nginx`
+
+## Кнопка «Перейти» на тарифах не работает
+
+**Симптом:** `upgradeTier is not defined` в консоли браузера.
+
+**Причина:** функция `highlightCode` не закрыта `}`, из-за чего `upgradeTier` оказывается в её локальной области видимости.
+
+**Решение:** добавить закрывающую `}` после `highlightCode`.
+
+## Статика устарела на VPS1
+
+**Симптом:** изменения в index.html не отображаются на портале.
+
+**Причина:** nginx на VPS1 раздаёт статику из `/var/www/aither-portal/` — это отдельная копия, не связанная с репозиторием на VPS2.
+
+**Решение:**
 ```bash
-kubectl logs -n aither deploy/gateway --tail=50
+scp root@VPS2:/root/aither-project/portal/static/index.html /tmp/
+scp /tmp/index.html root@VPS1:/var/www/aither-portal/
+ssh root@VPS1 'systemctl reload nginx'
 ```
 
-Частые причины:
-- PostgreSQL не готов → `kubectl exec -n aither deploy/postgres -- pg_isready`
-- Redis не готов → `kubectl exec -n aither deploy/redis -- redis-cli ping`
-- ConfigMap не смонтирован → `kubectl describe pod -n aither <gateway-pod>`
+## Gateway: ConfigMap потерял файлы при обновлении
 
-## vLLM: OOM (out of memory)
+**Симптом:** после `kubectl create configmap ... --from-file=gateway.py` под падает с `ModuleNotFoundError`.
 
+**Причина:** `kubectl create --from-file` заменяет ВЕСЬ ConfigMap, удаляя другие файлы (admin.py, security.py и т.д.).
+
+**Решение:** всегда указывать ВСЕ файлы при обновлении:
 ```bash
-kubectl logs -n aither deploy/vllm-qwen --tail=50
+kubectl create configmap gateway-code   --from-file=gateway.py --from-file=admin.py --from-file=catalog.py   --from-file=catalog.yaml --from-file=hybrid_rag.py --from-file=metrics.py   --from-file=reaper.py --from-file=routing.py --from-file=security.py   --from-file=security_egress.py --from-file=vault.py --from-file=wiki_graph.py   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-Решение: уменьшить `--gpu-memory-utilization` до 0.85 или `--max-model-len`.
+## PostgreSQL: ошибка «role does not exist»
 
-## Портал: 502 Bad Gateway
+**Симптом:** `psql -U aither` → `FATAL: role "aither" does not exist`.
 
+**Причина:** в Docker-контейнере портала используется пользователь `portal`, а не `aither`.
+
+**Решение:**
 ```bash
-# Проверить что Gateway доступен
-curl http://K8S_NODE_IP:30900/health
-
-# Проверить BFF
-ssh VPS2 "journalctl -u aither-bff --since '5 min ago'"
-```
-
-## Grafana: дашборды пустые
-
-```bash
-# Проверить что Prometheus скрейпит метрики
-curl http://localhost:30909/api/v1/targets | python3 -m json.tool
-```
-
-## БД: недостаточно места
-
-```bash
-df -h /data/postgres
-# При < 10% — очистить старые логи или расширить PVC
-```
-
-## Модель не загружается
-
-```bash
-# Проверить наличие файлов
-ssh K8S_NODE "ls -la /mnt/models/Qwen2.5-14B-Instruct/"
-
-# Проверить vLLM логи
-kubectl logs -n aither deploy/vllm-qwen | grep -i error
+docker exec aither-portal-portal-db-1 psql -U portal -d portal
 ```

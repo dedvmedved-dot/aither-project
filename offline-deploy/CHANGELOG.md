@@ -1,23 +1,29 @@
-# Changelog
+# Changelog — Aither Platform
 
-## [1.0.0] — 11.07.2026
+## v1.1 (10.07.2026)
 
-### Добавлено
+### Исправления
+- Gateway: многопоточный режим (ThreadingHTTPServer) — исправлены 502 ошибки в чатах при повторных запросах
+- Портал: исправлен `highlightCode` (кнопка «Перейти» на тарифах)
+- Портал: удалён дубликат `renderDashboard` (пустой дашборд)
+- Портал: синхронизирована статика VPS2 → VPS1 (nginx кэшировал старую версию)
 
-- Пакет офлайн-развёртывания для закрытого контура
-- K8s-манифесты: Gateway, vLLM 14B, vLLM 32B, PostgreSQL, Redis, ChromaDB
-- Ansible playbooks для полного цикла (ОС → GPU → K8s → vLLM → Портал)
-- Скрипты эксплуатации: health-check, backup/restore, ротация ключей
-- Приёмо-сдаточные тесты: smoke, API, security
-- Документация: архитектура, деплой, админ, пользователь, безопасность
-- Офлайн-зависимости: docker save/load, pip download, npm pack
+### Обновления конфигурации
+- `k8s/gateway/deployment.yaml` — переписан под реальный K8s (namespace default, ConfigMap, delegation-key)
+- `configs/nginx/nginx.conf` — актуальная схема с VPS1 (fb1.spb.ru:10443, /v1/, /grafana/)
+- `configs/bff/.env.template` — реальные переменные (OAuth, PostgreSQL, делегирование)
+- `scripts/health-check.sh` — проверка Portal API, Gateway, vLLM, Grafana, PostgreSQL
 
-### Компоненты платформы
+### Документация
+- `docs/01-architecture.md` — актуальная схема с IP, портами, потоком запросов
+- `docs/06-troubleshooting.md` — 7 новых записей на основе реальных инцидентов
+- `README.md` — версия 1.1, обновлённый состав и архитектура
+- `VERSION` → 1.1
 
-- Портал (SPA + BFF) — веб-интерфейс, OAuth, чаты, биллинг
-- Gateway — Rate Limiter, AI Security (DLP + Prompt Injection), биллинг
-- vLLM 14B + 32B — инференс на 2× RTX 6000 (TP=2)
-- PostgreSQL — биллинг, пользователи, организации
-- Redis — Rate Limiter (sliding window)
-- ChromaDB — векторная БД для RAG
-- Prometheus + Grafana — мониторинг GPU, инференса, биллинга
+---
+
+## v1.0 (05.07.2026)
+
+- Первый релиз офлайн-пакета
+- 8 документов, K8s-манифесты, Ansible playbooks (заготовки)
+- Скрипты эксплуатации, офлайн-зависимости, приёмо-сдаточные тесты
