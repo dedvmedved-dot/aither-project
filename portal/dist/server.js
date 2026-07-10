@@ -50626,16 +50626,20 @@ async function checkOrgOwner(orgId, userId) {
 var STARTER_TOKENS = 1e5;
 var REFILL_TOKENS = 1e5;
 var REFILL_LIMIT = 10;
-async function ensurePersonalOrg(userId) {
+async function ensurePersonalOrg(userId, displayName) {
+  const name = displayName || "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C";
+  const orgName = `${name}-\u043E\u0440\u0433\u0430\u043D\u0438\u0437\u0430\u0446\u0438\u044F`;
   const exist = await pool.query(
     `SELECT o.org_id FROM portal_organizations o
      JOIN portal_org_members m ON o.org_id=m.org_id
-     WHERE m.user_id=$1 AND o.name='\u041B\u0438\u0447\u043D\u044B\u0439'`,
+     WHERE m.user_id=$1 AND m.role='owner'
+     LIMIT 1`,
     [userId]
   );
   if (exist.rows.length > 0) return exist.rows[0].org_id;
   const org = await pool.query(
-    "INSERT INTO portal_organizations (name) VALUES ('\u041B\u0438\u0447\u043D\u044B\u0439') RETURNING org_id"
+    "INSERT INTO portal_organizations (name) VALUES ($1) RETURNING org_id",
+    [orgName]
   );
   const orgId = org.rows[0].org_id;
   await pool.query(
@@ -50832,7 +50836,7 @@ async function main() {
           ["github", oauthId, primaryEmail, displayName, avatarUrl]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query(
@@ -50901,7 +50905,7 @@ async function main() {
           ["google", oauthId, email, displayName, avatarUrl]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query(
@@ -50967,7 +50971,7 @@ async function main() {
           ["yandex", oauthId, email, displayName, avatarUrl]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query(
@@ -51006,7 +51010,7 @@ async function main() {
           [provider, oauthId, ldapUser.email, ldapUser.displayName]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, ldapUser.displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query(
@@ -51039,7 +51043,7 @@ async function main() {
         ["dev", oid, email, name]
       );
       userId = ins.rows[0].user_id;
-      await ensurePersonalOrg(userId);
+      await ensurePersonalOrg(userId, name);
     } else {
       userId = user.rows[0].user_id;
       await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [userId]);
@@ -51062,7 +51066,7 @@ async function main() {
       [email, email, hash, email.split("@")[0]]
     );
     const userId = ins.rows[0].user_id;
-    const orgId = await ensurePersonalOrg(userId);
+    const orgId = await ensurePersonalOrg(userId, email.split("@")[0]);
     const orgName = org_name || "\u041C\u043E\u044F \u043E\u0440\u0433\u0430\u043D\u0438\u0437\u0430\u0446\u0438\u044F";
     const newOrg = await pool.query("INSERT INTO portal_organizations (name) VALUES ($1) RETURNING org_id", [orgName]);
     const newOrgId = newOrg.rows[0].org_id;

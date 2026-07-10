@@ -48,15 +48,20 @@ const REFILL_TOKENS  = 100_000;    // авто-пополнение при об�
 const REFILL_LIMIT   = 10;         // максимум авто-пополнений (защита от бесконечного цикла)
 
 /** Создаёт личный org для нового пользователя и начисляет стартовые токены */
-async function ensurePersonalOrg(userId: string): Promise<string> {
+async function ensurePersonalOrg(userId: string, displayName?: string): Promise<string> {
+  const name = displayName || 'Пользователь';
+  const orgName = `${name}-организация`;
+
+  // Check for existing personal org
   const exist = await pool.query(
     `SELECT o.org_id FROM portal_organizations o
      JOIN portal_org_members m ON o.org_id=m.org_id
-     WHERE m.user_id=$1 AND o.name='Личный'`, [userId]);
+     WHERE m.user_id=$1 AND m.role='owner'
+     LIMIT 1`, [userId]);
   if (exist.rows.length > 0) return exist.rows[0].org_id;
 
   const org = await pool.query(
-    "INSERT INTO portal_organizations (name) VALUES ('Личный') RETURNING org_id");
+    "INSERT INTO portal_organizations (name) VALUES ($1) RETURNING org_id", [orgName]);
   const orgId = org.rows[0].org_id;
   await pool.query(
     "INSERT INTO portal_org_members (org_id, user_id, role) VALUES ($1,$2,'owner')",
@@ -277,7 +282,7 @@ async function main() {
           ["github", oauthId, primaryEmail, displayName, avatarUrl]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query(
@@ -357,7 +362,7 @@ async function main() {
           ["google", oauthId, email, displayName, avatarUrl]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query("UPDATE portal_users SET email=$1, display_name=$2, avatar_url=$3, last_login_at=now() WHERE user_id=$4",
@@ -433,7 +438,7 @@ async function main() {
           ["yandex", oauthId, email, displayName, avatarUrl]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query("UPDATE portal_users SET email=$1, display_name=$2, avatar_url=$3, last_login_at=now() WHERE user_id=$4",
@@ -478,7 +483,7 @@ async function main() {
           [provider, oauthId, ldapUser.email, ldapUser.displayName]
         );
         userId = ins.rows[0].user_id;
-        await ensurePersonalOrg(userId);
+        await ensurePersonalOrg(userId, ldapUser.displayName);
       } else {
         userId = user.rows[0].user_id;
         await pool.query(
@@ -514,7 +519,7 @@ async function main() {
         ["dev", oid, email, name]
       );
       userId = ins.rows[0].user_id;
-      await ensurePersonalOrg(userId);
+      await ensurePersonalOrg(userId, name);
     } else {
       userId = user.rows[0].user_id;
       await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [userId]);
@@ -543,7 +548,7 @@ async function main() {
       [email, email, hash, email.split("@")[0]]
     );
     const userId = ins.rows[0].user_id;
-    const orgId = await ensurePersonalOrg(userId);
+    const orgId = await ensurePersonalOrg(userId, email.split("@")[0]);
 
     // Create named org
     const orgName = org_name || "Моя организация";
