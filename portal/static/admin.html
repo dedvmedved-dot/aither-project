@@ -485,7 +485,7 @@ async function tokensAdd() {
       body: JSON.stringify({ amount })
     });
     const d = await r.json();
-    if (r.ok) el.innerHTML = `✅ Начислено <b>${d.added.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
+    if (r.ok && !d.error) el.innerHTML = `✅ Начислено <b>${d.added.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
     else el.innerHTML = `❌ ${d.error || r.status}`;
   } catch (e) { el.innerHTML = `❌ ${e.message}`; }
 }
@@ -502,7 +502,7 @@ async function tokensSubtract() {
       body: JSON.stringify({ amount })
     });
     const d = await r.json();
-    if (r.ok) el.innerHTML = `✅ Списано <b>${d.subtracted.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
+    if (r.ok && !d.error) el.innerHTML = `✅ Списано <b>${d.subtracted.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
     else el.innerHTML = `❌ ${d.error || r.status}`;
   } catch (e) { el.innerHTML = `❌ ${e.message}`; }
 }

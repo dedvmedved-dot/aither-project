@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 750" font-family="system-ui,-apple-system,sans-serif">
+  <defs>
+    <linearGradient id="gVPS" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#764ba2"/></linearGradient>
+    <linearGradient id="gGPU" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f093fb"/><stop offset="100%" stop-color="#f5576c"/></linearGradient>
+    <linearGradient id="gDB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4facfe"/><stop offset="100%" stop-color="#00f2fe"/></linearGradient>
+    <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#43e97b"/><stop offset="100%" stop-color="#38f9d7"/></linearGradient>
+    <linearGradient id="gK8s" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fa709a"/><stop offset="100%" stop-color="#fee140"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/></filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="750" fill="#0d1117" rx="12"/>
+
+  <!-- Title -->
+  <text x="550" y="35" text-anchor="middle" fill="#e6edf3" font-size="18" font-weight="bold">Aither Platform — Физическая схема</text>
+
+  <!-- ====== VPS1 ====== -->
+  <g filter="url(#shadow)">
+    <rect x="30" y="60" width="280" height="180" rx="10" fill="#161b22" stroke="#667eea" stroke-width="1.5"/>
+    <rect x="30" y="60" width="280" height="30" rx="10" fill="url(#gVPS)"/>
+    <rect x="30" y="80" width="280" height="10" fill="url(#gVPS)"/>
+    <text x="170" y="80" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">VPS1 · 170.168.91.95</text>
+
+    <rect x="45" y="100" width="120" height="22" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="105" y="115" text-anchor="middle" fill="#8b949e" font-size="10">nginx :10443</text>
+
+    <rect x="175" y="100" width="120" height="22" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="235" y="115" text-anchor="middle" fill="#8b949e" font-size="10">nginx :30900→K8s</text>
+
+    <rect x="45" y="130" width="120" height="22" rx="5" fill="#1c2128" stroke="#f5576c" stroke-width="0.5"/>
+    <text x="105" y="145" text-anchor="middle" fill="#f5576c" font-size="10">🤖 Hermes Agent</text>
+
+    <rect x="175" y="130" width="120" height="22" rx="5" fill="#1c2128" stroke="#43e97b" stroke-width="0.5"/>
+    <text x="235" y="145" text-anchor="middle" fill="#43e97b" font-size="10">🔐 WireGuard</text>
+
+    <rect x="45" y="160" width="250" height="22" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="170" y="175" text-anchor="middle" fill="#8b949e" font-size="10">wg0: 10.129.100.234</text>
+
+    <rect x="45" y="190" width="250" height="22" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="170" y="205" text-anchor="middle" fill="#8b949e" font-size="10">Ubuntu 24.04 · Docker · Python 3.11</text>
+  </g>
+
+  <!-- ====== VPS2 ====== -->
+  <g filter="url(#shadow)">
+    <rect x="380" y="60" width="300" height="260" rx="10" fill="#161b22" stroke="#764ba2" stroke-width="1.5"/>
+    <rect x="380" y="60" width="300" height="30" rx="10" fill="url(#gVPS)"/>
+    <rect x="380" y="80" width="300" height="10" fill="url(#gVPS)"/>
+    <text x="530" y="80" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">VPS2 · 130.17.1.90</text>
+
+    <rect x="395" y="100" width="130" height="40" rx="5" fill="#1c2128" stroke="#4facfe" stroke-width="0.5"/>
+    <text x="460" y="116" text-anchor="middle" fill="#4facfe" font-size="10">nginx :80</text>
+    <text x="460" y="132" text-anchor="middle" fill="#8b949e" font-size="9">→ BFF :3000</text>
+
+    <rect x="535" y="100" width="130" height="40" rx="5" fill="#1c2128" stroke="#f5576c" stroke-width="0.5"/>
+    <text x="600" y="116" text-anchor="middle" fill="#f5576c" font-size="10">Portal BFF</text>
+    <text x="600" y="132" text-anchor="middle" fill="#8b949e" font-size="9">Node.js :3000</text>
+
+    <rect x="395" y="150" width="130" height="40" rx="5" fill="#1c2128" stroke="#00f2fe" stroke-width="0.5"/>
+    <text x="460" y="166" text-anchor="middle" fill="#00f2fe" font-size="10">Portal DB</text>
+    <text x="460" y="182" text-anchor="middle" fill="#8b949e" font-size="9">pgSQL 16 :5432</text>
+
+    <rect x="535" y="150" width="130" height="40" rx="5" fill="#1c2128" stroke="#fa709a" stroke-width="0.5"/>
+    <text x="600" y="166" text-anchor="middle" fill="#fa709a" font-size="10">YooKassa</text>
+    <text x="600" y="182" text-anchor="middle" fill="#8b949e" font-size="9">тестовый режим</text>
+
+    <rect x="395" y="200" width="270" height="22" rx="5" fill="#1c2128" stroke="#43e97b" stroke-width="0.5"/>
+    <text x="530" y="215" text-anchor="middle" fill="#43e97b" font-size="10">🔐 WireGuard: wg1 — 10.99.0.2</text>
+
+    <rect x="395" y="230" width="270" height="22" rx="5" fill="#1c2128" stroke="#38f9d7" stroke-width="0.5"/>
+    <text x="530" y="245" text-anchor="middle" fill="#38f9d7" font-size="10">🔗 Cisco VPN: tun1</text>
+
+    <rect x="395" y="260" width="270" height="22" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="530" y="275" text-anchor="middle" fill="#8b949e" font-size="10">CORE_API=170.168.91.95:30900</text>
+
+    <rect x="395" y="290" width="270" height="20" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="530" y="304" text-anchor="middle" fill="#8b949e" font-size="9">Docker Compose</text>
+  </g>
+
+  <!-- ====== Cisco 815 ====== -->
+  <g filter="url(#shadow)">
+    <rect x="750" y="60" width="150" height="130" rx="10" fill="#161b22" stroke="#43e97b" stroke-width="1.5"/>
+    <rect x="750" y="60" width="150" height="30" rx="10" fill="url(#gNet)"/>
+    <rect x="750" y="80" width="150" height="10" fill="url(#gNet)"/>
+    <text x="825" y="80" text-anchor="middle" fill="#0d1117" font-size="12" font-weight="bold">Cisco 815</text>
+
+    <rect x="762" y="100" width="126" height="22" rx="5" fill="#1c2128" stroke="#38f9d7" stroke-width="0.5"/>
+    <text x="825" y="115" text-anchor="middle" fill="#38f9d7" font-size="9">🌐 VLAN 308</text>
+
+    <rect x="762" y="130" width="126" height="22" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="825" y="145" text-anchor="middle" fill="#8b949e" font-size="9">10.129.11.0/24</text>
+
+    <rect x="762" y="160" width="126" height="22" rx="5" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="825" y="175" text-anchor="middle" fill="#8b949e" font-size="9">VPN-терминатор</text>
+  </g>
+
+  <!-- ====== K8s Cluster boundary ====== -->
+  <g filter="url(#shadow)">
+    <rect x="30" y="310" width="1040" height="430" rx="12" fill="#161b22" stroke="#fa709a" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="50" y="335" fill="#fa709a" font-size="12" font-weight="bold">☸️ Kubernetes v1.33.5 — VLAN 308 (10.129.13.0/24)</text>
+
+    <!-- ====== n8 (control-plane) ====== -->
+    <rect x="55" y="350" width="480" height="370" rx="10" fill="#1c2128" stroke="#fa709a" stroke-width="1"/>
+    <rect x="55" y="350" width="480" height="28" rx="10" fill="url(#gK8s)"/>
+    <rect x="55" y="368" width="480" height="10" fill="url(#gK8s)"/>
+    <text x="295" y="369" text-anchor="middle" fill="#0d1117" font-size="12" font-weight="bold">n8 · bootsman-k8s-clnt01-n8-gpu · 40.51 / 10.129.13.78 (control-plane)</text>
+
+    <!-- GPU box -->
+    <rect x="70" y="390" width="180" height="35" rx="6" fill="#1c2128" stroke="#f5576c" stroke-width="0.5"/>
+    <text x="160" y="404" text-anchor="middle" fill="#f5576c" font-size="10">🎮 2× NVIDIA RTX 6000</text>
+    <text x="160" y="418" text-anchor="middle" fill="#8b949e" font-size="9">24 GB VRAM ×2</text>
+
+    <!-- Specs -->
+    <rect x="260" y="390" width="265" height="35" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="392" y="404" text-anchor="middle" fill="#8b949e" font-size="10">2× Xeon 6258R · 28C/56T · 754 GB RAM · 42 TB SAS SSD</text>
+    <text x="392" y="418" text-anchor="middle" fill="#8b949e" font-size="9">Astra Linux SE 1.8.1 · containerd · nvidia-runtime · parsec=0</text>
+
+    <!-- Components on n8 -->
+    <rect x="70" y="440" width="145" height="55" rx="6" fill="#1c2128" stroke="#f5576c" stroke-width="0.5"/>
+    <text x="142" y="458" text-anchor="middle" fill="#f5576c" font-size="10" font-weight="bold">vLLM 14B</text>
+    <text x="142" y="474" text-anchor="middle" fill="#8b949e" font-size="9">Qwen2.5-14B-Instruct</text>
+    <text x="142" y="488" text-anchor="middle" fill="#8b949e" font-size="9">TP=2 · 28 tok/s</text>
+
+    <rect x="225" y="440" width="145" height="55" rx="6" fill="#1c2128" stroke="#f5576c" stroke-width="0.5"/>
+    <text x="297" y="458" text-anchor="middle" fill="#f5576c" font-size="10" font-weight="bold">LoRA: astra-14b</text>
+    <text x="297" y="474" text-anchor="middle" fill="#8b949e" font-size="9">rank=8 · 65 MB</text>
+    <text x="297" y="488" text-anchor="middle" fill="#8b949e" font-size="9">доменные знания</text>
+
+    <rect x="380" y="440" width="145" height="55" rx="6" fill="#1c2128" stroke="#fa709a" stroke-width="0.5"/>
+    <text x="452" y="458" text-anchor="middle" fill="#fa709a" font-size="10" font-weight="bold">API Gateway</text>
+    <text x="452" y="474" text-anchor="middle" fill="#8b949e" font-size="9">Python · :30900 (NP)</text>
+    <text x="452" y="488" text-anchor="middle" fill="#8b949e" font-size="9">→ vLLM · :8080 (CI)</text>
+
+    <rect x="70" y="510" width="145" height="40" rx="6" fill="#1c2128" stroke="#4facfe" stroke-width="0.5"/>
+    <text x="142" y="526" text-anchor="middle" fill="#4facfe" font-size="10">PostgreSQL 16</text>
+    <text x="142" y="542" text-anchor="middle" fill="#8b949e" font-size="9">биллинг + gateway</text>
+
+    <rect x="225" y="510" width="145" height="40" rx="6" fill="#1c2128" stroke="#f093fb" stroke-width="0.5"/>
+    <text x="297" y="526" text-anchor="middle" fill="#f093fb" font-size="10">Redis 7</text>
+    <text x="297" y="542" text-anchor="middle" fill="#8b949e" font-size="9">rate limiting</text>
+
+    <rect x="380" y="510" width="145" height="40" rx="6" fill="#1c2128" stroke="#00f2fe" stroke-width="0.5"/>
+    <text x="452" y="526" text-anchor="middle" fill="#00f2fe" font-size="10">ChromaDB</text>
+    <text x="452" y="542" text-anchor="middle" fill="#8b949e" font-size="9">RAG · embeddings</text>
+
+    <!-- K8s system -->
+    <rect x="70" y="565" width="210" height="30" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="175" y="584" text-anchor="middle" fill="#8b949e" font-size="9">☸️ kube-apiserver · controller · scheduler</text>
+
+    <rect x="290" y="565" width="235" height="30" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="407" y="584" text-anchor="middle" fill="#8b949e" font-size="9">📊 Prometheus · Grafana :30300 · DCGM</text>
+
+    <rect x="70" y="605" width="455" height="30" rx="6" fill="#1c2128" stroke="#43e97b" stroke-width="0.5"/>
+    <text x="297" y="624" text-anchor="middle" fill="#43e97b" font-size="9">🔌 Network: Flannel VXLAN (10.244.0.0/16) · NodePorts · cert-manager</text>
+
+    <!-- Storage -->
+    <rect x="70" y="645" width="455" height="30" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="297" y="658" text-anchor="middle" fill="#8b949e" font-size="9">💾 Storage: Local Path Provisioner · /mnt/models (3.5 TB) · HF Cache (21 GB)</text>
+    <text x="297" y="670" text-anchor="middle" fill="#8b949e" font-size="9">PV: models-pvc, tools-pvc · Registry: 10.129.13.78:5000</text>
+
+    <!-- ====== n7 (worker) ====== -->
+    <rect x="560" y="350" width="490" height="300" rx="10" fill="#1c2128" stroke="#fa709a" stroke-width="1"/>
+    <rect x="560" y="350" width="490" height="28" rx="10" fill="url(#gK8s)"/>
+    <rect x="560" y="368" width="490" height="10" fill="url(#gK8s)"/>
+    <text x="805" y="369" text-anchor="middle" fill="#0d1117" font-size="12" font-weight="bold">n7 · bootsmam-k8s-clnt01-n7-gpu · 40.50 / 10.129.13.77 (worker)</text>
+
+    <!-- GPU box -->
+    <rect x="575" y="390" width="180" height="35" rx="6" fill="#1c2128" stroke="#f5576c" stroke-width="0.5"/>
+    <text x="665" y="404" text-anchor="middle" fill="#f5576c" font-size="10">🎮 2× NVIDIA RTX 6000</text>
+    <text x="665" y="418" text-anchor="middle" fill="#8b949e" font-size="9">24 GB VRAM ×2</text>
+
+    <!-- Specs -->
+    <rect x="765" y="390" width="270" height="35" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="900" y="404" text-anchor="middle" fill="#8b949e" font-size="10">2× Xeon 6258R · 28C/56T · 754 GB RAM</text>
+    <text x="900" y="418" text-anchor="middle" fill="#8b949e" font-size="9">Astra Linux SE 1.8.1 · parsec=0 · GPU Operator</text>
+
+    <!-- Components on n7 -->
+    <rect x="575" y="440" width="200" height="55" rx="6" fill="#1c2128" stroke="#f5576c" stroke-width="0.5"/>
+    <text x="675" y="458" text-anchor="middle" fill="#f5576c" font-size="10" font-weight="bold">vLLM 32B</text>
+    <text x="675" y="474" text-anchor="middle" fill="#8b949e" font-size="9">Qwen2.5-32B-Instruct-GPTQ</text>
+    <text x="675" y="488" text-anchor="middle" fill="#8b949e" font-size="9">TP=2 · 4-bit GPTQ · 35 tok/s</text>
+
+    <rect x="785" y="440" width="250" height="55" rx="6" fill="#1c2128" stroke="#fa709a" stroke-width="0.5"/>
+    <text x="910" y="458" text-anchor="middle" fill="#fa709a" font-size="10" font-weight="bold">Gateway (moved)</text>
+    <text x="910" y="474" text-anchor="middle" fill="#8b949e" font-size="9">Python 3.12 · K8s Deployment</text>
+    <text x="910" y="488" text-anchor="middle" fill="#8b949e" font-size="9">HPA: CPU 1%/70% · min=1 max=3</text>
+
+    <!-- K8s services on n7 -->
+    <rect x="575" y="510" width="460" height="40" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="805" y="526" text-anchor="middle" fill="#8b949e" font-size="9">☸️ kube-proxy · CoreDNS · Flannel · Metrics Server · Prometheus Adapter</text>
+    <text x="805" y="542" text-anchor="middle" fill="#8b949e" font-size="9">NodePorts: Gateway :30900 · vLLM 14B :32293 · vLLM 32B :32294 · Grafana :30300</text>
+
+    <!-- Storage n7 -->
+    <rect x="575" y="565" width="460" height="40" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="805" y="581" text-anchor="middle" fill="#8b949e" font-size="9">💾 Storage: PVC models · HF Cache · cert-manager · CSI Driver</text>
+    <text x="805" y="597" text-anchor="middle" fill="#8b949e" font-size="9">PV: models-pvc · HPA: vLLM 32B CPU 36%/80%</text>
+
+    <!-- BMC -->
+    <rect x="575" y="620" width="460" height="25" rx="6" fill="#1c2128" stroke="#8b949e" stroke-width="0.5"/>
+    <text x="805" y="637" text-anchor="middle" fill="#8b949e" font-size="9">🔌 BMC: :9443 → socat → VPS2:19443 → VPS1:443</text>
+  </g>
+
+  <!-- ====== Connection lines ====== -->
+  <!-- VPS1 ↔ VPS2 (WireGuard) -->
+  <line x1="310" y1="140" x2="380" y2="200" stroke="#43e97b" stroke-width="2" stroke-dasharray="4"/>
+  <text x="350" y="165" fill="#43e97b" font-size="8">WireGuard</text>
+
+  <!-- VPS1 → K8s (nginx proxy) -->
+  <line x1="170" y1="240" x2="170" y2="310" stroke="#667eea" stroke-width="2" stroke-dasharray="4"/>
+  <text x="180" y="280" fill="#667eea" font-size="8">:30900</text>
+
+  <!-- VPS2 → Cisco VPN -->
+  <line x1="530" y1="320" x2="750" y2="190" stroke="#38f9d7" stroke-width="2" stroke-dasharray="4"/>
+  <text x="630" y="260" fill="#38f9d7" font-size="8">Cisco VPN tun1</text>
+
+  <!-- Cisco → K8s nodes -->
+  <line x1="825" y1="190" x2="295" y2="350" stroke="#38f9d7" stroke-width="1.5" stroke-dasharray="4"/>
+  <line x1="825" y1="190" x2="805" y2="350" stroke="#38f9d7" stroke-width="1.5" stroke-dasharray="4"/>
+
+  <!-- n7 ↔ n8 (K8s Flannel) -->
+  <line x1="535" y1="500" x2="560" y2="500" stroke="#fa709a" stroke-width="1.5" stroke-dasharray="3"/>
+  <text x="548" y="495" fill="#fa709a" font-size="7">Flannel VXLAN</text>
+
+  <!-- VPS1 → VPS2 (BFF request) -->
+  <line x1="170" y1="100" x2="460" y2="100" stroke="#8b949e" stroke-width="1" stroke-dasharray="2"/>
+  <text x="300" y="95" fill="#8b949e" font-size="7">:10443 HTTPS</text>
+
+  <!-- Legend -->
+  <g transform="translate(750, 680)">
+    <rect x="0" y="0" width="270" height="60" rx="8" fill="#1c2128" stroke="#21262d" stroke-width="1"/>
+    <text x="135" y="16" text-anchor="middle" fill="#8b949e" font-size="9" font-weight="bold">Условные обозначения</text>
+    <line x1="10" y1="30" x2="40" y2="30" stroke="#43e97b" stroke-width="2" stroke-dasharray="4"/>
+    <text x="45" y="33" fill="#8b949e" font-size="8">WireGuard/VPN туннель</text>
+    <line x1="130" y1="30" x2="160" y2="30" stroke="#667eea" stroke-width="2" stroke-dasharray="2"/>
+    <text x="165" y="33" fill="#8b949e" font-size="8">HTTP-прокси</text>
+    <line x1="10" y1="50" x2="40" y2="50" stroke="#fa709a" stroke-width="1.5" stroke-dasharray="3"/>
+    <text x="45" y="53" fill="#8b949e" font-size="8">K8s overlay-сеть</text>
+    <line x1="130" y1="50" x2="160" y2="50" stroke="#8b949e" stroke-width="1"/>
+    <text x="165" y="53" fill="#8b949e" font-size="8">HTTPS-запросы</text>
+  </g>
+</svg>

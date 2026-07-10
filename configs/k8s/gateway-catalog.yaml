@@ -1,0 +1,36 @@
+apiVersion: v1
+data:
+  catalog.yaml: |
+    # Модельный каталог Aither Platform
+    # Каждая модель знает свой backend URL (vLLM-под) и параметры
+
+    models:
+      - name: qwen2.5-14b
+        display_name: "Qwen 2.5 14B"
+        backend: "http://vllm:8000"
+        model_path: "/models/Qwen2.5-14B-Instruct"
+        max_tokens: 4096
+        description: "Быстрая универсальная модель — чаты, summarization, код"
+        tokens_per_ruble: 100
+        tags: [chat, code, fast]
+        status: active
+
+      - name: qwen2.5-32b
+        display_name: "Qwen 2.5 32B"
+        backend: "http://vllm-qwen32b:8000"
+        model_path: "qwen2.5-32b"
+        max_tokens: 8192
+        description: "Мощная модель — сложный код, аналитика, длинные тексты"
+        tokens_per_ruble: 30
+        tags: [code, analysis, large-context]
+        status: active
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"catalog.yaml":"# Модельный каталог Aither Platform\n# Каждая модель знает свой backend URL (vLLM-под) и параметры\n\nmodels:\n  - name: qwen2.5-14b\n    display_name: \"Qwen 2.5 14B\"\n    backend: \"http://vllm:8000\"\n    model_path: \"/models/Qwen2.5-14B-Instruct\"\n    max_tokens: 4096\n    description: \"Быстрая универсальная модель — чаты, summarization, код\"\n    tokens_per_ruble: 100\n    tags: [chat, code, fast]\n    status: active\n\n  - name: qwen2.5-32b\n    display_name: \"Qwen 2.5 32B\"\n    backend: \"http://vllm-qwen32b:8000\"\n    model_path: \"qwen2.5-32b\"\n    max_tokens: 8192\n    description: \"Мощная модель — сложный код, аналитика, длинные тексты\"\n    tokens_per_ruble: 30\n    tags: [code, analysis, large-context]\n    status: active\n"},"kind":"ConfigMap","metadata":{"annotations":{},"creationTimestamp":null,"name":"gateway-catalog","namespace":"default"}}
+  creationTimestamp: "2026-07-09T14:52:05Z"
+  name: gateway-catalog
+  namespace: default
+  resourceVersion: "1147106"
+  uid: 180795cf-57f7-4a20-b64b-6adf0b1edee4

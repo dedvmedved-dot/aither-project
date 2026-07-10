@@ -1,0 +1,55 @@
+version: "3.8"
+services:
+  portal-db:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: portal
+      POSTGRES_DB: portal
+    volumes:
+      - portal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
+      interval: 10s
+      retries: 5
+
+  portal-bff:
+    build: .
+    environment:
+      PG_HOST: 127.0.0.1
+      PG_PORT: "5432"
+      PG_USER: portal
+      PG_PASSWORD: portal
+      PGPASSWORD: portal
+      PG_DB: portal
+      JWT_SECRET: "dev-jwt-secret-change-me"
+      NODE_ENV: production
+      CORS_ORIGIN: "http://130.17.1.90"
+      INVITE_CODE: "aither-2026"
+      CORE_API: "http://10.129.13.78:30900"
+      # LDAP (закомментировано — раскомментировать при настройке)
+      # LDAP_URL: "ldap://freeipa.example.com:389"
+      # LDAP_BASE_DN: "dc=example,dc=com"
+      # LDAP_BIND_DN: "uid=admin,cn=users,cn=accounts,dc=example,dc=com"
+      # LDAP_BIND_PASSWORD: "changeme"
+      # LDAP_USER_BASE: "cn=users,cn=accounts,dc=example,dc=com"
+    network_mode: host
+    depends_on:
+      portal-db:
+        condition: service_healthy
+
+  portal-nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/html:ro
+    depends_on:
+      - portal-bff
+    network_mode: host
+
+volumes:
+  portal_pgdata:
