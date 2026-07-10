@@ -391,11 +391,18 @@ async function loadUsers() {
       <td>${u.provider}</td>
       <td>${u.org_count}</td>
       <td>
+        <select onchange="userSetRole('${u.user_id}', this.value)" style="width:100px;font-size:11px;">
+          <option value="">Роль…</option>
+          <option value="owner">owner</option>
+          <option value="billing_admin">billing_admin</option>
+          <option value="developer">developer</option>
+          <option value="viewer">viewer</option>
+        </select>
         <button class="btn btn-sm" onclick="showUserOrgs('${u.user_id}','${h(u.display_name||u.email||'?')}')">🏢</button>
         <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.user_id}','${h(u.display_name||u.email||'?')}')">🗑</button>
       </td>
     </tr>`).join('');
-    el.innerHTML = `<table><thead><tr><th>Имя / ID</th><th>Email</th><th>OAuth</th><th>Orgs</th><th>Действия</th></tr></thead><tbody>${rows}</tbody></table>`;
+    el.innerHTML = `<table><thead><tr><th>Имя / ID</th><th>Email</th><th>OAuth</th><th>Orgs</th><th>Роль</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
   } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
 }
 
