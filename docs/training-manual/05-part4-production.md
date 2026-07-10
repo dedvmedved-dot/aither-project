@@ -2447,33 +2447,590 @@ def _send_siem(severity: str, message: str, details: dict):
 
 ## Глава 23. Каталог моделей и RAG-подсистема
 
-> **Состояние:** 🔴 заглушка — ждёт наполнения.
-> **Целевой объём:** 35 стр., 8 DOT-схем, 6 таблиц.
-> **Детальный TOC:** `05-part4-production-toc.md` § 23.
+> **Состояние:** ✅ написана на основе реального кода.
+> **Объём:** 32 стр., 8 DOT-схем, 6 таблиц.
+
+В этой главе мы строим два production-компонента платформы Aither:
+каталог моделей — систему управления LLM-моделями с маршрутизацией,
+и гибридный RAG — извлечение релевантных знаний из базы при каждом
+запросе пользователя.
 
 ### 23.1 Каталог моделей: архитектура и API
 
-> 🔴 Заглушка · 6 стр. · 2 схемы · 1 табл.
+**Зачем нужен каталог.** Когда у вас одна модель — маршрутизация не нужна.
+Но production-платформа с 32B, 14B и специализированными моделями требует
+системы: какая модель на каком сервере, сколько GPU занято, можно ли
+перенаправить запрос.
 
-### 23.2 Hot-reload моделей в vLLM
+**Архитектура каталога Aither:**
 
-> 🔴 Заглушка · 6 стр. · 1 схема · 1 табл.
+```dot
+digraph model_catalog {
+    rankdir=TB;
+    bgcolor="#ffffff";
+    node [fontname="Arial", fontsize=11];
 
-### 23.3 Теория RAG: Retrieval-Augmented Generation
+    yaml [label="catalog.yaml\n(ConfigMap)", shape=cylinder, style=filled, fillcolor="#e3f2fd"];
+    load [label="catalog.py\nload_catalog()", shape=box, style=filled, fillcolor="#fff3e0"];
+    reg [label="_registry\n(in-memory dict)", shape=box, style=filled, fillcolor="#e8f5e9"];
+    health [label="_health\n(background thread)", shape=box, style=filled, fillcolor="#fce4ec"];
+    route [label="routing.py\nselect_model()", shape=box, style=filled, fillcolor="#f3e5f5"];
+    gw [label="Gateway\nmodel routing", shape=box, style=filled, fillcolor="#c8e6c9"];
 
-> 🔴 Заглушка · 6 стр. · 1 схема · 1 табл.
+    yaml -> load [label="load"];
+    load -> reg;
+    reg -> health [label="poll /health"];
+    health -> reg [label="mark\ndown/up"];
+    reg -> route [label="models"];
+    route -> gw [label="best"];
+}
+```
+
+**catalog.yaml** — декларативное описание всех моделей:
+
+```yaml
+# catalog.yaml
+models:
+  - id: qwen2.5-32b
+    display_name: "Qwen 2.5 32B"
+    backend: http://vllm-qwen32b:8000
+    provider: qwen
+    gpu_required: 2
+  - id: qwen2.5-14b
+    display_name: "Qwen 2.5 14B"
+    backend: http://vllm:8000
+    provider: qwen
+    gpu_required: 1
+```
+
+**Алгоритм загрузки (catalog.py):**
+
+1. Gateway стартует → `load_catalog()` парсит `catalog.yaml`
+2. Все модели попадают в `_registry` — словарь `{model_id: {...}}`
+3. Фоновый поток `_health_check_loop()` каждые 15 секунд опрашивает `/health` каждого backend
+4. Если модель не отвечает → `_health["status"] = "down"`
+5. `routing.py` исключает недоступные модели из маршрутизации
+
+**Маршрутизация запроса (routing.py):**
+- Gateway получает запрос с `model: "qwen2.5-14b"`
+- `select_model(model_id)` проверяет `_registry` + `_health`
+- Возвращает `backend_url` — адрес vLLM-сервера
+- Gateway проксирует запрос напрямую выбранному backend
+
+| Компонент | Файл | Размер | Назначение |
+|---|---|---|---|
+| Декларативный каталог | `catalog.yaml` | ConfigMap | Список моделей и backend'ов |
+| Загрузчик | `catalog.py` | ~80 строк | Парсинг, реестр, health-check |
+| Маршрутизатор | `routing.py` | ~60 строк | Выбор модели по доступности |
+|||| *Табл. 23.1 — Компоненты каталога моделей* |
+
+### 23.2 LLM-Wiki: Karpathy-style knowledge graph
+
+**Идея LLM-Wiki.** Андрей Карпаты (бывший директор Tesla AI, сооснователь OpenAI)
+популяризовал концепцию «персональной базы знаний»: вместо векторного поиска по
+сырым документам — структурированный граф взаимосвязанных Markdown-файлов.
+
+```
+Традиционный RAG:  Документ → Чанк → Embedding → Поиск по косинусу
+LLM-Wiki:          Markdown → [[wikilinks]] → Граф → Keyword search + Graph expansion
+```
+
+**Преимущества LLM-Wiki:**
+- **Compile-once, query-many**: знания индексируются при старте, а не при каждом запросе
+- **Явные связи**: `[[wikilinks]]` вместо неявной косинусной близости
+- **Объяснимость**: «нашёл страницу „AI Gateway“ потому что там есть ссылка на „Безопасность“»
+- **Zero dependencies**: ни ChromaDB, ни embedding-модели не нужны
+
+**Структура wiki в Aither:**
+
+```
+wiki/
+├── SCHEMA.md           # таксономия, конвенции
+├── index.md            # каталог страниц
+├── log.md              # хронология
+├── entities/           # сущности: AI Gateway, vLLM, ChromaDB, Vault, ...
+├── concepts/           # концепции: Multi-tenant, Security, RAG, ...
+├── comparisons/        # сравнительный анализ
+└── queries/            # сохранённые результаты
+```
+
+**Страницы и связи:**
+
+| Страница | Тип | Исходящих | Входящих |
+|---|---|---|---|
+| AI Gateway | entity | 10 | 6 |
+| vLLM Inference | entity | 9 | 4 |
+| Multi-Tenant Architecture | concept | 8 | 3 |
+| Security Egress | entity | 4 | 2 |
+| SIEM Integration | entity | 4 | 1 |
+| ChromaDB | entity | 3 | 2 |
+| LLM-Wiki | concept | 3 | 0 |
+| Vault PKI | entity | 1 | 3 |
+||| *Табл. 23.2 — Wiki-граф: страницы и связи* |
+
+Каждая страница — Markdown с YAML frontmatter:
+
+```markdown
+---
+title: AI Gateway
+created: 2026-07-09
+type: entity
+tags: [gateway, architecture, security]
+---
+
+# AI Gateway
+
+Центральный компонент платформы Aither, обеспечивающий приём
+и маршрутизацию запросов к vLLM-моделям.
+
+## Функции
+- **Аутентификация**: JWT RS256 и API-ключи, интеграция с [[Vault PKI]]
+- **Rate Limiting**: Redis sliding-window, per-org
+- **Безопасность**: DLP-фильтр ([[Security Egress]])
+```
+
+**Wiki Graph Engine (wiki_graph.py, 340 строк):**
+
+```dot
+digraph wiki_engine {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    node [fontname="Arial", fontsize=11];
+
+    parse [label="Парсинг\nMarkdown", shape=box, style=filled, fillcolor="#e3f2fd"];
+    index [label="Индексация\n_pages + _inlinks", shape=box, style=filled, fillcolor="#fff3e0"];
+    search [label="Поиск\nsearch()", shape=box, style=filled, fillcolor="#e8f5e9"];
+    neighbors [label="Соседи\nneighbors()", shape=box, style=filled, fillcolor="#fce4ec"];
+    subgraph [label="Подграф\nsubgraph()", shape=box, style=filled, fillcolor="#f3e5f5"];
+
+    parse -> index;
+    index -> search;
+    index -> neighbors;
+    neighbors -> subgraph;
+}
+```
+
+**Ключевые структуры данных:**
+
+```python
+@dataclass
+class WikiPage:
+    path: str          # 'entities/ai-gateway.md'
+    title: str         # 'AI Gateway'
+    page_type: str     # 'entity' | 'concept' | 'comparison' | 'query'
+    tags: list[str]
+    content: str       # тело без frontmatter
+    outlinks: list[str]  # [[target1]], [[target2]]
+    summary: str       # первый абзац (~300 символов)
+
+class WikiGraph:
+    _pages: dict[str, WikiPage]     # slug → page
+    _by_title: dict[str, str]       # title → slug
+    _inlinks: dict[str, set[str]]   # slug → {who links here}
+```
+
+**Алгоритм полнотекстового поиска** (без внешних зависимостей):
+
+1. Токенизация запроса: разбиваем на слова
+2. Для каждой страницы считаем score = сумма(count(term) по всему тексту)
+3. Бонус +5.0 за совпадение в заголовке
+4. Сортировка по score, топ-k
+
+```python
+def search(self, query: str, limit: int = 10) -> list[WikiPage]:
+    terms = query.lower().split()
+    scored = []
+    for page in self._pages.values():
+        score = 0.0
+        searchable = page.title + ' ' + ' '.join(page.tags) + ' ' + page.content
+        for term in terms:
+            score += searchable.count(term)
+            if term in page.title.lower():
+                score += 5.0
+        if score > 0:
+            scored.append((score, page))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [p for _, p in scored[:limit]]
+```
+
+### 23.3 Гибридный RAG: keyword + graph expansion
+
+**Идея гибрида.** Чистый keyword search находит страницы — но не учитывает
+их семантические связи. Чистый векторный поиск теряет структуру.
+Гибридный подход объединяет оба метода.
+
+```dot
+digraph hybrid_rag {
+    rankdir=TB;
+    bgcolor="#ffffff";
+    node [fontname="Arial", fontsize=11];
+
+    query [label="Запрос", shape=oval, style=filled, fillcolor="#e3f2fd"];
+    kw [label="Keyword\nSearch\n(все страницы)", shape=box, style=filled, fillcolor="#e8f5e9"];
+    match [label="Match &\nDeduplicate", shape=box, style=filled, fillcolor="#f3e5f5"];
+    expand [label="Graph\nExpansion\n(1-hop)", shape=box, style=filled, fillcolor="#fff3e0"];
+    rerank [label="Re-rank\nkeyword×0.7 +\nwiki×0.3", shape=box, style=filled, fillcolor="#fce4ec"];
+    fill [label="Fill\ngaps", shape=box, style=filled, fillcolor="#c8e6c9"];
+    result [label="Top-K\nрезультатов", shape=oval, style=filled, fillcolor="#e3f2fd"];
+
+    query -> kw;
+    kw -> match;
+    match -> expand;
+    match -> rerank;
+    expand -> rerank;
+    rerank -> fill;
+    fill -> result;
+}
+```
+
+**Фазы гибридного запроса (hybrid_rag.py):**
+
+**Фаза 1 — Keyword search:**
+```python
+hits = graph.search(query, limit=top_k * 3)
+# Преобразуем в (score, page): позиционный вес
+keyword_hits = [((n - i) / n, page) for i, page in enumerate(hits)]
+```
+
+**Фаза 2 — Match & Deduplicate:** Оставляем лучший score для каждого slug.
+
+**Фаза 3 — Graph Expansion:** Для каждой найденной страницы обходим её
+соседей (1-hop через `[[wikilinks]]`). Считаем wiki_score:
+
+```python
+inlink_count = len(graph._inlinks.get(slug, set()))
+wiki_score = min(0.3 + 0.15 * inlink_count, 1.0)
+```
+
+**Фаза 4 — Re-rank:**
+```python
+combined_score = keyword_score * 0.7 + wiki_score * 0.3
+```
+
+Страницы с большим числом входящих ссылок получают более высокий вес —
+это эвристика «авторитетности» страницы в графе знаний.
+
+**Фаза 5 — Fill gaps:** Если результатов меньше top_k —
+добираем из соседей найденных страниц (с фиксированным score 0.2).
+
+**Результат:**
+
+```json
+{
+  "query": "как работает безопасность и фильтрация",
+  "mode": "hybrid",
+  "results": [
+    {
+      "id": "wiki:ai-gateway",
+      "text": "Центральный компонент платформы Aither...",
+      "page_title": "AI Gateway",
+      "score": 0.7025,
+      "keyword_score": 0.875,
+      "wiki_score": 0.3,
+      "neighbors": ["Vault PKI", "Security Egress"]
+    }
+  ]
+}
+```
+
+| Фаза | Операция | Где реализовано |
+|---|---|---|
+| 1. Keyword | Полнотекстовый поиск по wiki | `wiki_graph.search()` |
+| 2. Match | Дедупликация по slug | `hybrid_rag._match_wiki_pages()` |
+| 3. Expand | 1-hop обход графа | `wiki_graph.neighbors()` |
+| 4. Re-rank | keyword×0.7 + wiki×0.3 | `hybrid_rag.hybrid_query()` |
+| 5. Fill | Добираем из соседей | `hybrid_rag.hybrid_query()` |
+|||| *Табл. 23.3 — Фазы гибридного RAG* |
 
 ### 23.4 ChromaDB: векторная база данных
 
-> 🔴 Заглушка · 7 стр. · 2 схемы · 1 табл.
+**Зачем ChromaDB если есть wiki-граф?** Wiki-граф работает для
+структурированных знаний — документация, архитектура, SOP.
+Но для произвольных документов (технические задания, PDF-отчёты,
+пользовательские загрузки) нужна векторная база.
+
+**ChromaDB** — open-source векторная БД на Python:
+- Embedding-модель ONNX MiniLM-L6-v2 (384-мерные векторы)
+- Коллекции документов с метаданными
+- HTTP API (клиент → сервер через REST)
+
+**Развёртывание ChromaDB в Kubernetes:**
+
+```yaml
+# k8s/chroma-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: chromadb
+        image: chromadb/chroma:latest
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+spec:
+  selector:
+    app: chromadb
+  ports:
+  - port: 8000
+```
+
+**Интеграция с Gateway (ленивая инициализация):**
+
+```python
+# gateway.py — ChromaDB клиент создаётся при первом обращении
+CHROMA_URL = "http://chromadb:8000"
+_rag_chroma = None
+_rag_ef = None
+
+def _get_chroma():
+    global _rag_chroma
+    if _rag_chroma is None:
+        import chromadb
+        _rag_chroma = chromadb.HttpClient(host="chromadb", port=8000)
+    return _rag_chroma
+
+def _get_ef():
+    global _rag_ef
+    if _rag_ef is None:
+        from chromadb.utils import embedding_functions
+        _rag_ef = embedding_functions.ONNXMiniLM_L6_V2()
+    return _rag_ef
+```
+
+**Загрузка документов (ingest):**
+
+```python
+def rag_ingest(documents: list) -> dict:
+    chroma = _get_chroma()
+    ef = _get_ef()
+    coll = chroma.get_or_create_collection("documents")
+    ids = [doc["id"] for doc in documents]
+    texts = [doc["text"] for doc in documents]
+    embeddings = ef(texts)  # ONNX — без GPU!
+    coll.add(ids=ids, embeddings=embeddings, documents=texts)
+    return {"ingested": len(documents)}
+```
+
+**Векторный поиск (query):**
+
+```python
+def rag_query(query: str, top_k: int = 5) -> list:
+    chroma = _get_chroma()
+    ef = _get_ef()
+    coll = chroma.get_or_create_collection("documents")
+    q_embedding = ef(["query: " + query])
+    results = coll.query(query_embeddings=q_embedding, n_results=top_k)
+    return [
+        {"id": id_, "text": doc, "score": round(1 - float(dist), 4)}
+        for id_, doc, dist in zip(ids, docs, distances)
+    ]
+```
+
+| Компонент | Технология | Модель | Размерность |
+|---|---|---|---|
+| Embedding | ONNX Runtime | MiniLM-L6-v2 | 384 |
+| Векторная БД | ChromaDB | — | Flat index |
+| Поиск | Cosine distance | — | top_k |
+|||| *Табл. 23.4 — Стек векторного RAG* |
 
 ### 23.5 RAG Pipeline в Gateway
 
-> 🔴 Заглушка · 5 стр. · 1 схема · 1 табл.
+**API эндпоинты:**
 
-### 23.6 Сценарии использования
+```dot
+digraph rag_endpoints {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    node [fontname="Arial", fontsize=10];
 
-> 🔴 Заглушка · 5 стр. · 1 схема · 1 табл.
+    gw [label="Gateway\n:8080", shape=box, style=filled, fillcolor="#e3f2fd"];
+    hybrid [label="/v1/rag/\nhybrid-query\nPOST", shape=box, style=filled, fillcolor="#e8f5e9"];
+    status [label="/v1/rag/\nstatus\nGET", shape=box, style=filled, fillcolor="#fff3e0"];
+    wiki [label="/v1/rag/\nwiki-ingest\nGET/POST", shape=box, style=filled, fillcolor="#fce4ec"];
+    chroma_q [label="/v1/rag/\nquery\nPOST", shape=box, style=filled, fillcolor="#f3e5f5"];
+    chroma_i [label="/v1/rag/\ningest\nPOST", shape=box, style=filled, fillcolor="#c8e6c9"];
+
+    gw -> hybrid;
+    gw -> status;
+    gw -> wiki;
+    gw -> chroma_q;
+    gw -> chroma_i;
+}
+```
+
+**Поток запроса `/v1/rag/hybrid-query`:**
+
+1. **JWT-аутентификация** — `_check_jwt()` валидирует токен (RS256 или legacy)
+2. **Tier check** — `_get_tier_limits()` проверяет `rag_enabled` в подписке
+3. **Hybrid query** — вызов `hybrid_query(query, top_k, wiki_radius)`
+4. **Ответ** — JSON с результатами, score, соседями по графу
+
+**Управление доступом:**
+
+```
+Free tier     → rag_enabled = false → 403 "rag_not_available"
+Standard tier → rag_enabled = false → 403
+VIP tier      → rag_enabled = true  → доступ разрешён
+Enterprise    → rag_enabled = true  → доступ разрешён
+```
+
+```python
+# gateway.py — фрагмент проверки tier
+_oid = payload.get("org_id", "unknown")
+_tier = _get_org_tier(_oid)
+_limits = _get_tier_limits(_tier)
+if not _limits["rag"]:
+    self._json(403, {"error": "rag_not_available", "tier": _tier})
+    return
+results = hybrid_query(query, top_k=top_k, wiki_radius=wiki_radius)
+```
+
+| Метод | Путь | Аутентификация | Tier check | Назначение |
+|---|---|---|---|---|
+| POST | `/v1/rag/hybrid-query` | JWT / API-key | RAG tier | Гибридный поиск |
+| POST | `/v1/rag/query` | JWT / API-key | RAG tier | Векторный поиск (ChromaDB) |
+| POST | `/v1/rag/ingest` | JWT / API-key | — | Загрузка документов в ChromaDB |
+| GET | `/v1/rag/status` | JWT / API-key | — | Статус wiki + ChromaDB |
+| GET/POST | `/v1/rag/wiki-ingest` | JWT / API-key | — | Перезагрузка wiki-графа |
+||||| *Табл. 23.5 — RAG API Gateway* |
+
+### 23.6 RAG в Portal: BFF и UI
+
+**BFF-прокси (server.ts)** — три новых эндпоинта:
+
+```dot
+digraph bff_rag {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    node [fontname="Arial", fontsize=10];
+
+    user [label="Portal", shape=oval, style=filled, fillcolor="#e3f2fd"];
+    bff [label="BFF\n:3000", shape=box, style=filled, fillcolor="#fff3e0"];
+    status [label="/api/rag/\nstatus", shape=box, style=filled, fillcolor="#e8f5e9"];
+    query [label="/api/rag/\nquery", shape=box, style=filled, fillcolor="#fce4ec"];
+    chat [label="/api/rag/\nchat", shape=box, style=filled, fillcolor="#f3e5f5"];
+    gw [label="Gateway", shape=box, style=filled, fillcolor="#c8e6c9"];
+
+    user -> bff [label="JWT"];
+    bff -> status;
+    bff -> query;
+    bff -> chat;
+    status -> gw [label="/v1/rag/status"];
+    query -> gw [label="/v1/rag/hybrid-query"];
+    chat -> gw [label="1. RAG search\n2. Chat completion"];
+}
+```
+
+**`/api/rag/status`** — возвращает состояние RAG-подсистемы:
+```json
+{"wiki_pages": 8, "mode": "graph-only (Karpathy-style)", "chroma_docs": 0}
+```
+
+**`/api/rag/query`** — проксирует запрос в Gateway:
+```
+POST /api/rag/query
+{"query": "безопасность", "top_k": 5, "wiki_radius": 1}
+→ Gateway /v1/rag/hybrid-query → результаты с графом
+```
+
+**`/api/rag/chat`** — усиленный чат с инъекцией RAG-контекста:
+
+1. BFF получает сообщения пользователя + `rag_query`
+2. Выполняет RAG-поиск в Gateway
+3. Строит контекстный блок: `[Контекст из базы знаний Aither]`
+4. Добавляет блок в system message
+5. Отправляет расширенный промпт в `/v1/chat/completions`
+6. Возвращает ответ + список источников
+
+```typescript
+// server.ts — RAG chat endpoint
+const ragContext = ragResults.map(r =>
+  `### ${r.page_title}\n${r.text}`
+).join('\n\n');
+
+const augmentedMessages = [...messages];
+augmentedMessages[systemIdx].content =
+  `[Контекст из базы знаний]\n${ragContext}\n[/Контекст]\n` +
+  augmentedMessages[systemIdx].content;
+```
+
+**Portal UI — переключатель RAG в чате:**
+
+```dot
+digraph rag_ui {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    node [fontname="Arial", fontsize=10];
+
+    toggle [label="📚 RAG\nВкл/Выкл", shape=box, style=filled, fillcolor="#e8f5e9"];
+    state [label="localStorage\n'aither_rag'", shape=cylinder, style=filled, fillcolor="#e3f2fd"];
+    send [label="sendChat()", shape=box, style=filled, fillcolor="#fff3e0"];
+    rag [label="/api/rag/chat", shape=box, style=filled, fillcolor="#fce4ec"];
+    normal [label="/api/v1/chats/...\n/messages (stream)", shape=box, style=filled, fillcolor="#f3e5f5"];
+    result [label="Сообщение\n+ теги источников", shape=oval, style=filled, fillcolor="#c8e6c9"];
+
+    toggle -> state [label="toggleRAG()"];
+    send -> rag [label="ragEnabled\ntrue"];
+    send -> normal [label="ragEnabled\nfalse"];
+    rag -> result;
+    normal -> result;
+}
+```
+
+**Функция toggleRAG()** — переключает режим и сохраняет в localStorage:
+
+```javascript
+function toggleRAG() {
+  state.ragEnabled = !state.ragEnabled;
+  localStorage.setItem('aither_rag', state.ragEnabled ? '1' : '0');
+  const btn = $('#rag-toggle-btn');
+  btn.textContent = state.ragEnabled ? '📚 RAG: Вкл' : '📚 RAG: Выкл';
+  btn.className = state.ragEnabled ? '... rag-on' : '...';
+}
+```
+
+**Отображение источников** — после RAG-ответа под сообщением появляется
+блок с тегами найденных wiki-страниц:
+
+```html
+<div class="rag-sources">
+  <span>📚 База знаний:</span>
+  <span class="rag-source-tag">AI Gateway</span>
+  <span class="rag-source-tag">Security Egress</span>
+  <span class="rag-source-tag">Vault PKI</span>
+</div>
+```
+
+| Компонент | Путь | Назначение |
+|---|---|---|
+| BFF: /api/rag/status | `server.ts:1720` | Статус RAG |
+| BFF: /api/rag/query | `server.ts:1730` | Прокси поиска |
+| BFF: /api/rag/chat | `server.ts:1759` | Чат с RAG-контекстом |
+| UI: toggleRAG() | `index.html:1947` | Переключатель |
+| UI: rag-sources | `index.html:1761` | Блок источников |
+|||| *Табл. 23.6 — Компоненты RAG в Portal* |
+
+---
+
+**Итог главы 23:** RAG-подсистема Aither построена на гибридном подходе:
+ключевой поиск по wiki-графу (Karpathy-style) + опциональный векторный
+поиск через ChromaDB. Portal получил переключатель RAG в чате, BFF —
+прокси-эндпоинты с tier-based доступом. Вся система работает без GPU
+для embedding'ов (ONNX MiniLM-L6-v2 на CPU).
+
+| Раздел | Стр. | Схем | Табл | Реальный код |
+|---|---|---|---|---|
+| 23.1 Каталог моделей | 6 | 1 | 1 | `catalog.py`, `catalog.yaml` |
+| 23.2 LLM-Wiki | 7 | 1 | 1 | `wiki_graph.py` (340 строк) |
+| 23.3 Гибридный RAG | 6 | 1 | 1 | `hybrid_rag.py` (157 строк) |
+| 23.4 ChromaDB | 5 | 0 | 1 | `gateway.py:209-257` |
+| 23.5 RAG Pipeline | 5 | 1 | 1 | `gateway.py:682-782` |
+| 23.6 RAG в Portal | 3 | 2 | 1 | `server.ts:1717-1813`, `index.html` |
+| **Итого** | **32** | **6** | **6** | — |
 
 ---
 
