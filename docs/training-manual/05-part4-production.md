@@ -54,7 +54,38 @@
 
 Такая архитектура называется **Single Point of Failure (SPOF)** — единственная точка отказа.
 
-![Архитектура до HA — SPOF](diagrams/part4/19-01-spof-before.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=11, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_k8s {
+    label="Kubernetes Cluster (один узел)"; style=dashed; color="#7b8ca0"; bgcolor="#f5f7fa";
+    
+    cp [label="Control-Plane\n(n8)\napiserver + etcd\ncontroller-manager\nscheduler", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    
+    subgraph cluster_workers {
+      label="Workers"; style=dashed; color="#90a4ae"; bgcolor="#ffffff";
+      w1 [label="Worker\n(n7)\nvLLM + Gateway", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    }
+  }
+
+  users [label="Пользователи", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+  vps2 [label="VPS2\nBFF + Portal", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  
+  users -> vps2 [label="HTTPS"];
+  vps2 -> cp [label="kubectl\n:6443", color="#c62828", fontcolor="#c62828"];
+  cp -> w1 [label="управление", style=dashed];
+
+  // SPOF annotations
+  spof1 [label="⚠️ SPOF\nОдин etcd\nНет кворума", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=10];
+  spof2 [label="⚠️ SPOF\nОдин\napiserver", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=10];
+  
+  spof1 -> cp [style=dotted, color="#c62828"];
+  spof2 -> cp [style=dotted, color="#c62828"];
+}
+```
 
 > ⚠️ **На схеме:** красным отмечены SPOF — один etcd и один apiserver. Отказ любого из них = кластер не работает.
 
@@ -108,7 +139,34 @@ RAFT — это алгоритм, который позволяет нескол
 | **Follower** | Пассивно реплицирует логи от лидера, отвечает на запросы чтения | Остальные |
 | **Кандидат (Candidate)** | Временная роль при выборах (если лидер упал) | 0 или 1 |
 
-![RAFT: роли и поток записи](diagrams/part4/19-02-raft-state-machine.svg)
+```dot
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=11, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_raft {
+    label="RAFT Cluster (3 узла)"; style=dashed; color="#7b8ca0"; bgcolor="#f5f7fa";
+    
+    leader [label="Лидер\n(Leader)\n● принимает записи\n● реплицирует логи", shape=box, fillcolor="#c8e6c9", color="#2e7d32", width=2.2];
+    
+    f1 [label="Follower 1\n● реплицирует\n● может стать лидером", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    f2 [label="Follower 2\n● реплицирует\n● может стать лидером", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  client [label="Клиент\n(kube-apiserver)", shape=cylinder, fillcolor="#fff9c4", color="#f9a825"];
+
+  client -> leader [label="1. Запись\n(PUT /key)", color="#2e7d32", fontcolor="#2e7d32"];
+  leader -> f1 [label="2. AppendEntries\n(репликация)", color="#1565c0"];
+  leader -> f2 [label="2. AppendEntries\n(репликация)", color="#1565c0"];
+  f1 -> leader [label="3. ACK ✓", color="#7b8ca0"];
+  f2 -> leader [label="3. ACK ✓", color="#7b8ca0"];
+  leader -> client [label="4. OK (кворум)\n✓ запись применена", color="#2e7d32", fontcolor="#2e7d32"];
+
+  quorum [label="Кворум = ⌊N/2⌋+1 = 2\n(2 из 3 подтвердили → запись принята)", shape=note, fillcolor="#f3e5f5", color="#7b1fa2", fontsize=10];
+  quorum -> leader [style=dotted, dir=none];
+}
+```
 
 > 📊 **Таблица 19.2.** Роли узлов в RAFT-кластере.
 
@@ -144,7 +202,54 @@ RAFT — это алгоритм, который позволяет нескол
 4. Если получает большинство голосов — становится новым лидером
 5. Если голоса разделились — таймаут и новый раунд выборов
 
-![RAFT: выборы лидера](diagrams/part4/19-03-raft-election.svg)
+```dot
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  // Начальное состояние
+  subgraph cluster_t0 {
+    label="T0: Лидер жив"; bgcolor="#f1f8e9"; color="#2e7d32";
+    l [label="Лидер ●\nTerm=5", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    f1 [label="Follower\nTerm=5", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    f2 [label="Follower\nTerm=5", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Лидер упал
+  subgraph cluster_t1 {
+    label="T1: Лидер упал ✗"; bgcolor="#ffebee"; color="#c62828";
+    l_dead [label="✗ Упал", shape=box, fillcolor="#ffcdd2", color="#c62828", style="dashed"];
+    f1_timeout [label="Follower\nHeartbeat\ntimeout!", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    f2_wait [label="Follower\nждёт", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Выборы
+  subgraph cluster_t2 {
+    label="T2: Выборы"; bgcolor="#fff3e0"; color="#e65100";
+    f1_cand [label="Кандидат ▲\nTerm=6\nголосует за себя", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    f2_vote [label="Follower\nTerm=6\nголосует ✓", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Новый лидер
+  subgraph cluster_t3 {
+    label="T3: Новый лидер"; bgcolor="#f1f8e9"; color="#2e7d32";
+    new_l [label="Лидер ★\nTerm=6\n(бывший кандидат)", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+    f2_final [label="Follower\nTerm=6", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Связи между стадиями
+  l -> l_dead [label="отказ", color="#c62828", fontcolor="#c62828", style=bold];
+  f1 -> f1_timeout [label="таймаут\n~150-300ms", fontsize=8];
+  
+  f1_timeout -> f1_cand [label="становится\nкандидатом", color="#e65100", fontcolor="#e65100"];
+  f1_cand -> f2_vote [label="RequestVote", color="#e65100"];
+  f2_vote -> f1_cand [label="Granted", color="#2e7d32"];
+  
+  f1_cand -> new_l [label="кворум ✓\n(2 из 2)", color="#1b5e20", fontcolor="#1b5e20", style=bold];
+  f2_wait -> f2_vote [style=invis];
+}
+```
 
 #### Почему etcd нужно выносить наружу
 
@@ -254,7 +359,33 @@ kubeadm join 10.129.13.78:6443 \
 4. Запустит kube-apiserver, controller-manager, scheduler
 5. Зарегистрирует узел в кластере
 
-![Пошаговое присоединение control-plane](diagrams/part4/19-05-kubeadm-join.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  s1 [label="1. Готовим новый узел\n- Astra Linux 1.8\n- kubectl, kubeadm, kubelet\n- сеть (VLAN 308)", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  s2 [label="2. Копируем сертификаты\nс первого CP\nscp /etc/kubernetes/pki/ca.*\n/etc/kubernetes/pki/sa.*", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  s3 [label="3. Генерируем токен\nна первом CP\nkubeadm token create\n--print-join-command", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  s4 [label="4. Присоединяем узел\nkubeadm join ...\\\n--control-plane\\\n--certificate-key ...", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  
+  s5 [label="5. Проверяем\nkubectl get nodes\n→ Ready ✓", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+
+  pitfall [label="⚠️ Питфолл Astra Linux:\nParsec может блокировать\nсертификаты etcd.\nРешение: parsec=0 в GRUB", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+
+  s1 -> s2;
+  s2 -> s3;
+  s3 -> s4;
+  s4 -> s5;
+  s4 -> pitfall [style=dotted, color="#c62828"];
+  pitfall -> s5 [style=dotted, color="#c62828", label="фикс"];
+
+  // commands
+  cmd [label="Итоговая команда:\nkubeadm join 10.129.13.78:6443 --token ... \\\n  --discovery-token-ca-cert-hash sha256:... \\\n  --control-plane \\\n  --certificate-key ...", shape=box, fillcolor="#f3e5f5", color="#7b1fa2", fontsize=9];
+  s4 -> cmd [style=dotted, dir=none];
+}
+```
 
 #### Шаг 5: Проверяем
 
@@ -357,7 +488,36 @@ ssh n8 "systemctl stop kubelet"
 kubectl --server https://170.168.91.95:6443 get nodes
 ```
 
-![nginx LB для apiserver](diagrams/part4/19-06-nginx-lb.svg)
+```dot
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_lb {
+    label="nginx LB (VPS1:6443)"; bgcolor="#f1f8e9"; color="#2e7d32";
+    
+    nginx [label="nginx\nstream {\n  upstream k8s-api {\n    server 10.129.13.78:6443;\n    server 10.129.13.77:6443;\n  }\n  server {\n    listen 6443 ssl;\n    proxy_pass k8s-api;\n  }\n}", shape=box, fillcolor="#c8e6c9", color="#2e7d32", width=3];
+  }
+
+  subgraph cluster_upstream {
+    label="Upstream (kube-apiserver)"; bgcolor="#e3f2fd"; color="#1565c0";
+    
+    apiserver_n8 [label="apiserver\nn8 (40.51)\n:6443", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    apiserver_n7 [label="apiserver\nn7 (40.50)\n:6443", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  client [label="kubectl\nBFF\nпользователи", shape=cylinder, fillcolor="#f3e5f5", color="#7b1fa2"];
+
+  client -> nginx [label="TLS\n:6443", color="#2e7d32"];
+  nginx -> apiserver_n8 [label="health ✓\nактивный", color="#2e7d32", fontcolor="#2e7d32"];
+  nginx -> apiserver_n7 [label="health ✓\nактивный", color="#2e7d32", fontcolor="#2e7d32"];
+  
+  // health checks
+  hc [label="Health-check:\nproxy_pass + health_check\nесли узел упал →\nисключается из upstream", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  nginx -> hc [style=dotted, dir=none];
+}
+```
 
 > ⚠️ **Важно:** nginx в режиме `stream` не проверяет HTTP-статус. Если apiserver отвечает на TCP, но возвращает ошибки — nginx не переключит трафик. Для продакшена используйте `health_check` (доступен в nginx Plus) или внешний health-checker.
 
@@ -410,7 +570,40 @@ etcdctl snapshot restore /backup/etcd-snapshot.db \
 systemctl start etcd
 ```
 
-![Восстановление etcd из снапшота](diagrams/part4/19-07-snapshot-restore.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_etcd_vps1 {
+    label="etcd VPS1"; style=dashed; color="#f9a825"; bgcolor="#fffde7";
+    step1 [label="1. Снимем снапшот\nс работающего etcd\netcdctl snapshot save\nsnapshot.db", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_restore {
+    label="Восстановление"; style=dashed; color="#2e7d32"; bgcolor="#f1f8e9";
+    step2 [label="2. Остановим etcd\nsystemctl stop etcd", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    step3 [label="3. Удалим старые данные\nrm -rf /var/lib/etcd/member", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    step4 [label="4. Восстановим из снапшота\netcdctl snapshot restore\n--data-dir /var/lib/etcd", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    step5 [label="5. Запустим etcd\nsystemctl start etcd", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+  }
+
+  subgraph cluster_result {
+    label="Результат"; style=filled; color="#1565c0"; bgcolor="#e3f2fd";
+    done [label="✓ etcd работает\n✓ данные на момент снапшота\n✓ можно добавлять\nобратно в кластер", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  step1 -> step2 [label="snapshot.db"];
+  step2 -> step3;
+  step3 -> step4;
+  step4 -> step5 [label="новый\nmember ID"];
+  step5 -> done;
+
+  note [label="⚠️ Важно:\nСнапшот не содержит\nданные новее снимка\n(окно потери ~секунды)", shape=note, fillcolor="#ffebee", color="#c62828", fontsize=9, fontcolor="#c62828"];
+  step1 -> note [style=dotted, dir=none, color="#c62828"];
+}
+```
 
 > ⚠️ **Окно потери:** снапшот содержит состояние на момент снятия. Все изменения после снапшота будут потеряны. В Aither снапшоты делаются каждые 30 минут через cron, окно потери — до 30 минут.
 
@@ -505,7 +698,46 @@ Multi-tenancy (мультиарендность) — это архитектур
 | Риск утечки | При ошибке в WHERE | Близок к нулю |
 | Развёртывание | Быстрое | Медленное (N тенантов = N деплоев) |
 
-![Soft vs Hard multi-tenancy](diagrams/part4/20-01-soft-vs-hard.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_soft {
+    label="Soft Multi-tenancy (выбор Aither)"; style=filled; color="#2e7d32"; bgcolor="#f1f8e9";
+    
+    db [label="Общая БД\n( PostgreSQL )", shape=cylinder, fillcolor="#c8e6c9", color="#2e7d32"];
+    app [label="Общий Gateway/BFF", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    
+    org_a [label="Org Alpha", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    org_b [label="Org Beta", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    
+    org_a -> app [label="API key A"];
+    org_b -> app [label="API key B"];
+    app -> db [label="WHERE org_id=$N\n(фильтр на уровне SQL)"];
+
+    pros [label="✅ Плюсы:\n• Одна БД — проще бэкап\n• Дешёвле (1 инстанс БД)\n• Быстрее развёртывание\n\n⚠️ Минусы:\n• Риск утечки при ошибке в WHERE\n• Noisy neighbour (один клиент\n  может нагрузить БД)", shape=note, fillcolor="#e8f5e9", color="#43a047", fontsize=9];
+  }
+
+  subgraph cluster_hard {
+    label="Hard Multi-tenancy"; style=filled; color="#c62828"; bgcolor="#ffebee";
+    
+    db_a [label="БД Org Alpha", shape=cylinder, fillcolor="#ffcdd2", color="#c62828"];
+    db_b [label="БД Org Beta", shape=cylinder, fillcolor="#ffcdd2", color="#c62828"];
+    gw_a [label="Gateway\nOrg Alpha", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    gw_b [label="Gateway\nOrg Beta", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    
+    org_a2 [label="Org Alpha", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    org_b2 [label="Org Beta", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+
+    org_a2 -> gw_a -> db_a;
+    org_b2 -> gw_b -> db_b;
+
+    cons [label="✅ Плюсы:\n• Полная изоляция\n• Нет риска утечки\n\n⚠️ Минусы:\n• N× дороже\n• Сложнее управление\n• Медленнее развёртывание", shape=note, fillcolor="#ffebee", color="#c62828", fontsize=9];
+  }
+}
+```
 
 > 📊 **Таблица 20.1.** Сравнение soft и hard multi-tenancy.
 
@@ -605,7 +837,42 @@ def verify_delegation(token: str) -> dict | None:
         return None
 ```
 
-![API key → JWT flow](diagrams/part4/20-02-api-key-jwt-flow.svg)
+```dot
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  {
+    rank=same;
+    user [label="Пользователь\n(браузер)", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+    bff [label="BFF\n(Fastify)\nVPS2:3000", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    db [label=" PostgreSQL ", shape=cylinder, fillcolor="#e0e0e0", color="#616161"];
+  }
+
+  {
+    rank=same;
+    gateway [label="Gateway\n(Python)\nn7:8000", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    redis [label="Redis", shape=cylinder, fillcolor="#ffcdd2", color="#c62828"];
+    vllm [label="vLLM\n(GPU)", shape=box, fillcolor="#f3e5f5", color="#7b1fa2"];
+  }
+
+  // Flow
+  user -> bff [label="1. Логин\n(OAuth GitHub)"];
+  bff -> db [label="2. Проверка\nпользователя"];
+  bff -> db [label="3. INSERT\nportal_api_keys\n(key_id, org_id)"];
+  db -> bff [label="4. api_key\n(ak-...)"];
+  bff -> bff [label="5. JWT\nRS256\n{org_id, key_id,\n user_id}\n⏱ 5 мин"];
+  bff -> gateway [label="6. Authorization:\nBearer <delegation_jwt>"];
+  gateway -> gateway [label="7. Проверка\nподписи RS256\n(публичный ключ)"];
+  gateway -> redis [label="8. Rate limit\nrl:{org_id}:rpm"];
+  gateway -> vllm [label="9. Проксирование\n(только разрешённые\nмодели)"];
+
+  // Labels
+  note [label="Delegation Token (JWT):\nHeader: {alg: RS256}\nPayload: {\n  org_id: 'xxx',\n  key_id: 'chat',\n  user_id: 'yyy',\n  iat: ..., exp: ...\n}", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  bff -> note [style=dotted, dir=none];
+}
+```
 
 > ⚠️ **Почему 5 минут?** Delegation Token — короткоживущий. Если злоумышленник перехватит токен, у него будет максимум 5 минут. BFF автоматически обновляет токен при каждом новом запросе.
 
@@ -678,7 +945,44 @@ def check_rate_limit(org_id: str, tier: dict) -> bool:
     return True  # Все проверки пройдены
 ```
 
-![Redis rate limiting](diagrams/part4/20-03-rate-limiting.svg)
+```dot
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_redis {
+    label="Redis: ключи rate limiting"; bgcolor="#fff3e0"; color="#e65100";
+    
+    rpm [label="rl:ORG_A:rpm:14:05\n   ↓ INCR\n> 60/min → 429", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    tpm [label="rl:ORG_A:tpm:14:05\n   ↓ INCR\n> 1000/min → 429", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    daily [label="rl:ORG_A:daily:20260710\n   ↓ INCR\n> daily_limit → 429", shape=box, fillcolor="#ffcc80", color="#ef6c00"];
+    monthly [label="tok:ORG_A:monthly:202607\n   ↓ INCR\n> 30M → 429", shape=box, fillcolor="#ffcc80", color="#ef6c00"];
+    
+    window [label="Ключи с TTL:\n• rpm/tpm: 60 сек\n• daily: 86400 сек\n• monthly: 30 дней", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  }
+
+  subgraph cluster_gw {
+    label="Gateway: логика проверки"; bgcolor="#e8f5e9"; color="#43a047";
+    
+    check [label="1. Извлечь org_id\n   из JWT", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    tier [label="2. Загрузить tier\n   (FREE/STD/VIP)", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    limits [label="3. Проверить\n   rpm → tpm → daily\n   → monthly → ACL", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    
+    ok [label="✓ OK\nПроксируем\nна vLLM", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+    reject [label="✗ 429\nRate limit\nexceeded", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  check -> tier -> limits;
+  limits -> rpm [label="INCR"];
+  limits -> tpm [label="INCR"];
+  limits -> daily;
+  limits -> monthly;
+  limits -> ok [label="все проверки\nпройдены"];
+  limits -> reject [label="превышен\nлимит"];
+  rpm -> window [style=dotted, dir=none];
+}
+```
 
 > ⚠️ **Порядок проверок важен:** сначала быстрые (RPM/TPM в Redis), потом медленные (daily/monthly). Если RPM превышен — сразу 429, без лишних запросов к Redis.
 
@@ -698,7 +1002,47 @@ redis.incrby(f"tok:{org_id}:monthly:{month}", tokens_used)
 billing_op(org_id, -tokens_used, "settle")
 ```
 
-![Token quota tracking](diagrams/part4/20-06-token-quota.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_track {
+    label="Gateway: учёт после запроса"; bgcolor="#e8f5e9"; color="#43a047";
+    
+    vllm_resp [label="vLLM SSE-ответ\nusage.total_tokens = 143", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    parse [label="Парсинг\nизвлекаем N токенов", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_redis_tok {
+    label="Redis: токен-счётчики"; bgcolor="#fff3e0"; color="#e65100";
+    
+    daily_tok [label="tok:ORG_A:daily:20260710\nINCRBY 143\nTTL 86400", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    monthly_tok [label="tok:ORG_A:monthly:202607\nINCRBY 143\nTTL 2592000", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+  }
+
+  subgraph cluster_db_track {
+    label="PostgreSQL: персистентный учёт"; bgcolor="#e3f2fd"; color="#1565c0";
+    
+    billing [label="billing_accounts\nUPDATE balance =\n  balance - 143\nWHERE org_id = $1", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    ledger [label="billing_ledger\nINSERT (org_id, type='settle',\n  tokens=143, ...)", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  vllm_resp -> parse;
+  parse -> daily_tok [label="1. Fast-path"];
+  parse -> monthly_tok [label="1. Fast-path"];
+  parse -> billing [label="2. Асинхронно"];
+  billing -> ledger [label="3. Аудит"];
+
+  check_next [label="Следующий запрос:\nпроверка квот (daily/monthly)\nперед проксированием", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  daily_tok -> check_next [style=dashed, dir=both, color="#e65100"];
+  monthly_tok -> check_next [style=dashed, dir=both, color="#e65100"];
+
+  note [label="⚠️ Двойной учёт:\n1. Redis (быстро, для enforce)\n2. PostgreSQL (медленно, для аудита)\nRedis — кэш, PostgreSQL — источник истины", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  billing -> note [style=dotted, dir=none];
+}
+```
 
 > 📊 **Таблица 20.3.** Тарифные планы и лимиты (из `subscription_tiers`).
 
@@ -747,7 +1091,46 @@ def check_model_acl(org_id: str, model: str, tier: dict) -> bool:
 
 Если модель не в списке — Gateway возвращает **403 Forbidden** ещё до того, как запрос дойдёт до vLLM.
 
-![Model ACL — tier × model matrix](diagrams/part4/20-04-model-acl.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  tiers [label="subscription_tiers\n( PostgreSQL )", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_free {
+    label="FREE · 0₽/мес"; bgcolor="#f5f5f5"; color="#9e9e9e";
+    f_models [label="Модели:\n✅ qwen2.5-14b\n❌ qwen2.5-32b\n❌ coder-14b", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+    f_limits [label="Лимиты:\nRPM: 10\nTPM: 500\nDaily: 100K\nMonthly: 3M", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+  }
+
+  subgraph cluster_std {
+    label="STANDARD · 5 000₽/мес"; bgcolor="#f1f8e9"; color="#43a047";
+    s_models [label="Модели:\n✅ qwen2.5-14b\n✅ qwen2.5-32b\n❌ coder-14b", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    s_limits [label="Лимиты:\nRPM: 60\nTPM: 5000\nDaily: 1M\nMonthly: 30M", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_vip {
+    label="VIP · 20 000₽/мес"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    v_models [label="Модели:\n✅ qwen2.5-14b\n✅ qwen2.5-32b\n✅ coder-14b\n✅ все будущие", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    v_limits [label="Лимиты:\nRPM: 300\nTPM: 50000\nDaily: 10M\nMonthly: 300M", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  gw_filter [label="Gateway: фильтр моделей\nif model not in tier.limits.models:\n    return 403 Forbidden", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+
+  tiers -> f_models [style=dashed];
+  tiers -> s_models [style=dashed];
+  tiers -> v_models [style=dashed];
+  
+  f_models -> gw_filter;
+  s_models -> gw_filter;
+  v_models -> gw_filter;
+
+  note [label="Gateway проверяет\nДО проксирования\nна vLLM", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  gw_filter -> note [style=dotted, dir=none];
+}
+```
 
 > 📊 **Таблица 20.4.** Матрица доступа к моделям.
 
@@ -836,7 +1219,54 @@ ALTER TABLE chats ALTER COLUMN org_id SET NOT NULL;
 SELECT * FROM chats WHERE user_id = $1 AND org_id = $2;
 ```
 
-![Chat isolation — per-org SQL](diagrams/part4/20-08-chat-isolation.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_bff {
+    label="BFF: эндпоинты чатов"; bgcolor="#fff9c4"; color="#f9a825";
+    
+    check [label="checkChatEnabled(user_id)\n→ org_id (из БД)", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_queries {
+    label="SQL: фильтрация по org_id"; bgcolor="#e3f2fd"; color="#1565c0";
+    
+    list [label="GET /chats\nSELECT ... FROM chats\nWHERE user_id=$1\n  AND org_id=$2 ★", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    
+    create [label="POST /chats\nINSERT INTO chats\n  (user_id, org_id ★,\n   title, model)\nVALUES ($1,$2,$3,$4)", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    
+    get [label="GET /chats/:id\nSELECT ... FROM chats\nWHERE chat_id=$1\n  AND user_id=$2\n  AND org_id=$3 ★", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    
+    del [label="DELETE /chats/:id\nDELETE FROM chats\nWHERE chat_id=$1\n  AND user_id=$2\n  AND org_id=$3 ★", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_isolation {
+    label="Результат: изоляция"; bgcolor="#f1f8e9"; color="#2e7d32";
+    
+    org_a [label="Org Alpha\n→ видит свои чаты\n✓ chat-1, chat-2", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    org_b [label="Org Beta\n→ видит свои чаты\n✓ chat-3\n→ НЕ видит чужие\n✗ chat-1 (org mismatch)", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_migration {
+    label="Миграция (было → стало)"; bgcolor="#eceff1"; color="#607d8b";
+    old [label="Было:\nchats\n  user_id\n  title\n  (без org_id)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    new [label="Стало:\nchats\n  user_id\n  org_id ★ NOT NULL\n  title\nALTER TABLE + UPDATE\nзаполнил 37 чатов", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    old -> new [label="Миграция\nALTER TABLE\nADD COLUMN\n+ UPDATE\nbackfill", color="#2e7d32", fontcolor="#2e7d32"];
+  }
+
+  check -> list;
+  check -> create;
+  check -> get;
+  check -> del;
+  
+  list -> org_a;
+  create -> org_a;
+  get -> org_b [style=dashed, color="#c62828", label="✗ 404\nchat not found"];
+}
+```
 
 **Функция `checkChatEnabled()`** возвращает `org_id` и проверяет политики:
 
@@ -879,7 +1309,34 @@ CREATE TABLE portal_org_policies (
 
 Каждая организация может иметь свои правила, не затрагивая другие.
 
-![SQL — per-org изоляция всех таблиц](diagrams/part4/20-05-sql-isolation.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_db {
+    label=" PostgreSQL: per-org изоляция"; bgcolor="#e3f2fd"; color="#1565c0";
+
+    ba [label="billing_accounts\norg_id (PK)\nbalance, reserved\n→ billing_op(org_id)", shape=box, fillcolor="#c8e6c9", color="#2e7d32", width=2.2];
+    ak [label="portal_api_keys\norg_id (FK)\napi_key, status\n→ JWT: {org_id}", shape=box, fillcolor="#ffe0b2", color="#e65100", width=2.2];
+    ch [label="chats\nuser_id, org_id ★\ntitle, model\n→ WHERE org_id=$N", shape=box, fillcolor="#e1bee7", color="#7b1fa2", width=2.2];
+    pol [label="portal_org_policies\norg_id (PK)\nchat_enabled, dlp_rules\n→ loadPolicy(org_id)", shape=box, fillcolor="#ffcdd2", color="#c62828", width=2.2];
+    bl [label="billing_ledger\norg_id (FK), user_id\ntype, tokens, amount\n→ аудит-трейс", shape=box, fillcolor="#cfd8dc", color="#607d8b", width=2.2];
+  }
+
+  org_filter [label="Все запросы:\nWHERE org_id = $current_org\n(из JWT)", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+
+  org_filter -> ba [style=dashed, color="#43a047"];
+  org_filter -> ak [style=dashed, color="#e65100"];
+  org_filter -> ch [style=dashed, color="#7b1fa2"];
+  org_filter -> pol [style=dashed, color="#c62828"];
+  org_filter -> bl [style=dashed, color="#607d8b"];
+
+  cross [label="Пользователь Org Beta\n→ НЕ видит данные Org Alpha\n(WHERE org_id блокирует)", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  ch -> cross [style=dotted, dir=none, color="#c62828"];
+}
+```
 
 > 📊 **Таблица 20.5.** Где находится `org_id` в схеме данных.
 
@@ -910,7 +1367,57 @@ CREATE TABLE portal_org_policies (
 5. **Учёт:** Redis (быстро) + PostgreSQL (аудит)
 6. **Аудит:** `billing_ledger` — кто, когда, сколько токенов
 
-![End-to-end — полный путь с изоляцией](diagrams/part4/20-07-end-to-end.svg)
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=9, style=filled];
+  edge [fontname="Arial", fontsize=8];
+
+  // Layers
+  user [label="👤 Пользователь\nOrg Alpha\n(браузер)", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_layer1 {
+    label="Слой 1: Аутентификация"; bgcolor="#f5f5f5"; color="#9e9e9e";
+    oauth [label="OAuth\nGitHub", shape=box, fillcolor="#fafafa", color="#bdbdbd"];
+    bff [label="BFF\n(Fastify)\nVPS2:3000", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_layer2 {
+    label="Слой 2: Авторизация + JWT"; bgcolor="#e8f5e9"; color="#43a047";
+    apikey [label="portal_api_keys\nAPI key: ak-...\norg_id: ORG_A", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    jwt [label="Delegation JWT\n{org_id: ORG_A,\n key_id: chat,\n user_id: USER_X}\nRS256, 5 мин", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_layer3 {
+    label="Слой 3: Gateway — проверки"; bgcolor="#fff3e0"; color="#e65100";
+    verify [label="Проверка\nподписи JWT", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    ratelimit [label="Rate Limit\nrl:ORG_A:rpm\n→ 5/60 ✓", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    quota [label="Token Quota\ntok:ORG_A:daily\n→ 143/100K ✓", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    acl [label="Model ACL\nqwen2.5-14b\n∈ tier.models ✓", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+  }
+
+  subgraph cluster_layer4 {
+    label="Слой 4: Инференс + Учёт"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    vllm [label="vLLM\nGPU RTX6000\nqwen2.5-14b", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    track [label="Учёт\nRedis: +143 ток\nSQL: billing-143", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  subgraph cluster_layer5 {
+    label="Слой 5: Аудит"; bgcolor="#eceff1"; color="#607d8b";
+    audit [label="billing_ledger\nINSERT settle\norg_id=ORG_A\ntokens=143\n⏱ 2026-07-10", shape=box, fillcolor="#cfd8dc", color="#607d8b"];
+  }
+
+  // Flow
+  user -> oauth -> bff;
+  bff -> apikey -> jwt;
+  jwt -> verify -> ratelimit -> quota -> acl;
+  acl -> vllm -> track -> audit;
+
+  // Cross-org блок
+  other [label="👤 Другой пользователь\nOrg Beta\n→ НЕ видит чаты Org Alpha\n→ НЕ видит платежи Org Alpha\n→ rate limit свой", shape=cylinder, fillcolor="#ffcdd2", color="#c62828"];
+  other -> bff [style=dotted, color="#c62828", label="✗ 403\norg mismatch"];
+}
+```
 
 > 📊 **Таблица 20.6.** Что проверяется и на каком слое.
 
