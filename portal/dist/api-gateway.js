@@ -11,6 +11,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerApiGateway = registerApiGateway;
 const crypto_1 = __importDefault(require("crypto"));
+const server_1 = require("./server");
 const MODEL_MAP = {
     "qwen2.5-14b": {
         display_name: "Qwen 2.5 14B",
@@ -45,7 +46,7 @@ async function authApiKey(req, reply, pool) {
     return { org_id: k.org_id, key_id: k.key_id, name: k.name, api_key: apiKey };
 }
 // ── Routes ────────────────────────────────────────────────────
-function registerApiGateway(app, pool, CORE_API) {
+function registerApiGateway(app, pool) {
     // GET /api/v1/models — public model list (no auth required for discovery)
     app.get("/api/v1/models", async (_r, reply) => {
         return reply.send({
@@ -84,8 +85,8 @@ function registerApiGateway(app, pool, CORE_API) {
             stream: stream !== false, // default: stream
         };
         try {
-            // Proxy to Gateway with billing headers
-            const resp = await fetch(CORE_API + "/v1/chat/completions", {
+            // Proxy to Gateway (with mTLS) — Gateway handles API key auth + billing
+            const resp = await (0, server_1.gatewayFetch)("/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

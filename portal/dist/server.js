@@ -36,6 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.gatewayFetch = gatewayFetch;
 require("dotenv/config");
 const fastify_1 = __importDefault(require("fastify"));
 const cors_1 = __importDefault(require("@fastify/cors"));
@@ -46,9 +47,37 @@ const crypto_1 = require("crypto");
 const ldap_1 = require("./ldap");
 const policies_1 = require("./policies");
 const api_gateway_1 = require("./api-gateway");
+const fs_1 = __importDefault(require("fs"));
+const https_1 = __importDefault(require("https"));
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
 const CORE_API = process.env.CORE_API || "http://gateway:8080";
+const CORE_API_MTLS = process.env.CORE_API_MTLS || "https://gateway:8443";
+// mTLS agent for Gateway communication
+const mtlsAgent = (() => {
+    try {
+        return new https_1.default.Agent({
+            ca: fs_1.default.readFileSync(process.env.MTLS_CA || "/etc/aither/mtls/ca.crt"),
+            cert: fs_1.default.readFileSync(process.env.MTLS_CERT || "/etc/aither/mtls/bff.crt"),
+            key: fs_1.default.readFileSync(process.env.MTLS_KEY || "/etc/aither/mtls/bff.key"),
+            rejectUnauthorized: true,
+        });
+    }
+    catch (e) {
+        console.warn("[mtls] Agent creation failed, falling back to plain HTTP:", e);
+        return null;
+    }
+})();
+// Helper: fetch from Gateway with mTLS if available
+async function gatewayFetch(path, opts = {}) {
+    const url = (mtlsAgent ? CORE_API_MTLS : CORE_API) + path;
+    const fetchOpts = { ...opts };
+    if (mtlsAgent) {
+        // @ts-ignore — Node.js fetch supports agent via dispatcher
+        fetchOpts.dispatcher = mtlsAgent;
+    }
+    return fetch(url, fetchOpts);
+}
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const PUBLIC_HOST = process.env.PUBLIC_HOST || "localhost";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || (IS_PRODUCTION ? `https://${PUBLIC_HOST}` : `http://${PUBLIC_HOST}`);
@@ -94,8 +123,8 @@ async function checkOrgOwner(orgId, userId) {
     const r = await pool.query("SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND role='owner'", [orgId, userId]);
     return r.rows.length > 0;
 }
-const STARTER_TOKENS = 100_000; // 100K токенов новому пользователю
-const REFILL_TOKENS = 100_000; // авто-пополнение при обнулении
+const STARTER_TOKENS = 100000; // 100K токенов новому пользователю
+const REFILL_TOKENS = 100000; // авто-пополнение при обнулении
 const REFILL_LIMIT = 10; // максимум авто-пополнений (защита от бесконечного цикла)
 /** Создаёт личный org для нового пользователя и начисляет стартовые токены */
 async function ensurePersonalOrg(userId, displayName) {
@@ -154,11 +183,11 @@ setInterval(() => {
         if (v.expires < now)
             oauthStates.delete(k);
     }
-}, 300_000);
+}, 300000);
 /** Store OAuth state in memory, return state value */
 function setOAuthState(_reply, prefix) {
     const state = (0, crypto_1.randomBytes)(16).toString("hex");
-    oauthStates.set(state, { prefix, expires: Date.now() + 600_000 });
+    oauthStates.set(state, { prefix, expires: Date.now() + 600000 });
     return state;
 }
 /** Validate OAuth state from memory. Returns true if valid. */
@@ -222,12 +251,15 @@ async function main() {
     CREATE TABLE IF NOT EXISTS chats (
       chat_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id uuid NOT NULL REFERENCES portal_users(user_id),
+      org_id uuid REFERENCES portal_organizations(org_id),
       title text NOT NULL DEFAULT 'Новый чат',
       model text NOT NULL DEFAULT 'qwen2.5-14b',
       share_token text UNIQUE,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    -- Migration: add org_id to existing chats (set to user's personal org)
+    ALTER TABLE chats ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES portal_organizations(org_id);
     CREATE TABLE IF NOT EXISTS chat_messages (
       message_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       chat_id uuid NOT NULL REFERENCES chats(chat_id) ON DELETE CASCADE,
@@ -591,7 +623,7 @@ async function main() {
         };
     });
     // ── External API Gateway (API-key auth, OpenAI-compatible) ──
-    (0, api_gateway_1.registerApiGateway)(app, pool, CORE_API);
+    (0, api_gateway_1.registerApiGateway)(app, pool);
     app.get("/api/v1/me", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
@@ -622,7 +654,7 @@ async function main() {
     });
     app.get("/api/v1/core/status", async (_r, reply) => {
         try {
-            const r = await fetch(CORE_API + "/health");
+            const r = await gatewayFetch("/health");
             const text = await r.text();
             if (!text)
                 return reply.send({ status: "ok", model: "vLLM", note: "health returned empty (vLLM direct)" });
@@ -822,7 +854,7 @@ async function main() {
         return { delegation_token: delegationToken, expires_in: 300 };
     });
     // ==================== CHATS ====================
-    /** Check if chat is enabled for any org the user belongs to. Returns true if enabled. */
+    /** Check if chat is enabled for any org the user belongs to. Returns org_id if enabled, null otherwise. */
     async function checkChatEnabled(userId, reply) {
         const orgs = await pool.query(`SELECT o.org_id FROM portal_organizations o
        JOIN portal_org_members m ON o.org_id = m.org_id
@@ -830,14 +862,15 @@ async function main() {
        LIMIT 1`, [userId]);
         if (orgs.rows.length === 0) {
             reply.status(403).send({ error: "chat_disabled", detail: "no active organization" });
-            return false;
+            return null;
         }
-        const policy = await (0, policies_1.loadPolicy)(pool, orgs.rows[0].org_id);
+        const orgId = orgs.rows[0].org_id;
+        const policy = await (0, policies_1.loadPolicy)(pool, orgId);
         if (!policy.chat_enabled) {
             reply.status(403).send({ error: "chat_disabled", detail: "чат отключён в настройках безопасности организации" });
-            return false;
+            return null;
         }
-        return true;
+        return orgId;
     }
     // Get org's active API key (for delegation in chat)
     async function getOrgApiKey(orgId) {
@@ -860,10 +893,11 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
-        if (!await checkChatEnabled(p.user_id, reply))
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
             return;
         const r = await pool.query(`SELECT chat_id, title, model, share_token, created_at, updated_at
-       FROM chats WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50`, [p.user_id]);
+       FROM chats WHERE user_id=$1 AND org_id=$2 ORDER BY updated_at DESC LIMIT 50`, [p.user_id, orgId]);
         return { chats: r.rows };
     });
     // Create chat
@@ -871,11 +905,12 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
-        if (!await checkChatEnabled(p.user_id, reply))
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
             return;
         const { title, model } = req.body || {};
-        const r = await pool.query(`INSERT INTO chats (user_id, title, model) VALUES ($1,$2,$3)
-       RETURNING chat_id, title, model, created_at`, [p.user_id, title || "Новый чат", model || "qwen2.5-14b"]);
+        const r = await pool.query(`INSERT INTO chats (user_id, org_id, title, model) VALUES ($1,$2,$3,$4)
+       RETURNING chat_id, title, model, created_at`, [p.user_id, orgId, title || "Новый чат", model || "qwen2.5-14b"]);
         return { chat: r.rows[0] };
     });
     // Get chat with messages
@@ -883,10 +918,11 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
-        if (!await checkChatEnabled(p.user_id, reply))
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
             return;
         const { chatId } = req.params;
-        const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
+        const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2 AND org_id=$3", [chatId, p.user_id, orgId]);
         if (c.rows.length === 0)
             return reply.status(404).send({ error: "chat not found" });
         const msgs = await pool.query("SELECT message_id, role, content, tokens_used, created_at FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC", [chatId]);
@@ -897,10 +933,11 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
-        if (!await checkChatEnabled(p.user_id, reply))
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
             return;
         const { chatId } = req.params;
-        const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 RETURNING chat_id", [chatId, p.user_id]);
+        const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 AND org_id=$3 RETURNING chat_id", [chatId, p.user_id, orgId]);
         if (r.rows.length === 0)
             return reply.status(404).send({ error: "chat not found" });
         return { deleted: true };
@@ -961,8 +998,8 @@ async function main() {
             const modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
             const vllmModel = modelInfo.vllm_path;
             const vllmEndpoint = CORE_API;
-            // Call vLLM with streaming
-            const vllmRes = await fetch(vllmEndpoint + "/v1/chat/completions", {
+            // Call Gateway (with mTLS) which proxies to vLLM
+            const vllmRes = await gatewayFetch("/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1556,6 +1593,105 @@ async function main() {
         await pool.query("UPDATE portal_api_keys SET status = 'revoked' WHERE key_id = $1", [keyId]);
         return reply.send({ status: "revoked", key_id: keyId });
     });
+    // ── RAG endpoints ──────────────────────────────────────────
+    // GET /api/rag/status — hybrid RAG status from Gateway
+    app.get("/api/rag/status", async (req, reply) => {
+        try {
+            const resp = await gatewayFetch("/v1/rag/status", { method: "GET" });
+            const data = await resp.json();
+            return reply.send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_unavailable", detail: safeError(e) });
+        }
+    });
+    // POST /api/rag/query — hybrid RAG search (keyword + wiki graph)
+    app.post("/api/rag/query", async (req, reply) => {
+        const { query, top_k, wiki_radius } = req.body || {};
+        if (!query)
+            return reply.status(400).send({ error: "query required" });
+        // Auth: any valid token (Gateway checks tier)
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        try {
+            const resp = await gatewayFetch("/v1/rag/hybrid-query", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${signToken(p.user_id)}`,
+                },
+                body: JSON.stringify({ query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
+            });
+            const data = await resp.json();
+            return reply.status(resp.status).send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_query_failed", detail: safeError(e) });
+        }
+    });
+    // POST /api/rag/chat — enhanced chat with RAG context injection
+    app.post("/api/rag/chat", async (req, reply) => {
+        const { messages, model, rag_query, top_k, wiki_radius, temperature } = req.body || {};
+        if (!messages || !rag_query)
+            return reply.status(400).send({ error: "messages and rag_query required" });
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        try {
+            // Step 1: RAG search
+            const ragResp = await gatewayFetch("/v1/rag/hybrid-query", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${signToken(p.user_id)}`,
+                },
+                body: JSON.stringify({ query: rag_query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
+            });
+            const ragData = await ragResp.json();
+            const ragResults = ragData.results || [];
+            // Step 2: Build augmented prompt with RAG context
+            let ragContext = "";
+            if (ragResults.length > 0) {
+                ragContext = "[Контекст из базы знаний Aither]\n\n";
+                for (const r of ragResults) {
+                    ragContext += `### ${r.page_title || r.source}\n${r.text}\n\n`;
+                }
+                ragContext += "[/Контекст]\n\n";
+            }
+            // Step 3: Inject RAG context into system message or create one
+            const augmentedMessages = [...messages];
+            const systemIdx = augmentedMessages.findIndex((m) => m.role === "system");
+            if (systemIdx >= 0) {
+                augmentedMessages[systemIdx].content = ragContext + augmentedMessages[systemIdx].content;
+            }
+            else {
+                augmentedMessages.unshift({ role: "system", content: ragContext + "Ты — AI-ассистент платформы Aither. Отвечай на основе предоставленного контекста." });
+            }
+            // Step 4: Forward to Gateway chat completions
+            const chatResp = await gatewayFetch("/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${signToken(p.user_id)}`,
+                },
+                body: JSON.stringify({
+                    model: model || "qwen2.5-14b",
+                    messages: augmentedMessages,
+                    temperature: temperature ?? 0.7,
+                    stream: false,
+                }),
+            });
+            const chatData = await chatResp.json();
+            return reply.status(chatResp.status).send({
+                ...chatData,
+                rag: { query: rag_query, results_count: ragResults.length, sources: ragResults.map((r) => r.page_title) },
+            });
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_chat_failed", detail: safeError(e) });
+        }
+    });
     // Proxy /api/v1/admin/* → Gateway /admin/*
     app.all("/api/v1/admin/*", async (req, reply) => {
         // Admin key bypass: skip user auth for automated/admin-panel access
@@ -1573,20 +1709,19 @@ async function main() {
         const path = req.params["*"];
         // Admin API is at Gateway root, not under /v1
         const gwUrl = `${CORE_API.replace(/\/v1\/?$/, "")}/admin/${path}`;
+        const adminPath = `/admin/${path}`;
         try {
             const method = req.method;
             const headers = { "Content-Type": "application/json" };
             // Generate admin JWT — Gateway verifies with shared secret
-            // Default Gateway secret is "aither-admin-secret" (JWT_SECRET env or ADMIN_SECRET fallback)
-            const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "aither-admin-secret";
+            const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "change-me";
             const adminToken = jsonwebtoken_1.default.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, ADMIN_JWT_SECRET, { algorithm: "HS256", expiresIn: "5m" });
             headers["Authorization"] = `Bearer ${adminToken}`;
             let body;
             if (method === "POST" || method === "PUT") {
                 body = JSON.stringify(req.body);
-                headers["Content-Length"] = String(body.length);
             }
-            const resp = await fetch(gwUrl, { method, headers, body });
+            const resp = await gatewayFetch(adminPath, { method, headers, body });
             const data = await resp.json();
             return reply.status(resp.status).send(data);
         }

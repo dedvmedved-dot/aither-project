@@ -569,6 +569,30 @@ class Gateway(BaseHTTPRequestHandler):
             finally:
                 db_pool.putconn(conn)
             return
+        # ── RAG status (also available via GET) ──────────────────
+        if self.path == "/v1/rag/status":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                status = wiki_status()
+                self._json(200, status)
+            except Exception as e:
+                self._json(500, {"error": "status_failed", "detail": str(e)})
+            return
+        if self.path == "/v1/rag/wiki-ingest":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                result = wiki_ingest()
+                self._json(200, result)
+            except Exception as e:
+                traceback.print_exc()
+                self._json(500, {"error": "wiki_ingest_failed", "detail": str(e)})
+            return
         self._json(404, {"error": "not found"})
 
     def _proxy(self, method, path, body=None):

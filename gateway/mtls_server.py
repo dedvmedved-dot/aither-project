@@ -11,14 +11,19 @@ CA_CERT = os.path.join(MTLS_DIR, 'ca.crt')
 SERVER_CERT = os.path.join(MTLS_DIR, 'tls.crt')
 SERVER_KEY = os.path.join(MTLS_DIR, 'tls.key')
 
-def run_mtls_server(host='0.0.0.0', port=8443):
+def run_mtls_server(host='0.0.0.0', port=8443, http_port=8080):
     import gateway
+    import threading
     handler = gateway.Gateway
 
-    # Create plain HTTP server first
-    httpd = HTTPServer((host, port), handler)
+    # Start plain HTTP server for internal cluster traffic
+    httpd_plain = HTTPServer((host, http_port), handler)
+    t = threading.Thread(target=httpd_plain.serve_forever, daemon=True)
+    t.start()
+    print(f"[http] Gateway listening on http://{host}:{http_port} (plain HTTP, cluster-only)", flush=True)
 
-    # Then wrap in SSL with mTLS
+    # Create HTTPS server with mTLS
+    httpd = HTTPServer((host, port), handler)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.verify_mode = ssl.CERT_REQUIRED
     ctx.check_hostname = False
