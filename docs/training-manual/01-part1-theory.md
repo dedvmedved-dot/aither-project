@@ -1208,3 +1208,827 @@ docker run my-python
 - Как переносить образы в закрытый контур (docker save/load)
 
 В следующей главе — Kubernetes: от Pod до кластера.
+
+
+# Глава 3. Kubernetes: от Pod до кластера
+
+> **Цель главы:** понять, зачем нужен Kubernetes, выучить его азбуку (Pod, Deployment, Service, ConfigMap), научиться читать YAML-манифесты и разобраться в устройстве кластера Aither. После этой главы вы сможете осмысленно набирать `kubectl get pods` и понимать, что видите.
+
+---
+
+## 3.1. Зачем нужен Kubernetes
+
+### Проблема: когда контейнеров много
+
+В прошлой главе мы научились запускать контейнеры через Docker. Один контейнер — легко:
+
+```bash
+docker run -d -p 8080:8080 --name gateway gateway:latest
+```
+
+Но что, когда контейнеров десять? А двадцать? А когда их нужно запустить на двух серверах?
+
+Проблемы ручного управления:
+1. **Размещение.** На каком сервере запустить контейнер? Где есть свободная память? Где есть GPU?
+2. **Самовосстановление.** Контейнер упал в 3 часа ночи. Кто его перезапустит?
+3. **Масштабирование.** Пользователей стало вдвое больше — нужно запустить ещё 2 копии Gateway. Кто это сделает?
+4. **Сеть.** Как контейнер на сервере n8 узнает IP-адрес контейнера на сервере n7? А если контейнер перезапустился и адрес поменялся?
+5. **Обновление.** Новая версия Gateway. Как обновить без остановки сервиса?
+6. **Конфигурация.** Где хранить пароли и настройки, чтобы не «зашивать» их в образ?
+
+**Kubernetes** (K8s) — это «операционная система для дата-центра». Он решает все эти проблемы автоматически.
+
+> 🔤 **K8s** — сокращение от **K**ubernetes (K + 8 букв между K и s + s). Часто произносят «кейтс».
+
+```dot
+digraph K8sWhy {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_problems {
+        label="Проблемы без оркестратора"
+        style="rounded,dashed"
+        color="#e91e63"
+        fontname="system-ui"
+        fontsize=11
+
+        p1 [label="Где запустить\nконтейнер?", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        p2 [label="Кто перезапустит\nупавший?", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        p3 [label="Как найти\nнужный контейнер?", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        p4 [label="Как обновить\nбез остановки?", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        p5 [label="Где хранить\nпароли?", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        p6 [label="Как добавить\nмощностей?", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+    }
+
+    k8s [label="Kubernetes\nРешает всё это\nавтоматически", shape=box, style="rounded,filled", fillcolor="#e8f5e9", color="#43a047", fontsize=12]
+
+    subgraph cluster_solutions {
+        label="Решения K8s"
+        style="rounded,dashed"
+        color="#43a047"
+        fontname="system-ui"
+        fontsize=11
+
+        s1 [label="Scheduler\nразмещает поды", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        s2 [label="Контроллеры\nперезапускают", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        s3 [label="Service\nдаёт постоянный IP", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        s4 [label="Rolling Update\nбез downtime", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        s5 [label="Secret\nхранит пароли", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        s6 [label="HPA\nмасштабирует", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    }
+
+    p1 -> s1 [style=dashed, color="#616161"]
+    p2 -> s2 [style=dashed, color="#616161"]
+    p3 -> s3 [style=dashed, color="#616161"]
+    p4 -> s4 [style=dashed, color="#616161"]
+    p5 -> s5 [style=dashed, color="#616161"]
+    p6 -> s6 [style=dashed, color="#616161"]
+}
+```
+
+*Схема 3.1. Каждую проблему ручного управления контейнерами Kubernetes решает автоматически.*
+
+### Что даёт Kubernetes
+
+| Возможность | Как было (руками) | Как стало (K8s) |
+|---|---|---|
+| Размещение | `ssh n7 "docker run..."` | Scheduler сам выбирает узел |
+| Перезапуск | `while true; do docker start...` | Deployment перезапускает автоматически |
+| Сеть | Запомнить IP каждого контейнера | Service: постоянный IP и DNS-имя |
+| Обновление | Остановить → обновить → запустить | Rolling Update: по одному поду |
+| Конфигурация | Вшита в образ | ConfigMap и Secret: отдельно от кода |
+| Масштабирование | `docker run` ещё 3 раза на разных серверах | `kubectl scale --replicas=5` |
+| Балансировка | Nginx с ручным списком серверов | Service автоматически балансирует |
+
+Kubernetes работает по **декларативной** модели: вы говорите **«я хочу чтобы было 3 экземпляра Gateway, каждый с 512 MB памяти, на порту 8080»**, а K8s сам делает так, чтобы реальность соответствовала вашему описанию. Если под упадёт — K8s запустит новый. Если узел выйдет из строя — K8s перенесёт поды на другой.
+
+> 📋 **Декларативный vs императивный.** Императивный: «сделай А, потом Б, потом В». Декларативный: «я хочу чтобы было состояние Х». Вы не говорите КАК достичь состояния — только КАКОЕ состояние нужно. K8s сам решает как.
+
+---
+
+## 3.2. Архитектура Kubernetes
+
+Kubernetes — это распределённая система. Она состоит из двух типов узлов:
+
+### Control Plane (плоскость управления) — «мозг»
+
+**Control Plane** управляет всем кластером. Он решает: где запускать поды, сколько их должно быть, как они связаны. В нашем кластере Control Plane живёт на сервере **n8**.
+
+Компоненты Control Plane:
+
+| Компонент | Что делает | Аналогия |
+|---|---|---|
+| **kube-apiserver** | Принимает все команды (`kubectl apply`) | Секретарь — принимает заявки |
+| **etcd** | Хранит ВСЁ состояние кластера (ключ-значение) | База данных кластера |
+| **kube-scheduler** | Выбирает, на каком узле запустить новый под | Диспетчер — распределяет работу |
+| **kube-controller-manager** | Следит, чтобы реальность = желаемое (запускает/убивает поды) | Прораб — контролирует исполнение |
+
+> 🔤 **etcd** — распределённое key-value хранилище. Название происходит от `/etc` (папка конфигов в Linux) + `d` (distributed — распределённый). Хранит: «deployment gateway должен иметь 3 реплики», «под gateway-7f8b9c-abc1 запущен на n7», «сервис gateway слушает порт 8080».
+
+### Worker Node (рабочий узел) — «руки»
+
+**Worker Node** — это сервер, на котором реально бегут контейнеры. В нашем кластере два узла: n8 (совмещает Control Plane и Worker) и n7 (чистый Worker).
+
+Компоненты Worker Node:
+
+| Компонент | Что делает |
+|---|---|
+| **kubelet** | «Агент K8s» на узле. Получает задания от Control Plane: «запусти под X». Следит за подами, докладывает статус |
+| **kube-proxy** | Настраивает сетевые правила (iptables), чтобы трафик доходил до нужных подов |
+| **Container Runtime** | containerd — запускает контейнеры (как мы изучили в гл. 2) |
+
+### Addons (дополнения)
+
+Это не часть ядра K8s, но без них кластер неполноценен:
+
+| Addon | Зачем |
+|---|---|
+| **Flannel** (CNI) | Сеть между подами на разных узлах (overlay) |
+| **CoreDNS** | DNS внутри кластера (`gateway` → IP сервиса) |
+| **Metrics Server** | Сбор метрик CPU/памяти (`kubectl top`) |
+| **NVIDIA GPU Operator** | Доступ к GPU из подов |
+
+```dot
+digraph K8sArch {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_cp {
+        label="Control Plane (n8)"
+        style="rounded,dashed"
+        color="#e91e63"
+        fontname="system-ui"
+        fontsize=11
+
+        api [label="kube-apiserver\nREST API", shape=box, style="rounded,filled", fillcolor="#fce4ec", color="#e91e63"]
+        etcd [label="etcd\nхранилище\nсостояния", shape=cylinder, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+        sched [label="kube-scheduler\nпланировщик", shape=box, style="rounded,filled", fillcolor="#fff3e0", color="#ff9800"]
+        ctrl [label="controller-manager\nконтроллеры", shape=box, style="rounded,filled", fillcolor="#fff3e0", color="#ff9800"]
+
+        api -> etcd
+        api -> sched
+        api -> ctrl
+    }
+
+    kubectl [label="kubectl\n(команда\nадмина)", shape=box, style="rounded,filled", fillcolor="#e3f2fd", color="#1976d2", fontsize=10]
+    kubectl -> api [label="HTTPS\n:6443", color="#1976d2"]
+
+    subgraph cluster_n8 {
+        label="Worker: n8 (control-plane)"
+        style="rounded"
+        color="#ff9800"
+        fontname="system-ui"
+        fontsize=10
+
+        kubelet_n8 [label="kubelet", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        proxy_n8 [label="kube-proxy", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        cr_n8 [label="containerd", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        pods_n8 [label="Поды:\nvLLM 14B, PostgreSQL,\nRedis, ChromaDB", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+        kubelet_n8 -> pods_n8
+        cr_n8 -> pods_n8 [style=dashed]
+    }
+
+    subgraph cluster_n7 {
+        label="Worker: n7 (worker)"
+        style="rounded"
+        color="#ff9800"
+        fontname="system-ui"
+        fontsize=10
+
+        kubelet_n7 [label="kubelet", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        proxy_n7 [label="kube-proxy", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        cr_n7 [label="containerd", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        pods_n7 [label="Поды:\nvLLM 32B, Gateway,\nGrafana, Prometheus", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+        kubelet_n7 -> pods_n7
+        cr_n7 -> pods_n7 [style=dashed]
+    }
+
+    api -> kubelet_n8 [label="задания", color="#e91e63", style=dashed]
+    api -> kubelet_n7 [label="задания", color="#e91e63", style=dashed]
+}
+```
+
+*Схема 3.2. Архитектура Kubernetes. Control Plane (n8) управляет, Worker Nodes (n8+n7) выполняют. Администратор общается только с apiserver через kubectl.*
+
+### Как команда `kubectl apply` доходит до пода
+
+Проследим путь команды `kubectl apply -f deployment.yaml`:
+
+1. **kubectl** читает YAML-файл, преобразует в JSON, отправляет HTTPS-запрос на **apiserver** (порт 6443)
+2. **apiserver** проверяет права (аутентификация, авторизация) и сохраняет желаемое состояние в **etcd**
+3. **controller-manager** (конкретно Deployment Controller) замечает: «в etcd появился новый deployment, а подов для него нет»
+4. Deployment Controller создаёт в etcd запись: «нужен новый под для deployment gateway»
+5. **scheduler** видит непланированный под, выбирает подходящий узел (n7 — есть свободные ресурсы) и записывает в etcd: «под gateway-xyz должен быть на n7»
+6. **kubelet** на n7 видит назначенный ему под, говорит containerd: «запусти контейнер gateway»
+7. containerd запускает контейнер, kubelet докладывает apiserver: «под gateway-xyz Running»
+
+Всё это занимает секунды, и администратору не нужно делать НИ ОДНОГО шага руками после `kubectl apply`.
+
+---
+
+## 3.3. Азбука Kubernetes — все примитивы
+
+### Pod — минимальная единица
+
+**Под** (Pod) — это один или несколько контейнеров, которые:
+- Запускаются вместе на одном узле
+- Имеют общий IP-адрес и общую файловую систему
+- Масштабируются как единое целое
+
+Обычно под = 1 контейнер. Иногда 2 (например, основной контейнер + sidecar для логов).
+
+Жизненный цикл пода:
+
+```
+Pending → Running → Succeeded (завершился успешно)
+                  → Failed (завершился с ошибкой)
+```
+
+А также: `CrashLoopBackOff` (падает и перезапускается), `OOMKilled` (убит за перерасход памяти), `ImagePullBackOff` (не может скачать образ).
+
+```dot
+digraph PodLifecycle {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=10]
+
+    pending [label="Pending\n(ждёт назначения\nна узел)", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+    running [label="Running\n(контейнеры\nработают)", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    succeeded [label="Succeeded\n(завершился\nс кодом 0)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    failed [label="Failed\n(завершился\nс ошибкой)", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+    crash [label="CrashLoopBackOff\n(падает → перезапуск\n→ падает → ...)", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+    pending -> running [label="контейнеры\nзапущены"]
+    running -> succeeded [label="exit 0"]
+    running -> failed [label="exit ≠0"]
+    failed -> crash [label="перезапуск"]
+    crash -> running [label="удачный\nзапуск"]
+}
+```
+
+*Схема 3.3. Жизненный цикл Kubernetes Pod.*
+
+### Deployment — «я хочу N подов»
+
+**Deployment** — это контроллер, который управляет подами. Вы говорите: «я хочу 3 экземпляра Gateway с такими-то параметрами», и Deployment гарантирует, что их будет ровно 3. Если под упадёт — создаст новый. Если вы измените образ — обновит поды по одному (Rolling Update).
+
+Основные поля deployment:
+
+```yaml
+spec:
+  replicas: 3              # сколько подов нужно
+  selector:
+    matchLabels:
+      app: gateway         # какие поды относятся к этому deployment
+  strategy:
+    type: RollingUpdate    # как обновлять
+    rollingUpdate:
+      maxSurge: 1          # сколько новых подов можно создать сверх replicas
+      maxUnavailable: 1    # сколько старых подов можно убить одновременно
+```
+
+**Recreate vs RollingUpdate:**
+- **RollingUpdate** (по умолчанию) — обновляет по одному: создаёт новый под → убивает старый → следующий. Нет простоя.
+- **Recreate** — убивает ВСЕ старые поды, потом создаёт новые. Есть простой, но для GPU-подов это необходимо: две копии vLLM не могут использовать одни и те же GPU.
+
+> ⚠️ **Почему vLLM использует Recreate.** Узел n8 имеет 2 GPU RTX 6000. vLLM 14B с TP=2 занимает обе карты. Если бы мы использовали RollingUpdate, K8s попытался бы запустить новый под (ему нужны 2 GPU), пока старый ещё работает (тоже занимает 2 GPU). Это 4 GPU, а есть только 2 — deadlock. Recreate решает проблему: старый под убивается (GPU освобождаются), потом запускается новый.
+
+### Service — постоянный адрес
+
+Поды — временные. Они создаются и умирают, их IP-адреса меняются. **Service** даёт постоянный IP-адрес и DNS-имя, которые не меняются.
+
+Типы Service:
+
+| Тип | Что делает | Пример в Aither |
+|---|---|---|
+| **ClusterIP** | IP виден только внутри кластера | `gateway:8080` |
+| **NodePort** | Открывает порт на КАЖДОМ узле кластера (30000–32767) | `n7:30900 → gateway:8080` |
+| **LoadBalancer** | Внешний балансировщик (в облаке) | Не используется |
+
+```dot
+digraph Service {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    client [label="Клиент\n(BFF на VPS2)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+
+    service [label="Service: gateway\nClusterIP: 10.98.238.242\nСелектор: app=gateway", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047", fontsize=9]
+
+    subgraph cluster_pods {
+        label="Поды"
+        style=rounded
+        color="#ff9800"
+
+        pod1 [label="gateway-abc1\n10.244.1.10:8080", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800", fontsize=8]
+        pod2 [label="gateway-def2\n10.244.2.15:8080", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800", fontsize=8]
+        pod3 [label="gateway-ghi3\n10.244.1.20:8080", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800", fontsize=8]
+    }
+
+    nodeport [label="NodePort: 30900\n(на каждом узле)", shape=box, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+
+    client -> nodeport [label="http://VPS1:30900"]
+    nodeport -> service
+    service -> pod1 [label="балансировка"]
+    service -> pod2
+    service -> pod3
+}
+```
+
+*Схема 3.4. Service балансирует трафик между подами. NodePort открывает порт на всех узлах.*
+
+### ConfigMap и Secret — настройки отдельно от кода
+
+Плохо: пароль от БД вшит в Docker-образ. Чтобы сменить пароль, нужно пересобрать образ.
+
+Хорошо: пароль лежит в **Secret**, код читает его при запуске. Чтобы сменить пароль, обновляете Secret и перезапускаете поды.
+
+```yaml
+# ConfigMap — несекретные настройки
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-catalog
+data:
+  catalog.yaml: |
+    models:
+      - name: qwen2.5-14b
+        backend: "http://vllm:8000"
+
+---
+# Secret — секретные данные (пароли, токены, ключи)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pg-url
+type: Opaque
+stringData:
+  url: "postgresql://aither:SuperSecret123@postgres/aither"
+```
+
+Как монтировать в под:
+```yaml
+volumes:
+- name: catalog
+  configMap:
+    name: gateway-catalog       # ConfigMap → файл
+- name: pg-secret
+  secret:
+    secretName: pg-url          # Secret → переменная окружения
+
+containers:
+- name: gateway
+  volumeMounts:
+  - name: catalog
+    mountPath: /app/catalog.yaml
+    subPath: catalog.yaml       # только один ключ ConfigMap как файл
+  env:
+  - name: PG_URL
+    valueFrom:
+      secretKeyRef:
+        name: pg-url
+        key: url                # конкретный ключ из секрета
+```
+
+### Namespace — изоляция
+
+**Namespace** (пространство имён) — это «виртуальный кластер» внутри физического. Позволяет изолировать:
+- Разработку от продакшена (dev/prod)
+- Разные проекты (aither/monitoring)
+- Разных пользователей (team-a/team-b)
+
+В нашем кластере всё живёт в `default` (для простоты). Но правильно — разделять.
+
+### Volume и PVC — постоянное хранилище
+
+Поды перезапускаются — их файловая система очищается. **PersistentVolume (PV)** и **PersistentVolumeClaim (PVC)** дают постоянное хранилище.
+
+```yaml
+# PVC — запрос на хранилище: «мне нужно 100 GB»
+kind: PersistentVolumeClaim
+metadata:
+  name: models-32b-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce     # только один под может писать
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: local-path  # Local Path Provisioner
+```
+
+В поде монтируется как обычный том:
+```yaml
+volumes:
+- name: models
+  persistentVolumeClaim:
+    claimName: models-32b-pvc
+```
+
+---
+
+## 3.4. YAML-манифесты — мастер-класс
+
+### Почему YAML
+
+YAML (YAML Ain't Markup Language) — формат для описания данных, понятный человеку. Kubernetes использует его для всех манифестов.
+
+**Правила YAML:**
+- Отступы — **только пробелы** (не табуляция!), обычно 2 пробела
+- `key: value` — словарь (ассоциативный массив)
+- `- item` — элемент списка
+- `# комментарий` — однострочный
+- `|` — многострочный текст (сохраняет переносы)
+- `>` — многострочный текст (сворачивает в одну строку)
+
+### Структура манифеста
+
+Любой манифест K8s имеет четыре обязательных поля верхнего уровня:
+
+```yaml
+apiVersion: apps/v1        # 1. Версия API K8s
+                            #    apps/v1 = стабильная для Deployments
+                            #    v1 = стабильная для Pod, Service, ConfigMap
+
+kind: Deployment            # 2. Тип ресурса
+                            #    Deployment, Service, ConfigMap, Secret,
+                            #    Pod, HPA, Ingress, Namespace, PVC, ...
+
+metadata:                   # 3. Метаданные: имя, метки
+  name: gateway             #    Уникальное имя в namespace
+  labels:                   #    Метки для поиска и группировки
+    app: gateway
+
+spec:                       # 4. Спецификация: ЧТО должно быть
+  replicas: 1               #    Различается для каждого kind
+```
+
+### Полный разбор: gateway/deployment.yaml
+
+Разберём **каждую строку** реального манифеста:
+
+```yaml
+apiVersion: apps/v1
+# ↑ Версия API. apps/v1 — стабильная версия для работы с Deployments.
+#   Бывают: v1 (Pod, Service), autoscaling/v2 (HPA), networking.k8s.io/v1 (Ingress)
+
+kind: Deployment
+# ↑ Тип ресурса. Deployment управляет подами (создаёт, обновляет, откатывает).
+
+metadata:
+  name: gateway
+  # ↑ Имя deployment. Должно быть уникальным в namespace.
+  #   Поды получат имена: gateway-<random-suffix> (gateway-7f8b9c-abc1)
+
+  labels:
+    app: gateway
+  # ↑ Метки — пары ключ-значение для поиска.
+  #   Команда: kubectl get pods -l app=gateway
+
+  namespace: default
+  # ↑ В каком namespace живёт deployment.
+  #   Если не указать — default.
+
+spec:
+  replicas: 1
+  # ↑ Сколько подов должно работать одновременно.
+  #   1 = один экземпляр Gateway. Можно увеличить для отказоустойчивости.
+
+  revisionHistoryLimit: 10
+  # ↑ Сколько старых ReplicaSet хранить (для отката).
+  #   10 = можно откатиться на 10 версий назад.
+
+  selector:
+    matchLabels:
+      app: gateway
+  # ↑ Какие поды принадлежат этому deployment.
+  #   Должно совпадать с labels в template.
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  # ↑ Стратегия обновления.
+  #   RollingUpdate: обновляет поды по одному, без остановки сервиса.
+  #   maxSurge=25%: можно создать 1 лишний под (25% от 1 = 0.25 → округляется до 1).
+  #   maxUnavailable=25%: можно убить 1 старый под.
+
+  template:
+  # ↑ Шаблон для создания подов. Всё, что внутри — применяется к каждому поду.
+
+    metadata:
+      labels:
+        app: gateway
+    # ↑ Метки пода. Должны совпадать с selector.matchLabels!
+
+    spec:
+    # ↑ Спецификация пода (контейнеры, тома, переменные).
+
+      containers:
+      - name: gateway
+      # ↑ Имя контейнера внутри пода. Может быть любым.
+
+        image: ghcr.io/dedvmedved-dot/aither-project-gateway:latest
+        # ↑ Docker-образ. Откуда скачивать.
+        #   ghcr.io = GitHub Container Registry.
+        #   latest = тег (обычно последняя версия).
+
+        imagePullPolicy: Always
+        # ↑ Когда скачивать образ заново.
+        #   Always = при каждом запуске (гарантирует свежую версию).
+        #   IfNotPresent = только если нет локально.
+
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        # ↑ Порты, которые слушает контейнер.
+        #   Это декларация — порт не открывается автоматически!
+
+        env:
+        - name: VLLM_URL
+          value: "http://vllm:8000"
+        # ↑ Переменная окружения. vllm — это DNS-имя Service в кластере.
+
+        - name: PG_URL
+          valueFrom:
+            secretKeyRef:
+              key: url
+              name: pg-url
+        # ↑ Переменная из Secret. Не светит пароль в манифесте!
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # ↑ Гарантированные ресурсы.
+          #   100m = 0.1 ядра CPU (m = milli, тысячные доли).
+          #   128Mi = 128 мебибайт памяти.
+
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          # ↑ Максимальные ресурсы.
+          #   Если превысит память → OOMKilled.
+          #   CPU не убивает, а throttles (замедляет).
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+          timeoutSeconds: 1
+        # ↑ Проверка готовности.
+        #   K8s каждые 5 секунд делает GET /health.
+        #   Если 3 раза подряд неудача → под считается неготовым → трафик не идёт.
+        #   initialDelaySeconds=5: первые 5 секунд после старта не проверять.
+
+        volumeMounts:
+        - name: catalog
+          mountPath: /app/catalog.yaml
+          subPath: catalog.yaml
+        # ↑ Монтируем ConfigMap как файл.
+        #   subPath: монтируем только один ключ (catalog.yaml), а не всю папку.
+
+      volumes:
+      - name: catalog
+        configMap:
+          name: gateway-catalog
+      # ↑ Сам том. Ссылается на ConfigMap gateway-catalog.
+
+      - name: wiki
+        configMap:
+          name: gateway-wiki
+      # ↑ Ещё один ConfigMap — база знаний.
+
+      - name: delegation-key
+        configMap:
+          name: delegation-public-key
+      # ↑ Публичный ключ для JWT-подписи.
+```
+
+### ✏️ Практика: «переведи манифест на русский»
+
+Прочитайте манифест `vllm-14b/deployment.yaml` и переведите **своими словами**:
+1. Какой образ используется?
+2. Сколько GPU запрошено?
+3. Почему `strategy: Recreate`?
+4. На каком узле должен запуститься под? (подсказка: `nodeSelector`)
+5. Какой `runtimeClassName` и зачем?
+
+---
+
+## 3.5. Кластер Aither — анатомия
+
+### Топология
+
+Наш кластер Kubernetes v1.33.5 состоит из двух узлов:
+
+| Узел | Роль | Адрес | GPU | Что запущено |
+|---|---|---|---|---|
+| **n8** | control-plane + worker | 10.129.13.78 | 2× RTX 6000 | vLLM 14B, PostgreSQL, Redis, ChromaDB, kube-apiserver, etcd |
+| **n7** | worker | 10.129.13.77 | 2× RTX 6000 | vLLM 32B, Gateway, Prometheus, Grafana, Flannel, CoreDNS |
+
+Особенность: n8 совмещает роли control-plane и worker. В продакшене так не делают (control-plane должен быть отдельно от рабочих нагрузок), но для пилотного проекта с двумя серверами — допустимо.
+
+### Flannel VXLAN: как поды видят друг друга
+
+Проблема: под на n8 имеет IP `10.244.1.10`, под на n7 — `10.244.2.15`. Их разделяет физическая сеть. Как им общаться?
+
+**Flannel** создаёт overlay-сеть (сеть поверх сети). Он инкапсулирует IP-пакеты от пода на n8 в VXLAN-пакеты и отправляет через физическую сеть на n7, где они распаковываются и доставляются поду.
+
+```
+Под на n8 (10.244.1.10)
+  → пакет для 10.244.2.15
+    → Flannel на n8: заворачивает в VXLAN
+      → физическая сеть (10.129.13.78 → 10.129.13.77)
+        → Flannel на n7: распаковывает
+          → под на n7 (10.244.2.15)
+```
+
+Overlay-сеть: `10.244.0.0/16` (65 536 адресов, хватит на тысячи подов).
+
+### NodePort: внешний мир стучится в кластер
+
+ClusterIP-сервисы видны только внутри кластера. Чтобы внешний мир (VPS1) мог достучаться до Gateway, используется **NodePort**.
+
+NodePort открывает один и тот же порт на **каждом** узле кластера. Порт выбирается из диапазона 30000–32767.
+
+| Сервис | ClusterIP | NodePort | На каком узле物理чески |
+|---|---|---|---|
+| Gateway | `gateway:8080` | **30900** | n7 |
+| vLLM 14B | `vllm:8000` | **32293** | n8 |
+| vLLM 32B | `vllm-qwen32b:8000` | **32294** | n7 |
+| Grafana | `grafana:80` | **30300** | n7 |
+
+```
+VPS1 (170.168.91.95) → nginx :30900 → любой узел K8s:30900 → Gateway:8080
+```
+
+**Важно:** NodePort работает на ВСЕХ узлах, даже если под физически только на одном. K8s автоматически проксирует трафик на нужный узел.
+
+### nodeSelector: привязка к серверу
+
+Не все узлы одинаковы. n8 имеет модели в `/data/models`, n7 — в PVC. vLLM 14B должен запускаться только на n8, vLLM 32B — только на n7.
+
+```yaml
+nodeSelector:
+  kubernetes.io/hostname: bootsman-k8s-clnt01-n8-gpu
+```
+
+Это гарантирует, что под с vLLM 14B никогда не запустится на n7 (где нет нужной модели).
+
+### Taints и Tolerations
+
+Control-plane узлы имеют **taint** (ограничение): `node-role.kubernetes.io/control-plane:NoSchedule`. Это значит: «не запускай обычные поды на этом узле». Но наш n8 — и control-plane, и worker. Поэтому на нём:
+- Системные поды (apiserver, etcd) — запускаются
+- vLLM 14B — запускается, потому что у него есть **toleration** (разрешение) на этот taint, ИЛИ taint снят
+
+Taint — это табличка «Посторонним вход воспрещён». Toleration — пропуск «Этому можно».
+
+```dot
+digraph K8sClusterAither {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_phys {
+        label="Физическая сеть: 10.129.13.0/24 (VLAN 308)"
+        style="rounded,dashed"
+        color="#ff9800"
+        fontname="system-ui"
+        fontsize=11
+
+        subgraph cluster_n8 {
+            label="n8 (control-plane + worker)\n10.129.13.78 | 2× RTX 6000"
+            style="rounded"
+            color="#ff9800"
+            fontname="system-ui"
+
+            subgraph cluster_n8_pods {
+                label="Поды"
+                style=rounded
+                color="#e91e63"
+
+                vllm14 [label="vLLM 14B\nTP=2\n28 tok/s", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+                postgres [label="PostgreSQL\nбиллинг", shape=box, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+                redis [label="Redis\nrate limit", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+                chroma [label="ChromaDB\nRAG", shape=box, style="filled", fillcolor="#e0f7fa", color="#00838f"]
+            }
+
+            control [label="Control Plane:\napiserver, etcd,\nscheduler, ctrl-mgr", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800", fontsize=8]
+        }
+
+        subgraph cluster_n7 {
+            label="n7 (worker)\n10.129.13.77 | 2× RTX 6000"
+            style="rounded"
+            color="#ff9800"
+            fontname="system-ui"
+
+            subgraph cluster_n7_pods {
+                label="Поды"
+                style=rounded
+                color="#e91e63"
+
+                vllm32 [label="vLLM 32B\nTP=2, GPTQ\n35 tok/s", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+                gateway [label="Gateway\nPython 3.12\nHPA", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+                grafana [label="Grafana\n:30300", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+                prom [label="Prometheus", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+            }
+        }
+    }
+
+    // Flannel overlay
+    flannel [label="Flannel VXLAN\n10.244.0.0/16", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    vllm14 -> flannel [style=dashed, dir=both]
+    gateway -> flannel [style=dashed, dir=both]
+
+    // External access
+    external [label="Внешний мир\n(VPS1:30900)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    np [label="NodePort\n:30900", shape=box, style="filled", fillcolor="#f3e5f5", color="#9c27b0", fontsize=8]
+    external -> np -> gateway
+}
+```
+
+*Схема 3.5. Кластер Aither: n8 (control-plane + vLLM 14B + DB) и n7 (vLLM 32B + Gateway + мониторинг). Flannel соединяет поды через overlay-сеть.*
+
+---
+
+## 3.6. Основные команды kubectl
+
+Короткая таблица — полная шпаргалка в Приложении B.
+
+| Команда | Что делает |
+|---|---|
+| `kubectl get pods` | Список подов |
+| `kubectl get pods -o wide` | С IP и узлом |
+| `kubectl get pods -w` | Watch — следить в реальном времени |
+| `kubectl describe pod <name>` | ВСЁ о поде (события, состояние) |
+| `kubectl logs <pod-name>` | Логи пода |
+| `kubectl logs -f <pod-name>` | Логи в реальном времени |
+| `kubectl logs -l app=gateway --all-containers` | Логи всех контейнеров всех подов с меткой |
+| `kubectl exec -it <pod> -- bash` | Зайти внутрь пода |
+| `kubectl apply -f file.yaml` | Применить манифест (создать/обновить) |
+| `kubectl delete -f file.yaml` | Удалить ресурс |
+| `kubectl rollout restart deploy/gateway` | Перезапустить все поды deployment |
+| `kubectl rollout undo deploy/gateway` | Откатить deployment |
+| `kubectl scale --replicas=3 deploy/gateway` | Изменить количество реплик |
+| `kubectl get nodes` | Список узлов |
+| `kubectl top pods` | Потребление CPU/памяти |
+| `kubectl get events --sort-by=.metadata.creationTimestamp` | Последние события кластера |
+| `kubectl port-forward pod/gateway-abc 8080:8080` | Временный проброс порта |
+
+---
+
+## 3.7. ✏️ Практикум: Kubernetes
+
+### Задание 1. «Кластер на бумаге»
+Нарисуйте схему кластера Aither: два узла, на каждом — поды, соедините их Flannel-сетью, покажите NodePort для внешнего доступа.
+
+### Задание 2. «Читаем манифесты»
+Возьмите `k8s/vllm-32b/deployment.yaml` и ответьте:
+1. Сколько реплик?
+2. Какой образ?
+3. Какая стратегия обновления и почему?
+4. На каком узле должен запуститься под?
+5. Сколько GPU запрошено и лимит?
+6. Какой `runtimeClassName` и зачем?
+
+### Задание 3. «Словарь термина»
+Выпишите и дайте определение:
+- Control Plane, Worker Node
+- kube-apiserver, etcd, scheduler, controller-manager
+- kubelet, kube-proxy, containerd
+- Pod, Deployment, Service, ConfigMap, Secret
+- Namespace, Volume, PVC
+- Flannel, VXLAN, NodePort
+- nodeSelector, taint, toleration
+
+### Задание 4. «Первый kubectl»
+Если есть доступ к кластеру:
+```bash
+kubectl get nodes                    # узлы
+kubectl get pods -A                  # все поды во всех namespace
+kubectl get pods -o wide             # с IP и узлом
+kubectl describe node n7             # информация об узле
+kubectl top pods                     # потребление ресурсов
+kubectl get events --sort-by=.metadata.creationTimestamp | tail -20
+```
+
+---
+
+**Итог главы 3.** Вы узнали:
+- Зачем нужен Kubernetes (размещение, самовосстановление, масштабирование, сеть)
+- Как устроен K8s: Control Plane (apiserver, etcd, scheduler) и Worker Nodes (kubelet, containerd)
+- Все примитивы: Pod, Deployment (Recreate/RollingUpdate), Service (ClusterIP/NodePort), ConfigMap, Secret, PVC
+- Как читать YAML-манифесты (4 обязательных поля, построчный разбор gateway/deployment.yaml)
+- Как устроен кластер Aither: n8 (control-plane + vLLM 14B) и n7 (worker + vLLM 32B), Flannel VXLAN, NodePort-ы
+
+В следующей главе — искусственный интеллект и LLM: от нейросети до токенов.
