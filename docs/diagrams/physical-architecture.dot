@@ -1,0 +1,91 @@
+digraph aither_arch {
+    rankdir=TB;
+    bgcolor="#ffffff";
+    node [fontname="Arial", fontsize=10];
+
+    // External
+    user [label="Пользователь\nHTTPS :10443", shape=oval, style=filled, fillcolor="#e3f2fd"];
+    admin [label="Администратор\nSSH", shape=oval, style=filled, fillcolor="#f3e5f5"];
+
+    // VPS1
+    subgraph cluster_vps1 {
+        label="VPS1 · 170.168.91.95\nUbuntu 24.04";
+        bgcolor="#fafafa";
+        nginx_vps1 [label="nginx\n:10443 (основной)\n:30900→Gateway", shape=box, style=filled, fillcolor="#fff3e0"];
+        hermes [label="Hermes Agent\nDeepSeek V4", shape=box, style="filled,dashed", fillcolor="#c8e6c9"];
+    }
+
+    // VPS2
+    subgraph cluster_vps2 {
+        label="VPS2 · 130.17.1.90\nUbuntu 24.04";
+        bgcolor="#fafafa";
+        nginx_vps2 [label="nginx\n:80 (статика портала)", shape=box, style=filled, fillcolor="#fff3e0"];
+        bff [label="Portal BFF\nFastify :3000\nserver.ts", shape=box, style=filled, fillcolor="#e8f5e9"];
+        pg_portal [label="PostgreSQL 16\nпортал:5432", shape=cylinder, style=filled, fillcolor="#f3e5f5"];
+        hermes_vps2 [label="Hermes Agent\nDeepSeek V4", shape=box, style="filled,dashed", fillcolor="#c8e6c9"];
+    }
+
+    // VPS3
+    subgraph cluster_vps3 {
+        label="VPS3 · 89.127.217.88\nUbuntu 24.04";
+        bgcolor="#f5f5f5";
+        hermes_vps3 [label="Hermes Agent\nDeepSeek V4", shape=box, style="filled,dashed", fillcolor="#c8e6c9"];
+    }
+
+    // K8s Cluster
+    subgraph cluster_k8s {
+        label="Kubernetes v1.33.5 · VLAN 308\n10.129.13.0/24";
+        bgcolor="#f0f4ff";
+
+        subgraph cluster_n8 {
+            label="n8 · control-plane\n2× RTX 6000 · 28C/56T";
+            bgcolor="#fff8e1";
+            gw [label="Gateway (Python)\n:8080 HTTP\n:8443 mTLS", shape=box, style=filled, fillcolor="#e3f2fd"];
+            vllm14 [label="vLLM 14B\nQwen2.5-14B", shape=box, style=filled, fillcolor="#ffcdd2"];
+            chroma [label="ChromaDB\nвекторная БД", shape=box, style=filled, fillcolor="#fce4ec"];
+            pg_bill [label="PostgreSQL\nбиллинг", shape=cylinder, style=filled, fillcolor="#f3e5f5"];
+            redis [label="Redis\nrate limit", shape=cylinder, style=filled, fillcolor="#ffebee"];
+        }
+
+        subgraph cluster_n7 {
+            label="n7 · worker\n2× RTX 6000 · 28C/56T";
+            bgcolor="#e8f5e9";
+            vllm32 [label="vLLM 32B\nQwen2.5-32B-GPTQ", shape=box, style=filled, fillcolor="#ffcdd2"];
+            prom [label="Prometheus\n+Grafana :30300", shape=box, style=filled, fillcolor="#c8e6c9"];
+        }
+
+        etcd [label="etcd\n(кластер 2/2)", shape=cylinder, style=filled, fillcolor="#d7ccc8"];
+    }
+
+    // VPN
+    cisco [label="Cisco 815\nVPN-терминатор", shape=box, style="filled,bold", fillcolor="#ffccbc"];
+
+    // Connections
+    user -> nginx_vps1 [label="HTTPS"];
+    admin -> hermes [label="SSH"];
+    nginx_vps1 -> gw [label=":30900\nHTTP", style=dashed];
+    nginx_vps1 -> gw [label=":30901\nmTLS"];
+
+    nginx_vps2 -> bff [label="proxy"];
+    bff -> pg_portal [label="SQL"];
+
+    // K8s internal
+    gw -> vllm14 [label="модель\n14B"];
+    gw -> vllm32 [label="модель\n32B"];
+    gw -> redis;
+    gw -> pg_bill;
+    gw -> chroma [label="RAG"];
+    gw -> etcd [label="конфиг"];
+
+    // VPN chain
+    bff -> gw [label="VPN →\n:30900"];
+    cisco -> n8 [label="VLAN 308"];
+    cisco -> n7 [label="VLAN 308"];
+    nginx_vps2 -> cisco [label="VPN\ntun1"];
+    hermes -> cisco [label="SSH"];
+    hermes -> bff [label="SSH\nуправл.", style=dotted];
+    hermes -> hermes_vps2 [label="SSH\nсинхр."];
+    hermes -> hermes_vps3 [label="SSH\nсинхр."];
+    hermes_vps2 -> bff [label="SSH\nдеплой"];
+    hermes_vps3 -> cisco [label="SSH", style=dashed];
+}

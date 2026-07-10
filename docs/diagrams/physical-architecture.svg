@@ -1,251 +1,356 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 750" font-family="system-ui,-apple-system,sans-serif">
-  <defs>
-    <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08"/></filter>
-    <filter id="shadowLg"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-opacity="0.12"/></filter>
-  </defs>
-
-  <!-- Background -->
-  <rect width="1100" height="750" fill="#ffffff" rx="12"/>
-
-  <!-- Title -->
-  <text x="550" y="35" text-anchor="middle" fill="#1a1a2e" font-size="18" font-weight="bold">Aither Platform — Физическая схема</text>
-
-  <!-- ====== VPS1 ====== -->
-  <g filter="url(#shadowLg)">
-    <rect x="30" y="60" width="280" height="180" rx="10" fill="#ffffff" stroke="#1976d2" stroke-width="1.5"/>
-    <rect x="30" y="60" width="280" height="32" rx="10" fill="#1976d2"/>
-    <rect x="30" y="82" width="280" height="10" fill="#1976d2"/>
-    <text x="170" y="82" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">VPS1 · 170.168.91.95</text>
-
-    <!-- nginx :10443 -->
-    <rect x="45" y="102" width="120" height="22" rx="5" fill="#e3f2fd" stroke="#1976d2" stroke-width="0.8"/>
-    <text x="105" y="117" text-anchor="middle" fill="#1565c0" font-size="10">nginx :10443</text>
-
-    <!-- nginx :30900 -->
-    <rect x="175" y="102" width="120" height="22" rx="5" fill="#e3f2fd" stroke="#1976d2" stroke-width="0.8"/>
-    <text x="235" y="117" text-anchor="middle" fill="#1565c0" font-size="10">nginx :30900→K8s</text>
-
-    <!-- Hermes -->
-    <rect x="45" y="130" width="120" height="22" rx="5" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="105" y="145" text-anchor="middle" fill="#c2185b" font-size="10">🤖 Hermes Agent</text>
-
-    <!-- WireGuard -->
-    <rect x="175" y="130" width="120" height="22" rx="5" fill="#e8f5e9" stroke="#43a047" stroke-width="0.8"/>
-    <text x="235" y="145" text-anchor="middle" fill="#2e7d32" font-size="10">🔐 WireGuard</text>
-
-    <!-- wg0 -->
-    <rect x="45" y="160" width="250" height="22" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="170" y="175" text-anchor="middle" fill="#1a1a2e" font-size="10">wg0: 10.129.100.234</text>
-
-    <!-- OS info -->
-    <rect x="45" y="190" width="250" height="22" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="170" y="205" text-anchor="middle" fill="#1a1a2e" font-size="10">Ubuntu 24.04 · Docker · Python 3.11</text>
-  </g>
-
-  <!-- ====== VPS2 ====== -->
-  <g filter="url(#shadowLg)">
-    <rect x="380" y="60" width="300" height="260" rx="10" fill="#ffffff" stroke="#7b1fa2" stroke-width="1.5"/>
-    <rect x="380" y="60" width="300" height="32" rx="10" fill="#7b1fa2"/>
-    <rect x="380" y="82" width="300" height="10" fill="#7b1fa2"/>
-    <text x="530" y="82" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">VPS2 · 130.17.1.90</text>
-
-    <!-- nginx :80 -->
-    <rect x="395" y="102" width="130" height="40" rx="5" fill="#e3f2fd" stroke="#1976d2" stroke-width="0.8"/>
-    <text x="460" y="118" text-anchor="middle" fill="#1565c0" font-size="10" font-weight="bold">nginx :80</text>
-    <text x="460" y="134" text-anchor="middle" fill="#1a1a2e" font-size="9">→ BFF :3000</text>
-
-    <!-- Portal BFF -->
-    <rect x="535" y="102" width="130" height="40" rx="5" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="600" y="118" text-anchor="middle" fill="#c2185b" font-size="10" font-weight="bold">Portal BFF</text>
-    <text x="600" y="134" text-anchor="middle" fill="#1a1a2e" font-size="9">Node.js :3000</text>
-
-    <!-- Portal DB -->
-    <rect x="395" y="152" width="130" height="40" rx="5" fill="#f3e5f5" stroke="#9c27b0" stroke-width="0.8"/>
-    <text x="460" y="168" text-anchor="middle" fill="#7b1fa2" font-size="10" font-weight="bold">Portal DB</text>
-    <text x="460" y="184" text-anchor="middle" fill="#1a1a2e" font-size="9">pgSQL 16 :5432</text>
-
-    <!-- YooKassa -->
-    <rect x="535" y="152" width="130" height="40" rx="5" fill="#fff3e0" stroke="#ff9800" stroke-width="0.8"/>
-    <text x="600" y="168" text-anchor="middle" fill="#e65100" font-size="10" font-weight="bold">YooKassa</text>
-    <text x="600" y="184" text-anchor="middle" fill="#1a1a2e" font-size="9">тестовый режим</text>
-
-    <!-- WireGuard -->
-    <rect x="395" y="202" width="270" height="22" rx="5" fill="#e8f5e9" stroke="#43a047" stroke-width="0.8"/>
-    <text x="530" y="217" text-anchor="middle" fill="#2e7d32" font-size="10">🔐 WireGuard: wg1 — 10.99.0.2</text>
-
-    <!-- Cisco VPN -->
-    <rect x="395" y="232" width="270" height="22" rx="5" fill="#e0f7fa" stroke="#00838f" stroke-width="0.8"/>
-    <text x="530" y="247" text-anchor="middle" fill="#006064" font-size="10">🔗 Cisco VPN: tun1</text>
-
-    <!-- CORE_API -->
-    <rect x="395" y="262" width="270" height="22" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="530" y="277" text-anchor="middle" fill="#1a1a2e" font-size="10">CORE_API=170.168.91.95:30900</text>
-
-    <!-- Docker Compose -->
-    <rect x="395" y="292" width="270" height="20" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="530" y="306" text-anchor="middle" fill="#1a1a2e" font-size="9">Docker Compose</text>
-  </g>
-
-  <!-- ====== Cisco 815 ====== -->
-  <g filter="url(#shadowLg)">
-    <rect x="750" y="60" width="150" height="130" rx="10" fill="#ffffff" stroke="#43a047" stroke-width="1.5"/>
-    <rect x="750" y="60" width="150" height="32" rx="10" fill="#43a047"/>
-    <rect x="750" y="82" width="150" height="10" fill="#43a047"/>
-    <text x="825" y="82" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Cisco 815</text>
-
-    <rect x="762" y="102" width="126" height="22" rx="5" fill="#e8f5e9" stroke="#66bb6a" stroke-width="0.8"/>
-    <text x="825" y="117" text-anchor="middle" fill="#2e7d32" font-size="9">🌐 VLAN 308</text>
-
-    <rect x="762" y="130" width="126" height="22" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="825" y="145" text-anchor="middle" fill="#1a1a2e" font-size="9">10.129.11.0/24</text>
-
-    <rect x="762" y="158" width="126" height="22" rx="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="825" y="173" text-anchor="middle" fill="#1a1a2e" font-size="9">VPN-терминатор</text>
-  </g>
-
-  <!-- ====== K8s Cluster boundary ====== -->
-  <g filter="url(#shadowLg)">
-    <rect x="30" y="310" width="1040" height="430" rx="12" fill="#fff8e1" stroke="#ff9800" stroke-width="1.5" stroke-dasharray="6,3"/>
-    <text x="50" y="335" fill="#e65100" font-size="12" font-weight="bold">☸️ Kubernetes v1.33.5 — VLAN 308 (10.129.13.0/24)</text>
-
-    <!-- ====== n8 (control-plane) ====== -->
-    <rect x="55" y="350" width="480" height="370" rx="10" fill="#ffffff" stroke="#ff9800" stroke-width="1"/>
-    <rect x="55" y="350" width="480" height="28" rx="10" fill="#ff9800"/>
-    <rect x="55" y="368" width="480" height="10" fill="#ff9800"/>
-    <text x="295" y="369" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">n8 · bootsman-k8s-clnt01-n8-gpu · 40.51 / 10.129.13.78 (control-plane)</text>
-
-    <!-- GPU box -->
-    <rect x="70" y="390" width="180" height="35" rx="6" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="160" y="404" text-anchor="middle" fill="#c2185b" font-size="10" font-weight="bold">🎮 2× NVIDIA RTX 6000</text>
-    <text x="160" y="418" text-anchor="middle" fill="#1a1a2e" font-size="9">24 GB VRAM ×2</text>
-
-    <!-- Specs -->
-    <rect x="260" y="390" width="265" height="35" rx="6" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="392" y="404" text-anchor="middle" fill="#1a1a2e" font-size="10">2× Xeon 6258R · 28C/56T · 754 GB RAM · 42 TB SAS SSD</text>
-    <text x="392" y="418" text-anchor="middle" fill="#1a1a2e" font-size="9">Astra Linux SE 1.8.1 · containerd · nvidia-runtime · parsec=0</text>
-
-    <!-- Components on n8 -->
-    <rect x="70" y="440" width="145" height="55" rx="6" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="142" y="458" text-anchor="middle" fill="#c2185b" font-size="10" font-weight="bold">vLLM 14B</text>
-    <text x="142" y="474" text-anchor="middle" fill="#1a1a2e" font-size="9">Qwen2.5-14B-Instruct</text>
-    <text x="142" y="488" text-anchor="middle" fill="#1a1a2e" font-size="9">TP=2 · 28 tok/s</text>
-
-    <rect x="225" y="440" width="145" height="55" rx="6" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="297" y="458" text-anchor="middle" fill="#c2185b" font-size="10" font-weight="bold">LoRA: astra-14b</text>
-    <text x="297" y="474" text-anchor="middle" fill="#1a1a2e" font-size="9">rank=8 · 65 MB</text>
-    <text x="297" y="488" text-anchor="middle" fill="#1a1a2e" font-size="9">доменные знания</text>
-
-    <rect x="380" y="440" width="145" height="55" rx="6" fill="#fff3e0" stroke="#ff9800" stroke-width="0.8"/>
-    <text x="452" y="458" text-anchor="middle" fill="#e65100" font-size="10" font-weight="bold">API Gateway</text>
-    <text x="452" y="474" text-anchor="middle" fill="#1a1a2e" font-size="9">Python · :30900 (NP)</text>
-    <text x="452" y="488" text-anchor="middle" fill="#1a1a2e" font-size="9">→ vLLM · :8080 (CI)</text>
-
-    <!-- DB services -->
-    <rect x="70" y="510" width="145" height="40" rx="6" fill="#f3e5f5" stroke="#9c27b0" stroke-width="0.8"/>
-    <text x="142" y="526" text-anchor="middle" fill="#7b1fa2" font-size="10" font-weight="bold">PostgreSQL 16</text>
-    <text x="142" y="542" text-anchor="middle" fill="#1a1a2e" font-size="9">биллинг + gateway</text>
-
-    <rect x="225" y="510" width="145" height="40" rx="6" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="297" y="526" text-anchor="middle" fill="#c2185b" font-size="10" font-weight="bold">Redis 7</text>
-    <text x="297" y="542" text-anchor="middle" fill="#1a1a2e" font-size="9">rate limiting</text>
-
-    <rect x="380" y="510" width="145" height="40" rx="6" fill="#e0f7fa" stroke="#00838f" stroke-width="0.8"/>
-    <text x="452" y="526" text-anchor="middle" fill="#006064" font-size="10" font-weight="bold">ChromaDB</text>
-    <text x="452" y="542" text-anchor="middle" fill="#1a1a2e" font-size="9">RAG · embeddings</text>
-
-    <!-- K8s system -->
-    <rect x="70" y="565" width="210" height="30" rx="6" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="175" y="584" text-anchor="middle" fill="#1a1a2e" font-size="9">☸️ kube-apiserver · controller · scheduler</text>
-
-    <rect x="290" y="565" width="235" height="30" rx="6" fill="#e8f5e9" stroke="#66bb6a" stroke-width="0.8"/>
-    <text x="407" y="584" text-anchor="middle" fill="#2e7d32" font-size="9">📊 Prometheus · Grafana :30300 · DCGM</text>
-
-    <rect x="70" y="605" width="455" height="30" rx="6" fill="#e8f5e9" stroke="#43a047" stroke-width="0.8"/>
-    <text x="297" y="624" text-anchor="middle" fill="#2e7d32" font-size="9">🔌 Network: Flannel VXLAN (10.244.0.0/16) · NodePorts · cert-manager</text>
-
-    <!-- Storage -->
-    <rect x="70" y="645" width="455" height="30" rx="6" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="297" y="658" text-anchor="middle" fill="#1a1a2e" font-size="9">💾 Storage: Local Path Provisioner · /mnt/models (3.5 TB) · HF Cache (21 GB)</text>
-    <text x="297" y="670" text-anchor="middle" fill="#1a1a2e" font-size="9">PV: models-pvc, tools-pvc · Registry: 10.129.13.78:5000</text>
-
-    <!-- ====== n7 (worker) ====== -->
-    <rect x="560" y="350" width="490" height="300" rx="10" fill="#ffffff" stroke="#ff9800" stroke-width="1"/>
-    <rect x="560" y="350" width="490" height="28" rx="10" fill="#ff9800"/>
-    <rect x="560" y="368" width="490" height="10" fill="#ff9800"/>
-    <text x="805" y="369" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">n7 · bootsmam-k8s-clnt01-n7-gpu · 40.50 / 10.129.13.77 (worker)</text>
-
-    <!-- GPU box -->
-    <rect x="575" y="390" width="180" height="35" rx="6" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="665" y="404" text-anchor="middle" fill="#c2185b" font-size="10" font-weight="bold">🎮 2× NVIDIA RTX 6000</text>
-    <text x="665" y="418" text-anchor="middle" fill="#1a1a2e" font-size="9">24 GB VRAM ×2</text>
-
-    <!-- Specs -->
-    <rect x="765" y="390" width="270" height="35" rx="6" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="900" y="404" text-anchor="middle" fill="#1a1a2e" font-size="10">2× Xeon 6258R · 28C/56T · 754 GB RAM</text>
-    <text x="900" y="418" text-anchor="middle" fill="#1a1a2e" font-size="9">Astra Linux SE 1.8.1 · parsec=0 · GPU Operator</text>
-
-    <!-- Components on n7 -->
-    <rect x="575" y="440" width="200" height="55" rx="6" fill="#fce4ec" stroke="#e91e63" stroke-width="0.8"/>
-    <text x="675" y="458" text-anchor="middle" fill="#c2185b" font-size="10" font-weight="bold">vLLM 32B</text>
-    <text x="675" y="474" text-anchor="middle" fill="#1a1a2e" font-size="9">Qwen2.5-32B-Instruct-GPTQ</text>
-    <text x="675" y="488" text-anchor="middle" fill="#1a1a2e" font-size="9">TP=2 · 4-bit GPTQ · 35 tok/s</text>
-
-    <rect x="785" y="440" width="250" height="55" rx="6" fill="#fff3e0" stroke="#ff9800" stroke-width="0.8"/>
-    <text x="910" y="458" text-anchor="middle" fill="#e65100" font-size="10" font-weight="bold">Gateway (new)</text>
-    <text x="910" y="474" text-anchor="middle" fill="#1a1a2e" font-size="9">Python 3.12 · K8s Deployment · Docker image</text>
-    <text x="910" y="488" text-anchor="middle" fill="#1a1a2e" font-size="9">HPA: CPU 1%/70% · ghcr.io/aither/gateway</text>
-
-    <!-- K8s services on n7 -->
-    <rect x="575" y="510" width="460" height="40" rx="6" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="805" y="526" text-anchor="middle" fill="#1a1a2e" font-size="9">☸️ kube-proxy · CoreDNS · Flannel · Metrics Server · Prometheus Adapter</text>
-    <text x="805" y="542" text-anchor="middle" fill="#1a1a2e" font-size="9">NodePorts: Gateway :30900 · vLLM 14B :32293 · vLLM 32B :32294 · Grafana :30300</text>
-
-    <!-- Storage n7 -->
-    <rect x="575" y="565" width="460" height="40" rx="6" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="805" y="581" text-anchor="middle" fill="#1a1a2e" font-size="9">💾 Storage: PVC models · HF Cache · cert-manager · CSI Driver</text>
-    <text x="805" y="597" text-anchor="middle" fill="#1a1a2e" font-size="9">PV: models-pvc · HPA: vLLM 32B CPU 36%/80%</text>
-
-    <!-- BMC -->
-    <rect x="575" y="620" width="460" height="25" rx="6" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.8"/>
-    <text x="805" y="637" text-anchor="middle" fill="#1a1a2e" font-size="9">🔌 BMC: :9443 → socat → VPS2:19443 → VPS1:443</text>
-  </g>
-
-  <!-- ====== Connection lines ====== -->
-  <!-- VPS1 ↔ VPS2 (WireGuard) -->
-  <line x1="310" y1="140" x2="380" y2="200" stroke="#43a047" stroke-width="2" stroke-dasharray="4"/>
-  <text x="345" y="165" fill="#43a047" font-size="8" font-weight="bold">WireGuard</text>
-
-  <!-- VPS1 → K8s (nginx proxy) -->
-  <line x1="170" y1="240" x2="170" y2="310" stroke="#1976d2" stroke-width="2" stroke-dasharray="4"/>
-  <text x="180" y="280" fill="#1976d2" font-size="8">:30900</text>
-
-  <!-- VPS2 → Cisco VPN -->
-  <line x1="530" y1="320" x2="750" y2="190" stroke="#00838f" stroke-width="2" stroke-dasharray="4"/>
-  <text x="640" y="260" fill="#00838f" font-size="8">Cisco VPN tun1</text>
-
-  <!-- Cisco → K8s nodes -->
-  <line x1="825" y1="190" x2="295" y2="350" stroke="#00838f" stroke-width="1.5" stroke-dasharray="4"/>
-  <line x1="825" y1="190" x2="805" y2="350" stroke="#00838f" stroke-width="1.5" stroke-dasharray="4"/>
-
-  <!-- n7 ↔ n8 (K8s Flannel) -->
-  <line x1="535" y1="500" x2="560" y2="500" stroke="#ff9800" stroke-width="1.5" stroke-dasharray="3"/>
-  <text x="548" y="495" fill="#ff9800" font-size="7">Flannel</text>
-
-  <!-- VPS1 → VPS2 (BFF request) -->
-  <line x1="170" y1="100" x2="460" y2="100" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="2"/>
-  <text x="300" y="95" fill="#1a1a2e" font-size="7">:10443 HTTPS</text>
-
-  <!-- Legend -->
-  <g transform="translate(750, 680)">
-    <rect x="0" y="0" width="270" height="60" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
-    <text x="135" y="16" text-anchor="middle" fill="#1a1a2e" font-size="9" font-weight="bold">Условные обозначения</text>
-    <line x1="10" y1="30" x2="40" y2="30" stroke="#43a047" stroke-width="2" stroke-dasharray="4"/>
-    <text x="45" y="33" fill="#1a1a2e" font-size="8">WireGuard/VPN туннель</text>
-    <line x1="130" y1="30" x2="160" y2="30" stroke="#1976d2" stroke-width="2" stroke-dasharray="2"/>
-    <text x="165" y="33" fill="#1a1a2e" font-size="8">HTTP-прокси</text>
-    <line x1="10" y1="50" x2="40" y2="50" stroke="#ff9800" stroke-width="1.5" stroke-dasharray="3"/>
-    <text x="45" y="53" fill="#1a1a2e" font-size="8">K8s overlay-сеть</text>
-    <line x1="130" y1="50" x2="160" y2="50" stroke="#9e9e9e" stroke-width="1"/>
-    <text x="165" y="53" fill="#1a1a2e" font-size="8">HTTPS-запросы</text>
-  </g>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.43.0 (0)
+ -->
+<!-- Title: aither_arch Pages: 1 -->
+<svg width="1152pt" height="777pt"
+ viewBox="0.00 0.00 1152.34 777.18" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 773.18)">
+<title>aither_arch</title>
+<polygon fill="#ffffff" stroke="transparent" points="-4,4 -4,-773.18 1148.34,-773.18 1148.34,4 -4,4"/>
+<g id="clust1" class="cluster">
+<title>cluster_vps1</title>
+<polygon fill="#fafafa" stroke="black" points="423.34,-590.75 423.34,-685.75 632.34,-685.75 632.34,-590.75 423.34,-590.75"/>
+<text text-anchor="middle" x="527.84" y="-670.55" font-family="Times,serif" font-size="14.00">VPS1 · 170.168.91.95</text>
+<text text-anchor="middle" x="527.84" y="-655.55" font-family="Times,serif" font-size="14.00">Ubuntu 24.04</text>
+</g>
+<g id="clust2" class="cluster">
+<title>cluster_vps2</title>
+<polygon fill="#fafafa" stroke="black" points="76.34,-156.62 76.34,-542.75 302.34,-542.75 302.34,-156.62 76.34,-156.62"/>
+<text text-anchor="middle" x="189.34" y="-527.55" font-family="Times,serif" font-size="14.00">VPS2 · 130.17.1.90</text>
+<text text-anchor="middle" x="189.34" y="-512.55" font-family="Times,serif" font-size="14.00">Ubuntu 24.04</text>
+</g>
+<g id="clust3" class="cluster">
+<title>cluster_vps3</title>
+<polygon fill="#f5f5f5" stroke="black" points="656.34,-452.75 656.34,-542.75 828.34,-542.75 828.34,-452.75 656.34,-452.75"/>
+<text text-anchor="middle" x="742.34" y="-527.55" font-family="Times,serif" font-size="14.00">VPS3 · 89.127.217.88</text>
+<text text-anchor="middle" x="742.34" y="-512.55" font-family="Times,serif" font-size="14.00">Ubuntu 24.04</text>
+</g>
+<g id="clust4" class="cluster">
+<title>cluster_k8s</title>
+<polygon fill="#f0f4ff" stroke="black" points="310.34,-8 310.34,-297.75 998.34,-297.75 998.34,-8 310.34,-8"/>
+<text text-anchor="middle" x="654.34" y="-282.55" font-family="Times,serif" font-size="14.00">Kubernetes v1.33.5 · VLAN 308</text>
+<text text-anchor="middle" x="654.34" y="-267.55" font-family="Times,serif" font-size="14.00">10.129.13.0/24</text>
+</g>
+<g id="clust5" class="cluster">
+<title>cluster_n8</title>
+<polygon fill="#fff8e1" stroke="black" points="318.34,-16 318.34,-251.75 668.34,-251.75 668.34,-16 318.34,-16"/>
+<text text-anchor="middle" x="493.34" y="-236.55" font-family="Times,serif" font-size="14.00">n8 · control&#45;plane</text>
+<text text-anchor="middle" x="493.34" y="-221.55" font-family="Times,serif" font-size="14.00">2× RTX 6000 · 28C/56T</text>
+</g>
+<g id="clust6" class="cluster">
+<title>cluster_n7</title>
+<polygon fill="#e8f5e9" stroke="black" points="676.34,-18.62 676.34,-108.62 905.34,-108.62 905.34,-18.62 676.34,-18.62"/>
+<text text-anchor="middle" x="790.84" y="-93.42" font-family="Times,serif" font-size="14.00">n7 · worker</text>
+<text text-anchor="middle" x="790.84" y="-78.42" font-family="Times,serif" font-size="14.00">2× RTX 6000 · 28C/56T</text>
+</g>
+<!-- user -->
+<g id="node1" class="node">
+<title>user</title>
+<ellipse fill="#e3f2fd" stroke="black" cx="463.34" cy="-747.96" rx="57.97" ry="21.43"/>
+<text text-anchor="middle" x="463.34" y="-750.96" font-family="Arial" font-size="10.00">Пользователь</text>
+<text text-anchor="middle" x="463.34" y="-739.96" font-family="Arial" font-size="10.00">HTTPS :10443</text>
+</g>
+<!-- nginx_vps1 -->
+<g id="node3" class="node">
+<title>nginx_vps1</title>
+<polygon fill="#fff3e0" stroke="black" points="527.84,-639.75 430.84,-639.75 430.84,-598.75 527.84,-598.75 527.84,-639.75"/>
+<text text-anchor="middle" x="479.34" y="-627.75" font-family="Arial" font-size="10.00">nginx</text>
+<text text-anchor="middle" x="479.34" y="-616.75" font-family="Arial" font-size="10.00">:10443 (основной)</text>
+<text text-anchor="middle" x="479.34" y="-605.75" font-family="Arial" font-size="10.00">:30900→Gateway</text>
+</g>
+<!-- user&#45;&gt;nginx_vps1 -->
+<g id="edge1" class="edge">
+<title>user&#45;&gt;nginx_vps1</title>
+<path fill="none" stroke="black" d="M465.91,-726.6C468.52,-705.98 472.58,-673.84 475.55,-650.29"/>
+<polygon fill="black" stroke="black" points="479.05,-650.5 476.83,-640.14 472.11,-649.62 479.05,-650.5"/>
+<text text-anchor="middle" x="494.84" y="-697.55" font-family="Times,serif" font-size="14.00">HTTPS</text>
+</g>
+<!-- admin -->
+<g id="node2" class="node">
+<title>admin</title>
+<ellipse fill="#f3e5f5" stroke="black" cx="601.34" cy="-747.96" rx="61.54" ry="21.43"/>
+<text text-anchor="middle" x="601.34" y="-750.96" font-family="Arial" font-size="10.00">Администратор</text>
+<text text-anchor="middle" x="601.34" y="-739.96" font-family="Arial" font-size="10.00">SSH</text>
+</g>
+<!-- hermes -->
+<g id="node4" class="node">
+<title>hermes</title>
+<polygon fill="#c8e6c9" stroke="black" stroke-dasharray="5,2" points="624.84,-637.25 545.84,-637.25 545.84,-601.25 624.84,-601.25 624.84,-637.25"/>
+<text text-anchor="middle" x="585.34" y="-622.25" font-family="Arial" font-size="10.00">Hermes Agent</text>
+<text text-anchor="middle" x="585.34" y="-611.25" font-family="Arial" font-size="10.00">DeepSeek V4</text>
+</g>
+<!-- admin&#45;&gt;hermes -->
+<g id="edge2" class="edge">
+<title>admin&#45;&gt;hermes</title>
+<path fill="none" stroke="black" d="M598.77,-726.6C596.06,-705.13 591.77,-671.17 588.77,-647.42"/>
+<polygon fill="black" stroke="black" points="592.22,-646.79 587.5,-637.31 585.28,-647.67 592.22,-646.79"/>
+<text text-anchor="middle" x="610.84" y="-697.55" font-family="Times,serif" font-size="14.00">SSH</text>
+</g>
+<!-- gw -->
+<g id="node10" class="node">
+<title>gw</title>
+<polygon fill="#e3f2fd" stroke="black" points="567.84,-205.75 472.84,-205.75 472.84,-164.75 567.84,-164.75 567.84,-205.75"/>
+<text text-anchor="middle" x="520.34" y="-193.75" font-family="Arial" font-size="10.00">Gateway (Python)</text>
+<text text-anchor="middle" x="520.34" y="-182.75" font-family="Arial" font-size="10.00">:8080 HTTP</text>
+<text text-anchor="middle" x="520.34" y="-171.75" font-family="Arial" font-size="10.00">:8443 mTLS</text>
+</g>
+<!-- nginx_vps1&#45;&gt;gw -->
+<g id="edge3" class="edge">
+<title>nginx_vps1&#45;&gt;gw</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M460.26,-598.61C427.97,-562.9 367.86,-484.42 387.34,-412.75 408.79,-333.87 465.41,-254.41 497.43,-213.85"/>
+<polygon fill="black" stroke="black" points="500.36,-215.79 503.87,-205.8 494.89,-211.42 500.36,-215.79"/>
+<text text-anchor="middle" x="412.34" y="-431.55" font-family="Times,serif" font-size="14.00">:30900</text>
+<text text-anchor="middle" x="412.34" y="-416.55" font-family="Times,serif" font-size="14.00">HTTP</text>
+</g>
+<!-- nginx_vps1&#45;&gt;gw -->
+<g id="edge4" class="edge">
+<title>nginx_vps1&#45;&gt;gw</title>
+<path fill="none" stroke="black" d="M481.62,-598.53C485.34,-566.06 492.85,-499.33 498.34,-442.75 506.29,-360.83 514.19,-264.04 517.99,-216.16"/>
+<polygon fill="black" stroke="black" points="521.51,-216.14 518.81,-205.89 514.53,-215.59 521.51,-216.14"/>
+<text text-anchor="middle" x="525.34" y="-431.55" font-family="Times,serif" font-size="14.00">:30901</text>
+<text text-anchor="middle" x="525.34" y="-416.55" font-family="Times,serif" font-size="14.00">mTLS</text>
+</g>
+<!-- bff -->
+<g id="node6" class="node">
+<title>bff</title>
+<polygon fill="#e8f5e9" stroke="black" points="199.34,-394.75 125.34,-394.75 125.34,-353.75 199.34,-353.75 199.34,-394.75"/>
+<text text-anchor="middle" x="162.34" y="-382.75" font-family="Arial" font-size="10.00">Portal BFF</text>
+<text text-anchor="middle" x="162.34" y="-371.75" font-family="Arial" font-size="10.00">Fastify :3000</text>
+<text text-anchor="middle" x="162.34" y="-360.75" font-family="Arial" font-size="10.00">server.ts</text>
+</g>
+<!-- hermes&#45;&gt;bff -->
+<g id="edge18" class="edge">
+<title>hermes&#45;&gt;bff</title>
+<path fill="none" stroke="black" stroke-dasharray="1,5" d="M560.97,-601.22C553.69,-597 545.48,-593.04 537.34,-590.75 425.63,-559.32 89.73,-633.46 17.34,-542.75 -7.61,-511.49 -3.22,-487.06 17.34,-452.75 38.44,-417.54 81.59,-397.44 115.36,-386.57"/>
+<polygon fill="black" stroke="black" points="116.51,-389.88 125.06,-383.62 114.47,-383.18 116.51,-389.88"/>
+<text text-anchor="middle" x="45.84" y="-482.55" font-family="Times,serif" font-size="14.00">SSH</text>
+<text text-anchor="middle" x="45.84" y="-467.55" font-family="Times,serif" font-size="14.00">управл.</text>
+</g>
+<!-- hermes_vps2 -->
+<g id="node8" class="node">
+<title>hermes_vps2</title>
+<polygon fill="#c8e6c9" stroke="black" stroke-dasharray="5,2" points="162.84,-496.75 83.84,-496.75 83.84,-460.75 162.84,-460.75 162.84,-496.75"/>
+<text text-anchor="middle" x="123.34" y="-481.75" font-family="Arial" font-size="10.00">Hermes Agent</text>
+<text text-anchor="middle" x="123.34" y="-470.75" font-family="Arial" font-size="10.00">DeepSeek V4</text>
+</g>
+<!-- hermes&#45;&gt;hermes_vps2 -->
+<g id="edge19" class="edge">
+<title>hermes&#45;&gt;hermes_vps2</title>
+<path fill="none" stroke="black" d="M559.81,-601.18C552.78,-597.18 544.99,-593.33 537.34,-590.75 382.32,-538.43 314.31,-624.09 172.34,-542.75 157.4,-534.19 145.41,-519.09 137.04,-505.81"/>
+<polygon fill="black" stroke="black" points="139.93,-503.84 131.82,-497.02 133.91,-507.41 139.93,-503.84"/>
+<text text-anchor="middle" x="525.34" y="-569.55" font-family="Times,serif" font-size="14.00">SSH</text>
+<text text-anchor="middle" x="525.34" y="-554.55" font-family="Times,serif" font-size="14.00">синхр.</text>
+</g>
+<!-- hermes_vps3 -->
+<g id="node9" class="node">
+<title>hermes_vps3</title>
+<polygon fill="#c8e6c9" stroke="black" stroke-dasharray="5,2" points="744.84,-496.75 665.84,-496.75 665.84,-460.75 744.84,-460.75 744.84,-496.75"/>
+<text text-anchor="middle" x="705.34" y="-481.75" font-family="Arial" font-size="10.00">Hermes Agent</text>
+<text text-anchor="middle" x="705.34" y="-470.75" font-family="Arial" font-size="10.00">DeepSeek V4</text>
+</g>
+<!-- hermes&#45;&gt;hermes_vps3 -->
+<g id="edge20" class="edge">
+<title>hermes&#45;&gt;hermes_vps3</title>
+<path fill="none" stroke="black" d="M608.24,-600.93C615.63,-594.89 623.63,-587.84 630.34,-580.75 652.79,-557 674.62,-526.51 688.88,-505.27"/>
+<polygon fill="black" stroke="black" points="691.9,-507.05 694.51,-496.78 686.07,-503.18 691.9,-507.05"/>
+<text text-anchor="middle" x="678.34" y="-569.55" font-family="Times,serif" font-size="14.00">SSH</text>
+<text text-anchor="middle" x="678.34" y="-554.55" font-family="Times,serif" font-size="14.00">синхр.</text>
+</g>
+<!-- cisco -->
+<g id="node18" class="node">
+<title>cisco</title>
+<polygon fill="#ffccbc" stroke="black" stroke-width="2" points="751.84,-392.25 658.84,-392.25 658.84,-356.25 751.84,-356.25 751.84,-392.25"/>
+<text text-anchor="middle" x="705.34" y="-377.25" font-family="Arial" font-size="10.00">Cisco 815</text>
+<text text-anchor="middle" x="705.34" y="-366.25" font-family="Arial" font-size="10.00">VPN&#45;терминатор</text>
+</g>
+<!-- hermes&#45;&gt;cisco -->
+<g id="edge17" class="edge">
+<title>hermes&#45;&gt;cisco</title>
+<path fill="none" stroke="black" d="M585.73,-601.09C587.13,-569.63 593.44,-501.49 621.34,-452.75 633.54,-431.44 653.57,-412.62 671.02,-398.87"/>
+<polygon fill="black" stroke="black" points="673.5,-401.38 679.33,-392.53 669.25,-395.81 673.5,-401.38"/>
+<text text-anchor="middle" x="636.84" y="-475.05" font-family="Times,serif" font-size="14.00">SSH</text>
+</g>
+<!-- nginx_vps2 -->
+<g id="node5" class="node">
+<title>nginx_vps2</title>
+<polygon fill="#fff3e0" stroke="black" points="293.84,-496.75 180.84,-496.75 180.84,-460.75 293.84,-460.75 293.84,-496.75"/>
+<text text-anchor="middle" x="237.34" y="-481.75" font-family="Arial" font-size="10.00">nginx</text>
+<text text-anchor="middle" x="237.34" y="-470.75" font-family="Arial" font-size="10.00">:80 (статика портала)</text>
+</g>
+<!-- nginx_vps2&#45;&gt;bff -->
+<g id="edge5" class="edge">
+<title>nginx_vps2&#45;&gt;bff</title>
+<path fill="none" stroke="black" d="M230.31,-460.5C224.28,-446.82 214.76,-427.59 203.34,-412.75 200.55,-409.13 197.39,-405.56 194.09,-402.15"/>
+<polygon fill="black" stroke="black" points="196.34,-399.45 186.73,-394.98 191.45,-404.47 196.34,-399.45"/>
+<text text-anchor="middle" x="240.84" y="-424.05" font-family="Times,serif" font-size="14.00">proxy</text>
+</g>
+<!-- nginx_vps2&#45;&gt;cisco -->
+<g id="edge16" class="edge">
+<title>nginx_vps2&#45;&gt;cisco</title>
+<path fill="none" stroke="black" d="M293.95,-472.69C345.48,-467.26 417.12,-457.38 441.34,-442.75 455.72,-434.06 449.89,-421.32 464.34,-412.75 494.64,-394.77 587.34,-384.32 648.55,-379.21"/>
+<polygon fill="black" stroke="black" points="649.15,-382.67 658.83,-378.38 648.58,-375.7 649.15,-382.67"/>
+<text text-anchor="middle" x="481.34" y="-431.55" font-family="Times,serif" font-size="14.00">VPN</text>
+<text text-anchor="middle" x="481.34" y="-416.55" font-family="Times,serif" font-size="14.00">tun1</text>
+</g>
+<!-- pg_portal -->
+<g id="node7" class="node">
+<title>pg_portal</title>
+<path fill="#f3e5f5" stroke="black" d="M203.84,-202.23C203.84,-204.31 185.24,-206 162.34,-206 139.44,-206 120.84,-204.31 120.84,-202.23 120.84,-202.23 120.84,-168.27 120.84,-168.27 120.84,-166.19 139.44,-164.5 162.34,-164.5 185.24,-164.5 203.84,-166.19 203.84,-168.27 203.84,-168.27 203.84,-202.23 203.84,-202.23"/>
+<path fill="none" stroke="black" d="M203.84,-202.23C203.84,-200.15 185.24,-198.46 162.34,-198.46 139.44,-198.46 120.84,-200.15 120.84,-202.23"/>
+<text text-anchor="middle" x="162.34" y="-188.25" font-family="Arial" font-size="10.00">PostgreSQL 16</text>
+<text text-anchor="middle" x="162.34" y="-177.25" font-family="Arial" font-size="10.00">портал:5432</text>
+</g>
+<!-- bff&#45;&gt;pg_portal -->
+<g id="edge6" class="edge">
+<title>bff&#45;&gt;pg_portal</title>
+<path fill="none" stroke="black" d="M162.34,-353.59C162.34,-320.76 162.34,-254.59 162.34,-216.02"/>
+<polygon fill="black" stroke="black" points="165.84,-215.93 162.34,-205.93 158.84,-215.93 165.84,-215.93"/>
+<text text-anchor="middle" x="177.84" y="-317.05" font-family="Times,serif" font-size="14.00">SQL</text>
+</g>
+<!-- bff&#45;&gt;gw -->
+<g id="edge13" class="edge">
+<title>bff&#45;&gt;gw</title>
+<path fill="none" stroke="black" d="M199.64,-353.77C265.37,-319.43 401.66,-248.24 473.57,-210.68"/>
+<polygon fill="black" stroke="black" points="475.61,-213.56 482.86,-205.83 472.37,-207.36 475.61,-213.56"/>
+<text text-anchor="middle" x="313.34" y="-324.55" font-family="Times,serif" font-size="14.00">VPN →</text>
+<text text-anchor="middle" x="313.34" y="-309.55" font-family="Times,serif" font-size="14.00">:30900</text>
+</g>
+<!-- hermes_vps2&#45;&gt;bff -->
+<g id="edge21" class="edge">
+<title>hermes_vps2&#45;&gt;bff</title>
+<path fill="none" stroke="black" d="M129.96,-460.36C135.79,-445.04 144.4,-422.4 151.28,-404.32"/>
+<polygon fill="black" stroke="black" points="154.61,-405.42 154.89,-394.83 148.07,-402.93 154.61,-405.42"/>
+<text text-anchor="middle" x="173.34" y="-431.55" font-family="Times,serif" font-size="14.00">SSH</text>
+<text text-anchor="middle" x="173.34" y="-416.55" font-family="Times,serif" font-size="14.00">деплой</text>
+</g>
+<!-- hermes_vps3&#45;&gt;cisco -->
+<g id="edge22" class="edge">
+<title>hermes_vps3&#45;&gt;cisco</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M705.34,-460.36C705.34,-444.51 705.34,-420.84 705.34,-402.48"/>
+<polygon fill="black" stroke="black" points="708.84,-402.38 705.34,-392.38 701.84,-402.38 708.84,-402.38"/>
+<text text-anchor="middle" x="720.84" y="-424.05" font-family="Times,serif" font-size="14.00">SSH</text>
+</g>
+<!-- vllm14 -->
+<g id="node11" class="node">
+<title>vllm14</title>
+<polygon fill="#ffcdd2" stroke="black" points="402.34,-62.62 326.34,-62.62 326.34,-26.62 402.34,-26.62 402.34,-62.62"/>
+<text text-anchor="middle" x="364.34" y="-47.62" font-family="Arial" font-size="10.00">vLLM 14B</text>
+<text text-anchor="middle" x="364.34" y="-36.62" font-family="Arial" font-size="10.00">Qwen2.5&#45;14B</text>
+</g>
+<!-- gw&#45;&gt;vllm14 -->
+<g id="edge7" class="edge">
+<title>gw&#45;&gt;vllm14</title>
+<path fill="none" stroke="black" d="M472.49,-172.76C455.61,-166.98 437.36,-158.58 423.34,-146.62 399.79,-126.54 383.36,-94.56 373.93,-71.98"/>
+<polygon fill="black" stroke="black" points="377.16,-70.62 370.2,-62.64 370.66,-73.22 377.16,-70.62"/>
+<text text-anchor="middle" x="449.84" y="-135.43" font-family="Times,serif" font-size="14.00">модель</text>
+<text text-anchor="middle" x="449.84" y="-120.42" font-family="Times,serif" font-size="14.00">14B</text>
+</g>
+<!-- chroma -->
+<g id="node12" class="node">
+<title>chroma</title>
+<polygon fill="#fce4ec" stroke="black" points="499.84,-62.62 420.84,-62.62 420.84,-26.62 499.84,-26.62 499.84,-62.62"/>
+<text text-anchor="middle" x="460.34" y="-47.62" font-family="Arial" font-size="10.00">ChromaDB</text>
+<text text-anchor="middle" x="460.34" y="-36.62" font-family="Arial" font-size="10.00">векторная БД</text>
+</g>
+<!-- gw&#45;&gt;chroma -->
+<g id="edge11" class="edge">
+<title>gw&#45;&gt;chroma</title>
+<path fill="none" stroke="black" d="M504.57,-164.67C500.54,-159.06 496.47,-152.79 493.34,-146.62 481.21,-122.7 472.22,-93.36 466.7,-72.48"/>
+<polygon fill="black" stroke="black" points="470.07,-71.52 464.21,-62.69 463.29,-73.25 470.07,-71.52"/>
+<text text-anchor="middle" x="509.34" y="-127.92" font-family="Times,serif" font-size="14.00">RAG</text>
+</g>
+<!-- pg_bill -->
+<g id="node13" class="node">
+<title>pg_bill</title>
+<path fill="#f3e5f5" stroke="black" d="M588.34,-61.6C588.34,-63.68 572.65,-65.38 553.34,-65.38 534.03,-65.38 518.34,-63.68 518.34,-61.6 518.34,-61.6 518.34,-27.65 518.34,-27.65 518.34,-25.57 534.03,-23.87 553.34,-23.87 572.65,-23.87 588.34,-25.57 588.34,-27.65 588.34,-27.65 588.34,-61.6 588.34,-61.6"/>
+<path fill="none" stroke="black" d="M588.34,-61.6C588.34,-59.52 572.65,-57.83 553.34,-57.83 534.03,-57.83 518.34,-59.52 518.34,-61.6"/>
+<text text-anchor="middle" x="553.34" y="-47.62" font-family="Arial" font-size="10.00">PostgreSQL</text>
+<text text-anchor="middle" x="553.34" y="-36.62" font-family="Arial" font-size="10.00">биллинг</text>
+</g>
+<!-- gw&#45;&gt;pg_bill -->
+<g id="edge10" class="edge">
+<title>gw&#45;&gt;pg_bill</title>
+<path fill="none" stroke="black" d="M525,-164.68C530.52,-141.49 539.78,-102.59 546.21,-75.6"/>
+<polygon fill="black" stroke="black" points="549.69,-76.08 548.6,-65.54 542.88,-74.46 549.69,-76.08"/>
+</g>
+<!-- redis -->
+<g id="node14" class="node">
+<title>redis</title>
+<path fill="#ffebee" stroke="black" d="M660.34,-61.6C660.34,-63.68 648.24,-65.38 633.34,-65.38 618.44,-65.38 606.34,-63.68 606.34,-61.6 606.34,-61.6 606.34,-27.65 606.34,-27.65 606.34,-25.57 618.44,-23.87 633.34,-23.87 648.24,-23.87 660.34,-25.57 660.34,-27.65 660.34,-27.65 660.34,-61.6 660.34,-61.6"/>
+<path fill="none" stroke="black" d="M660.34,-61.6C660.34,-59.52 648.24,-57.83 633.34,-57.83 618.44,-57.83 606.34,-59.52 606.34,-61.6"/>
+<text text-anchor="middle" x="633.34" y="-47.62" font-family="Arial" font-size="10.00">Redis</text>
+<text text-anchor="middle" x="633.34" y="-36.62" font-family="Arial" font-size="10.00">rate limit</text>
+</g>
+<!-- gw&#45;&gt;redis -->
+<g id="edge9" class="edge">
+<title>gw&#45;&gt;redis</title>
+<path fill="none" stroke="black" d="M543.58,-164.54C559.8,-150.07 581.33,-129.4 597.34,-108.62 605.45,-98.1 612.99,-85.56 619.05,-74.44"/>
+<polygon fill="black" stroke="black" points="622.19,-75.99 623.78,-65.52 616.01,-72.72 622.19,-75.99"/>
+</g>
+<!-- vllm32 -->
+<g id="node15" class="node">
+<title>vllm32</title>
+<polygon fill="#ffcdd2" stroke="black" points="897.84,-62.62 790.84,-62.62 790.84,-26.62 897.84,-26.62 897.84,-62.62"/>
+<text text-anchor="middle" x="844.34" y="-47.62" font-family="Arial" font-size="10.00">vLLM 32B</text>
+<text text-anchor="middle" x="844.34" y="-36.62" font-family="Arial" font-size="10.00">Qwen2.5&#45;32B&#45;GPTQ</text>
+</g>
+<!-- gw&#45;&gt;vllm32 -->
+<g id="edge8" class="edge">
+<title>gw&#45;&gt;vllm32</title>
+<path fill="none" stroke="black" d="M555.77,-164.68C586.42,-148.76 632.45,-127.26 675.34,-116.62 698.49,-110.89 760.71,-118.65 782.34,-108.62 800.21,-100.34 815.75,-84.53 826.8,-70.81"/>
+<polygon fill="black" stroke="black" points="829.77,-72.7 833.08,-62.64 824.22,-68.43 829.77,-72.7"/>
+<text text-anchor="middle" x="701.84" y="-135.43" font-family="Times,serif" font-size="14.00">модель</text>
+<text text-anchor="middle" x="701.84" y="-120.42" font-family="Times,serif" font-size="14.00">32B</text>
+</g>
+<!-- etcd -->
+<g id="node17" class="node">
+<title>etcd</title>
+<path fill="#d7ccc8" stroke="black" d="M990.84,-61.6C990.84,-63.68 974.03,-65.38 953.34,-65.38 932.65,-65.38 915.84,-63.68 915.84,-61.6 915.84,-61.6 915.84,-27.65 915.84,-27.65 915.84,-25.57 932.65,-23.87 953.34,-23.87 974.03,-23.87 990.84,-25.57 990.84,-27.65 990.84,-27.65 990.84,-61.6 990.84,-61.6"/>
+<path fill="none" stroke="black" d="M990.84,-61.6C990.84,-59.52 974.03,-57.83 953.34,-57.83 932.65,-57.83 915.84,-59.52 915.84,-61.6"/>
+<text text-anchor="middle" x="953.34" y="-47.62" font-family="Arial" font-size="10.00">etcd</text>
+<text text-anchor="middle" x="953.34" y="-36.62" font-family="Arial" font-size="10.00">(кластер 2/2)</text>
+</g>
+<!-- gw&#45;&gt;etcd -->
+<g id="edge12" class="edge">
+<title>gw&#45;&gt;etcd</title>
+<path fill="none" stroke="black" d="M567.96,-179.59C659.02,-169.94 853.75,-145.55 909.34,-108.62 922.01,-100.21 932.11,-86.81 939.43,-74.52"/>
+<polygon fill="black" stroke="black" points="942.68,-75.88 944.48,-65.44 936.56,-72.48 942.68,-75.88"/>
+<text text-anchor="middle" x="920.84" y="-127.92" font-family="Times,serif" font-size="14.00">конфиг</text>
+</g>
+<!-- prom -->
+<g id="node16" class="node">
+<title>prom</title>
+<polygon fill="#c8e6c9" stroke="black" points="772.84,-62.62 683.84,-62.62 683.84,-26.62 772.84,-26.62 772.84,-62.62"/>
+<text text-anchor="middle" x="728.34" y="-47.62" font-family="Arial" font-size="10.00">Prometheus</text>
+<text text-anchor="middle" x="728.34" y="-36.62" font-family="Arial" font-size="10.00">+Grafana :30300</text>
+</g>
+<!-- n8 -->
+<g id="node19" class="node">
+<title>n8</title>
+<ellipse fill="none" stroke="black" cx="1033.34" cy="-185.25" rx="27" ry="18"/>
+<text text-anchor="middle" x="1033.34" y="-182.75" font-family="Arial" font-size="10.00">n8</text>
+</g>
+<!-- cisco&#45;&gt;n8 -->
+<g id="edge14" class="edge">
+<title>cisco&#45;&gt;n8</title>
+<path fill="none" stroke="black" d="M735.32,-356.16C798.2,-320.31 943.13,-237.68 1004.77,-202.54"/>
+<polygon fill="black" stroke="black" points="1006.63,-205.51 1013.58,-197.52 1003.16,-199.43 1006.63,-205.51"/>
+<text text-anchor="middle" x="856.84" y="-317.05" font-family="Times,serif" font-size="14.00">VLAN 308</text>
+</g>
+<!-- n7 -->
+<g id="node20" class="node">
+<title>n7</title>
+<ellipse fill="none" stroke="black" cx="1117.34" cy="-185.25" rx="27" ry="18"/>
+<text text-anchor="middle" x="1117.34" y="-182.75" font-family="Arial" font-size="10.00">n7</text>
+</g>
+<!-- cisco&#45;&gt;n7 -->
+<g id="edge15" class="edge">
+<title>cisco&#45;&gt;n7</title>
+<path fill="none" stroke="black" d="M751.9,-368.99C838.83,-360.19 1021.34,-337.44 1069.34,-297.75 1095.04,-276.5 1107.31,-238.94 1112.93,-213.33"/>
+<polygon fill="black" stroke="black" points="1116.37,-214 1114.89,-203.51 1109.5,-212.63 1116.37,-214"/>
+<text text-anchor="middle" x="1091.84" y="-317.05" font-family="Times,serif" font-size="14.00">VLAN 308</text>
+</g>
+</g>
 </svg>
