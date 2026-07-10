@@ -1899,7 +1899,9 @@ async function main() {
     const path = (req.params as any)["*"];
     const gwUrl = `${CORE_API}/v1/rag/${path}`;
     try {
-      const body = req.method === "POST" ? JSON.stringify(req.body || {}) : undefined;
+      const body = (req.method === "POST" || req.method === "PUT")
+        ? JSON.stringify(req.body || {})
+        : undefined;
       const resp = await fetch(gwUrl, {
         method: req.method,
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jwt.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, process.env.ADMIN_JWT_SECRET || "change-me", { algorithm: "HS256", expiresIn: "5m" })}` },
