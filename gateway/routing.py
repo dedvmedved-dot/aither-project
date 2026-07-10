@@ -112,7 +112,7 @@ def select_model(messages: list, explicit_model: Optional[str] = None) -> tuple:
     MODEL_14B_ID = "qwen2.5-14b"
     MODEL_32B_ID = "qwen2.5-32b"
     MODEL_14B_PATH = "/models/Qwen2.5-14B-Instruct"
-    MODEL_32B_PATH = "qwen2.5-32b"
+    MODEL_32B_PATH = "qwen2.5-32b"  # as served by vLLM 32B
 
     # ── Explicit model selection ──────────────────────────
     if explicit_model:

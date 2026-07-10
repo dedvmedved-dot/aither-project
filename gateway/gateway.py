@@ -453,11 +453,45 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(401, {"error": str(e)})
             return
         if self.path == "/v1/models":
-            status, body, ct = self._proxy("GET", self.path)
-            self.send_response(status)
-            self.send_header("Content-Type", ct)
-            self.end_headers()
-            self.wfile.write(body)
+            # Build model list from catalog (query each backend)
+            try:
+                from catalog import _registry, _health
+                if not _registry:
+                    from catalog import load_catalog
+                    load_catalog()
+                # Query each active backend for its models
+                all_models = []
+                seen = set()
+                for name, entry in _registry.items():
+                    backend = entry.get("backend", "")
+                    if not backend:
+                        continue
+                    try:
+                        req = Request(f"{backend}/v1/models", headers={"Authorization": "Bearer noauth"})
+                        resp = urlopen(req, timeout=5)
+                        data = json.loads(resp.read().decode())
+                        for m in data.get("data", []):
+                            mid = m.get("id", "")
+                            if mid not in seen:
+                                seen.add(mid)
+                                all_models.append(m)
+                    except Exception as e:
+                        print(f"[Models] Failed to query {name} backend {backend}: {e}", flush=True)
+                if not all_models:
+                    # Fallback: proxy to default vLLM
+                    status, body, ct = self._proxy("GET", self.path)
+                    self.send_response(status)
+                    self.send_header("Content-Type", ct)
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+                resp_data = json.dumps({"object": "list", "data": all_models}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(resp_data)
+            except Exception as e:
+                self._json(500, {"error": f"models_error: {e}"})
             return
         if self.path.startswith("/v1/usage/"):
             auth = self.headers.get("Authorization", "")
@@ -812,8 +846,8 @@ class Gateway(BaseHTTPRequestHandler):
             body_str = json.dumps(req_data)
             print(f"[Route] {reason} → {self.vllm_url}{req_data['model']} (chars={sum(len(m.get('content','')) for m in messages)})", flush=True)
 
-            # Tier check: model access
-            if limits["models"]:
+            # Tier check: model access (skip for legacy/unknown orgs)
+            if limits["models"] and org_id != "unknown":
                 if model_id not in limits["models"] and f"qwen2.5-{model_id}" not in [m.split("/")[-1] for m in limits["models"]]:
                     allowed_list = ", ".join(limits["models"])
                     self._json(403, {"error": "model_not_available", "tier": tier,
@@ -1068,6 +1102,13 @@ if __name__ == "__main__":
         print(f"[Init] Wiki graph loaded: {wg.page_count} pages", flush=True)
     except Exception as e:
         print(f"[Init] Wiki graph load failed (will retry on first request): {e}", flush=True)
+    print("[Init] Loading model catalog...", flush=True)
+    try:
+        from catalog import load_catalog
+        registry = load_catalog()
+        print(f"[Init] Catalog loaded: {len(registry)} models", flush=True)
+    except Exception as e:
+        print(f"[Init] Catalog load failed: {e}", flush=True)
     port = int(os.environ.get("PORT", "8080"))
     server = HTTPServer(("0.0.0.0", port), Gateway)
     print(f"Gateway listening on :{port}", flush=True)
