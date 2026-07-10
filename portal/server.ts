@@ -27,6 +27,10 @@ const pool = new Pool({
 function signToken(userId: string): string {
   return jwt.sign({ user_id: userId }, JWT_SECRET, { expiresIn: "24h" });
 }
+function setTokenCookie(reply: any, token: string) {
+  reply.header("Set-Cookie",
+    `aither_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+}
 function verifyToken(tok: string): { user_id: string } | null {
   try { return jwt.verify(tok, JWT_SECRET) as { user_id: string }; }
   catch { return null; }
@@ -293,6 +297,7 @@ async function main() {
 
       const tok = signToken(userId);
       const redirectHost = process.env.PUBLIC_HOST || "localhost";
+      setTokenCookie(reply, tok);
       return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
     } catch (e: any) {
       return reply.status(502).send({ error: "GitHub OAuth error: " + safeError(e) });
@@ -371,6 +376,7 @@ async function main() {
 
       const tok = signToken(userId);
       const redirectHost = process.env.PUBLIC_HOST || "localhost";
+      setTokenCookie(reply, tok);
       return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
     } catch (e: any) {
       return reply.status(502).send({ error: "Google OAuth error: " + safeError(e) });
@@ -447,6 +453,7 @@ async function main() {
 
       const tok = signToken(userId);
       const redirectHost = process.env.PUBLIC_HOST || "localhost";
+      setTokenCookie(reply, tok);
       return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
     } catch (e: any) {
       return reply.status(502).send({ error: "Yandex OAuth error: " + safeError(e) });
@@ -493,6 +500,7 @@ async function main() {
       }
 
       const tok = signToken(userId);
+      setTokenCookie(reply, tok);
       return {
         access_token: tok,
         user: { user_id: userId, login: ldapUser.uid, email: ldapUser.email },
@@ -525,6 +533,7 @@ async function main() {
       await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [userId]);
     }
     const tok = signToken(userId);
+    setTokenCookie(reply, tok);
     return { access_token: tok, user: { user_id: userId, login: name, email } };
   });
 
@@ -569,6 +578,7 @@ async function main() {
       [newOrgId, userId, "default", key, key, "ak-"]);
 
     const tok = signToken(userId);
+    setTokenCookie(reply, tok);
     return {
       access_token: tok,
       user: { user_id: userId, email, display_name: email.split("@")[0] },
@@ -589,6 +599,7 @@ async function main() {
 
     await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [r.rows[0].user_id]);
     const tok = signToken(r.rows[0].user_id);
+    setTokenCookie(reply, tok);
     return {
       access_token: tok,
       user: { user_id: r.rows[0].user_id, email, display_name: r.rows[0].display_name },
@@ -1436,19 +1447,56 @@ async function main() {
 
   const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
+  // ── Check if current user has admin role (for frontend UI) ──
+  app.get("/api/v1/admin/check", async (req: any, reply) => {
+    // Parse cookie
+    const cookieHeader = req.headers.cookie || "";
+    const cookies: Record<string, string> = {};
+    cookieHeader.split(";").forEach((c: string) => {
+      const idx = c.indexOf("=");
+      if (idx > 0) cookies[c.substring(0, idx).trim()] = c.substring(idx + 1).trim();
+    });
+    const cookieToken = cookies["aither_token"] || "";
+
+    let p = cookieToken ? verifyToken(cookieToken) : null;
+    if (!p) {
+      const ah = req.headers.authorization || "";
+      if (ah.startsWith("Bearer ")) p = verifyToken(ah.slice(7));
+    }
+
+    if (!p) return reply.send({ admin: false });
+
+    const orgs = await pool.query(
+      "SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1",
+      [p.user_id]
+    );
+    return reply.send({ admin: orgs.rows.length > 0 });
+  });
+
   // ── Serve admin.html — only to authenticated users with admin role ──
   app.get("/admin.html", async (req: any, reply) => {
     const adminHeader = req.headers["x-admin-key"] || "";
     const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
 
     if (!isAdminKey) {
-      const ah = req.headers.authorization || "";
-      if (!ah.startsWith("Bearer ")) {
-        // No auth at all — redirect to portal login
-        return reply.redirect("/");
-      }
-      const p = verifyToken(ah.slice(7));
+      // Parse cookies (set during OAuth/login)
+      const cookieHeader = req.headers.cookie || "";
+      const cookies: Record<string, string> = {};
+      cookieHeader.split(";").forEach((c: string) => {
+        const idx = c.indexOf("=");
+        if (idx > 0) cookies[c.substring(0, idx).trim()] = c.substring(idx + 1).trim();
+      });
+      const cookieToken = cookies["aither_token"] || "";
+
+      // Try cookie first, then Authorization header
+      let p = cookieToken ? verifyToken(cookieToken) : null;
       if (!p) {
+        const ah = req.headers.authorization || "";
+        if (ah.startsWith("Bearer ")) p = verifyToken(ah.slice(7));
+      }
+
+      if (!p) {
+        // No valid auth — redirect to portal login
         return reply.redirect("/");
       }
 

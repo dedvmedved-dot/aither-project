@@ -139,6 +139,23 @@ body::after {
 }
 .btn-logout:hover { color: var(--red); border-color: var(--red); }
 
+.btn-admin {
+  display: inline-block;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  margin-right: 8px;
+  transition: all 0.15s;
+}
+.btn-admin:hover { background: rgba(99,102,241,0.25); color: var(--accent-hover); }
+
 /* ===== MAIN ===== */
 .main { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
 .main.chat-main-wrap { max-width: none; padding: 0; overflow: hidden; }
@@ -774,6 +791,7 @@ const state = {
   token: localStorage.getItem('aither_token'),
   user: null,
   page: 'dashboard',
+  isAdmin: false,
   orgs: [],
   selectedOrg: null,
   apiKeys: [],
@@ -855,6 +873,14 @@ async function render() {
     const { ok, data } = await api('/api/v1/models?_=' + Date.now());
     console.log('Models loaded:', ok, data?.data?.length, data?.data?.map(m=>m.id));
     if (ok && data?.data) state.availableModels = data.data;
+  }
+  // Check admin role (for admin button in header)
+  if (!state._adminChecked) {
+    state._adminChecked = true;
+    try {
+      const { ok, data } = await fetch('/api/v1/admin/check', { credentials: 'include' }).then(r => r.json().then(d => ({ ok: r.ok, data: d })));
+      if (ok) state.isAdmin = data.admin;
+    } catch(e) { /* ignore — non-admin */ }
   }
   renderApp();
   switch (state.page) {
@@ -996,6 +1022,7 @@ function renderApp() {
       </div>
       <div class="header-right">
         <span class="user-name">${state.user ? state.user.display_name : ''}</span>
+        ${state.isAdmin ? '<a href="/admin.html" class="btn-admin" title="Панель администратора">⚙️ Админка</a>' : ''}
         <button class="btn-logout" onclick="logout()">Выйти</button>
       </div>
     </div>
@@ -1980,6 +2007,7 @@ async function renderTiers() {
       </div>
       <div class="header-right">
         <span class="user-name">${state.user ? state.user.display_name : ''}</span>
+        ${state.isAdmin ? '<a href="/admin.html" class="btn-admin" title="Панель администратора">⚙️ Админка</a>' : ''}
         <button class="btn-logout" onclick="logout()">Выйти</button>
       </div>
     </div>

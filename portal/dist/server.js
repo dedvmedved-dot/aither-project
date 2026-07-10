@@ -62,6 +62,9 @@ const pool = new pg_1.Pool({
 function signToken(userId) {
     return jsonwebtoken_1.default.sign({ user_id: userId }, JWT_SECRET, { expiresIn: "24h" });
 }
+function setTokenCookie(reply, token) {
+    reply.header("Set-Cookie", `aither_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+}
 function verifyToken(tok) {
     try {
         return jsonwebtoken_1.default.verify(tok, JWT_SECRET);
@@ -315,6 +318,7 @@ async function main() {
             }
             const tok = signToken(userId);
             const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            setTokenCookie(reply, tok);
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
@@ -385,6 +389,7 @@ async function main() {
             }
             const tok = signToken(userId);
             const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            setTokenCookie(reply, tok);
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
@@ -453,6 +458,7 @@ async function main() {
             }
             const tok = signToken(userId);
             const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            setTokenCookie(reply, tok);
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
@@ -486,6 +492,7 @@ async function main() {
                 await pool.query("UPDATE portal_users SET email=$1, display_name=$2, last_login_at=now() WHERE user_id=$3", [ldapUser.email, ldapUser.displayName, userId]);
             }
             const tok = signToken(userId);
+            setTokenCookie(reply, tok);
             return {
                 access_token: tok,
                 user: { user_id: userId, login: ldapUser.uid, email: ldapUser.email },
@@ -518,6 +525,7 @@ async function main() {
             await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [userId]);
         }
         const tok = signToken(userId);
+        setTokenCookie(reply, tok);
         return { access_token: tok, user: { user_id: userId, login: name, email } };
     });
     // === SaaS Signup ===
@@ -552,6 +560,7 @@ async function main() {
         const key = "ak-" + (0, crypto_1.randomBytes)(24).toString("hex");
         await pool.query("INSERT INTO portal_api_keys (org_id, user_id, name, key_hash, api_key, api_key_prefix, status) VALUES ($1,$2,$3,$4,$5,$6,'active')", [newOrgId, userId, "default", key, key, "ak-"]);
         const tok = signToken(userId);
+        setTokenCookie(reply, tok);
         return {
             access_token: tok,
             user: { user_id: userId, email, display_name: email.split("@")[0] },
@@ -571,6 +580,7 @@ async function main() {
             return reply.status(401).send({ error: "invalid credentials" });
         await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [r.rows[0].user_id]);
         const tok = signToken(r.rows[0].user_id);
+        setTokenCookie(reply, tok);
         return {
             access_token: tok,
             user: { user_id: r.rows[0].user_id, email, display_name: r.rows[0].display_name },
@@ -1348,18 +1358,51 @@ async function main() {
     });
     // ==================== ADMIN PROXY ====================
     const ADMIN_KEY = process.env.ADMIN_KEY || "";
+    // ── Check if current user has admin role (for frontend UI) ──
+    app.get("/api/v1/admin/check", async (req, reply) => {
+        // Parse cookie
+        const cookieHeader = req.headers.cookie || "";
+        const cookies = {};
+        cookieHeader.split(";").forEach((c) => {
+            const idx = c.indexOf("=");
+            if (idx > 0)
+                cookies[c.substring(0, idx).trim()] = c.substring(idx + 1).trim();
+        });
+        const cookieToken = cookies["aither_token"] || "";
+        let p = cookieToken ? verifyToken(cookieToken) : null;
+        if (!p) {
+            const ah = req.headers.authorization || "";
+            if (ah.startsWith("Bearer "))
+                p = verifyToken(ah.slice(7));
+        }
+        if (!p)
+            return reply.send({ admin: false });
+        const orgs = await pool.query("SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1", [p.user_id]);
+        return reply.send({ admin: orgs.rows.length > 0 });
+    });
     // ── Serve admin.html — only to authenticated users with admin role ──
     app.get("/admin.html", async (req, reply) => {
         const adminHeader = req.headers["x-admin-key"] || "";
         const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
         if (!isAdminKey) {
-            const ah = req.headers.authorization || "";
-            if (!ah.startsWith("Bearer ")) {
-                // No auth at all — redirect to portal login
-                return reply.redirect("/");
-            }
-            const p = verifyToken(ah.slice(7));
+            // Parse cookies (set during OAuth/login)
+            const cookieHeader = req.headers.cookie || "";
+            const cookies = {};
+            cookieHeader.split(";").forEach((c) => {
+                const idx = c.indexOf("=");
+                if (idx > 0)
+                    cookies[c.substring(0, idx).trim()] = c.substring(idx + 1).trim();
+            });
+            const cookieToken = cookies["aither_token"] || "";
+            // Try cookie first, then Authorization header
+            let p = cookieToken ? verifyToken(cookieToken) : null;
             if (!p) {
+                const ah = req.headers.authorization || "";
+                if (ah.startsWith("Bearer "))
+                    p = verifyToken(ah.slice(7));
+            }
+            if (!p) {
+                // No valid auth — redirect to portal login
                 return reply.redirect("/");
             }
             const orgs = await pool.query("SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1", [p.user_id]);
