@@ -386,23 +386,55 @@ async function loadUsers() {
     const users = data.users || [];
     if (!users.length) { el.innerHTML = '<span style="color:var(--text-muted);">Нет пользователей.</span>'; return; }
     const rows = users.map(u => `<tr>
-      <td><span class="mono" style="font-size:10px;">${u.user_id}</span></td>
-      <td>${u.display_name || '—'}</td>
-      <td>${u.email || '—'}</td>
+      <td>${h(u.display_name) || '—'}<br><span class="mono" style="font-size:9px;color:var(--text-muted);">${u.user_id}</span></td>
+      <td>${h(u.email) || '—'}</td>
       <td>${u.provider}</td>
       <td>${u.org_count}</td>
       <td>
-        <select onchange="userSetRole('${u.user_id}', this.value)" style="width:120px;font-size:11px;">
-          <option value="">Роль…</option>
-          <option value="owner">owner</option>
-          <option value="billing_admin">billing_admin</option>
-          <option value="developer">developer</option>
-          <option value="viewer">viewer</option>
-        </select>
+        <button class="btn btn-sm" onclick="showUserOrgs('${u.user_id}','${h(u.display_name||u.email||'?')}')">🏢</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.user_id}','${h(u.display_name||u.email||'?')}')">🗑</button>
       </td>
     </tr>`).join('');
-    el.innerHTML = `<table><thead><tr><th>User ID</th><th>Имя</th><th>Email</th><th>OAuth</th><th>Orgs</th><th>Сменить роль</th></tr></thead><tbody>${rows}</tbody></table>`;
+    el.innerHTML = `<table><thead><tr><th>Имя / ID</th><th>Email</th><th>OAuth</th><th>Orgs</th><th>Действия</th></tr></thead><tbody>${rows}</tbody></table>`;
   } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+async function showUserOrgs(userId, name) {
+  const el = document.getElementById('users-body');
+  el.innerHTML = '<span class="spinner"></span> Загрузка…';
+  try {
+    const r = await fetch(API_BASE + '/users/' + encodeURIComponent(userId) + '/orgs', {
+      headers: { 'X-Admin-Key': ADMIN_KEY }
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    const orgs = d.orgs || [];
+    let html = `<div style="margin-bottom:16px;"><button class="btn btn-sm" onclick="loadUsers()">← Назад</button></div>
+      <h4>🏢 Организации пользователя: ${h(name)}</h4>`;
+    if (!orgs.length) { html += '<p style="color:var(--text-muted);margin-top:12px;">Не состоит ни в одной организации.</p>'; }
+    else {
+      html += `<table style="margin-top:12px;"><thead><tr><th>Организация</th><th>Роль</th><th>Статус</th><th>Тариф</th><th>Баланс</th></tr></thead><tbody>`;
+      html += orgs.map(o => `<tr>
+        <td><b>${h(o.name)}</b><br><span class="mono" style="font-size:9px;color:var(--text-muted);">${o.org_id}</span></td>
+        <td>${o.role}</td><td>${o.status}</td><td>${o.tier||'none'}</td>
+        <td><span class="mono">${(o.balance||0).toLocaleString()}</span></td>
+      </tr>`).join('');
+      html += '</tbody></table>';
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+async function deleteUser(userId, name) {
+  if (!confirm(`Удалить пользователя «${name}»?\nОн будет исключён из всех организаций. Данные чатов сохранятся.`)) return;
+  try {
+    const r = await fetch(API_BASE + '/users/' + encodeURIComponent(userId), {
+      method: 'DELETE', headers: { 'X-Admin-Key': ADMIN_KEY }
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+    toast('🗑 Пользователь удалён', true);
+    loadUsers();
+  } catch (e) { toast('❌ ' + e.message, false); }
 }
 
 async function userSetRole(userId, role) {

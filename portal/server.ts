@@ -1452,6 +1452,30 @@ async function main() {
     return reply.send({ users: r.rows });
   });
 
+  // User orgs
+  app.get("/api/v1/admin/users/:userId/orgs", async (req: any, reply) => {
+    const { userId } = req.params;
+    const r = await pool.query(
+      `SELECT m.role, m.status, o.org_id, o.name, COALESCE(b.total_tokens,0) AS balance, COALESCE(b.tier,'none') AS tier
+       FROM portal_org_members m
+       JOIN portal_organizations o ON o.org_id = m.org_id
+       LEFT JOIN billing_accounts b ON b.org_id = o.org_id
+       WHERE m.user_id = $1`, [userId]);
+    return reply.send({ orgs: r.rows });
+  });
+
+  // Delete user
+  app.delete("/api/v1/admin/users/:userId", async (req: any, reply) => {
+    const { userId } = req.params;
+    // Remove from all orgs
+    await pool.query("DELETE FROM portal_org_members WHERE user_id = $1", [userId]);
+    // Delete payment transactions
+    await pool.query("DELETE FROM payment_transactions WHERE user_id = $1", [userId]);
+    // Delete user
+    await pool.query("DELETE FROM portal_users WHERE user_id = $1", [userId]);
+    return reply.send({ status: "deleted", user_id: userId });
+  });
+
   app.post("/api/v1/admin/users/:userId/role", async (req: any, reply) => {
     // Role change is not yet implemented — requires portal_users.role column
     return reply.send({ status: "ok", note: "role change not yet implemented" });
