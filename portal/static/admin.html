@@ -151,6 +151,7 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <span style="font-size:11px;color:var(--text-muted);">v0.7 — Gateway API</span>
   </div>
   <a href="/" class="back">← Вернуться в портал</a>
+  <button class="btn btn-sm" onclick="logout()" style="background:var(--red-bg);color:var(--red);border-color:var(--red);">🚪 Выход</button>
 </div>
 
 <!-- LAYOUT -->
@@ -342,6 +343,8 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
 // ── Config ──
 const ADMIN_KEY = 'hs256-shared-secret-key-for-admin-api-2026';
 const API_BASE = window.location.origin + '/api/v1/admin';
+
+function logout() { localStorage.clear(); window.location.href = '/'; }
 
 // ── Auto-load ──
 const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper,
