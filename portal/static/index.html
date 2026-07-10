@@ -2124,6 +2124,7 @@ function highlightCode(el) {
   code = code.replace(/\b(\w+)(?=\s*\()/g, '<span class="hljs-function">$1</span>');
 
   el.innerHTML = code;
+}
 
 // ===== DASHBOARD =====
 async function renderDashboard() {
@@ -2165,7 +2166,6 @@ async function upgradeTier(orgId,tier){if(!orgId){navigate('orgs');toast('Сна
   }else{
     alert("Ошибка: "+((data||{}).error||"неизвестно"));
   }
-}
 }
 </script>
 </body>
