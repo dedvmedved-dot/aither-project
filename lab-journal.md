@@ -3771,3 +3771,20 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 - Полная цепочка VPS1:10443 → 200 ✅
 
 **Коммит:** `защита admin.html`
+
+### 10.07.2026 12:15 — Cookie-аутентификация + кнопка «Админка» на портале
+
+**Проблема:** `/admin.html` требовал `Authorization: Bearer` header, который браузер не отправляет при загрузке страницы → админ всегда получал редирект на портал.
+
+**Решение:**
+1. **Cookie-аутентификация** — `setTokenCookie()` устанавливает `aither_token` как HttpOnly cookie при любом входе (OAuth GitHub/Google/Яндекс, LDAP, dev, login, signup)
+2. **`/admin.html` endpoint** — проверяет cookie → `Authorization` header → `X-Admin-Key` (каскад)
+3. **`GET /api/v1/admin/check`** — новый эндпоинт `{admin: true/false}` для фронтенда
+4. **Кнопка «⚙️ Админка»** — показывается в шапке портала только админам (`owner`/`billing_admin`)
+
+**Проверено:**
+- Cookie-аутентификация на BFF → 200 ✅
+- Полная цепочка VPS1:10443 (cookie → nginx → VPS2 → BFF) → 200 ✅
+- Admin check: админ → `{admin:true}`, обычный → `{admin:false}` ✅
+
+**Коммит:** `cookie-аутентификация + кнопка Админка`
