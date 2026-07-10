@@ -167,6 +167,7 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <a href="#users" data-panel="users"><span class="icon">👥</span> Пользователи</a>
     <a href="#tokens" data-panel="tokens"><span class="icon">💰</span> Токены</a>
     <a href="#tiers" data-panel="tiers"><span class="icon">⚙️</span> Тарифы</a>
+    <a href="#settings" data-panel="settings"><span class="icon">🔧</span> Настройки</a>
     <div class="section">Этап 5а</div>
     <a href="#stage5a" data-panel="stage5a"><span class="icon">🗺️</span> Статус 5а</a>
   </nav>
@@ -236,6 +237,29 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
           <button class="btn" onclick="orgSetTier()">Применить</button>
         </div>
         <div id="tiers-body">Загрузка…</div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="panel-settings" class="panel">
+      <div class="card">
+        <h3>🔧 Настройки LDAP</h3>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:18px;">Настройки применяются при перезапуске BFF.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px;" id="settings-form">
+          <div><label style="font-size:11px;color:var(--text-muted);">LDAP-сервер</label><input type="text" id="s-ldap_url" placeholder="ldap://host:389"></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">Базовый DN</label><input type="text" id="s-ldap_base_dn" placeholder="dc=example,dc=com"></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">Сервисная учётка (DN)</label><input type="text" id="s-ldap_bind_dn" placeholder="uid=svc,cn=users,cn=accounts,..."></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">Пароль учётки</label><input type="password" id="s-ldap_bind_password" placeholder="••••••••"></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">User Base</label><input type="text" id="s-ldap_user_base" placeholder="cn=users,cn=accounts,..."></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">Group Base</label><input type="text" id="s-ldap_group_base" placeholder="cn=groups,cn=accounts,..."></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">Атрибут логина</label><input type="text" id="s-ldap_uid_attr" placeholder="uid"></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">Атрибут почты</label><input type="text" id="s-ldap_mail_attr" placeholder="mail"></div>
+          <div><label style="font-size:11px;color:var(--text-muted);">Атрибут имени</label><input type="text" id="s-ldap_name_attr" placeholder="displayName"></div>
+        </div>
+        <div style="margin-top:18px;display:flex;gap:10px;align-items:center;">
+          <button class="btn" onclick="saveSettings()" style="background:var(--accent);color:#fff;border-color:var(--accent);">💾 Сохранить</button>
+          <span id="settings-status" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
       </div>
     </div>
 
@@ -311,7 +335,7 @@ const ADMIN_KEY = 'hs256-shared-secret-key-for-admin-api-2026';
 const API_BASE = window.location.origin + '/api/v1/admin';
 
 // ── Auto-load ──
-const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper, users: loadUsers, tiers: loadTiers };
+const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper, users: loadUsers, tiers: loadTiers, settings: loadSettings };
 
 // ── Toast ──
 function toast(msg, ok) {
@@ -644,6 +668,47 @@ async function loadReaper() {
       </div>`;
   } catch (e) {
     el.innerHTML = `<span style="color:var(--red);">❌ Ошибка: ${e.message}</span>`;
+  }
+}
+
+// ── SETTINGS ──
+const SETTING_FIELDS = ['ldap_url','ldap_base_dn','ldap_bind_dn','ldap_bind_password',
+  'ldap_user_base','ldap_group_base','ldap_uid_attr','ldap_mail_attr','ldap_name_attr'];
+
+async function loadSettings() {
+  const el = document.getElementById('settings-status');
+  el.textContent = 'Загрузка…';
+  try {
+    const r = await fetch(API_BASE + '/settings', { headers: { 'X-Admin-Key': ADMIN_KEY } });
+    if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0,100));
+    const data = await r.json();
+    for (const f of SETTING_FIELDS) {
+      const inp = document.getElementById('s-' + f);
+      if (inp) inp.value = data[f] || '';
+    }
+    el.textContent = '✅ Загружено';
+  } catch (e) { el.textContent = '❌ ' + e.message; }
+}
+
+async function saveSettings() {
+  const el = document.getElementById('settings-status');
+  el.innerHTML = '<span class="spinner"></span> Сохранение…';
+  const payload = {};
+  for (const f of SETTING_FIELDS) {
+    const inp = document.getElementById('s-' + f);
+    if (inp) payload[f] = inp.value;
+  }
+  try {
+    const r = await fetch(API_BASE + '/settings', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || r.status); }
+    toast('✅ Настройки сохранены', true);
+    el.textContent = '✅ Сохранено — перезапустите BFF';
+  } catch (e) {
+    el.textContent = '❌ ' + e.message;
+    toast('❌ ' + e.message, false);
   }
 }
 

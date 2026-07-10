@@ -1431,6 +1431,47 @@ async function main() {
 
   const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
+  // Admin users — handled locally (portal DB, not billing DB)
+  app.get("/api/v1/admin/users", async (req: any, reply) => {
+    const adminHeader = req.headers["x-admin-key"] || "";
+    const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
+    if (!isAdminKey) {
+      const p = auth(req, reply); if (!p) return;
+      const orgs = await pool.query("SELECT role FROM portal_org_members WHERE user_id=$1 AND role='owner' AND status='active' LIMIT 1", [p.user_id]);
+      if (orgs.rows.length === 0) return reply.status(403).send({ error: "admin access required" });
+    }
+    const r = await pool.query(`
+      SELECT u.user_id, u.display_name, u.email, u.oauth_provider as provider,
+             (SELECT count(*) FROM portal_org_members m WHERE m.user_id = u.user_id AND m.status = 'active') as org_count
+      FROM portal_users u ORDER BY u.created_at DESC LIMIT 50`);
+    return reply.send({ users: r.rows });
+  });
+
+  app.post("/api/v1/admin/users/:userId/role", async (req: any, reply) => {
+    // Role change is not yet implemented — requires portal_users.role column
+    return reply.send({ status: "ok", note: "role change not yet implemented" });
+  });
+
+  // Settings (LDAP) — stored in local portal_settings table, not proxied to Gateway
+  app.get("/api/v1/admin/settings", async (req: any, reply) => {
+    const r = await pool.query("SELECT key, value FROM portal_settings");
+    const result: Record<string, string> = {};
+    for (const row of r.rows) result[row.key] = row.value;
+    return reply.send(result);
+  });
+
+  app.post("/api/v1/admin/settings", async (req: any, reply) => {
+    const entries = Object.entries(req.body || {});
+    for (const [key, value] of entries) {
+      await pool.query(
+        `INSERT INTO portal_settings (key, value) VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+        [key, String(value)]
+      );
+    }
+    return reply.send({ status: "ok", updated: entries.length });
+  });
+
   // Proxy /api/v1/admin/* → Gateway /admin/*
   app.all("/api/v1/admin/*", async (req: any, reply) => {
     // Admin key bypass: skip user auth for automated/admin-panel access
