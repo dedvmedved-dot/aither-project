@@ -24,7 +24,7 @@
 
 | Компонент | Где | Статус |
 |---|---|---|
-| **vLLM 14B** (Qwen2.5-14B, TP=1) | n8, 1× RTX 6000 | ✅ |
+| **vLLM 14B** (Qwen2.5-Coder-14B, TP=1) | n8, 1× RTX 6000 | ✅ |
 | **vLLM 32B** (Qwen2.5-32B-GPTQ, TP=2) | n7, 2× RTX 6000 | ✅ |
 | **API Gateway** (Python, dual-port) | K8s (n8) | ✅ :8080 HTTP + :8443 mTLS |
 | **Portal BFF** (Node.js/Fastify) | VPS2:3000 | ✅ JWT + OAuth |
@@ -32,7 +32,8 @@
 | **PostgreSQL** (биллинг) | K8s (n8) | ✅ |
 | **PostgreSQL** (портал) | VPS2:5432 | ✅ |
 | **Redis 7** (rate limiting) | K8s (n8) | ✅ |
-| **ChromaDB** (векторный RAG) | K8s (n8) | ✅ |
+| **ChromaDB 0.5.23** (векторный RAG) | K8s (n7) | ✅ 322 чанка |
+| **chroma-proxy** (text→vector) | K8s (n7) | ✅ :9000, эмбеддинги внутри |
 | **Wiki Graph** (LLM-Wiki, 8 стр.) | K8s ConfigMap | ✅ Karpathy-style |
 | **Prometheus + Grafana** | K8s (n7) | ✅ :30300 |
 | **nginx** (HTTPS :10443) | VPS1 | ✅ |
@@ -50,7 +51,7 @@
 | **VPS3** | 89.127.217.88 | Резервный Hermes, синхронизация памяти/навыков | — |
 | **Cisco 815** | 10.129.11.0/24 | VPN-терминатор | — |
 | **n8** | 10.129.13.78 | K8s control-plane, Gateway, vLLM 14B | 2× RTX 6000 |
-| **n7** | 10.129.13.77 | K8s worker, vLLM 32B, Prometheus | 2× RTX 6000 |
+| **n7** | 10.129.13.77 | K8s worker, vLLM 32B, ChromaDB, chroma-proxy, Prometheus | 2× RTX 6000 |
 
 ## Сеть
 
@@ -69,7 +70,7 @@ n7 ↔ n8: Flannel VXLAN (10.244.0.0/16)
 # Портал: https://fb1.spb.ru:10443
 # Grafana: http://grafana.130.17.1.90.nip.io:30300
 # API: https://fb1.spb.ru:10443/v1/chat/completions
-# RAG: https://fb1.spb.ru:10443/api/rag/status (JWT)
+# RAG: https://fb1.spb.ru:10443/api/v1/rag/status (JWT)
 ```
 
 ## Структура репозитория
@@ -84,28 +85,28 @@ aither-project/
 │  📄 status.md                ← сводка статуса задач
 │
 ├── 📁 portal/                 ★ Портал: SPA + BFF
-│   ├── 📄 server.ts           — BFF (Fastify, :3000): auth, чаты, RAG, биллинг, админка
+│   ├── 📄 server.ts           — BFF (Fastify, :3000): auth, чаты, RAG-прокси, биллинг, админка
 │   ├── 📄 ldap.ts             — LDAP/ALD Pro аутентификация
 │   ├── 📄 policies.ts         — политики доступа (org-level)
-│   ├── 📄 api-gateway.ts      — прокси админ-API → Gateway
+│   ├── 📄 api-gateway.ts      — прокси админ-API + RAG → Gateway
 │   ├── 📄 package.json        — NPM-зависимости
 │   ├── 📄 .env                — переменные окружения (секреты)
 │   ├── 📁 dist/               — скомпилированный BFF (server.js)
 │   └── 📁 static/             — статика (фронтенд SPA)
 │       ├── 📄 index.html      — чат-интерфейс + RAG toggle
-│       └── 📄 admin.html      — админ-панель
+│       └── 📄 admin.html      — админ-панель (вкладка RAG)
 │
 ├── 📁 gateway/                ★ API Gateway (Python, Docker-образ)
 │   ├── 📄 gateway.py          — точка входа: JWT, rate limit, биллинг, прокси vLLM
 │   ├── 📄 mtls_server.py      — mTLS-обёртка (:8443) + HTTP (:8080)
+│   ├── 📄 hybrid_rag.py       — гибридный RAG: wiki (keyword) + chroma-proxy (vector)
+│   ├── 📄 wiki_graph.py       — LLM-Wiki: граф знаний (Karpathy-style)
 │   ├── 📄 security.py         — DLP ingress-фильтр (SQL-инъекции)
 │   ├── 📄 security_egress.py  — egress-фильтр (ДСП, ПДн)
 │   ├── 📄 vault.py            — интеграция с Vault PKI
 │   ├── 📄 catalog.py          — каталог моделей + health-check
 │   ├── 📄 catalog.yaml        — декларативный список моделей
 │   ├── 📄 routing.py          — маршрутизация к vLLM-бэкендам
-│   ├── 📄 wiki_graph.py       — LLM-Wiki: граф знаний (340 строк)
-│   ├── 📄 hybrid_rag.py       — гибридный RAG: keyword + graph (157 строк)
 │   ├── 📄 admin.py            — админ-API: очереди, модели, пользователи
 │   ├── 📄 metrics.py          — Prometheus-метрики
 │   └── 📄 reaper.py           — очистка просроченных резерваций
@@ -113,9 +114,10 @@ aither-project/
 ├── 📁 k8s/                    ★ Kubernetes-манифесты
 │   ├── 📁 gateway/
 │   │   ├── 📄 deployment.yaml — Gateway Deployment + mTLS + wiki ConfigMap
-│   │   └── 📄 service.yaml    — Gateway Service (NodePort :30900 + :30901)
+│   │   └── 📄 service.yaml    — Gateway Service (NodePort :30900 + :31785)
+│   ├── 📄 chroma-proxy.yaml   — chroma-proxy Deployment + Service (:9000)
 │   ├── 📁 vllm-14b/
-│   │   ├── 📄 deployment.yaml — vLLM 14B (Qwen2.5-14B, n8)
+│   │   ├── 📄 deployment.yaml — vLLM 14B (Qwen2.5-Coder-14B, n8)
 │   │   └── 📄 service.yaml
 │   ├── 📁 vllm-32b/
 │   │   ├── 📄 deployment.yaml — vLLM 32B (Qwen2.5-32B-GPTQ, n7)
@@ -146,6 +148,7 @@ aither-project/
 │   └── 📁 tests/              — приёмо-сдаточные тесты
 │
 ├── 📁 scripts/                Скрипты деплоя и эксплуатации
+│   ├── 📄 chroma_proxy.py     — прокси ChromaDB (text→embed→search, :9000)
 │   ├── 📄 deploy.sh           — деплой портала на VPS2
 │   ├── 📄 health-check.sh     — проверка всех компонентов
 │   └── 📄 portal-security-check.sh — аудит безопасности портала
@@ -168,7 +171,8 @@ aither-project/
 │   │   ├── 📄 05-part4-production.md   — Часть IV: Production (гл. 19–24) ✅
 │   │   └── 📄 04-appendices-labs.md    — Приложения + Практикум
 │   └── 📁 diagrams/
-│       └── 📄 physical-architecture.svg
+│       ├── 📄 physical-architecture.dot  — исходник схемы (Graphviz DOT)
+│       └── 📄 physical-architecture.svg  — рендер схемы
 │
 ├── 📁 wiki/                   База знаний Aither (LLM-Wiki, 8 страниц)
 │   ├── 📁 entities/           — AI Gateway, vLLM, ChromaDB, Vault, Security
