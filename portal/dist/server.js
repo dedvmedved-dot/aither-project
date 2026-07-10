@@ -1597,7 +1597,7 @@ async function main() {
     // GET /api/rag/status — hybrid RAG status from Gateway
     app.get("/api/rag/status", async (req, reply) => {
         try {
-            const resp = await gatewayFetch("/v1/rag/status", { method: "GET" });
+            const resp = await fetch(CORE_API + "/v1/rag/status", { method: "GET" });
             const data = await resp.json();
             return reply.send(data);
         }
@@ -1606,16 +1606,16 @@ async function main() {
         }
     });
     // POST /api/rag/query — hybrid RAG search (keyword + wiki graph)
+    // POST /api/rag/query — hybrid RAG search (keyword + wiki graph)
     app.post("/api/rag/query", async (req, reply) => {
         const { query, top_k, wiki_radius } = req.body || {};
         if (!query)
             return reply.status(400).send({ error: "query required" });
-        // Auth: any valid token (Gateway checks tier)
         const p = auth(req, reply);
         if (!p)
             return;
         try {
-            const resp = await gatewayFetch("/v1/rag/hybrid-query", {
+            const resp = await fetch(CORE_API + "/v1/rag/hybrid-query", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1639,8 +1639,8 @@ async function main() {
         if (!p)
             return;
         try {
-            // Step 1: RAG search
-            const ragResp = await gatewayFetch("/v1/rag/hybrid-query", {
+            // Step 1: RAG search via plain HTTP
+            const ragResp = await fetch(CORE_API + "/v1/rag/hybrid-query", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1669,7 +1669,7 @@ async function main() {
                 augmentedMessages.unshift({ role: "system", content: ragContext + "Ты — AI-ассистент платформы Aither. Отвечай на основе предоставленного контекста." });
             }
             // Step 4: Forward to Gateway chat completions
-            const chatResp = await gatewayFetch("/v1/chat/completions", {
+            const chatResp = await fetch(CORE_API + "/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

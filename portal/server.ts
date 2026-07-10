@@ -1717,12 +1717,16 @@ async function main() {
   });
 
   // ── RAG endpoints ──────────────────────────────────────────
-  // GET /api/rag/status — hybrid RAG status from Gateway
+  // GET /api/rag/status — hybrid RAG status (requires auth, returns tier info)
   app.get("/api/rag/status", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
     try {
-      const resp = await fetch(CORE_API + "/v1/rag/status", { method: "GET" });
+      const resp = await fetch(CORE_API + "/v1/rag/status", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${signToken(p.user_id)}` },
+      });
       const data = await resp.json();
-      return reply.send(data);
+      return reply.status(resp.status).send(data);
     } catch (e: any) {
       return reply.status(502).send({ error: "rag_unavailable", detail: safeError(e) });
     }
