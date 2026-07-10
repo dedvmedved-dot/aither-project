@@ -1855,6 +1855,7 @@ async function sendChat() {
           rag_query: content,
           top_k: 5,
           wiki_radius: 1,
+          org_id: state.chatOrgId,
         }),
       });
 
@@ -1882,14 +1883,18 @@ async function sendChat() {
       renderMessages();
       scrollToBottom();
 
-      // Save message to server
-      await api(`/api/v1/chats/${state.chatId}/messages`, {
+      // Save both messages to server (RAG-specific endpoint)
+      await api(`/api/v1/chats/${state.chatId}/rag-messages`, {
         method: 'POST',
-        body: JSON.stringify({ content, org_id: state.chatOrgId }),
+        body: JSON.stringify({
+          content,
+          assistant_content: last.content,
+          org_id: state.chatOrgId
+        }),
       });
 
-      // Reload to get server-persisted messages
-      await loadChatMessages(state.chatId);
+      // Refresh billing
+      loadBalance();
     } else {
       // Standard chat (streaming)
       const response = await fetch(`/api/v1/chats/${state.chatId}/messages`, {

@@ -55,8 +55,10 @@ const pool = new Pool({
   database: process.env.PG_DB || "aither",
 });
 
-function signToken(userId: string): string {
-  return jwt.sign({ user_id: userId }, JWT_SECRET, { expiresIn: "24h" });
+function signToken(userId: string, orgId?: string): string {
+  const payload: any = { user_id: userId };
+  if (orgId) payload.org_id = orgId;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
 }
 function setTokenCookie(reply: any, token: string) {
   reply.header("Set-Cookie",
@@ -1123,6 +1125,41 @@ async function main() {
     }
   });
 
+  // POST /api/v1/chats/:chatId/rag-messages — save user+assistant message pair from RAG chat
+  app.post("/api/v1/chats/:chatId/rag-messages", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    if (!await checkChatEnabled(p.user_id, reply)) return;
+    const { chatId } = req.params;
+    const { content, assistant_content, org_id } = req.body || {};
+    if (!content || !assistant_content) return reply.status(400).send({ error: "content and assistant_content required" });
+
+    const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
+    if (c.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
+
+    // Save user message
+    await pool.query("INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2)", [chatId, content]);
+
+    // Save assistant message
+    const tokensUsed = Math.ceil(assistant_content.length / 4);
+    await pool.query("INSERT INTO chat_messages (chat_id, role, content, tokens_used) VALUES ($1,'assistant',$2,$3)",
+      [chatId, assistant_content, tokensUsed]);
+
+    // Auto-title
+    if (c.rows[0].title === "Новый чат") {
+      const title = content.slice(0, 50).replace(/\n/g, " ");
+      await pool.query("UPDATE chats SET title=$1 WHERE chat_id=$2", [title, chatId]);
+    }
+
+    // Deduct tokens
+    if (org_id) {
+      await pool.query("UPDATE billing_accounts SET total_tokens = GREATEST(total_tokens - $1, 0) WHERE org_id=$2",
+        [tokensUsed, org_id]);
+    }
+
+    await pool.query("UPDATE chats SET updated_at=now() WHERE chat_id=$1", [chatId]);
+    return reply.send({ ok: true, tokens_used: tokensUsed });
+  });
+
   // ==================== BALANCE (local) ====================
 
   app.get("/api/v1/billing", async (req: any, reply) => {
@@ -1741,9 +1778,8 @@ async function main() {
   });
 
   // POST /api/rag/query — hybrid RAG search (keyword + wiki graph)
-  // POST /api/rag/query — hybrid RAG search (keyword + wiki graph)
   app.post("/api/rag/query", async (req: any, reply) => {
-    const { query, top_k, wiki_radius } = req.body || {};
+    const { query, top_k, wiki_radius, org_id } = req.body || {};
     if (!query) return reply.status(400).send({ error: "query required" });
     const p = auth(req, reply); if (!p) return;
     try {
@@ -1751,7 +1787,7 @@ async function main() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${signToken(p.user_id)}`,
+          "Authorization": `Bearer ${signToken(p.user_id, org_id)}`,
         },
         body: JSON.stringify({ query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
       });
@@ -1764,7 +1800,7 @@ async function main() {
 
   // POST /api/rag/chat — enhanced chat with RAG context injection
   app.post("/api/rag/chat", async (req: any, reply) => {
-    const { messages, model, rag_query, top_k, wiki_radius, temperature } = req.body || {};
+    const { messages, model, rag_query, top_k, wiki_radius, temperature, org_id } = req.body || {};
     if (!messages || !rag_query) return reply.status(400).send({ error: "messages and rag_query required" });
     const p = auth(req, reply); if (!p) return;
 
@@ -1774,19 +1810,25 @@ async function main() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${signToken(p.user_id)}`,
+          "Authorization": `Bearer ${signToken(p.user_id, org_id)}`,
         },
         body: JSON.stringify({ query: rag_query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
       });
       const ragData = await ragResp.json();
-      const ragResults = ragData.results || [];
+      // Gateway returns {results: {wiki_results: [...], chroma_results: [...]}} — flatten into array
+      const rawResults = ragData.results || {};
+      const ragResults: any[] = [
+        ...(Array.isArray(rawResults.wiki_results) ? rawResults.wiki_results : []),
+        ...(Array.isArray(rawResults.chroma_results) ? rawResults.chroma_results : []),
+        ...(Array.isArray(rawResults) ? rawResults : []), // backward compat: if results is already an array
+      ];
 
       // Step 2: Build augmented prompt with RAG context
       let ragContext = "";
       if (ragResults.length > 0) {
         ragContext = "[Контекст из базы знаний Aither]\n\n";
-        for (const r of ragResults) {
-          ragContext += `### ${r.page_title || r.source}\n${r.text}\n\n`;
+        for (const r of ragResults.slice(0, 5)) { // limit to 5 results to avoid context overflow
+          ragContext += `### ${r.page_title || r.source || "источник"}\n${(r.text || r.preview || "").slice(0, 500)}\n\n`;
         }
         ragContext += "[/Контекст]\n\n";
       }
@@ -1805,7 +1847,7 @@ async function main() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${signToken(p.user_id)}`,
+          "Authorization": `Bearer ${signToken(p.user_id, org_id)}`,
         },
         body: JSON.stringify({
           model: model || "qwen2.5-14b",
