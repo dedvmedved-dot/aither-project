@@ -35,6 +35,17 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function(o) {
+    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
+    if (m) return m.call(o);
+    if (o && typeof o.length === "number") return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticateViaLDAP = authenticateViaLDAP;
 exports.isLDAPEnabled = isLDAPEnabled;
@@ -142,11 +153,21 @@ var GROUP_ROLE_MAP = {
     // Default: "viewer"
 };
 function mapRole(groups) {
-    for (var _i = 0, groups_1 = groups; _i < groups_1.length; _i++) {
-        var g = groups_1[_i];
-        var role = GROUP_ROLE_MAP[g.toLowerCase()];
-        if (role)
-            return role;
+    var e_1, _a;
+    try {
+        for (var groups_1 = __values(groups), groups_1_1 = groups_1.next(); !groups_1_1.done; groups_1_1 = groups_1.next()) {
+            var g = groups_1_1.value;
+            var role = GROUP_ROLE_MAP[g.toLowerCase()];
+            if (role)
+                return role;
+        }
+    }
+    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+    finally {
+        try {
+            if (groups_1_1 && !groups_1_1.done && (_a = groups_1.return)) _a.call(groups_1);
+        }
+        finally { if (e_1) throw e_1.error; }
     }
     return "developer"; // default
 }
@@ -156,7 +177,7 @@ function escapeLDAP(str) {
 }
 function authenticateViaLDAP(username, password) {
     return __awaiter(this, void 0, void 0, function () {
-        var client, userEntry, userClient, groupClient, groups, attrs, uid, email, displayName, e_1;
+        var client, userEntry, userClient, groupClient, groups, attrs, uid, email, displayName, e_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -208,7 +229,7 @@ function authenticateViaLDAP(username, password) {
                             role: mapRole(groups),
                         }];
                 case 7:
-                    e_1 = _a.sent();
+                    e_2 = _a.sent();
                     client.destroy();
                     return [2 /*return*/, null];
                 case 8: return [2 /*return*/];

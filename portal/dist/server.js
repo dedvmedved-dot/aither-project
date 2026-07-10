@@ -1903,6 +1903,18 @@ function main() {
         });
     }); });
 
+    app.get("/api/v1/admin/tiers", function (req, reply) { return __awaiter(void 0, void 0, void 0, function () {
+        var r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, pool.query("SELECT * FROM subscription_tiers ORDER BY name")];
+                case 1:
+                    r = _a.sent();
+                    return [2 /*return*/, reply.send({ tiers: r.rows })];
+            }
+        });
+    }); });
+
 app.all("/api/v1/admin/*", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
                         var adminHeader, isAdminKey, p, orgs, path, gwUrl, method, headers, ADMIN_JWT_SECRET, adminToken, body, resp, data, e_22;
                         return __generator(this, function (_a) {
@@ -1927,7 +1939,7 @@ app.all("/api/v1/admin/*", function (req, reply) { return __awaiter(_this, void 
                                 case 3:
                                     _a.trys.push([3, 6, , 7]);
                                     method = req.method;
-                                    headers = { "Content-Type": "application/json" };
+                                    headers = { "Content-Type": "application/json", "X-Admin-Key": adminHeader };
                                     ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "aither-admin-secret";
                                     adminToken = jsonwebtoken_1.default.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, ADMIN_JWT_SECRET, { algorithm: "HS256", expiresIn: "5m" });
                                     headers["Authorization"] = "Bearer ".concat(adminToken);

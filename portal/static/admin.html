@@ -169,6 +169,7 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <a href="#tiers" data-panel="tiers"><span class="icon">⚙️</span> Тарифы</a>
     <div class="section">Этап 5а</div>
     <a href="#stage5a" data-panel="stage5a"><span class="icon">🗺️</span> Статус 5а</a>
+    <a href="/" style="color:var(--text-muted);margin-top:auto;" title="Вернуться в портал"><span class="icon">🚪</span> Выход</a>
   </nav>
 
   <!-- CONTENT -->
@@ -480,8 +481,21 @@ async function loadHealth() {
   const el = document.getElementById('health-body');
   try {
     const h = await api('/health');
+    // Gateway returns flat response: {status, orgs, transactions_24h}
+    // Also try component-based format
     const comps = h.components || {};
     const cards = [];
+
+    // Show Gateway health summary
+    if (h.status === "ok" && !h.components) {
+      cards.push(`<div class="card" style="padding:12px;margin-bottom:8px;">
+        <span class="badge badge-healthy">✓ Gateway OK</span>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+          Организаций: <b>${h.orgs || 0}</b> &nbsp;|&nbsp;
+          Транзакций за 24ч: <b>${h.transactions_24h || 0}</b>
+        </div>
+      </div>`);
+    }
 
     for (const [name, c] of Object.entries(comps)) {
       let badge = '';
