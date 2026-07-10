@@ -167,7 +167,7 @@ function ensurePersonalOrg(userId) {
                     return [4 /*yield*/, pool.query("INSERT INTO portal_org_members (org_id, user_id, role) VALUES ($1,$2,'owner')", [orgId, userId])];
                 case 3:
                     _a.sent();
-                    return [4 /*yield*/, pool.query("INSERT INTO billing_accounts (org_id, reserved, total_tokens, meta)\n     VALUES ($1,0,$2,'{}'::jsonb)\n     ON CONFLICT (org_id) DO NOTHING", [orgId, STARTER_TOKENS])];
+                    return [4 /*yield*/, pool.query("INSERT INTO billing_accounts (org_id, reserved, total_tokens)\n     VALUES ($1,0,$2)\n     ON CONFLICT (org_id) DO NOTHING", [orgId, STARTER_TOKENS])];
                 case 4:
                     _a.sent();
                     console.log("[auto-balance] new user ".concat(userId, ": personal org ").concat(orgId, " + ").concat(STARTER_TOKENS, " tokens"));
@@ -747,7 +747,7 @@ function main() {
                                     _b.label = 6;
                                 case 6:
                                     _b.trys.push([6, 8, , 9]);
-                                    return [4 /*yield*/, pool.query("INSERT INTO billing_accounts (org_id, reserved, total_tokens, meta) VALUES ($1,0,$2,'{}'::jsonb) ON CONFLICT (org_id) DO NOTHING", [newOrgId, STARTER_TOKENS])];
+                                    return [4 /*yield*/, pool.query("INSERT INTO billing_accounts (org_id, reserved, total_tokens) VALUES ($1,0,$2) ON CONFLICT (org_id) DO NOTHING", [newOrgId, STARTER_TOKENS])];
                                 case 7:
                                     _b.sent();
                                     return [3 /*break*/, 9];
@@ -756,7 +756,7 @@ function main() {
                                     return [3 /*break*/, 9];
                                 case 9:
                                     key = "ak-" + (0, crypto_1.randomBytes)(24).toString("hex");
-                                    return [4 /*yield*/, pool.query("INSERT INTO portal_api_keys (org_id, user_id, name, key_hash, api_key, api_key_prefix, status) VALUES ($1,$2,$3,$4,$5,$6,'active')", [newOrgId, userId, "default", key, key, "ak-"])];
+                                    return [4 /*yield*/, pool.query("INSERT INTO portal_api_keys (org_id, api_key, api_key_prefix, name) VALUES ($1,$2,$3,$4)", [newOrgId, key, "ak-", "default"])];
                                 case 10:
                                     _b.sent();
                                     tok = signToken(userId);
