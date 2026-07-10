@@ -42,6 +42,10 @@ function auth(req: any, reply: any): { user_id: string } | null {
   if (!p) { reply.status(401).send({ error: "invalid_token" }); return null; }
   return p;
 }
+async function isSuperAdmin(userId: string): Promise<boolean> {
+  const r = await pool.query("SELECT 1 FROM portal_users WHERE user_id=$1 AND role='super_admin'", [userId]);
+  return r.rows.length > 0;
+}
 async function checkOrgOwner(orgId: string, userId: string): Promise<boolean> {
   const r = await pool.query("SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND role='owner'", [orgId, userId]);
   return r.rows.length > 0;
@@ -1466,6 +1470,9 @@ async function main() {
 
     if (!p) return reply.send({ admin: false });
 
+    // Super admin bypass — no org check needed
+    if (await isSuperAdmin(p.user_id)) return reply.send({ admin: true });
+
     const orgs = await pool.query(
       "SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1",
       [p.user_id]
@@ -1500,11 +1507,13 @@ async function main() {
         return reply.redirect("/");
       }
 
-      const orgs = await pool.query(
+      // Super admin bypass — no org check needed
+      const isAdmin = await isSuperAdmin(p.user_id) || (await pool.query(
         "SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1",
         [p.user_id]
-      );
-      if (orgs.rows.length === 0) {
+      )).rows.length > 0;
+
+      if (!isAdmin) {
         return reply.status(403).type("text/html").send(
           "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>403 — Aither Admin</title>" +
           "<style>body{font-family:system-ui;background:#0a0a0f;color:#e4e4ec;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}" +

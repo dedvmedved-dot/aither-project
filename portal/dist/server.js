@@ -86,6 +86,10 @@ function auth(req, reply) {
     }
     return p;
 }
+async function isSuperAdmin(userId) {
+    const r = await pool.query("SELECT 1 FROM portal_users WHERE user_id=$1 AND role='super_admin'", [userId]);
+    return r.rows.length > 0;
+}
 async function checkOrgOwner(orgId, userId) {
     const r = await pool.query("SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND role='owner'", [orgId, userId]);
     return r.rows.length > 0;
@@ -1377,6 +1381,9 @@ async function main() {
         }
         if (!p)
             return reply.send({ admin: false });
+        // Super admin bypass — no org check needed
+        if (await isSuperAdmin(p.user_id))
+            return reply.send({ admin: true });
         const orgs = await pool.query("SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1", [p.user_id]);
         return reply.send({ admin: orgs.rows.length > 0 });
     });
@@ -1405,8 +1412,9 @@ async function main() {
                 // No valid auth — redirect to portal login
                 return reply.redirect("/");
             }
-            const orgs = await pool.query("SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1", [p.user_id]);
-            if (orgs.rows.length === 0) {
+            // Super admin bypass — no org check needed
+            const isAdmin = await isSuperAdmin(p.user_id) || (await pool.query("SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1", [p.user_id])).rows.length > 0;
+            if (!isAdmin) {
                 return reply.status(403).type("text/html").send("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>403 — Aither Admin</title>" +
                     "<style>body{font-family:system-ui;background:#0a0a0f;color:#e4e4ec;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}" +
                     "div{text-align:center}h1{font-size:72px;margin:0;color:#f87171}p{color:#71718a;margin:8px 0 24px}a{color:#818cf8}</style></head>" +

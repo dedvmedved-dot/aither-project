@@ -1664,7 +1664,7 @@ async function loadBalance() {
   const { ok, data } = await api(`/api/v1/billing?org_id=${state.chatOrgId}`);
   const bal = $('#chat-balance');
   if (bal && ok) {
-    bal.innerHTML = `Баланс: <span class="chat-balance-val">${formatNumber(data.balance || 0)}</span> токенов`;
+    bal.innerHTML = `Баланс: <span class="chat-balance-val">${formatNumber(data.total_tokens || 0)}</span> токенов`;
   }
 }
 
@@ -2154,30 +2154,6 @@ function highlightCode(el) {
   el.innerHTML = code;
 }
 
-// ===== DASHBOARD =====
-async function renderDashboard() {
-  const orgId = state.selectedOrg?.org_id;
-  if (!orgId) { $$("#view").innerHTML = '<div class="empty">Выберите организацию</div>'; return; }
-  const { ok, data } = await api("/api/v1/billing/dashboard?org_id=" + orgId);
-  if (!ok) { $$("#view").innerHTML = '<div class="empty">Ошибка загрузки</div>'; return; }
-  const bal = data.balance || {};
-  const month = data.month || {};
-  const daily = data.daily || [];
-  const byModel = data.by_model || [];
-  $$("#view").innerHTML = `<h2>Дашборд</h2>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-val">${(bal.total_tokens||0).toLocaleString()}</div><div class="stat-label">Токенов на счету</div></div>
-      <div class="stat-card"><div class="stat-val">${(month.total||0).toLocaleString()}</div><div class="stat-label">Токенов за месяц</div></div>
-      <div class="stat-card"><div class="stat-val">${(month.count||0)}</div><div class="stat-label">Запросов за месяц</div></div>
-      <div class="stat-card"><div class="stat-val">${(bal.reserved||0).toLocaleString()}</div><div class="stat-label">Зарезервировано</div></div>
-    </div>
-    <div class="chart-row">
-      <div class="chart-box"><canvas id="dailyChart"></canvas></div>
-      <div class="chart-box"><canvas id="modelChart"></canvas></div>
-    </div>`;
-  if (daily.length) { new Chart(document.getElementById("dailyChart"),{type:"line",data:{labels:daily.map(d=>d.day.slice(5)),datasets:[{label:"Токенов",data:daily.map(d=>+d.tokens),borderColor:"#6366f1",backgroundColor:"rgba(99,102,241,0.1)",fill:true,tension:0.3}]},options:{responsive:true,plugins:{legend:{labels:{color:"#71718a"}}},scales:{x:{ticks:{color:"#4a4a5e"}},y:{ticks:{color:"#4a4a5e"}}}}}); }
-  if (byModel.length) { new Chart(document.getElementById("modelChart"),{type:"doughnut",data:{labels:byModel.map(m=>m.model),datasets:[{data:byModel.map(m=>+m.tokens),backgroundColor:["#6366f1","#34d399","#fbbf24","#f87171","#818cf8","#a78bfa"]}]},options:{responsive:true,plugins:{legend:{position:"bottom",labels:{color:"#71718a",padding:12}}}}}); }
-}
 async function upgradeTier(orgId,tier){if(!orgId){navigate('orgs');toast('Сначала выберите организацию','error');return;}
   if(!confirm("Перейти на тариф "+tier.toUpperCase()+"?"))return;
   const{ok,data}=await api("/api/v1/orgs/"+orgId+"/purchase-tier",{method:"POST",body:JSON.stringify({tier})});
