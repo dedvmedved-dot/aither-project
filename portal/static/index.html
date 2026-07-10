@@ -428,6 +428,7 @@ tr:hover td { background: var(--bg-card-hover); }
 }
 .toast.success { border-left: 3px solid var(--green); }
 .toast.error { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--accent); }
 @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
 
 /* ===== MODAL ===== */
@@ -1844,6 +1845,15 @@ async function sendChat() {
         try {
           const parsed = JSON.parse(data);
           if (parsed.done) {
+            // Show token deduction
+            if (parsed.tokens_used) {
+              toast(`Списано ${formatNumber(parsed.tokens_used)} токенов`, 'info');
+              // Update balance counter immediately
+              if (parsed.balance != null) {
+                const bal = $('#chat-balance');
+                if (bal) bal.innerHTML = `Баланс: <span class="chat-balance-val">${formatNumber(parsed.balance)}</span> токенов`;
+              }
+            }
             // Reload chat to get server-saved messages
             await loadChatMessages(state.chatId);
             break;

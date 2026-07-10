@@ -988,6 +988,7 @@ async function main() {
                 "Connection": "keep-alive",
             });
             let fullContent = "";
+            let vllmUsage = 0; // real token count from vLLM
             const reader = vllmRes.body.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
@@ -1008,6 +1009,9 @@ async function main() {
                                 const parsed = JSON.parse(data);
                                 const delta = parsed.choices?.[0]?.delta?.content || "";
                                 fullContent += delta;
+                                // Capture real token usage from vLLM
+                                if (parsed.usage?.total_tokens)
+                                    vllmUsage = parsed.usage.total_tokens;
                                 // Forward to client
                                 reply.raw.write(`data: ${JSON.stringify({ delta })}\n\n`);
                             }
@@ -1019,11 +1023,17 @@ async function main() {
             finally {
                 reader.releaseLock();
             }
+            // Use real vLLM token count, fall back to estimate
+            const tokensUsed = vllmUsage || Math.ceil(fullContent.length / 4);
+            // Deduct from billing account
+            if (org_id) {
+                await pool.query("UPDATE billing_accounts SET total_tokens = GREATEST(total_tokens - $1, 0) WHERE org_id=$2", [tokensUsed, org_id]);
+            }
             // Save assistant message
-            const tokensUsed = Math.ceil(fullContent.length / 4); // rough estimate
             await pool.query("INSERT INTO chat_messages (chat_id, role, content, tokens_used) VALUES ($1,'assistant',$2,$3)", [chatId, fullContent, tokensUsed]);
             await pool.query("UPDATE chats SET updated_at=now() WHERE chat_id=$1", [chatId]);
-            reply.raw.write(`data: ${JSON.stringify({ delta: "", done: true, tokens_used: tokensUsed })}\n\n`);
+            const newBalance = org_id ? (await pool.query("SELECT total_tokens FROM billing_accounts WHERE org_id=$1", [org_id])).rows[0]?.total_tokens : null;
+            reply.raw.write(`data: ${JSON.stringify({ delta: "", done: true, tokens_used: tokensUsed, balance: Number(newBalance) })}\n\n`);
             reply.raw.end();
         }
         catch (e) {
