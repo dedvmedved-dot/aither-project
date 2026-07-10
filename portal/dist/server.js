@@ -51913,6 +51913,12 @@ async function main() {
   app.post("/api/v1/admin/users/:userId/role", async (req, reply) => {
     return reply.send({ status: "ok", note: "role change not yet implemented" });
   });
+  app.get("/api/v1/admin/tiers", async (_req, reply) => {
+    const r = await pool.query(
+      "SELECT tier_id, name, description, rpm_limit, tpm_limit, daily_request_limit AS daily_limit, models, rag_enabled, priority, price_rub_month AS price_rub FROM subscription_tiers ORDER BY priority"
+    );
+    return reply.send({ tiers: r.rows });
+  });
   app.get("/api/v1/admin/settings", async (req, reply) => {
     const r = await pool.query("SELECT key, value FROM portal_settings");
     const result = {};

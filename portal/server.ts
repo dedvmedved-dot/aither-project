@@ -1452,6 +1452,14 @@ async function main() {
     return reply.send({ status: "ok", note: "role change not yet implemented" });
   });
 
+  // Tiers — read from local subscription_tiers table (not proxied to Gateway)
+  app.get("/api/v1/admin/tiers", async (_req: any, reply) => {
+    const r = await pool.query(
+      "SELECT tier_id, name, description, rpm_limit, tpm_limit, daily_request_limit AS daily_limit, " +
+      "models, rag_enabled, priority, price_rub_month AS price_rub FROM subscription_tiers ORDER BY priority");
+    return reply.send({ tiers: r.rows });
+  });
+
   // Settings (LDAP) — stored in local portal_settings table, not proxied to Gateway
   app.get("/api/v1/admin/settings", async (req: any, reply) => {
     const r = await pool.query("SELECT key, value FROM portal_settings");
