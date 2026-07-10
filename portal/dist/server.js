@@ -51978,11 +51978,10 @@ async function main() {
   });
   app.delete("/api/v1/admin/orgs/:orgId", async (req, reply) => {
     const { orgId } = req.params;
+    await pool.query("DELETE FROM payment_transactions WHERE org_id = $1", [orgId]);
     await pool.query("DELETE FROM portal_org_members WHERE org_id = $1", [orgId]);
     await pool.query("DELETE FROM portal_api_keys WHERE org_id = $1", [orgId]);
     await pool.query("DELETE FROM billing_accounts WHERE org_id = $1", [orgId]);
-    await pool.query("DELETE FROM chat_messages WHERE chat_id IN (SELECT chat_id FROM chats WHERE org_id = $1)", [orgId]);
-    await pool.query("DELETE FROM chats WHERE org_id = $1", [orgId]);
     await pool.query("DELETE FROM portal_organizations WHERE org_id = $1", [orgId]);
     return reply.send({ status: "deleted", org_id: orgId });
   });
