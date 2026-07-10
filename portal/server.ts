@@ -185,12 +185,20 @@ async function main() {
     CREATE TABLE IF NOT EXISTS chats (
       chat_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id uuid NOT NULL REFERENCES portal_users(user_id),
+      org_id uuid REFERENCES portal_organizations(org_id),
       title text NOT NULL DEFAULT 'Новый чат',
       model text NOT NULL DEFAULT 'qwen2.5-14b',
       share_token text UNIQUE,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    -- Migration: add org_id to existing chats (set to user's personal org)
+    ALTER TABLE chats ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES portal_organizations(org_id);
+    UPDATE chats SET org_id = sub.org_id FROM (
+      SELECT DISTINCT ON (c.chat_id) c.chat_id, m.org_id
+      FROM chats c JOIN portal_org_members m ON m.user_id = c.user_id AND m.role = 'owner'
+    ) sub WHERE chats.chat_id = sub.chat_id AND chats.org_id IS NULL;
+    ALTER TABLE chats ALTER COLUMN org_id SET NOT NULL;
     CREATE TABLE IF NOT EXISTS chat_messages (
       message_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       chat_id uuid NOT NULL REFERENCES chats(chat_id) ON DELETE CASCADE,
@@ -832,8 +840,8 @@ async function main() {
 
   // ==================== CHATS ====================
 
-  /** Check if chat is enabled for any org the user belongs to. Returns true if enabled. */
-  async function checkChatEnabled(userId: string, reply: any): Promise<boolean> {
+  /** Check if chat is enabled for any org the user belongs to. Returns org_id if enabled, null otherwise. */
+  async function checkChatEnabled(userId: string, reply: any): Promise<string | null> {
     const orgs = await pool.query(
       `SELECT o.org_id FROM portal_organizations o
        JOIN portal_org_members m ON o.org_id = m.org_id
@@ -841,14 +849,15 @@ async function main() {
        LIMIT 1`, [userId]);
     if (orgs.rows.length === 0) {
       reply.status(403).send({ error: "chat_disabled", detail: "no active organization" });
-      return false;
+      return null;
     }
-    const policy = await loadPolicy(pool, orgs.rows[0].org_id);
+    const orgId = orgs.rows[0].org_id;
+    const policy = await loadPolicy(pool, orgId);
     if (!policy.chat_enabled) {
       reply.status(403).send({ error: "chat_disabled", detail: "чат отключён в настройках безопасности организации" });
-      return false;
+      return null;
     }
-    return true;
+    return orgId;
   }
 
   // Get org's active API key (for delegation in chat)
@@ -878,32 +887,32 @@ async function main() {
   // List chats
   app.get("/api/v1/chats", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
-    if (!await checkChatEnabled(p.user_id, reply)) return;
+    const orgId = await checkChatEnabled(p.user_id, reply); if (!orgId) return;
     const r = await pool.query(
       `SELECT chat_id, title, model, share_token, created_at, updated_at
-       FROM chats WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50`,
-      [p.user_id]);
+       FROM chats WHERE user_id=$1 AND org_id=$2 ORDER BY updated_at DESC LIMIT 50`,
+      [p.user_id, orgId]);
     return { chats: r.rows };
   });
 
   // Create chat
   app.post("/api/v1/chats", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
-    if (!await checkChatEnabled(p.user_id, reply)) return;
+    const orgId = await checkChatEnabled(p.user_id, reply); if (!orgId) return;
     const { title, model }: any = req.body || {};
     const r = await pool.query(
-      `INSERT INTO chats (user_id, title, model) VALUES ($1,$2,$3)
+      `INSERT INTO chats (user_id, org_id, title, model) VALUES ($1,$2,$3,$4)
        RETURNING chat_id, title, model, created_at`,
-      [p.user_id, title || "Новый чат", model || "qwen2.5-14b"]);
+      [p.user_id, orgId, title || "Новый чат", model || "qwen2.5-14b"]);
     return { chat: r.rows[0] };
   });
 
   // Get chat with messages
   app.get("/api/v1/chats/:chatId", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
-    if (!await checkChatEnabled(p.user_id, reply)) return;
+    const orgId = await checkChatEnabled(p.user_id, reply); if (!orgId) return;
     const { chatId } = req.params;
-    const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
+    const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2 AND org_id=$3", [chatId, p.user_id, orgId]);
     if (c.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
     const msgs = await pool.query(
       "SELECT message_id, role, content, tokens_used, created_at FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC",
@@ -914,9 +923,9 @@ async function main() {
   // Delete chat
   app.delete("/api/v1/chats/:chatId", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
-    if (!await checkChatEnabled(p.user_id, reply)) return;
+    const orgId = await checkChatEnabled(p.user_id, reply); if (!orgId) return;
     const { chatId } = req.params;
-    const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 RETURNING chat_id", [chatId, p.user_id]);
+    const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 AND org_id=$3 RETURNING chat_id", [chatId, p.user_id, orgId]);
     if (r.rows.length === 0) return reply.status(404).send({ error: "chat not found" });
     return { deleted: true };
   });
