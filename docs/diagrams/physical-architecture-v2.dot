@@ -179,8 +179,12 @@ digraph AitherPhysicalArchitecture {
     n8_graf -> n8_prom [color="#ff8f00", penwidth=1.5, style=dashed]
 
     // ═══════════════════════════════════════════════════════════════
-    // LEGEND
+    // LEGEND — placed at bottom via invisible edge from n7_chroma
     // ═══════════════════════════════════════════════════════════════
+
+    // Invisible connector from bottom content → legend
+    n7_chroma -> le1 [style=invis, weight=0]
+
     subgraph cluster_legend {
         label="Условные обозначения"
         style="filled,rounded"
@@ -188,8 +192,7 @@ digraph AitherPhysicalArchitecture {
         color="#bdbdbd"
         fontcolor="#000000"
         fontsize=12
-        rankdir=LR
-        rank=same
+        peripheries=1
 
         node [shape=plaintext, fillcolor="#fafafa", color="#fafafa", fontsize=10, fontcolor="#000000", margin="0.05,0.02"]
 
@@ -201,4 +204,7 @@ digraph AitherPhysicalArchitecture {
 
         le1 -> le2 -> le3 -> le4 -> le5 [style=invis]
     }
+
+    // Keep legend nodes on same horizontal row
+    { rank=same; le1; le2; le3; le4; le5 }
 }
