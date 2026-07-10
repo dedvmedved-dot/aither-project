@@ -46,6 +46,33 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __values = (this && this.__values) || function(o) {
+    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
+    if (m) return m.call(o);
+    if (o && typeof o.length === "number") return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
+};
 var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
         if (ar || !(i in from)) {
@@ -156,7 +183,7 @@ function hashPassword(password) {
     return "".concat(salt, ":").concat(hash);
 }
 function verifyPassword(password, stored) {
-    var _a = stored.split(":"), salt = _a[0], hash = _a[1];
+    var _a = __read(stored.split(":"), 2), salt = _a[0], hash = _a[1];
     if (!salt || !hash)
         return false;
     var derived = (0, crypto_1.scryptSync)(password, salt, 64).toString("hex");
@@ -181,11 +208,21 @@ function safeJsonParse(s) {
 var oauthStates = new Map();
 // Cleanup expired states every 5 minutes
 setInterval(function () {
+    var e_1, _a;
     var now = Date.now();
-    for (var _i = 0, oauthStates_1 = oauthStates; _i < oauthStates_1.length; _i++) {
-        var _a = oauthStates_1[_i], k = _a[0], v = _a[1];
-        if (v.expires < now)
-            oauthStates.delete(k);
+    try {
+        for (var oauthStates_1 = __values(oauthStates), oauthStates_1_1 = oauthStates_1.next(); !oauthStates_1_1.done; oauthStates_1_1 = oauthStates_1.next()) {
+            var _b = __read(oauthStates_1_1.value, 2), k = _b[0], v = _b[1];
+            if (v.expires < now)
+                oauthStates.delete(k);
+        }
+    }
+    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+    finally {
+        try {
+            if (oauthStates_1_1 && !oauthStates_1_1.done && (_a = oauthStates_1.return)) _a.call(oauthStates_1);
+        }
+        finally { if (e_1) throw e_1.error; }
     }
 }, 300000);
 /** Store OAuth state in memory, return state value */
@@ -310,7 +347,7 @@ function main() {
                         });
                     }); });
                     app.get("/auth/github/callback", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var _a, code, state, tokenRes, tokenData, accessToken, _b, userRes, emailsRes, ghUser, emails, primaryEmail, oauthId, displayName, avatarUrl, user, userId, ins, tok, redirectHost, e_1;
+                        var _a, code, state, tokenRes, tokenData, accessToken, _b, userRes, emailsRes, ghUser, emails, primaryEmail, oauthId, displayName, avatarUrl, user, userId, ins, tok, redirectHost, e_2;
                         var _c, _d;
                         return __generator(this, function (_e) {
                             switch (_e.label) {
@@ -348,7 +385,7 @@ function main() {
                                             fetch("https://api.github.com/user/emails", { headers: { Authorization: "Bearer ".concat(accessToken), "User-Agent": "aither-portal" } }),
                                         ])];
                                 case 4:
-                                    _b = _e.sent(), userRes = _b[0], emailsRes = _b[1];
+                                    _b = __read.apply(void 0, [_e.sent(), 2]), userRes = _b[0], emailsRes = _b[1];
                                     return [4 /*yield*/, userRes.json()];
                                 case 5:
                                     ghUser = _e.sent();
@@ -383,8 +420,8 @@ function main() {
                                     redirectHost = process.env.PUBLIC_HOST || "localhost";
                                     return [2 /*return*/, reply.redirect("http://".concat(redirectHost, "/?aither_token=").concat(tok, "&user_id=").concat(userId, "&name=").concat(encodeURIComponent(displayName)))];
                                 case 13:
-                                    e_1 = _e.sent();
-                                    return [2 /*return*/, reply.status(502).send({ error: "GitHub OAuth error: " + safeError(e_1) })];
+                                    e_2 = _e.sent();
+                                    return [2 /*return*/, reply.status(502).send({ error: "GitHub OAuth error: " + safeError(e_2) })];
                                 case 14: return [2 /*return*/];
                             }
                         });
@@ -409,7 +446,7 @@ function main() {
                         });
                     }); });
                     app.get("/auth/google/callback", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var code, redirectUri, tokenRes, tokenData, userRes, gu, oauthId, displayName, email, avatarUrl, user, userId, ins, tok, redirectHost, e_2;
+                        var code, redirectUri, tokenRes, tokenData, userRes, gu, oauthId, displayName, email, avatarUrl, user, userId, ins, tok, redirectHost, e_3;
                         var _a;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
@@ -479,8 +516,8 @@ function main() {
                                     redirectHost = process.env.PUBLIC_HOST || "localhost";
                                     return [2 /*return*/, reply.redirect("http://".concat(redirectHost, "/?aither_token=").concat(tok, "&user_id=").concat(userId, "&name=").concat(encodeURIComponent(displayName)))];
                                 case 12:
-                                    e_2 = _b.sent();
-                                    return [2 /*return*/, reply.status(502).send({ error: "Google OAuth error: " + safeError(e_2) })];
+                                    e_3 = _b.sent();
+                                    return [2 /*return*/, reply.status(502).send({ error: "Google OAuth error: " + safeError(e_3) })];
                                 case 13: return [2 /*return*/];
                             }
                         });
@@ -504,7 +541,7 @@ function main() {
                         });
                     }); });
                     app.get("/auth/yandex/callback", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var code, tokenRes, tokenData, userRes, yu, oauthId, displayName, email, avatarUrl, user, userId, ins, tok, redirectHost, e_3;
+                        var code, tokenRes, tokenData, userRes, yu, oauthId, displayName, email, avatarUrl, user, userId, ins, tok, redirectHost, e_4;
                         var _a;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
@@ -574,15 +611,15 @@ function main() {
                                     redirectHost = process.env.PUBLIC_HOST || "localhost";
                                     return [2 /*return*/, reply.redirect("http://".concat(redirectHost, "/?aither_token=").concat(tok, "&user_id=").concat(userId, "&name=").concat(encodeURIComponent(displayName)))];
                                 case 12:
-                                    e_3 = _b.sent();
-                                    return [2 /*return*/, reply.status(502).send({ error: "Yandex OAuth error: " + safeError(e_3) })];
+                                    e_4 = _b.sent();
+                                    return [2 /*return*/, reply.status(502).send({ error: "Yandex OAuth error: " + safeError(e_4) })];
                                 case 13: return [2 /*return*/];
                             }
                         });
                     }); });
                     // === LDAP Authentication (FreeIPA / ALD Pro / OpenLDAP) ===
                     app.post("/auth/ldap", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var _a, username, password, ldapUser, oauthId, provider, user, userId, ins, tok, e_4;
+                        var _a, username, password, ldapUser, oauthId, provider, user, userId, ins, tok, e_5;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
                                 case 0:
@@ -629,8 +666,8 @@ function main() {
                                             ldap_role: ldapUser.role,
                                         }];
                                 case 9:
-                                    e_4 = _b.sent();
-                                    return [2 /*return*/, reply.status(502).send({ error: "LDAP error: " + safeError(e_4) })];
+                                    e_5 = _b.sent();
+                                    return [2 /*return*/, reply.status(502).send({ error: "LDAP error: " + safeError(e_5) })];
                                 case 10: return [2 /*return*/];
                             }
                         });
@@ -674,7 +711,7 @@ function main() {
                     }); });
                     // === SaaS Signup ===
                     app.post("/auth/signup", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var _a, email, password, org_name, invite_code, requiredCode, existing, hash, ins, userId, orgId, orgName, newOrg, newOrgId, e_5, key, tok;
+                        var _a, email, password, org_name, invite_code, requiredCode, existing, hash, ins, userId, orgId, orgName, newOrg, newOrgId, e_6, key, tok;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
                                 case 0:
@@ -715,7 +752,7 @@ function main() {
                                     _b.sent();
                                     return [3 /*break*/, 9];
                                 case 8:
-                                    e_5 = _b.sent();
+                                    e_6 = _b.sent();
                                     return [3 /*break*/, 9];
                                 case 9:
                                     key = "ak-" + (0, crypto_1.randomBytes)(24).toString("hex");
@@ -804,7 +841,7 @@ function main() {
                         });
                     }); });
                     app.get("/api/v1/core/status", function (_r, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var r, text, e_6;
+                        var r, text, e_7;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -825,8 +862,8 @@ function main() {
                                     }
                                     return [3 /*break*/, 4];
                                 case 3:
-                                    e_6 = _a.sent();
-                                    return [2 /*return*/, reply.send({ status: "unreachable", error: safeError(e_6) })];
+                                    e_7 = _a.sent();
+                                    return [2 /*return*/, reply.send({ status: "unreachable", error: safeError(e_7) })];
                                 case 4: return [2 /*return*/];
                             }
                         });
@@ -863,7 +900,7 @@ function main() {
                         });
                     }); });
                     app.post("/api/v1/orgs", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, name, client, org, o, e_7;
+                        var p, name, client, org, o, e_8;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -894,11 +931,11 @@ function main() {
                                     _a.sent();
                                     return [2 /*return*/, { org: __assign(__assign({}, o), { role: "owner" }) }];
                                 case 7:
-                                    e_7 = _a.sent();
+                                    e_8 = _a.sent();
                                     return [4 /*yield*/, client.query("ROLLBACK")];
                                 case 8:
                                     _a.sent();
-                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_7) })];
+                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_8) })];
                                 case 9:
                                     client.release();
                                     return [7 /*endfinally*/];
@@ -926,7 +963,7 @@ function main() {
                     }); });
                     // ==================== ORG SECURITY POLICIES ====================
                     app.get("/api/v1/orgs/:orgId/policy", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, orgId, m, policy, e_8;
+                        var p, orgId, m, policy, e_9;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -947,16 +984,17 @@ function main() {
                                     policy = _a.sent();
                                     return [2 /*return*/, { org_id: orgId, policy: policy }];
                                 case 4:
-                                    e_8 = _a.sent();
-                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_8) })];
+                                    e_9 = _a.sent();
+                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_9) })];
                                 case 5: return [2 /*return*/];
                             }
                         });
                     }); });
                     app.put("/api/v1/orgs/:orgId/policy", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, orgId, body, allowedKeys, updates, _i, allowedKeys_1, key, err, policy, e_9;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
+                        var p, orgId, body, allowedKeys, updates, allowedKeys_1, allowedKeys_1_1, key, err, policy, e_10;
+                        var e_11, _a;
+                        return __generator(this, function (_b) {
+                            switch (_b.label) {
                                 case 0:
                                     p = auth(req, reply);
                                     if (!p)
@@ -964,7 +1002,7 @@ function main() {
                                     orgId = req.params.orgId;
                                     return [4 /*yield*/, checkOrgOwner(orgId, p.user_id)];
                                 case 1:
-                                    if (!(_a.sent()))
+                                    if (!(_b.sent()))
                                         return [2 /*return*/, reply.status(403).send({ error: "owner only" })];
                                     body = req.body || {};
                                     allowedKeys = [
@@ -977,26 +1015,35 @@ function main() {
                                         "chat_enabled",
                                     ];
                                     updates = {};
-                                    for (_i = 0, allowedKeys_1 = allowedKeys; _i < allowedKeys_1.length; _i++) {
-                                        key = allowedKeys_1[_i];
-                                        if (key in body)
-                                            updates[key] = body[key];
+                                    try {
+                                        for (allowedKeys_1 = __values(allowedKeys), allowedKeys_1_1 = allowedKeys_1.next(); !allowedKeys_1_1.done; allowedKeys_1_1 = allowedKeys_1.next()) {
+                                            key = allowedKeys_1_1.value;
+                                            if (key in body)
+                                                updates[key] = body[key];
+                                        }
+                                    }
+                                    catch (e_11_1) { e_11 = { error: e_11_1 }; }
+                                    finally {
+                                        try {
+                                            if (allowedKeys_1_1 && !allowedKeys_1_1.done && (_a = allowedKeys_1.return)) _a.call(allowedKeys_1);
+                                        }
+                                        finally { if (e_11) throw e_11.error; }
                                     }
                                     if (Object.keys(updates).length === 0)
                                         return [2 /*return*/, reply.status(400).send({ error: "no valid policy fields provided" })];
                                     err = (0, policies_1.validatePolicy)(updates);
                                     if (err)
                                         return [2 /*return*/, reply.status(400).send({ error: err })];
-                                    _a.label = 2;
+                                    _b.label = 2;
                                 case 2:
-                                    _a.trys.push([2, 4, , 5]);
+                                    _b.trys.push([2, 4, , 5]);
                                     return [4 /*yield*/, (0, policies_1.savePolicy)(pool, orgId, updates)];
                                 case 3:
-                                    policy = _a.sent();
+                                    policy = _b.sent();
                                     return [2 /*return*/, { org_id: orgId, policy: policy }];
                                 case 4:
-                                    e_9 = _a.sent();
-                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_9) })];
+                                    e_10 = _b.sent();
+                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_10) })];
                                 case 5: return [2 /*return*/];
                             }
                         });
@@ -1246,17 +1293,18 @@ function main() {
                     }); });
                     // Send message + stream AI response
                     app.post("/api/v1/chats/:chatId/messages", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, chatId, _a, content, org_id, c, chat, userMsg, delegationToken, history, messages, title, modelInfo, vllmModel, vllmEndpoint, vllmRes, fullContent, reader, decoder, buffer, _b, done, value, lines, _i, lines_1, line, data, parsed, delta, tokensUsed, e_10;
-                        var _c, _d, _e;
-                        return __generator(this, function (_f) {
-                            switch (_f.label) {
+                        var p, chatId, _a, content, org_id, c, chat, userMsg, delegationToken, history, messages, title, modelInfo, vllmModel, vllmEndpoint, vllmRes, fullContent, reader, decoder, buffer, _b, done, value, lines, lines_1, lines_1_1, line, data, parsed, delta, tokensUsed, e_12;
+                        var e_13, _c;
+                        var _d, _e, _f;
+                        return __generator(this, function (_g) {
+                            switch (_g.label) {
                                 case 0:
                                     p = auth(req, reply);
                                     if (!p)
                                         return [2 /*return*/];
                                     return [4 /*yield*/, checkChatEnabled(p.user_id, reply)];
                                 case 1:
-                                    if (!(_f.sent()))
+                                    if (!(_g.sent()))
                                         return [2 /*return*/];
                                     chatId = req.params.chatId;
                                     _a = req.body || {}, content = _a.content, org_id = _a.org_id;
@@ -1264,26 +1312,26 @@ function main() {
                                         return [2 /*return*/, reply.status(400).send({ error: "content required" })];
                                     return [4 /*yield*/, pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id])];
                                 case 2:
-                                    c = _f.sent();
+                                    c = _g.sent();
                                     if (c.rows.length === 0)
                                         return [2 /*return*/, reply.status(404).send({ error: "chat not found" })];
                                     chat = c.rows[0];
                                     return [4 /*yield*/, pool.query("INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2) RETURNING message_id, created_at", [chatId, content])];
                                 case 3:
-                                    userMsg = _f.sent();
+                                    userMsg = _g.sent();
                                     delegationToken = DELEGATION_PRIVATE_KEY ? jsonwebtoken_1.default.sign({ org_id: org_id || "", user_id: p.user_id }, DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" }) : "";
                                     return [4 /*yield*/, pool.query("SELECT role, content FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC", [chatId])];
                                 case 4:
-                                    history = _f.sent();
+                                    history = _g.sent();
                                     messages = history.rows.map(function (m) { return ({ role: m.role, content: m.content }); });
                                     if (!(chat.title === "Новый чат" && history.rows.filter(function (m) { return m.role === "user"; }).length === 1)) return [3 /*break*/, 6];
                                     title = content.slice(0, 50).replace(/\n/g, " ");
                                     return [4 /*yield*/, pool.query("UPDATE chats SET title=$1 WHERE chat_id=$2", [title, chatId])];
                                 case 5:
-                                    _f.sent();
-                                    _f.label = 6;
+                                    _g.sent();
+                                    _g.label = 6;
                                 case 6:
-                                    _f.trys.push([6, 18, , 20]);
+                                    _g.trys.push([6, 18, , 20]);
                                     modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
                                     vllmModel = modelInfo.vllm_path;
                                     vllmEndpoint = CORE_API;
@@ -1292,20 +1340,20 @@ function main() {
                                             headers: __assign({ "Content-Type": "application/json" }, (delegationToken ? { "Authorization": "Bearer " + delegationToken } : {})),
                                             body: JSON.stringify({
                                                 model: vllmModel,
-                                                messages: __spreadArray(__spreadArray([], messages, true), [{ role: "user", content: content }], false),
+                                                messages: __spreadArray(__spreadArray([], __read(messages), false), [{ role: "user", content: content }], false),
                                                 max_tokens: 2048,
                                                 temperature: 0.7,
                                                 stream: true,
                                             }),
                                         })];
                                 case 7:
-                                    vllmRes = _f.sent();
+                                    vllmRes = _g.sent();
                                     if (!(!vllmRes.ok || !vllmRes.body)) return [3 /*break*/, 9];
                                     // Delete user message on error
                                     return [4 /*yield*/, pool.query("DELETE FROM chat_messages WHERE message_id=$1", [userMsg.rows[0].message_id])];
                                 case 8:
                                     // Delete user message on error
-                                    _f.sent();
+                                    _g.sent();
                                     return [2 /*return*/, reply.status(502).send({ error: "vLLM error: " + vllmRes.status })];
                                 case 9:
                                     // Stream SSE to client
@@ -1318,35 +1366,44 @@ function main() {
                                     reader = vllmRes.body.getReader();
                                     decoder = new TextDecoder();
                                     buffer = "";
-                                    _f.label = 10;
+                                    _g.label = 10;
                                 case 10:
-                                    _f.trys.push([10, , 14, 15]);
-                                    _f.label = 11;
+                                    _g.trys.push([10, , 14, 15]);
+                                    _g.label = 11;
                                 case 11:
                                     if (!true) return [3 /*break*/, 13];
                                     return [4 /*yield*/, reader.read()];
                                 case 12:
-                                    _b = _f.sent(), done = _b.done, value = _b.value;
+                                    _b = _g.sent(), done = _b.done, value = _b.value;
                                     if (done)
                                         return [3 /*break*/, 13];
                                     buffer += decoder.decode(value, { stream: true });
                                     lines = buffer.split("\n");
                                     buffer = lines.pop() || "";
-                                    for (_i = 0, lines_1 = lines; _i < lines_1.length; _i++) {
-                                        line = lines_1[_i];
-                                        if (line.startsWith("data: ")) {
-                                            data = line.slice(6);
-                                            if (data === "[DONE]")
-                                                continue;
-                                            try {
-                                                parsed = JSON.parse(data);
-                                                delta = ((_e = (_d = (_c = parsed.choices) === null || _c === void 0 ? void 0 : _c[0]) === null || _d === void 0 ? void 0 : _d.delta) === null || _e === void 0 ? void 0 : _e.content) || "";
-                                                fullContent += delta;
-                                                // Forward to client
-                                                reply.raw.write("data: ".concat(JSON.stringify({ delta: delta }), "\n\n"));
+                                    try {
+                                        for (lines_1 = (e_13 = void 0, __values(lines)), lines_1_1 = lines_1.next(); !lines_1_1.done; lines_1_1 = lines_1.next()) {
+                                            line = lines_1_1.value;
+                                            if (line.startsWith("data: ")) {
+                                                data = line.slice(6);
+                                                if (data === "[DONE]")
+                                                    continue;
+                                                try {
+                                                    parsed = JSON.parse(data);
+                                                    delta = ((_f = (_e = (_d = parsed.choices) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.delta) === null || _f === void 0 ? void 0 : _f.content) || "";
+                                                    fullContent += delta;
+                                                    // Forward to client
+                                                    reply.raw.write("data: ".concat(JSON.stringify({ delta: delta }), "\n\n"));
+                                                }
+                                                catch (_h) { }
                                             }
-                                            catch (_g) { }
                                         }
+                                    }
+                                    catch (e_13_1) { e_13 = { error: e_13_1 }; }
+                                    finally {
+                                        try {
+                                            if (lines_1_1 && !lines_1_1.done && (_c = lines_1.return)) _c.call(lines_1);
+                                        }
+                                        finally { if (e_13) throw e_13.error; }
                                     }
                                     return [3 /*break*/, 11];
                                 case 13: return [3 /*break*/, 15];
@@ -1357,22 +1414,22 @@ function main() {
                                     tokensUsed = Math.ceil(fullContent.length / 4);
                                     return [4 /*yield*/, pool.query("INSERT INTO chat_messages (chat_id, role, content, tokens_used) VALUES ($1,'assistant',$2,$3)", [chatId, fullContent, tokensUsed])];
                                 case 16:
-                                    _f.sent();
+                                    _g.sent();
                                     return [4 /*yield*/, pool.query("UPDATE chats SET updated_at=now() WHERE chat_id=$1", [chatId])];
                                 case 17:
-                                    _f.sent();
+                                    _g.sent();
                                     reply.raw.write("data: ".concat(JSON.stringify({ delta: "", done: true, tokens_used: tokensUsed }), "\n\n"));
                                     reply.raw.end();
                                     return [3 /*break*/, 20];
                                 case 18:
-                                    e_10 = _f.sent();
+                                    e_12 = _g.sent();
                                     // Delete user message on error
                                     return [4 /*yield*/, pool.query("DELETE FROM chat_messages WHERE message_id=$1", [userMsg.rows[0].message_id])];
                                 case 19:
                                     // Delete user message on error
-                                    _f.sent();
+                                    _g.sent();
                                     if (!reply.raw.headersSent) {
-                                        return [2 /*return*/, reply.status(502).send({ error: "stream error: " + safeError(e_10) })];
+                                        return [2 /*return*/, reply.status(502).send({ error: "stream error: " + safeError(e_12) })];
                                     }
                                     reply.raw.end();
                                     return [3 /*break*/, 20];
@@ -1382,7 +1439,7 @@ function main() {
                     }); });
                     // ==================== BALANCE (local) ====================
                     app.get("/api/v1/billing", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, orgId, r, total, meta, refillCount, e_11;
+                        var p, orgId, r, total, meta, refillCount, e_14;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1412,14 +1469,14 @@ function main() {
                                     _a.label = 4;
                                 case 4: return [2 /*return*/, reply.send({ org_id: orgId, total_tokens: total, reserved: Number(r.rows[0].reserved) })];
                                 case 5:
-                                    e_11 = _a.sent();
+                                    e_14 = _a.sent();
                                     return [2 /*return*/, reply.send({ org_id: orgId, total_tokens: 0, reserved: 0, note: "billing_accounts table missing" })];
                                 case 6: return [2 /*return*/];
                             }
                         });
                     }); });
                     app.get("/api/v1/usage", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, orgId, r, e_12;
+                        var p, orgId, r, e_15;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1437,7 +1494,7 @@ function main() {
                                     r = _a.sent();
                                     return [2 /*return*/, reply.send({ org_id: orgId, payments: Number(r.rows[0].count), total_tokens: Number(r.rows[0].sum) })];
                                 case 3:
-                                    e_12 = _a.sent();
+                                    e_15 = _a.sent();
                                     return [2 /*return*/, reply.send({ org_id: orgId, payments: 0, total_tokens: 0 })];
                                 case 4: return [2 /*return*/];
                             }
@@ -1445,7 +1502,7 @@ function main() {
                     }); });
                     // === Dashboard: aggregated usage for charts ===
                     app.get("/api/v1/billing/dashboard", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, orgId, daily, month, byModel, bal, balance, e_13;
+                        var p, orgId, daily, month, byModel, bal, balance, e_16;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1479,8 +1536,8 @@ function main() {
                                             by_model: byModel.rows,
                                         })];
                                 case 6:
-                                    e_13 = _a.sent();
-                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_13) })];
+                                    e_16 = _a.sent();
+                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_16) })];
                                 case 7: return [2 /*return*/];
                             }
                         });
@@ -1490,7 +1547,7 @@ function main() {
                     TOKENS_PER_RUBLE = 1000;
                     // Create payment → redirect to YooKassa
                     app.post("/api/v1/billing/topup", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, _a, org_id, amount_rub, m, tokens, txn, txnId, idempotenceKey, ykRes, ykData, e_14;
+                        var p, _a, org_id, amount_rub, m, tokens, txn, txnId, idempotenceKey, ykRes, ykData, e_17;
                         var _b;
                         return __generator(this, function (_c) {
                             switch (_c.label) {
@@ -1561,15 +1618,15 @@ function main() {
                                         })];
                                 case 9: return [2 /*return*/, reply.status(502).send({ error: "yookassa error", detail: ykData })];
                                 case 10:
-                                    e_14 = _c.sent();
-                                    return [2 /*return*/, reply.status(502).send({ error: "yookassa error: " + safeError(e_14) })];
+                                    e_17 = _c.sent();
+                                    return [2 /*return*/, reply.status(502).send({ error: "yookassa error: " + safeError(e_17) })];
                                 case 11: return [2 /*return*/];
                             }
                         });
                     }); });
                     // YooKassa webhook — called by YooKassa when payment status changes
                     app.post("/api/v1/billing/webhook", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var body, event_1, payment, txnId, txn, tier, txnMeta, effectiveTier, e_15;
+                        var body, event_1, payment, txnId, txn, tier, txnMeta, effectiveTier, e_18;
                         var _a, _b;
                         return __generator(this, function (_c) {
                             switch (_c.label) {
@@ -1617,8 +1674,8 @@ function main() {
                                     return [2 /*return*/, reply.send({ ok: true, status: effectiveTier ? "tier_upgraded" : "credited" })];
                                 case 9: return [2 /*return*/, reply.send({ ok: true, status: "ignored", event: event_1 })];
                                 case 10:
-                                    e_15 = _c.sent();
-                                    return [2 /*return*/, reply.status(500).send({ ok: false, error: safeError(e_15) })];
+                                    e_18 = _c.sent();
+                                    return [2 /*return*/, reply.status(500).send({ ok: false, error: safeError(e_18) })];
                                 case 11: return [2 /*return*/];
                             }
                         });
@@ -1649,7 +1706,7 @@ function main() {
                     }); });
                     // === Tariff plans ===
                     app.get("/api/v1/tiers", function (_req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var r, e_16;
+                        var r, e_19;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1659,14 +1716,14 @@ function main() {
                                     r = _a.sent();
                                     return [2 /*return*/, reply.send({ tiers: r.rows })];
                                 case 2:
-                                    e_16 = _a.sent();
-                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_16) })];
+                                    e_19 = _a.sent();
+                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_19) })];
                                 case 3: return [2 /*return*/];
                             }
                         });
                     }); });
                     app.get("/api/v1/org/tier", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, orgId, r, e_17;
+                        var p, orgId, r, e_20;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1686,8 +1743,8 @@ function main() {
                                         return [2 /*return*/, reply.send({ org_id: orgId, tier: "free", name: "Free" })];
                                     return [2 /*return*/, reply.send(r.rows[0])];
                                 case 3:
-                                    e_17 = _a.sent();
-                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_17) })];
+                                    e_20 = _a.sent();
+                                    return [2 /*return*/, reply.status(500).send({ error: safeError(e_20) })];
                                 case 4: return [2 /*return*/];
                             }
                         });
@@ -1727,7 +1784,7 @@ function main() {
                     }); });
                     // === Purchase tier (with payment) ===
                     app.post("/api/v1/orgs/:orgId/purchase-tier", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var p, orgId, tier, m, t, tierInfo, price, r, txn, txnId, r, ykRes, ykData, e_18;
+                        var p, orgId, tier, m, t, tierInfo, price, r, txn, txnId, r, ykRes, ykData, e_21;
                         var _a;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
@@ -1807,16 +1864,47 @@ function main() {
                                         })];
                                 case 14: return [2 /*return*/, reply.status(502).send({ error: "yookassa error", detail: ykData })];
                                 case 15:
-                                    e_18 = _b.sent();
-                                    return [2 /*return*/, reply.status(502).send({ error: "yookassa error: " + safeError(e_18) })];
+                                    e_21 = _b.sent();
+                                    return [2 /*return*/, reply.status(502).send({ error: "yookassa error: " + safeError(e_21) })];
                                 case 16: return [2 /*return*/];
                             }
                         });
                     }); });
                     ADMIN_KEY = process.env.ADMIN_KEY || "";
                     // Proxy /api/v1/admin/* → Gateway /admin/*
-                    app.all("/api/v1/admin/*", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
-                        var adminHeader, isAdminKey, p, orgs, path, gwUrl, method, headers, ADMIN_JWT_SECRET, adminToken, body, resp, data, e_19;
+                    // Admin users — handled locally (portal DB)
+    app.get("/api/v1/admin/users", function (req, reply) { return __awaiter(void 0, void 0, void 0, function () {
+        var adminHeader, isAdminKey, p, orgs, r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    adminHeader = req.headers["x-admin-key"] || "";
+                    isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
+                    if (isAdminKey) return [3 /*break*/, 3];
+                    p = auth(req, reply);
+                    if (!p) return [2 /*return*/];
+                    return [4 /*yield*/, pool.query("SELECT role FROM portal_org_members WHERE user_id= AND role='owner' AND status='active' LIMIT 1", [p.user_id])];
+                case 1:
+                    orgs = _a.sent();
+                    if (!(orgs.rows.length === 0)) return [3 /*break*/, 3];
+                    return [2 /*return*/, reply.status(403).send({ error: "admin access required" })];
+                case 2: return [3 /*break*/, 3];
+                case 3: return [4 /*yield*/, pool.query("SELECT u.user_id, u.display_name, u.email, u.oauth_provider as provider, (SELECT count(*) FROM portal_org_members m WHERE m.user_id = u.user_id AND m.status = 'active') as org_count FROM portal_users u ORDER BY u.created_at DESC LIMIT 50")];
+                case 4:
+                    r = _a.sent();
+                    return [2 /*return*/, reply.send({ users: r.rows })];
+            }
+        });
+    }); });
+
+    app.post("/api/v1/admin/users/:userId/role", function (req, reply) { return __awaiter(void 0, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            return [2 /*return*/, reply.send({ status: "ok", note: "role change not yet implemented" })];
+        });
+    }); });
+
+app.all("/api/v1/admin/*", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
+                        var adminHeader, isAdminKey, p, orgs, path, gwUrl, method, headers, ADMIN_JWT_SECRET, adminToken, body, resp, data, e_22;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1856,8 +1944,8 @@ function main() {
                                     data = _a.sent();
                                     return [2 /*return*/, reply.status(resp.status).send(data)];
                                 case 6:
-                                    e_19 = _a.sent();
-                                    return [2 /*return*/, reply.status(502).send({ error: "gateway unreachable", detail: safeError(e_19) })];
+                                    e_22 = _a.sent();
+                                    return [2 /*return*/, reply.status(502).send({ error: "gateway unreachable", detail: safeError(e_22) })];
                                 case 7: return [2 /*return*/];
                             }
                         });

@@ -1,7 +1,7 @@
 """Aither API Gateway — proxy to vLLM with JWT RS256, Redis rate limiting, and billing."""
 import os, json, time, uuid, traceback
 from urllib.request import Request, urlopen
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, BaseHTTPRequestHandler, ThreadingHTTPServer
 import redis
 import jwt as pyjwt
 import psycopg2
@@ -15,6 +15,29 @@ TOKEN_COST = int(os.environ.get("TOKEN_COST", "1"))  # tokens to reserve per req
 
 r = redis.Redis(host=REDIS_URL, port=6379, decode_responses=True, socket_connect_timeout=2)
 db_pool = psycopg2.pool.SimpleConnectionPool(1, 10, PG_URL)
+ADMIN_JWT_SECRET = os.environ.get("ADMIN_SECRET", "aither-admin-secret")
+
+def _check_admin(self):
+    """Verify admin JWT from BFF."""
+    auth = self.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        self._json(401, {"error": "admin token required"})
+        return None
+    token = auth[7:]
+    try:
+        payload = pyjwt.decode(token, ADMIN_JWT_SECRET, algorithms=["HS256"])
+        if payload.get("role") != "admin":
+            self._json(403, {"error": "admin role required"})
+            return None
+        return payload
+    except pyjwt.ExpiredSignatureError:
+        self._json(401, {"error": "admin token expired"})
+        return None
+    except Exception as e:
+        self._json(401, {"error": f"invalid admin token: {e}"})
+        return None
+
+
 
 # Load public key
 PUBLIC_KEY = os.environ.get("JWT_PUBLIC_KEY", "")
@@ -211,6 +234,56 @@ class Gateway(BaseHTTPRequestHandler):
             finally:
                 db_pool.putconn(conn)
             return
+        # ── Admin API ──
+        if self.path.startswith("/admin/"):
+            admin = _check_admin(self)
+            if not admin:
+                return
+            conn = db_pool.getconn()
+            try:
+                with conn.cursor() as cur:
+                    if self.path == "/admin/health":
+                        cur.execute("SELECT count(*) FROM billing_accounts")
+                        orgs = cur.fetchone()[0]
+                        cur.execute("SELECT count(*) FROM billing_ledger WHERE created_at > now() - interval '24 hours'")
+                        txns = cur.fetchone()[0]
+                        self._json(200, {"status": "ok", "orgs": orgs, "transactions_24h": txns})
+                    elif self.path == "/admin/queues":
+                        self._json(200, {"queues": [], "status": "ok"})
+                    elif self.path == "/admin/models":
+                        cur.execute("SELECT model, count(*), sum(amount) FROM billing_ledger WHERE operation='settle' AND created_at > now() - interval '24 hours' GROUP BY model")
+                        rows = cur.fetchall()
+                        self._json(200, {"models": [{"model": r[0], "requests": r[1], "tokens": int(r[2] or 0)} for r in rows]})
+                    elif self.path == "/admin/reaper":
+                        self._json(200, {"status": "ok", "message": "Reaper is running in background thread"})
+                    elif self.path.startswith("/admin/users"):
+                        if self.path == "/admin/users":
+                            cur.execute("SELECT user_id, email, display_name, role, created_at FROM portal_users ORDER BY created_at DESC LIMIT 50")
+                            rows = cur.fetchall()
+                            self._json(200, {"users": [{"user_id": r[0], "email": r[1], "display_name": r[2], "role": r[3], "created_at": r[4].isoformat() if r[4] else None} for r in rows]})
+                        else:
+                            self._json(404, {"error": "not found"})
+                    elif self.path.startswith("/admin/orgs/"):
+                        parts = self.path.split("/")
+                        if len(parts) >= 4:
+                            org_id = parts[3]
+                            if len(parts) == 4:  # /admin/orgs/:id
+                                cur.execute("SELECT org_id, name, tier, balance, reserved FROM billing_accounts WHERE org_id=%s", (org_id,))
+                                row = cur.fetchone()
+                                if row:
+                                    self._json(200, {"org": {"org_id": row[0], "name": row[1], "tier": row[2], "balance": row[3], "reserved": row[4]}})
+                                else:
+                                    self._json(404, {"error": "org not found"})
+                            else:
+                                self._json(404, {"error": "not found"})
+                        else:
+                            self._json(404, {"error": "not found"})
+                    else:
+                        self._json(404, {"error": "not found"})
+            finally:
+                db_pool.putconn(conn)
+            return
+
         self._json(404, {"error": "not found"})
 
     def _proxy(self, method, path, body=None):
@@ -227,6 +300,67 @@ class Gateway(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/health":
             self._json(200, {"status": "ok"})
+            return
+
+        # ── Admin API (POST) ──
+        if self.path.startswith("/admin/"):
+            admin = _check_admin(self)
+            if not admin:
+                return
+            length = int(self.headers.get("Content-Length", 0))
+            body_str = self.rfile.read(length).decode() if length else "{}"
+            try:
+                req_data = json.loads(body_str)
+            except:
+                req_data = {}
+            conn = db_pool.getconn()
+            try:
+                with conn.cursor() as cur:
+                    parts = self.path.split("/")
+                    if self.path.startswith("/admin/users/") and self.path.endswith("/role"):
+                        user_id = parts[3]
+                        new_role = req_data.get("role", "developer")
+                        cur.execute("UPDATE portal_users SET role=%s WHERE user_id=%s", (new_role, user_id))
+                        self._json(200, {"status": "ok", "user_id": user_id, "role": new_role})
+                    elif self.path.startswith("/admin/orgs/"):
+                        org_id = parts[3]
+                        if self.path.endswith("/tokens/add"):
+                            amount = int(req_data.get("amount", 0))
+                            cur.execute("UPDATE billing_accounts SET balance = balance + %s WHERE org_id=%s", (amount, org_id))
+                            self._json(200, {"status": "ok", "org_id": org_id, "added": amount})
+                        elif self.path.endswith("/tokens/subtract"):
+                            amount = int(req_data.get("amount", 0))
+                            cur.execute("UPDATE billing_accounts SET balance = balance - %s WHERE org_id=%s", (amount, org_id))
+                            self._json(200, {"status": "ok", "org_id": org_id, "subtracted": amount})
+                        elif self.path.endswith("/tier"):
+                            tier = req_data.get("tier", "free")
+                            cur.execute("UPDATE billing_accounts SET tier=%s WHERE org_id=%s", (tier, org_id))
+                            self._json(200, {"status": "ok", "org_id": org_id, "tier": tier})
+                        else:
+                            self._json(404, {"error": "not found"})
+                    elif self.path.startswith("/admin/tiers/") and self.path.endswith("/limits"):
+                        tier_id = parts[3]
+                        limits = req_data
+                        cur.execute("""INSERT INTO subscription_tiers (tier_id, rpm_limit, tpm_limit, daily_request_limit, models, rag_enabled)
+                            VALUES (%s,%s,%s,%s,%s,%s)
+                            ON CONFLICT (tier_id) DO UPDATE SET rpm_limit=%s, tpm_limit=%s, daily_request_limit=%s, models=%s, rag_enabled=%s""",
+                            (tier_id, limits.get("rpm",100), limits.get("tpm",10000), limits.get("daily",None),
+                             limits.get("models",[]), limits.get("rag",False),
+                             limits.get("rpm",100), limits.get("tpm",10000), limits.get("daily",None),
+                             limits.get("models",[]), limits.get("rag",False)))
+                        self._json(200, {"status": "ok", "tier_id": tier_id})
+                    elif self.path.startswith("/admin/models/") and self.path.endswith("/drain"):
+                        model = parts[3]
+                        r.set(f"drain:{model}", "1", ex=3600)
+                        self._json(200, {"status": "ok", "model": model, "drained": True})
+                    elif self.path.startswith("/admin/models/") and self.path.endswith("/undrain"):
+                        model = parts[3]
+                        r.delete(f"drain:{model}")
+                        self._json(200, {"status": "ok", "model": model, "drained": False})
+                    else:
+                        self._json(404, {"error": "not found"})
+            finally:
+                db_pool.putconn(conn)
             return
 
         if not self.path.startswith("/v1/"):
@@ -320,6 +454,6 @@ class Gateway(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8080"))
-    server = HTTPServer(("0.0.0.0", port), Gateway)
+    server = ThreadingHTTPServer(("0.0.0.0", port), Gateway)
     print(f"Gateway listening on :{port}", flush=True)
     server.serve_forever()
