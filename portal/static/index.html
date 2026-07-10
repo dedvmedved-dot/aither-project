@@ -818,6 +818,12 @@ function formatNumber(n) {
   return n.toLocaleString('ru-RU');
 }
 
+function safeParse(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch(e) {} }
+  return [];
+}
+
 // ===== AUTH =====
 async function checkAuth() {
   if (!state.token) return false;
@@ -1920,8 +1926,13 @@ async function renderShared() {
 
 // ===== TARIFFS PAGE =====
 async function renderTiers() {
+  try {
   const { ok, data } = await api('/api/v1/tiers');
-  const tiers = ok ? data?.tiers || [] : [];
+  const tiers = ok ? (data?.tiers || []).map(t => ({
+    ...t,
+    models: safeParse(t.models),
+    features: safeParse(t.features)
+  })) : [];
 
   const tierColors = {
     free: 'var(--border)', standard: 'var(--warning)', vip: 'var(--danger)', enterprise: 'var(--info)'
@@ -1993,6 +2004,9 @@ async function renderTiers() {
         `).join('')}
       </div>
     </div>`;
+  } catch(e) {
+    $('#app').innerHTML = '<div class="header"><div class="header-left"><span class="logo">Aither</span></div></div><div class="main"><div class="page-header"><h2>📦 Тарифные планы</h2><p style="color:var(--red);">Ошибка загрузки: ' + esc(e.message) + '</p></div></div>';
+  }
 }
 
 // ===== INIT =====
