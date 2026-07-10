@@ -17,22 +17,22 @@ data:
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
           "targets": [{
             "expr": "DCGM_FI_DEV_GPU_UTIL",
-            "legendFormat": "{{gpu}} - {{UUID}}"
+            "legendFormat": "{{gpu}} @ {{Hostname}}"
           }],
           "fieldConfig": {
             "defaults": {"unit": "percent", "min": 0, "max": 100}
           }
         },
         {
-          "title": "GPU Memory Used",
+          "title": "GPU Memory Used (MiB)",
           "type": "timeseries",
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
           "targets": [{
-            "expr": "DCGM_FI_DEV_FB_USED / 1024",
-            "legendFormat": "{{gpu}} - {{UUID}}"
+            "expr": "DCGM_FI_DEV_FB_USED",
+            "legendFormat": "{{gpu}} @ {{Hostname}}"
           }],
           "fieldConfig": {
-            "defaults": {"unit": "decmbytes"}
+            "defaults": {"unit": "decbytes"}
           }
         },
         {
@@ -41,12 +41,11 @@ data:
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
           "targets": [{
             "expr": "DCGM_FI_DEV_GPU_TEMP",
-            "legendFormat": "{{gpu}} - {{UUID}}"
+            "legendFormat": "{{gpu}} @ {{Hostname}}"
           }],
           "fieldConfig": {
             "defaults": {"unit": "celsius"}
-          },
-          "thresholds": [{"value": 80, "color": "red"}]
+          }
         },
         {
           "title": "Power Usage (W)",
@@ -54,13 +53,12 @@ data:
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
           "targets": [{
             "expr": "DCGM_FI_DEV_POWER_USAGE",
-            "legendFormat": "{{gpu}} - {{UUID}}"
+            "legendFormat": "{{gpu}} @ {{Hostname}}"
           }],
           "fieldConfig": {
             "defaults": {"unit": "watt"}
           }
         }
       ],
-      "refresh": "10s",
-      "time": {"from": "now-1h", "to": "now"}
+      "refresh": "10s"
     }

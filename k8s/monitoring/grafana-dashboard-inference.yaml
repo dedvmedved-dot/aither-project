@@ -16,16 +16,16 @@ data:
           "type": "timeseries",
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
           "targets": [{
-            "expr": "rate(vllm_request_total[1m])",
+            "expr": "rate(vllm:request_success_total[1m])",
             "legendFormat": "{{model}}"
           }]
         },
         {
-          "title": "Tokens / sec",
+          "title": "Generation Tokens / sec",
           "type": "timeseries",
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
           "targets": [{
-            "expr": "rate(vllm_generation_tokens_total[1m])",
+            "expr": "rate(vllm:generation_tokens_total[1m])",
             "legendFormat": "{{model}}"
           }]
         },
@@ -34,7 +34,7 @@ data:
           "type": "timeseries",
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
           "targets": [{
-            "expr": "vllm_gpu_cache_usage_perc",
+            "expr": "vllm:kv_cache_usage_perc",
             "legendFormat": "{{model}}"
           }],
           "fieldConfig": {
@@ -46,44 +46,39 @@ data:
           "type": "timeseries",
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
           "targets": [{
-            "expr": "vllm_num_requests_running",
+            "expr": "vllm:num_requests_running",
             "legendFormat": "{{model}} running"
           }, {
-            "expr": "vllm_num_requests_waiting",
+            "expr": "vllm:num_requests_waiting",
             "legendFormat": "{{model}} waiting"
           }]
         },
         {
-          "title": "TTFT (Time To First Token) ms",
+          "title": "TTFT p50/p95 (ms)",
           "type": "timeseries",
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
           "targets": [{
-            "expr": "histogram_quantile(0.5, rate(vllm_time_to_first_token_seconds_bucket[5m])) * 1000",
+            "expr": "histogram_quantile(0.5, rate(vllm:time_to_first_token_seconds_bucket[5m])) * 1000",
             "legendFormat": "{{model}} p50"
           }, {
-            "expr": "histogram_quantile(0.95, rate(vllm_time_to_first_token_seconds_bucket[5m])) * 1000",
+            "expr": "histogram_quantile(0.95, rate(vllm:time_to_first_token_seconds_bucket[5m])) * 1000",
             "legendFormat": "{{model}} p95"
           }],
-          "fieldConfig": {
-            "defaults": {"unit": "ms"}
-          }
+          "fieldConfig": {"defaults": {"unit": "ms"}}
         },
         {
-          "title": "Latency per Token (ms)",
+          "title": "Time Per Output Token p50/p95 (ms)",
           "type": "timeseries",
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
           "targets": [{
-            "expr": "histogram_quantile(0.5, rate(vllm_time_per_output_token_seconds_bucket[5m])) * 1000",
+            "expr": "histogram_quantile(0.5, rate(vllm:request_time_per_output_token_seconds_bucket[5m])) * 1000",
             "legendFormat": "{{model}} p50"
           }, {
-            "expr": "histogram_quantile(0.95, rate(vllm_time_per_output_token_seconds_bucket[5m])) * 1000",
+            "expr": "histogram_quantile(0.95, rate(vllm:request_time_per_output_token_seconds_bucket[5m])) * 1000",
             "legendFormat": "{{model}} p95"
           }],
-          "fieldConfig": {
-            "defaults": {"unit": "ms"}
-          }
+          "fieldConfig": {"defaults": {"unit": "ms"}}
         }
       ],
-      "refresh": "10s",
-      "time": {"from": "now-1h", "to": "now"}
+      "refresh": "10s"
     }
