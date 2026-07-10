@@ -19,7 +19,7 @@ spec:
         - |
           set -e
           echo "=== Установка зависимостей ==="
-          pip install peft datasets bitsandbytes accelerate --quiet
+          pip install peft datasets bitsandbytes accelerate huggingface_hub[hf_transfer] --quiet
 
           echo "=== QLoRA 14B (4-bit) ==="
           export HF_HOME=/mnt/models/.cache
