@@ -2,5 +2,4 @@ redis>=5.0
 pyjwt>=2.8
 psycopg2-binary>=2.9
 pyyaml>=6.0
-sentence-transformers>=2.2
 chromadb>=0.4

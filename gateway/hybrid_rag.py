@@ -1,60 +1,43 @@
 """
-Hybrid RAG: Wiki Graph (keyword) + ChromaDB (vector).
+Hybrid RAG: Wiki Graph (keyword) + ChromaDB (vector via REST API).
 
-Usage:
-    from hybrid_rag import hybrid_query, wiki_ingest, wiki_status, chroma_status
+No external dependencies — uses urllib for ChromaDB REST calls.
 """
 
-import os
-from wiki_graph import get_wiki_graph, reload_wiki_graph, WikiGraph
+import json, os
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from wiki_graph import get_wiki_graph, reload_wiki_graph
 
 # ── Config ────────────────────────────────────────────────────────────────
 CHROMA_URL = os.environ.get("CHROMA_URL", "http://chromadb:8000")
 CHROMA_COLLECTION = os.environ.get("CHROMA_COLLECTION", "textbook")
-EMBED_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-
-# Lazy-loaded singletons
-_chroma_client = None
-_embed_model = None
-_collection = None
 
 
-def _get_chroma():
-    """Lazy-init ChromaDB client. Must match server version."""
-    global _chroma_client
-    if _chroma_client is None:
-        import chromadb
-        # ChromaDB 0.6.x settings
-        _chroma_client = chromadb.HttpClient(
-            host=CHROMA_URL.split("://")[1].split(":")[0],
-            port=int(CHROMA_URL.split(":")[-1]),
-            settings=chromadb.Settings(
-                anonymized_telemetry=False,
-                allow_reset=False,
-            ),
-        )
-    return _chroma_client
+def _chroma_req(method: str, path: str, body: dict = None) -> dict:
+    """Call ChromaDB REST API. Returns parsed JSON."""
+    url = f"{CHROMA_URL}/api/v1/{path}"
+    data = json.dumps(body).encode() if body else None
+    req = Request(url, data=data, method=method)
+    req.add_header("Content-Type", "application/json")
+    try:
+        resp = urlopen(req, timeout=10)
+        return json.loads(resp.read())
+    except HTTPError as e:
+        return {"error": str(e), "status": e.code}
 
 
-def _get_collection():
-    """Lazy-init textbook collection."""
-    global _collection
-    if _collection is None:
-        chroma = _get_chroma()
-        try:
-            _collection = chroma.get_collection(CHROMA_COLLECTION)
-        except Exception:
-            return None
-    return _collection
-
-
-def _get_embed_model():
-    """Lazy-init sentence-transformers model (CPU, ~118MB, 50ms/inference)."""
-    global _embed_model
-    if _embed_model is None:
-        from sentence_transformers import SentenceTransformer
-        _embed_model = SentenceTransformer(EMBED_MODEL_NAME)
-    return _embed_model
+def _get_or_create_collection() -> dict:
+    """Ensure textbook collection exists."""
+    # Try to get the collection
+    result = _chroma_req("GET", f"collections/{CHROMA_COLLECTION}")
+    if result.get("error"):
+        # Create it
+        result = _chroma_req("POST", "collections", {
+            "name": CHROMA_COLLECTION,
+            "metadata": {"description": "Учебник Aither"}
+        })
+    return result
 
 
 # ── Ingestion ─────────────────────────────────────────────────────────────
@@ -83,22 +66,32 @@ def wiki_status() -> dict:
 
 def chroma_status() -> dict:
     """Get ChromaDB textbook collection status."""
-    coll = _get_collection()
-    count = coll.count() if coll else 0
-    return {
-        "chroma_url": CHROMA_URL,
-        "collection": CHROMA_COLLECTION,
-        "documents": count,
-        "model": EMBED_MODEL_NAME,
-        "embed_dim": 384,
-    }
+    try:
+        result = _chroma_req("GET", f"collections/{CHROMA_COLLECTION}")
+        count = 0
+        if not result.get("error") and isinstance(result, dict):
+            count = result.get("metadata", {}).get("count", 0) if isinstance(result.get("metadata"), dict) else 0
+        return {
+            "chroma_url": CHROMA_URL,
+            "collection": CHROMA_COLLECTION,
+            "documents": count,
+            "embed_dim": 384,
+        }
+    except Exception as e:
+        return {
+            "chroma_url": CHROMA_URL,
+            "collection": CHROMA_COLLECTION,
+            "documents": 0,
+            "embed_dim": 384,
+            "error": str(e)[:100],
+        }
 
 
 # ── Query ─────────────────────────────────────────────────────────────────
 
 def hybrid_query(query: str, wiki_radius: int = 1, top_k: int = 5) -> dict:
     """
-    Hybrid search: Wiki Graph keyword + ChromaDB vector.
+    Hybrid search: Wiki Graph keyword + ChromaDB vector (via REST API).
 
     Returns: {
         "query": str,
@@ -116,30 +109,26 @@ def hybrid_query(query: str, wiki_radius: int = 1, top_k: int = 5) -> dict:
         wiki_results.append({
             "page_title": page.title,
             "slug": page.slug,
-            "relevance": 1.0,  # keyword match
+            "relevance": 1.0,
             "source": "wiki",
             "preview": page.content[:300] if page.content else "",
         })
 
-    # ── 2. ChromaDB (vector search) ──
+    # ── 2. ChromaDB (vector search via REST API) ──
     chroma_results = []
-    coll = _get_collection()
-    if coll and coll.count() > 0:
-        try:
-            model = _get_embed_model()
-            query_embedding = model.encode([query]).tolist()
-
-            results = coll.query(
-                query_embeddings=query_embedding,
-                n_results=top_k,
-                include=["documents", "metadatas", "distances"],
-            )
-
-            if results and results.get("ids") and results["ids"][0]:
-                for i, doc_id in enumerate(results["ids"][0]):
-                    meta = results["metadatas"][0][i] if results.get("metadatas") else {}
-                    dist = results["distances"][0][i] if results.get("distances") else 1.0
-                    doc = results["documents"][0][i] if results.get("documents") else ""
+    try:
+        coll_info = _chroma_req("GET", f"collections/{CHROMA_COLLECTION}")
+        if not coll_info.get("error"):
+            result = _chroma_req("POST", f"collections/{CHROMA_COLLECTION}/query", {
+                "query_texts": [query],
+                "n_results": top_k,
+                "include": ["documents", "metadatas", "distances"],
+            })
+            if not result.get("error") and result.get("ids") and result["ids"]:
+                for i, doc_id in enumerate(result["ids"][0]):
+                    meta = result["metadatas"][0][i] if result.get("metadatas") else {}
+                    dist = result["distances"][0][i] if result.get("distances") else 1.0
+                    doc = result["documents"][0][i] if result.get("documents") else ""
 
                     chroma_results.append({
                         "page_title": f"{meta.get('chapter', '')} › {meta.get('section', '')}",
@@ -147,18 +136,16 @@ def hybrid_query(query: str, wiki_radius: int = 1, top_k: int = 5) -> dict:
                         "relevance": round(1.0 - min(dist, 1.0), 3),
                         "source": "chroma",
                         "preview": doc[:300],
-                        "metadata": meta,
                     })
-        except Exception as e:
-            chroma_results.append({
-                "page_title": "ChromaDB error",
-                "slug": "",
-                "relevance": 0,
-                "source": "chroma",
-                "preview": str(e)[:200],
-            })
+    except Exception as e:
+        chroma_results.append({
+            "page_title": "ChromaDB error",
+            "relevance": 0,
+            "source": "chroma",
+            "preview": str(e)[:200],
+        })
 
-    # ── 3. Combine (deduplicate by title) ──
+    # ── 3. Combine ──
     seen = set()
     combined = []
     for r in wiki_results + chroma_results:
@@ -167,7 +154,6 @@ def hybrid_query(query: str, wiki_radius: int = 1, top_k: int = 5) -> dict:
             seen.add(key)
             combined.append(r)
 
-    # Sort by relevance
     combined.sort(key=lambda x: x["relevance"], reverse=True)
 
     return {
