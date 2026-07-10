@@ -9,7 +9,7 @@ import psycopg2.pool
 from security import check_security
 from security_egress import check_egress
 from vault import vault_validate_key
-from hybrid_rag import hybrid_query, wiki_ingest, wiki_status
+from hybrid_rag import hybrid_query, wiki_ingest, wiki_status, chroma_status
 from wiki_graph import get_wiki_graph
 from admin import (
     admin_queues, admin_models, admin_drain, admin_undrain,
@@ -576,8 +576,9 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(401, {"error": "valid token required"})
                 return
             try:
-                status = wiki_status()
-                self._json(200, status)
+                ws = wiki_status()
+                cs = chroma_status()
+                self._json(200, {**ws, **cs, "mode": "hybrid (wiki graph + chromadb)"})
             except Exception as e:
                 self._json(500, {"error": "status_failed", "detail": str(e)})
             return
@@ -799,8 +800,9 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(401, {"error": "valid token required"})
                 return
             try:
-                status = wiki_status()
-                self._json(200, status)
+                ws = wiki_status()
+                cs = chroma_status()
+                self._json(200, {**ws, **cs, "mode": "hybrid (wiki graph + chromadb)"})
             except Exception as e:
                 self._json(500, {"error": "status_failed", "detail": str(e)})
             return

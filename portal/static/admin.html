@@ -172,6 +172,8 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <a href="#settings" data-panel="settings"><span class="icon">🔧</span> Настройки</a>
     <div class="section">Этап 5а</div>
     <a href="#stage5a" data-panel="stage5a"><span class="icon">🗺️</span> Статус 5а</a>
+    <div class="section">RAG</div>
+    <a href="#rag" data-panel="rag"><span class="icon">📚</span> RAG</a>
   </nav>
 
   <!-- CONTENT -->
@@ -333,6 +335,21 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
       </div>
     </div>
 
+    <!-- RAG -->
+    <div id="panel-rag" class="panel">
+      <div class="card">
+        <h3>📚 RAG — База знаний</h3>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:18px;">
+          Гибридный поиск: Wiki Graph + ChromaDB (учебник).
+        </p>
+        <div id="rag-status">Загрузка…</div>
+        <div style="margin-top:16px;">
+          <button class="btn" onclick="reindexWiki()">🔄 Обновить Wiki Graph</button>
+          <button class="btn" onclick="showChromaInfo()" style="margin-left:8px;">📊 Статистика ChromaDB</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -362,7 +379,8 @@ function logout() { localStorage.clear(); window.location.href = '/'; }
 
 // ── Auto-load ──
 const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper,
-  orgs: loadOrgs, users: loadUsers, tokens: loadTokens, tiers: loadTiers, apikeys: loadApiKeys, settings: loadSettings };
+  orgs: loadOrgs, users: loadUsers, tokens: loadTokens, tiers: loadTiers, apikeys: loadApiKeys, settings: loadSettings,
+  rag: loadRAG };
 
 // ── Toast ──
 function toast(msg, ok) {
@@ -373,10 +391,11 @@ function toast(msg, ok) {
 }
 
 // ── API helper ──
-async function api(path) {
-  const r = await fetch(API_BASE + path, {
-    headers: { 'X-Admin-Key': ADMIN_KEY }
-  });
+async function api(path, method) {
+  method = method || 'GET';
+  const opts = { method: method, headers: { 'X-Admin-Key': ADMIN_KEY } };
+  if (method === 'POST') opts.headers['Content-Type'] = 'application/json';
+  const r = await fetch(API_BASE + path, opts);
   if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 100));
   return r.json();
 }
@@ -868,6 +887,38 @@ async function saveSettings() {
 
 // ── Auto-load health ──
 loadHealth();
+
+// ── RAG ──────────────────────────────────────────────────────────────
+async function loadRAG() {
+  const el = document.getElementById('rag-status');
+  try {
+    const status = await api('/rag/status');
+    el.innerHTML = '<table>' +
+      '<tr><td>Wiki Graph</td><td><span class="badge badge-healthy">' + (status.wiki_pages || 0) + ' страниц</span></td></tr>' +
+      '<tr><td>ChromaDB</td><td><span class="badge badge-healthy">' + (status.documents || 0) + ' документов</span></td></tr>' +
+      '<tr><td>Коллекция</td><td><code>' + (status.collection || '-') + '</code></td></tr>' +
+      '<tr><td>Модель</td><td><code style="font-size:11px;">' + (status.model || '-') + '</code></td></tr>' +
+      '<tr><td>Режим</td><td><span class="badge" style="background:var(--accent);color:#fff;">' + (status.mode || '-') + '</span></td></tr>' +
+      '</table>';
+  } catch(e) {
+    el.innerHTML = '<span style="color:var(--yellow);">⚠ ' + e.message + '</span>';
+  }
+}
+
+async function reindexWiki() {
+  try {
+    const result = await api('/rag/wiki-ingest', 'POST');
+    toast('Wiki Graph обновлён: ' + result.ingested + ' страниц', true);
+    loadRAG();
+  } catch(e) { toast('Ошибка: ' + e.message, false); }
+}
+
+async function showChromaInfo() {
+  try {
+    const status = await api('/rag/status');
+    toast('ChromaDB: ' + (status.documents || 0) + ' документов', true);
+  } catch(e) { toast('Ошибка: ' + e.message, false); }
+}
 </script>
 </body>
 </html>

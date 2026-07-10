@@ -1869,6 +1869,27 @@ async function main() {
     }
   });
 
+  // Proxy /api/v1/rag/* → Gateway /v1/rag/* (admin key bypass)
+  app.all("/api/v1/rag/*", async (req: any, reply) => {
+    const adminHeader = req.headers["x-admin-key"] || "";
+    if (!ADMIN_KEY || adminHeader !== ADMIN_KEY) {
+      return reply.status(403).send({ error: "admin key required" });
+    }
+    const path = (req.params as any)["*"];
+    const gwUrl = `${CORE_API}/v1/rag/${path}`;
+    try {
+      const resp = await fetch(gwUrl, {
+        method: req.method,
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jwt.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, process.env.ADMIN_JWT_SECRET || "change-me", { algorithm: "HS256", expiresIn: "5m" })}` },
+        body: req.method === "POST" ? JSON.stringify(req.body || {}) : undefined,
+      });
+      const data = await resp.json();
+      return reply.status(resp.status).send(data);
+    } catch (e: any) {
+      return reply.status(502).send({ error: "rag_gateway_unreachable", detail: safeError(e) });
+    }
+  });
+
   // При production: слушаем только localhost (nginx проксирует)
   const listenHost = IS_PRODUCTION ? "127.0.0.1" : "0.0.0.0";
   await app.listen({ port: PORT, host: listenHost });
