@@ -156,6 +156,35 @@
 | `db/migrations/007_subscription_tiers.sql` | Таблица тарифных планов |
 | `portal/.env` | YOOKASSA_SHOP_ID, YOOKASSA_SECRET |
 
+### Принцип действия
+
+1. Пользователь выбирает модель в UI → BFF получает каталог из Gateway
+2. Gateway читает `catalog.yaml` → список моделей с backend URL и стоимостью
+3. Запрос направляется в соответствующий vLLM-под по имени модели
+4. ЮKassa: пользователь → платёжная форма → webhook → BFF → зачисление баланса
+5. Usage collector считает фактические токены → Redis-аккумулятор → периодический settle
+
+### Последовательность конфигурации
+
+1. **PostgreSQL (K8s):** `kubectl apply -f k8s/postgres/deployment.yaml`, миграции БД
+2. **Каталог:** создать `gateway/catalog.yaml` с описанием моделей (14B + 32B)
+3. **ЮKassa:** зарегистрировать магазин, получить ключи → `portal/.env`
+4. **Gateway:** обновить ConfigMap с `catalog.yaml`, `routing.py`, `usage_collector.py`
+5. **n7-gpu:** `kubectl apply -f k8s/vllm-32b/deployment.yaml` (TP=2, 2×RTX6000)
+6. **Проверка:** `curl -X POST /v1/chat/completions -d '{"model":"qwen2.5-32b"}'`
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| BFF | Gateway (catalog) | HTTP + JWT | 30900 |
+| Gateway | vLLM 14B (n8) | HTTP (OpenAI API) | 32293 |
+| Gateway | vLLM 32B (n7) | HTTP (OpenAI API) | 8000 |
+| Gateway | Redis (usage accumulator) | Redis | 6379 |
+| Gateway | PostgreSQL K8s (billing) | SQL | 5432 |
+| BFF | PostgreSQL VPS2 (users, chats) | SQL | 5432 |
+| ЮKassa API | BFF (webhook) | HTTPS | 443 |
+
 ### Потоки данных
 
 ```
@@ -190,6 +219,73 @@
 |---|---|
 | `configs/vps1/nginx-aither-failover.conf` | nginx → BFF + Grafana |
 | `configs/vps2/aither-bff.service` | systemd unit для BFF |
+
+### Состав компонентов
+
+| Компонент | Версия | Назначение |
+|---|---|---|
+| Gateway auto-balance | custom | Логика стартового баланса и авто-пополнения |
+| Grafana | latest | Дашборды мониторинга (GPU, Inference, Billing) |
+| nginx VPS1 | — | Reverse proxy: :10443 → BFF + /grafana/ |
+| Redis (K8s) | 7-alpine | Хранение балансов организаций |
+
+### Принцип действия
+
+```
+Регистрация (OAuth) → [BFF] → create_org(name)
+  → [Gateway] → credit_tokens(org_id, 100_000)
+  → [Redis] SET org:{id}:tokens = 100000
+
+Каждый запрос → [Gateway] → check_balance(org_id)
+  → if tokens < THRESHOLD (10 000):
+      → auto_refill(org_id, ×10)
+      → credit_tokens(org_id, current_balance * 10)
+      → audit_log("auto-refill", org_id, amount)
+  → reserve → inference → settle
+```
+
+1. При первой OAuth-регистрации BFF создаёт организацию
+2. Gateway начисляет 100 000 стартовых токенов через Redis
+3. При каждом запросе проверяется баланс
+4. Если баланс < 10 000 — авто-пополнение ×10 (100K → 1M → 10M...)
+5. Каждое пополнение логируется в audit_log
+
+### Физическая схема
+
+![Авто-баланс и Grafana](diagrams/physical-architecture.jpg)
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| BFF | Gateway (credit_tokens) | HTTP + JWT | 30900 |
+| Gateway | Redis (balance store) | Redis protocol | 6379 |
+| nginx VPS1 | Grafana (K8s) | HTTP reverse proxy | 30300 |
+| nginx VPS1 | BFF VPS2 | HTTP | 3000 |
+
+### Потоки данных
+
+```
+[OAuth provider] → JWT claims → [BFF]
+  → POST /v1/admin/orgs (create org)
+  → Gateway: credit_tokens(org_id, 100000)
+  → Redis: INCRBY org:{id}:tokens 100000
+
+[Пользователь] → запрос в чат
+  → [Gateway] → GET org:{id}:tokens → < 10000?
+  → auto_refill: INCRBY org:{id}:tokens {balance * 10}
+  → reserve → vLLM → settle
+  → Redis: DECRBY org:{id}:tokens {used}
+```
+
+### Последовательность конфигурации
+
+1. **Gateway:** обновить ConfigMap с логикой авто-баланса (`credit_tokens`, `check_balance`, `auto_refill`)
+2. **BFF:** эндпоинт `POST /api/v1/admin/orgs` → вызывает Gateway для начисления стартовых токенов
+3. **Redis:** убедиться, что ключи `org:{id}:tokens` создаются при регистрации
+4. **Grafana:** `kubectl apply -f k8s/monitoring/grafana.yaml`, настроить ingress/nginx proxy
+5. **nginx VPS1:** добавить location `/grafana/` → Grafana K8s service
+6. **Проверка:** зарегистрироваться → проверить баланс → исчерпать до <10K → авто-пополнение
 
 ---
 
@@ -248,6 +344,37 @@
   → if blocked: strip sensitive data
   → else: → [BFF] → [Клиент]
 ```
+
+### Принцип действия
+
+1. **Мониторинг:** Prometheus собирает метрики с DCGM Exporter (GPU), vLLM /metrics (инференс), PostgreSQL (биллинг), Gateway (latency, rate limits)
+2. **Grafana** визуализирует метрики в трёх дашбордах: GPU Overview, vLLM Inference, Aither Billing
+3. **DLP ingress:** каждый входящий запрос проверяется на номера карт, паспортов, СНИЛС, телефонов, API-ключей
+4. **Prompt Injection:** 29 паттернов (23 EN + 6 RU) — при совпадении → 403 + audit_log
+5. **DLP egress:** ответы модели фильтруются на ДСП-маркеры и ПДн
+6. **Gateway** работает в двухпортовом режиме: :8080 (plain HTTP для внутренних сервисов) + :8443 (mTLS для внешних)
+
+### Последовательность конфигурации
+
+1. **Prometheus:** `kubectl apply -f k8s/monitoring/prometheus.yaml` (Deployment + ConfigMap)
+2. **Grafana:** `kubectl apply -f k8s/monitoring/grafana.yaml` (Deployment + дашборды)
+3. **DCGM Exporter:** `kubectl apply -f k8s/monitoring/dcgm-exporter.yaml`
+4. **Gateway:** обновление ConfigMap с модулями `security.py`, `security_egress.py`, `metrics.py`
+5. **Проверка:** Grafana → fb1.spb.ru:10443/grafana/, дашборды → метрики в реальном времени
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| Prometheus | DCGM Exporter | HTTP scrape | 9400 |
+| Prometheus | vLLM /metrics | HTTP scrape | 8000 |
+| Prometheus | Gateway /metrics | HTTP scrape | 8080 |
+| Grafana | Prometheus | HTTP query | 9090 |
+| Gateway | vLLM | HTTP (OpenAI API) | 8000 |
+| BFF | Gateway (HTTP plain) | HTTP + JWT | 8080 |
+| BFF | Gateway (mTLS) | HTTPS + client cert | 8443 |
+
+Примечание: mTLS (:8443) отключён для отладки RAG — используется plain HTTP (:30900).
 
 ---
 
@@ -385,6 +512,46 @@ LLM-Wiki — это граф знаний в стиле Karpathy: персист
 
 ⚠️ **Текущее ограничение:** chroma-proxy использует in-memory ChromaDB — данные теряются при рестарте пода. После перезапуска необходим повторный инжест учебника. Персистентность через PVC запланирована в Этапе 7.
 
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| Gateway (hybrid_rag) | chroma-proxy | HTTP | 9000 |
+| chroma-proxy | ChromaDB | HTTP (ChromaDB API) | 8000 |
+| chroma-proxy | all-MiniLM-L6-v2 (локально) | Python module | — |
+| Gateway (wiki_graph) | ConfigMap gateway-wiki | File I/O | — |
+| Gateway (routing) | vLLM 14B | HTTP | 32293 |
+| Gateway (routing) | vLLM 32B | HTTP | 8000 |
+| BFF | Gateway (hybrid RAG) | HTTP + JWT | 30900 |
+| BFF | PostgreSQL VPS2 | SQL | 5432 |
+
+### Потоки данных
+
+```
+[Пользователь] → RAG-чат (вопрос + rag_query)
+  → [BFF] → POST /v1/rag/hybrid-query
+    → [Gateway: hybrid_rag.py]
+      ├─ [wiki_graph.py] → ConfigMap gateway-wiki (8 .md-файлов)
+      │   → keyword match → BFS (radius=1) → wiki_results[]
+      └─ [chroma-proxy :9000] → embed(query) → [ChromaDB :8000]
+          → similarity search → chroma_results[]
+    ← {wiki_results, chroma_results} → merge → top-K
+
+  → [BFF] → инжект контекста в system prompt:
+      "You are an AI assistant. Use the following context:
+       {wiki_results} {chroma_results}
+       Question: {user_query}"
+  → POST /v1/chat/completions (augmented_messages)
+    → [Gateway: routing.py]
+      → cost-aware routing: simple? → 14B : complex? → 32B
+      → reserve → vLLM → settle
+    ← ответ с учётом RAG-контекста
+
+  → [BFF] → POST /api/v1/chats/:id/rag-messages
+    → сохранение user + assistant + sources в PostgreSQL
+  ← [Frontend] → отображение + блок «Источники» (Wiki/ChromaDB)
+```
+
 ---
 
 ## 6. Этап 4.5: Стабилизация портала (день 13)
@@ -393,23 +560,31 @@ LLM-Wiki — это граф знаний в стиле Karpathy: персист
 
 Критическое исправление багов портала после развёртывания: восстановление OAuth, исправление чата (500-ошибки), отображение баланса, org_id в чатах, очистка лендинга от dev-режима.
 
-### Выполненные задачи
+### Функционал
 
-| Задача | Статус | Описание |
+- **OAuth-восстановление:** Яндекс/Google/GitHub — env vars в systemd unit, redirect URI на fb1.spb.ru
+- **Чат 500 fix:** `req.user` → `p.user_id` в обработчике сообщений
+- **Баланс в UI:** GET `/api/v1/billing?org_id=...` + отображение в шапке
+- **Dev-вход убран:** скрыта кнопка dev-входа с лендинга
+- **Подсветка кода:** исправлены hljs-артефакты, кнопка копирования в сообщениях
+- **org_id в чатах:** миграция БД (колонка org_id, FK → portal_organizations), BFF (WHERE org_id=$N), фронтенд
+- **Модели 14B + 32B:** обе модели работают через чат, переключение в UI
+
+### Состав компонентов
+
+| Компонент | Версия | Назначение |
 |---|---|---|
-| OAuth-восстановление | ✅ | Яндекс/Google/GitHub — env vars в systemd unit |
-| Чат 500 fix | ✅ | `req.user` → `p.user_id` в обработчике сообщений |
-| Баланс в UI | ✅ | GET `/api/v1/billing?org_id=...` + отображение |
-| Dev-вход убран | ✅ | Скрыта кнопка dev-входа с лендинга |
-| Подсветка кода | ✅ | Исправлены hljs-артефакты, кнопка копирования |
-| org_id в чатах | ✅ | Миграция БД + BFF + фронтенд |
-| Модели 14B + 32B | ✅ | Обе работают через чат, переключение в UI |
+| BFF (Node.js/Fastify) | 4.x | Бэкенд портала с JWT-аутентификацией |
+| Portal SPA | custom | Одностраничное приложение (index.html, admin.html) |
+| nginx VPS2 | — | Reverse proxy :80 → BFF :3000, отдача статики |
+| PostgreSQL VPS2 | 16-alpine | Пользователи портала, чаты, org_id |
+| systemd unit | — | `aither-bff.service` для автозапуска BFF |
 
 ### Принцип действия (исправленный поток чата)
 
 ```
 Браузер → VPS2:80 (Nginx) → VPS2:3000 (BFF)
-  ├─ OAuth: Яндекс / Google / GitHub → JWT-токен
+  ├─ OAuth: Яндекс / Google / GitHub → JWT-токен (HS256)
   ├─ Chat API: /api/v1/chats → /api/v1/chats/{id}/messages
   └─ Billing: /api/v1/billing?org_id=...
 
@@ -419,6 +594,63 @@ BFF → Gateway K8s :30900 (JWT HS256 → RS256 fallback)
   └─ vLLM:
        ├─ 14B → n8:vllm :8000 (Qwen2.5-14B-Instruct)
        └─ 32B → n7:vllm-qwen32b :8000 (Qwen2.5-32B-Instruct)
+```
+
+1. Пользователь заходит через OAuth → BFF проверяет/создаёт пользователя в PostgreSQL
+2. JWT-токен (HS256) сохраняется в cookie и localStorage
+3. Все API-запросы к BFF проходят JWT-верификацию
+4. BFF проксирует запросы в Gateway K8s с org_id в JWT
+5. Gateway выполняет security check → reserve → vLLM → settle
+6. Ответ стримится обратно через SSE
+
+### Физическая схема
+
+![Стабилизация портала](diagrams/day13-fixes.jpg)
+
+### Конфигурационные файлы
+
+| Файл | Назначение |
+|---|---|
+| `portal/.env` | Переменные окружения: OAuth-ключи, PG, JWT_SECRET, CORE_API |
+| `configs/vps2/aither-bff.service` | systemd unit для автозапуска BFF |
+| `configs/vps2/nginx.conf` | nginx reverse proxy :80 → BFF :3000 |
+| `configs/vps1/nginx-aither-failover.conf` | nginx :10443 → VPS2 |
+| `portal/secrets.env` | Полный набор секретов (НЕ коммитить!) |
+
+### Последовательность конфигурации
+
+1. **BFF:** `npm install && npm run build`, создание `.env` с ключами
+2. **systemd:** `systemctl enable aither-bff.service && systemctl start aither-bff`
+3. **nginx VPS2:** reverse proxy :80 → :3000, статика из `portal/static/`
+4. **nginx VPS1:** :10443 → VPS2:80, проброс заголовков
+5. **OAuth:** регистрация приложений в GitHub/Google/Яндекс, redirect URI → `fb1.spb.ru:10443`
+6. **Проверка:** `curl https://fb1.spb.ru:10443/api/v1/status` → `{"version":"0.5.0","orgs":38}`
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| Браузер | nginx VPS1 | HTTPS | 10443 |
+| nginx VPS1 | nginx VPS2 | HTTP | 80 |
+| nginx VPS2 | BFF | HTTP reverse proxy | 3000 |
+| BFF | PostgreSQL VPS2 | SQL | 5432 |
+| BFF | Gateway K8s | HTTP + JWT | 30900 |
+| Gateway | Redis K8s | Redis | 6379 |
+| Gateway | vLLM 14B/32B | HTTP (OpenAI) | 8000 |
+
+### Потоки данных
+
+```
+[Браузер] → HTTPS :10443 → [nginx VPS1]
+  → HTTP :80 → [nginx VPS2]
+  → HTTP :3000 → [BFF]
+    ├─ GET /api/v1/status → проверка JWT → org_id
+    ├─ POST /api/v1/chats → CREATE chat + org_id
+    ├─ POST /api/v1/chats/:id/messages → [Gateway :30900]
+    │   → security → reserve → vLLM → settle
+    │   ← SSE stream (tokens)
+    └─ GET /api/v1/billing → [Gateway] → balance
+  ← SSE stream ← [Браузер]
 ```
 
 ---
@@ -462,6 +694,80 @@ BFF → Gateway K8s :30900 (JWT HS256 → RS256 fallback)
 | `db/migrations/007_subscription_tiers.sql` | Тарифные планы |
 | `db/migrations/008_auth_tables_k8s.sql` | OAuth-таблицы |
 
+### Функционал
+
+- **Тарифные планы:** Free/Standard/VIP/Enterprise с разными лимитами (RPM, TPM, daily, models, RAG)
+- **VPS3 Failover:** горячий резерв портала (BFF + PostgreSQL + Nginx), синхронизация памяти Hermes
+- **SaaS-портал:** регистрация организаций, биллинг-дашборды, админ-панель (11 вкладок)
+- **LDAP-аутентификация:** FreeIPA/ALD Pro через `ldap.ts`, привязка к организациям
+- **Security hardening:** CSP, CORS, helmet, rate limit на BFF и nginx
+
+### Состав компонентов
+
+| Компонент | Версия | Назначение |
+|---|---|---|
+| BFF (Node.js) | 4.x | SaaS-портал, JWT, LDAP, биллинг-дашборды |
+| PostgreSQL VPS2 | 16-alpine | Организации, пользователи, тарифы, чаты |
+| PostgreSQL VPS3 | 16 | Резервная копия БД портала |
+| Nginx VPS3 | — | Резервный reverse proxy |
+| Hermes Agent VPS3 | — | Синхронизация памяти и навыков |
+| Subscription Tiers | SQL migration | 4 тарифа с разными лимитами |
+
+### Принцип действия (тарифные планы)
+
+```
+Регистрация → выбор тарифа → [BFF] → subscription_tiers lookup
+  → INSERT INTO portal_organizations (tier='free')
+  → [Gateway] → set limits:
+      RPM: tier.rpm_limit (free=60, standard=300, vip=1000, enterprise=5000)
+      TPM: tier.tpm_limit (free=10000, standard=100000, ...)
+      Models: tier.allowed_models
+      RAG: tier.rag_enabled
+
+API-запрос → [Gateway] → rate_limit_check(org_id)
+  → Redis: check RPM/TPM windows for tier
+  → if exceeded → 429 Rate Limit Exceeded
+  → else → reserve → vLLM → settle
+```
+
+### Последовательность конфигурации
+
+1. **Миграция БД:** `db/migrations/007_subscription_tiers.sql` → создание тарифов
+2. **BFF:** `ldap.ts` → настройка подключения к FreeIPA/ALD Pro
+3. **Security:** `security.ts` → helmet, CSP, CORS, rate limit
+4. **VPS3:** `rsync` синхронизация dist + статика, systemd unit для BFF
+5. **Nginx VPS3:** reverse proxy на BFF, копия конфига с VPS2
+6. **Hermes VPS3:** синхронизация MEMORY.md + USER.md + навыков
+7. **Проверка:** VPS1:10443 → VPS2 (primary) → VPS3 (backup) — failover работает
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| BFF | PostgreSQL VPS2 | SQL | 5432 |
+| BFF | Gateway K8s (rate limit per tier) | HTTP + JWT | 30900 |
+| BFF | LDAP (FreeIPA/ALD Pro) | LDAP | 389/636 |
+| Gateway | Redis (sliding window per tier) | Redis | 6379 |
+| VPS1 Nginx | VPS2 BFF (primary) | HTTP | 80 |
+| VPS1 Nginx | VPS3 BFF (backup) | HTTP | 80 |
+| Hermes VPS1 | Hermes VPS3 | SSH + Git | 22 |
+
+### Потоки данных
+
+```
+[Пользователь] → OAuth → [BFF]
+  → GET /api/v1/billing?org_id=X
+  → [PostgreSQL] → subscription_tier → limits
+  → [Gateway] → Redis: current RPM/TPM for tier
+
+[API-клиент] → POST /v1/chat/completions (org_id + API key)
+  → [Gateway] → rate_limit_check(tier, org_id)
+  → Redis: INCR org:{id}:rpm:{window}, INCRBY org:{id}:tpm:{window}
+  → if within limits → reserve → vLLM → settle
+  → Redis: DECRBY org:{id}:tokens {used}
+  ← SSE stream → [Клиент]
+```
+
 ---
 
 ## 8. Этап 5a: Требования руководства (недели 7–11)
@@ -504,6 +810,86 @@ BFF → Gateway K8s :30900 (JWT HS256 → RS256 fallback)
 
 Примечание: mTLS отключён на период отладки RAG (используется plain HTTP :30900).
 
+### Функционал
+
+- **Security Gateway Egress:** ДСП-фильтр на выходе (11 DSP-паттернов, 10 system-leak паттернов)
+- **SIEM-интеграция:** syslog CEF-формат, таблица security_events в PostgreSQL
+- **Vault-интеграция:** внешняя генерация API-ключей, PKI для mTLS-сертификатов
+- **LLM-Wiki + гибридный RAG:** граф знаний (8 страниц) + ChromaDB (39 чанков)
+- **Профили организаций:** security policy per org (DLP level, blocked patterns)
+- **API Gateway mgmt API:** управление очередями, моделями, drain, health
+- **TTFT-мониторинг:** Time To First Token в Prometheus
+
+### Состав компонентов
+
+| Компонент | Версия | Назначение |
+|---|---|---|
+| security_egress.py | custom (250 строк) | DLP-фильтр ответов модели |
+| siem.py | custom | Syslog CEF + PostgreSQL audit |
+| vault_client.py | custom | Vault PKI + API-key generation |
+| hybrid_rag.py | ~200 строк | Гибридный поиск: wiki + chroma |
+| wiki_graph.py | ~400 строк | Граф знаний (BFS, fulltext) |
+| admin.py | custom | Gateway management API |
+| metrics.py | custom | Prometheus-метрики (TTFT, latency) |
+
+### Физическая схема
+
+![Требования руководства](diagrams/physical-architecture-v2.jpg)
+
+### Конфигурационные файлы
+
+| Файл | Назначение |
+|---|---|
+| `gateway/security_egress.py` | Egress DLP: ДСП, ПДн, classified (250 строк) |
+| `gateway/siem.py` | SIEM: syslog CEF + PostgreSQL-логирование |
+| `gateway/vault_client.py` | Vault PKI: client cert, API-key gen |
+| `gateway/hybrid_rag.py` | Гибридный RAG: wiki + chroma-proxy |
+| `gateway/wiki_graph.py` | LLM-Wiki: BFS-граф (400 строк) |
+| `gateway/admin.py` | Management API: очереди, drain, health |
+| `gateway/metrics.py` | Prometheus: TTFT, latency, request count |
+| `wiki/*.md` | 8 страниц базы знаний LLM-Wiki |
+
+### Последовательность конфигурации
+
+1. **Egress DLP:** добавить `security_egress.py` в Gateway ConfigMap
+2. **SIEM:** настроить syslog-сервер, создать таблицу `security_events`
+3. **Vault:** развернуть Vault, настроить PKI, сгенерировать сертификаты
+4. **LLM-Wiki:** создать ConfigMap `gateway-wiki` из 8 .md-файлов
+5. **Gateway:** обновить образ с `hybrid_rag.py`, `wiki_graph.py`, `admin.py`
+6. **Профили:** миграция БД — `org_security_policies` (DLP level, blocked patterns)
+7. **Метрики:** Prometheus scrape config → Gateway /metrics → TTFT в Grafana
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| Gateway (egress) | vLLM (ответ модели) | HTTP response filter | — |
+| Gateway (SIEM) | Syslog-сервер | Syslog UDP | 514 |
+| Gateway (SIEM) | PostgreSQL | SQL | 5432 |
+| Gateway (Vault) | Vault PKI | HTTPS + token | 8200 |
+| Gateway (hybrid RAG) | chroma-proxy | HTTP | 9000 |
+| Gateway (hybrid RAG) | ConfigMap (wiki) | File I/O | — |
+| Prometheus | Gateway /metrics | HTTP scrape | 8080 |
+
+### Потоки данных
+
+```
+[Модель] → ответ → [Gateway: security_egress.py]
+  ├─ DSP check: "Для служебного пользования", "ДСП", "Секретно" ...
+  ├─ System leaks: IP адреса, hostname, JWT eyJ..., API key sk-...
+  ├─ если найдено → strip/block + audit_log
+  │   → [SIEM] → syslog CEF → PostgreSQL security_events
+  └─ иначе → пропустить → [BFF] → [Клиент]
+
+[Администратор] → GET /admin/models → [Gateway: admin.py]
+  → список моделей, статусы, очереди, drain
+
+[Gateway] → POST /v1/rag/hybrid-query {query, top_k}
+  ├─ [wiki_graph.py] → BFS по графу знаний (radius=1)
+  └─ [chroma-proxy :9000] → ChromaDB :8000 → top_k чанков
+  ← {wiki_results, chroma_results} → дедупликация → инжект в промпт
+```
+
 ---
 
 ## 9. Этап 6: Эксплуатация и развитие (месяц 2+)
@@ -512,7 +898,7 @@ BFF → Gateway K8s :30900 (JWT HS256 → RS256 fallback)
 
 Переход от пилотного проекта к промышленной эксплуатации: автомасштабирование (HPA), CI/CD-пайплайн, внешний API Gateway с документацией, полный аудит безопасности, учебное пособие.
 
-### Выполненные задачи
+### Функционал
 
 | Задача | Статус | Описание |
 |---|---|---|
@@ -564,6 +950,72 @@ Push в main (gateway/**) →
 | III. Разработка и доработка | 15–18 | API, RAG, безопасность, кастомизация |
 | IV. Production-эксплуатация | 19–24 | HA, мультиарендность, монетизация, SIEM |
 | Приложения и ЛР | ЛР 1–12 | Лабораторный практикум |
+
+### Принцип действия (CI/CD пайплайн)
+
+```
+Разработчик → git push в main
+  → [GitHub Actions] → paths-filter (gateway/**)
+  → build-gateway: docker build -t ghcr.io/.../gateway:latest
+  → docker push ghcr.io
+  → deploy: kubectl set image deploy/gateway gateway=ghcr.io/.../gateway:latest
+  → kubectl rollout status deploy/gateway (timeout 120s)
+  → health-check: curl http://gateway:8080/health (5 попыток)
+  → if fail → kubectl rollout undo deploy/gateway
+  → Telegram-уведомление (успех/провал)
+```
+
+### Физическая схема
+
+![Эксплуатация и развитие](diagrams/physical-architecture-v2.jpg)
+
+### Конфигурационные файлы
+
+| Файл | Назначение |
+|---|---|
+| `gateway/Dockerfile` | Python 3.12-slim, 11 модулей, 52 MB |
+| `gateway/requirements.txt` | redis, pyjwt, psycopg2-binary, pyyaml |
+| `.github/workflows/deploy.yml` | CI/CD: build → push → deploy → health-check → rollback |
+| `k8s/gateway/deployment.yaml` | Образ ghcr.io + resource limits |
+| `k8s/vllm-14b/deployment.yaml` | HPA: cpu=4, mem=32Gi, Recreate |
+| `k8s/vllm-32b/deployment.yaml` | HPA: cpu=4, mem=32Gi, Recreate |
+| `docs/openapi.yaml` | Swagger 3.0 спецификация |
+
+### Последовательность конфигурации
+
+1. **Dockerfile:** `gateway/Dockerfile` + `requirements.txt` → сборка образа
+2. **GitHub Actions:** `.github/workflows/deploy.yml` → secrets (VPS2_HOST, KUBECONFIG)
+3. **HPA:** `kubectl apply -f k8s/vllm-14b/deployment.yaml` с resource requests
+4. **API Gateway:** `kubectl apply -f k8s/gateway/external-svc.yaml` → NodePort
+5. **OpenAPI:** сгенерировать `openapi.yaml` из кода, разместить в docs/
+6. **Аудит:** запустить `tests/security-audit.sh` → отчёт → исправления
+7. **Проверка:** `curl https://fb1.spb.ru:10443/v1/models` → список моделей
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| GitHub Actions | ghcr.io | HTTPS (docker push) | 443 |
+| GitHub Actions | K8s API (VPS1) | HTTPS + kubeconfig | 6443 |
+| K8s | ghcr.io (pull image) | HTTPS | 443 |
+| HPA Controller | Metrics Server | HTTPS | 443 |
+| Внешний клиент | API Gateway | HTTPS (OpenAI API) | 10443 |
+| OpenAPI UI | Swagger UI | HTTP | — |
+
+### Потоки данных
+
+```
+[Разработчик] → git push → [GitHub]
+  → Actions workflow → docker build → ghcr.io
+  → kubectl set image → [K8s API]
+  → RollingUpdate (если не Recreate) → новый под
+  → health-check → OK → Telegram "✅ deploy succeeded"
+
+[Внешний клиент] → POST /v1/chat/completions (API key)
+  → [nginx :10443] → [Gateway :30900]
+  → rate limit → reserve → vLLM → settle
+  ← SSE stream (OpenAI-совместимый формат)
+```
 
 ---
 
@@ -639,6 +1091,88 @@ offline-deploy/
 4. **Деплой:** `make deploy` (Ansible playbooks, ~1 час)
 5. **RAG-инициализация:** инжест учебника в ChromaDB
 6. **Проверка:** `make test` (smoke, API, security, load)
+
+### Принцип действия
+
+Офлайн-пакет — самодостаточный каталог, переносимый на флеш-носителе в изолированный контур без доступа в Интернет:
+
+```
+[Машина с интернетом] → make bundle
+  ├─ docker save все образы → offline/docker/images.tar.gz
+  ├─ pip download все wheels → offline/pip/packages/
+  ├─ npm pack портал → offline/npm/portal-offline.tgz
+  └─ копирование конфигов, скриптов, тестов
+
+[Флеш-носитель] → перенос → [Целевая машина (Astra Linux)]
+  → make offline-load:
+      docker load < images.tar.gz
+      pip install --no-index packages/
+      npm install portal-offline.tgz
+  → make deploy:
+      ansible-playbook site.yml (ОС → GPU → K8s → vLLM → Gateway → Портал)
+  → make test:
+      smoke → API → security → load
+```
+
+### Физическая схема
+
+![Закрытый контур](diagrams/physical-architecture-v2.jpg)
+
+### Конфигурационные файлы
+
+| Файл | Назначение |
+|---|---|
+| `offline-deploy/Makefile` | make deploy / make test / make bundle / make offline-load |
+| `offline-deploy/VERSION` | Версия пакета (1.2.0) |
+| `offline-deploy/configs/bff/.env.template` | Эталонный шаблон переменных BFF |
+| `offline-deploy/configs/gateway/config.yaml.template` | Эталонная конфигурация Gateway |
+| `offline-deploy/configs/nginx/nginx.conf` | Эталонный nginx config |
+| `offline-deploy/playbooks/site.yml` | Главный Ansible playbook |
+| `offline-deploy/playbooks/inventory.yml.template` | Шаблон инвентаря |
+
+### Взаимодействия
+
+| Компонент A | Компонент B | Протокол | Порт |
+|---|---|---|---|
+| Ansible control node | Целевые хосты | SSH | 22 |
+| Docker daemon | Реестр образов (локальный tar) | File I/O | — |
+| pip | Локальный репозиторий wheels | File I/O | — |
+| npm | Локальный пакет portal | File I/O | — |
+| vLLM | /mnt/models/ (локальный диск) | File I/O | — |
+| ChromaDB | chroma-proxy | HTTP | 9000 |
+| BFF | PostgreSQL (локальный) | SQL | 5432 |
+
+### Потоки данных
+
+```
+[Интернет-машина] → make bundle
+  ├─ docker pull все образы → docker save → .tar.gz
+  ├─ pip download -r requirements.txt → wheels/
+  ├─ cd portal && npm pack → portal-offline.tgz
+  └─ cp -r k8s/ configs/ scripts/ tests/ → offline-deploy/
+
+[Перенос] → флеш-носитель (≥ 50 GB)
+
+[Целевая машина] → make offline-load
+  ├─ docker load < images.tar.gz → локальный Docker registry
+  ├─ pip install --no-index --find-links=packages/ → виртуальное окружение
+  └─ npm install portal-offline.tgz → node_modules/
+
+[Развёртывание] → make deploy
+  ├─ ansible-playbook 01-prerequisites.yml → ОС + зависимости
+  ├─ ansible-playbook 02-gpu-setup.yml → NVIDIA drivers + toolkit
+  ├─ ansible-playbook 03-k8s-deploy.yml → kubeadm init + CNI
+  ├─ ansible-playbook 05-vllm-deploy.yml → модели из /mnt/models/
+  ├─ ansible-playbook 06-gateway-deploy.yml → Gateway + Redis + PG
+  ├─ ansible-playbook 07-portal-deploy.yml → BFF + SPA + ChromaDB
+  └─ ansible-playbook 09-post-deploy.yml → seed-данные, health-check
+
+[Приёмка] → make test
+  ├─ 01-smoke.sh → все поды Running
+  ├─ 02-api.sh → curl /v1/chat/completions → 200
+  ├─ 03-security.sh → DLP + prompt injection
+  └─ 04-load.sh → 100 RPS, p99 < 5s
+```
 
 ---
 
