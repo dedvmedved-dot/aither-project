@@ -1261,6 +1261,7 @@ async function renderOrgDetail() {
         <button class="btn btn-primary btn-sm" onclick="showCreateKey()">+ Новый ключ</button>
       </div>
       <div class="card-body" id="keys-body">
+        <div id="keys-list">
         ${state.apiKeys.length === 0 ? `
           <div class="empty-state">
             <div class="empty-state-icon">🔑</div>
@@ -1286,6 +1287,7 @@ async function renderOrgDetail() {
             </table>
           </div>
         `}
+        </div>
         <div class="key-reveal" id="key-reveal">
           <div class="key-reveal-label">⚠️ Новый ключ — скопируйте сейчас. Больше не будет показан:</div>
           <div id="key-reveal-value"></div>
@@ -1435,10 +1437,45 @@ async function createKey() {
     $('#key-reveal').style.display = 'block';
     $('#key-reveal-value').textContent = data.key.api_key;
     toast('API-ключ создан');
-    renderOrgDetail();
+    // Refresh keys list without losing the reveal
+    const keysR = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/api-keys`);
+    if (keysR.ok) {
+      state.apiKeys = keysR.data.keys || [];
+      renderKeysTable();
+    }
   } else {
     toast((data||{}).error || 'Ошибка', 'error');
   }
+}
+
+function renderKeysTable() {
+  const el = document.getElementById('keys-list');
+  if (!el) return;
+  el.innerHTML = state.apiKeys.length === 0 ? `
+    <div class="empty-state">
+      <div class="empty-state-icon">🔑</div>
+      <h4>Нет ключей</h4>
+      <p>Создайте API-ключ для доступа к инференсу</p>
+    </div>
+  ` : `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Название</th><th>Префикс</th><th>Статус</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead>
+        <tbody>
+          ${state.apiKeys.map(k => `
+            <tr>
+              <td><strong>${esc(k.name)}</strong></td>
+              <td><code>${esc(k.api_key_prefix)}</code></td>
+              <td><span class="badge ${k.status==='active'?'badge-green':'badge-red'}">${esc(k.status)}</span></td>
+              <td style="color:var(--text-dim);font-size:13px;">${formatDate(k.created_at)}</td>
+              <td style="color:var(--text-dim);font-size:13px;">${formatDate(k.last_used_at)}</td>
+              <td>${k.status==='active' ? \`<button class="btn btn-danger btn-sm" onclick="revokeKey('\${k.key_id}')\">Отозвать</button>\` : ''}</td>
+            </tr>
+          \`).join('')}
+        </tbody>
+      </table>
+    </div>
+  \`;
 }
 
 async function revokeKey(keyId) {
