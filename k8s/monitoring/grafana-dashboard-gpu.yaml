@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-gpu
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "gpu"
+data:
+  gpu-overview.json: |
+    {
+      "title": "NVIDIA GPU Overview",
+      "uid": "aither-gpu",
+      "panels": [
+        {
+          "title": "GPU Utilisation %",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "targets": [{
+            "expr": "DCGM_FI_DEV_GPU_UTIL",
+            "legendFormat": "{{gpu}} - {{UUID}}"
+          }],
+          "fieldConfig": {
+            "defaults": {"unit": "percent", "min": 0, "max": 100}
+          }
+        },
+        {
+          "title": "GPU Memory Used",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "targets": [{
+            "expr": "DCGM_FI_DEV_FB_USED / 1024",
+            "legendFormat": "{{gpu}} - {{UUID}}"
+          }],
+          "fieldConfig": {
+            "defaults": {"unit": "decmbytes"}
+          }
+        },
+        {
+          "title": "GPU Temperature °C",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "targets": [{
+            "expr": "DCGM_FI_DEV_GPU_TEMP",
+            "legendFormat": "{{gpu}} - {{UUID}}"
+          }],
+          "fieldConfig": {
+            "defaults": {"unit": "celsius"}
+          },
+          "thresholds": [{"value": 80, "color": "red"}]
+        },
+        {
+          "title": "Power Usage (W)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "targets": [{
+            "expr": "DCGM_FI_DEV_POWER_USAGE",
+            "legendFormat": "{{gpu}} - {{UUID}}"
+          }],
+          "fieldConfig": {
+            "defaults": {"unit": "watt"}
+          }
+        }
+      ],
+      "refresh": "10s",
+      "time": {"from": "now-1h", "to": "now"}
+    }
