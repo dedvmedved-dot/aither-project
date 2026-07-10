@@ -199,6 +199,6 @@ aither-project/
 
 ## Дорожная карта
 
-Подробно: [ROADMAP.md](ROADMAP.md)
+Подробно: [ROADMAP.md](ROADMAP.md) | **Техническое руководство:** [roadmap-manual.md](docs/roadmap-manual.md)
 
 Актуальные задачи: #13 YooKassa live mode → etcd 3-й узел → PenTest → Production launch
