@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       component:
-        description: 'Component to deploy (gateway/vllm/portal/all)'
+        description: 'Component to deploy'
         required: true
         default: 'all'
         type: choice
@@ -28,14 +28,32 @@ env:
   IMAGE_NAME: ${{ github.repository }}-gateway
 
 jobs:
-  # ── Gateway: build + push Docker image ──
-  build-gateway:
+  # ── Always: detect if gateway code changed ──
+  changes:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' &&
-      (github.event.inputs.component == 'all' || github.event.inputs.component == 'gateway')
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            gateway:
+              - 'gateway/**'
+              - 'gateway/Dockerfile'
+              - 'gateway/requirements.txt'
+
+  # ── Build + push Docker image ──
+  build-gateway:
+    needs: changes
+    if: |
+      needs.changes.outputs.gateway == 'true' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.component == 'all' || github.event.inputs.component == 'gateway'))
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,7 +71,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix=,format=short
-            type=ref,event=branch
             type=raw,value=latest
 
       - name: Build and push
@@ -66,40 +83,45 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── Deploy to K8s via VPS2 ──
-  deploy-k8s:
-    runs-on: ubuntu-latest
-    needs: build-gateway
+      - name: Make package public
+        run: |
+          # Make ghcr.io package publicly accessible so K8s can pull without auth
+          curl -s -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/packages/container/${{ github.event.repository.name }}-gateway/visibility" \
+            -d '{"visibility":"public"}' || echo "Visibility already set or API not available"
+
+  # ── Deploy to K8s ──
+  deploy:
+    needs: [changes, build-gateway]
     if: |
-      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip-deploy]')) ||
-      (github.event_name == 'workflow_dispatch' && needs.build-gateway.result == 'success')
+      !cancelled() &&
+      !contains(github.event.head_commit.message, '[skip-deploy]')
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy Gateway image
+      - name: Deploy Gateway (Docker image)
         if: |
-          github.event_name == 'workflow_dispatch' &&
-          (github.event.inputs.component == 'all' || github.event.inputs.component == 'gateway')
+          needs.build-gateway.result == 'success' &&
+          (github.event.inputs.component == 'all' || github.event.inputs.component == 'gateway' || github.event_name == 'push')
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.VPS2_HOST }}
           username: ${{ secrets.VPS2_USER }}
           key: ${{ secrets.VPS2_SSH_KEY }}
           script: |
-            IMAGE="ghcr.io/${{ github.repository }}-gateway:sha-${{ github.sha }}"
+            set -e
+            IMAGE="ghcr.io/${{ github.repository }}-gateway:sha-$(echo ${{ github.sha }} | cut -c1-7)"
             echo "🚀 Deploying Gateway: $IMAGE"
 
-            cd /root/aither-project
-            git pull origin main
-
-            # Update K8s deployment
             kubectl set image deployment/gateway gateway="$IMAGE" -n default
 
-            # Wait for rollout
             if kubectl rollout status deployment/gateway -n default --timeout=120s; then
-              echo "✅ Gateway deployed successfully"
+              echo "✅ Gateway deployed"
             else
-              echo "❌ Gateway rollout failed — rolling back"
+              echo "❌ Rollout failed — rolling back"
               kubectl rollout undo deployment/gateway -n default
               exit 1
             fi
@@ -112,23 +134,20 @@ jobs:
           username: ${{ secrets.VPS2_USER }}
           key: ${{ secrets.VPS2_SSH_KEY }}
           script: |
-            echo "🔍 Running health checks..."
-
             for i in 1 2 3 4 5; do
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null || echo "000")
               if [ "$STATUS" = "200" ]; then
-                echo "✅ Health check passed (attempt $i)"
+                echo "✅ Health check OK (attempt $i)"
                 exit 0
               fi
               echo "⏳ Attempt $i: HTTP $STATUS, retrying in 5s..."
               sleep 5
             done
-
-            echo "❌ Health check FAILED after 5 attempts — rolling back"
+            echo "❌ Health check FAILED — rolling back"
             kubectl rollout undo deployment/gateway -n default
             exit 1
 
-      - name: Deploy vLLM / Portal / Config
+      - name: Deploy other components
         if: |
           github.event_name == 'workflow_dispatch' &&
           github.event.inputs.component != 'gateway'
@@ -141,26 +160,6 @@ jobs:
             cd /root/aither-project
             git pull origin main
             bash scripts/deploy.sh ${{ github.event.inputs.component }}
-
-      - name: Deploy on push (legacy)
-        if: github.event_name == 'push'
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.VPS2_HOST }}
-          username: ${{ secrets.VPS2_USER }}
-          key: ${{ secrets.VPS2_SSH_KEY }}
-          script: |
-            cd /root/aither-project
-            git pull origin main
-
-            # If gateway files changed, redeploy ConfigMap
-            if git diff --name-only HEAD~1 | grep -q "^gateway/"; then
-              echo "Gateway files changed — updating ConfigMap..."
-              bash scripts/deploy.sh gateway
-            fi
-
-            # Apply HPA + other K8s configs
-            bash scripts/deploy.sh config
 
       - name: Notify Telegram
         if: always()
