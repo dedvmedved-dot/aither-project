@@ -86,6 +86,12 @@ function safeError(e: any): string {
   return IS_PRODUCTION ? "internal_error" : e.message || String(e);
 }
 
+function safeJsonParse(s: any): any {
+  if (!s) return null;
+  if (typeof s === "object") return s;
+  try { return JSON.parse(s); } catch { return null; }
+}
+
 /** In-memory OAuth state store — avoids cookie issues */
 const oauthStates = new Map<string, { prefix: string; expires: number }>();
 
@@ -1228,10 +1234,14 @@ async function main() {
         if (!txnId) return reply.send({ ok: false, error: "no txn_id in metadata" });
 
         const txn = await pool.query(
-          "SELECT txn_id, org_id, tokens, status FROM payment_transactions WHERE txn_id=$1",
+          "SELECT txn_id, org_id, tokens, status, meta FROM payment_transactions WHERE txn_id=$1",
           [txnId]);
         if (txn.rows.length === 0) return reply.send({ ok: false, error: "txn not found" });
         if (txn.rows[0].status === "succeeded") return reply.send({ ok: true, status: "already_processed" });
+
+        const tier = payment.metadata?.tier;
+        const txnMeta = safeJsonParse(txn.rows[0].meta) || {};
+        const effectiveTier = tier || txnMeta.tier;
 
         // Mark succeeded + credit tokens
         await pool.query("BEGIN");
@@ -1239,14 +1249,23 @@ async function main() {
           "UPDATE payment_transactions SET status='succeeded', updated_at=now(), meta=$1 WHERE txn_id=$2",
           [JSON.stringify(payment), txnId]);
 
-        await pool.query(
-          `INSERT INTO billing_accounts (org_id, reserved, total_tokens)
-           VALUES ($1, 0, $2)
-           ON CONFLICT (org_id) DO UPDATE SET total_tokens = billing_accounts.total_tokens + $2`,
-          [txn.rows[0].org_id, txn.rows[0].tokens]);
+        if (txn.rows[0].tokens > 0) {
+          await pool.query(
+            `INSERT INTO billing_accounts (org_id, reserved, total_tokens)
+             VALUES ($1, 0, $2)
+             ON CONFLICT (org_id) DO UPDATE SET total_tokens = billing_accounts.total_tokens + $2`,
+            [txn.rows[0].org_id, txn.rows[0].tokens]);
+        }
+
+        // If tier purchase — upgrade tier
+        if (effectiveTier) {
+          await pool.query(
+            "UPDATE billing_accounts SET tier=$1, updated_at=now() WHERE org_id=$2",
+            [effectiveTier, txn.rows[0].org_id]);
+        }
 
         await pool.query("COMMIT");
-        return reply.send({ ok: true, status: "credited" });
+        return reply.send({ ok: true, status: effectiveTier ? "tier_upgraded" : "credited" });
       }
 
       return reply.send({ ok: true, status: "ignored", event });
@@ -1323,6 +1342,89 @@ async function main() {
       `SELECT b.tier, t.name, t.rpm_limit, t.tpm_limit, t.daily_request_limit, t.models, t.rag_enabled, t.priority
        FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier = t.tier_id WHERE b.org_id=$1`, [orgId]);
     return reply.send({ ok: true, tier: r.rows[0] });
+  });
+
+  // === Purchase tier (with payment) ===
+  app.post("/api/v1/orgs/:orgId/purchase-tier", async (req: any, reply) => {
+    const p = auth(req, reply); if (!p) return;
+    const { orgId } = req.params as any;
+    const { tier }: any = req.body;
+    if (!tier) return reply.status(400).send({ error: "tier required" });
+
+    // Check org membership
+    const m = await pool.query(
+      "SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'",
+      [orgId, p.user_id]);
+    if (m.rows.length === 0) return reply.status(403).send({ error: "not a member" });
+
+    // Get tier info
+    const t = await pool.query(
+      "SELECT tier_id, name, price_rub_month FROM subscription_tiers WHERE tier_id=$1", [tier]);
+    if (t.rows.length === 0) return reply.status(400).send({ error: "invalid tier" });
+
+    const tierInfo = t.rows[0];
+    const price = Number(tierInfo.price_rub_month) || 0;
+
+    // Free tier — upgrade immediately
+    if (price === 0) {
+      await pool.query("UPDATE billing_accounts SET tier=$1, updated_at=now() WHERE org_id=$2", [tier, orgId]);
+      const r = await pool.query(
+        "SELECT b.tier, t.name FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier=t.tier_id WHERE b.org_id=$1", [orgId]);
+      return reply.send({ ok: true, tier: r.rows[0], paid: false });
+    }
+
+    // Paid tier — create transaction
+    const txn = await pool.query(
+      `INSERT INTO payment_transactions (org_id, user_id, provider, amount_rub, tokens, status, meta)
+       VALUES ($1,$2,'yookassa',$3,0,'pending',$4) RETURNING txn_id`,
+      [orgId, p.user_id, price, JSON.stringify({ tier, tier_name: tierInfo.name })]);
+
+    const txnId: string = txn.rows[0].txn_id;
+
+    // Dev mode — auto-succeed
+    if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET) {
+      await pool.query("UPDATE billing_accounts SET tier=$1, updated_at=now() WHERE org_id=$2", [tier, orgId]);
+      await pool.query(
+        "UPDATE payment_transactions SET status='succeeded', updated_at=now(), meta=$1 WHERE txn_id=$2",
+        [JSON.stringify({ dev_mode: true, tier }), txnId]);
+      const r = await pool.query(
+        "SELECT b.tier, t.name FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier=t.tier_id WHERE b.org_id=$1", [orgId]);
+      return reply.send({ ok: true, tier: r.rows[0], paid: false, dev_mode: true });
+    }
+
+    // YooKassa payment
+    try {
+      const ykRes = await fetch("https://api.yookassa.ru/v3/payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Basic " + Buffer.from(YOOKASSA_SHOP_ID + ":" + YOOKASSA_SECRET).toString("base64"),
+          "Idempotence-Key": txnId,
+        },
+        body: JSON.stringify({
+          amount: { value: price.toFixed(2), currency: "RUB" },
+          confirmation: { type: "redirect", return_url: `https://${process.env.PUBLIC_HOST || "localhost"}:10443/#tiers` },
+          description: `Aither: тариф «${tierInfo.name}»`,
+          metadata: { txn_id: txnId, org_id: orgId, tier },
+        }),
+      });
+      const ykData: any = await ykRes.json();
+
+      if (ykRes.ok && ykData.confirmation?.confirmation_url) {
+        await pool.query(
+          "UPDATE payment_transactions SET provider_payment_id=$1, meta=$2 WHERE txn_id=$3",
+          [ykData.id, JSON.stringify(ykData), txnId]);
+        return reply.send({
+          ok: true,
+          txn_id: txnId,
+          confirmation_url: ykData.confirmation.confirmation_url,
+          status: "pending",
+        });
+      }
+      return reply.status(502).send({ error: "yookassa error", detail: ykData });
+    } catch (e: any) {
+      return reply.status(502).send({ error: "yookassa error: " + safeError(e) });
+    }
   });
 
   // ==================== ADMIN PROXY ====================

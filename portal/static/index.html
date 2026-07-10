@@ -2149,7 +2149,23 @@ async function renderDashboard() {
   if (daily.length) { new Chart(document.getElementById("dailyChart"),{type:"line",data:{labels:daily.map(d=>d.day.slice(5)),datasets:[{label:"Токенов",data:daily.map(d=>+d.tokens),borderColor:"#6366f1",backgroundColor:"rgba(99,102,241,0.1)",fill:true,tension:0.3}]},options:{responsive:true,plugins:{legend:{labels:{color:"#71718a"}}},scales:{x:{ticks:{color:"#4a4a5e"}},y:{ticks:{color:"#4a4a5e"}}}}}); }
   if (byModel.length) { new Chart(document.getElementById("modelChart"),{type:"doughnut",data:{labels:byModel.map(m=>m.model),datasets:[{data:byModel.map(m=>+m.tokens),backgroundColor:["#6366f1","#34d399","#fbbf24","#f87171","#818cf8","#a78bfa"]}]},options:{responsive:true,plugins:{legend:{position:"bottom",labels:{color:"#71718a",padding:12}}}}}); }
 }
-async function upgradeTier(orgId,tier){if(!orgId){navigate('orgs');toast('Сначала выберите организацию','error');return;}if(!confirm("Перейти на тариф "+tier.toUpperCase()+"?"))return;const{ok,data}=await api("/api/v1/orgs/"+orgId+"/upgrade",{method:"POST",body:JSON.stringify({tier})});if(ok){alert("Тариф обновлён!");render();}else{alert("Ошибка: "+((data||{}).error||"неизвестно"));}}
+async function upgradeTier(orgId,tier){if(!orgId){navigate('orgs');toast('Сначала выберите организацию','error');return;}
+  if(!confirm("Перейти на тариф "+tier.toUpperCase()+"?"))return;
+  const{ok,data}=await api("/api/v1/orgs/"+orgId+"/purchase-tier",{method:"POST",body:JSON.stringify({tier})});
+  if(ok){
+    if(data.confirmation_url){
+      // Paid tier — redirect to YooKassa
+      window.open(data.confirmation_url,'_blank');
+      toast('Открыта страница оплаты. После оплаты обновите страницу.','success');
+    } else {
+      // Free or dev mode — upgraded immediately
+      alert("Тариф обновлён!");
+      render();
+    }
+  }else{
+    alert("Ошибка: "+((data||{}).error||"неизвестно"));
+  }
+}
 }
 </script>
 </body>
