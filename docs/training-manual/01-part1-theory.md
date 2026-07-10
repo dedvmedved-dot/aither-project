@@ -3191,3 +3191,732 @@ time curl -X POST http://vllm:8000/v1/chat/completions \
 - Как проверить работоспособность и замерить tok/s
 
 В следующей главе — Портал: веб-интерфейс платформы, от BFF до списания токенов.
+
+
+# Глава 6. Портал — веб-интерфейс платформы ★
+
+> **Цель главы:** понять, как устроен пользовательский интерфейс Aither — от браузера до базы данных. Разобрать архитектуру SPA+BFF, аутентификацию, списание токенов, фронтенд чата и админ-панели. После этой главы вы сможете задеплоить портал на чистом VPS и понять, почему падала ошибка `toLocaleString`.
+
+---
+
+## 6.A — Архитектура и теория
+
+### 6.1. Как устроен портал: общая картина
+
+Портал Aither — это то, что видит пользователь в браузере: страница с чатом, админ-панель, форма логина. Но за простым интерфейсом стоит сложная архитектура.
+
+**Три слоя портала:**
+
+| Слой | Где находится | Что делает | Технология |
+|---|---|---|---|
+| **Фронтенд** (SPA) | Браузер пользователя | Чат, админка, кнопки, формы | HTML + CSS + JavaScript |
+| **BFF** (Backend For Frontend) | VPS2, порт 3000 | Авторизация, проксирование, списание токенов | Node.js + Express + TypeScript |
+| **База данных портала** | VPS2, порт 5432 | Пользователи, организации, API-ключи | PostgreSQL 16 |
+
+**Почему BFF, а не напрямую в Gateway?** Gateway — это «боевой» сервер: он общается с vLLM, считает токены, проверяет лимиты. Он не должен заниматься пользовательскими сессиями, куками, OAuth-редиректами. BFF берёт эту работу на себя: он «друг фронтенда» (Backend **For** Frontend).
+
+```dot
+digraph PortalArch {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    browser [label="Браузер\nпользователя\n(Chrome/Firefox)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2", fontsize=10]
+
+    subgraph cluster_vps1 {
+        label="VPS1: 170.168.91.95"
+        style="rounded,dashed"
+        color="#1976d2"
+        fontname="system-ui"
+        fontsize=10
+
+        nginx_vps1 [label="nginx\n:10443 HTTPS\nTLS 1.3", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    }
+
+    subgraph cluster_vps2 {
+        label="VPS2: 130.17.1.90"
+        style="rounded,dashed"
+        color="#7b1fa2"
+        fontname="system-ui"
+        fontsize=10
+
+        nginx_vps2 [label="nginx :80\n(статика + прокси)", shape=box, style="filled", fillcolor="#f3e5f5", color="#7b1fa2"]
+        bff [label="BFF :3000\nNode.js/Express\nTypeScript", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        pgsql [label="Portal DB\nPostgreSQL 16\n:5432", shape=cylinder, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+    }
+
+    subgraph cluster_k8s {
+        label="Kubernetes (через VPS1:30900)"
+        style="rounded,dashed"
+        color="#ff9800"
+        fontname="system-ui"
+        fontsize=10
+
+        gateway [label="Gateway\n:8080", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        vllm [label="vLLM\n:8000", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+    }
+
+    oauth [label="OAuth\nGitHub/Google\nЯндекс", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+
+    browser -> nginx_vps1 [label="HTTPS :10443"]
+    nginx_vps1 -> nginx_vps2 [label="WireGuard", style=dashed, color="#43a047"]
+    nginx_vps2 -> bff [label=":3000"]
+    bff -> pgsql [label=":5432\nSQL"]
+    bff -> gateway [label="CORE_API\n:30900", style=dashed, color="#ff9800"]
+    gateway -> vllm [label=":8000"]
+    browser -> oauth [label="логин", style=dashed, color="#43a047"]
+    oauth -> bff [label="callback", style=dashed, color="#43a047"]
+}
+```
+
+*Схема 6.1. Архитектура портала: браузер → nginx → BFF → Gateway → vLLM. База данных портала — отдельно на VPS2.*
+
+### Поток запроса: от нажатия Enter до ответа модели
+
+Проследим путь сообщения «Привет!» от пользователя:
+
+1. **Браузер:** пользователь печатает «Привет!», нажимает Enter
+2. **JavaScript (index.html):** формирует JSON:
+   ```json
+   {"model":"qwen2.5-14b","messages":[{"role":"user","content":"Привет!"}]}
+   ```
+3. **HTTPS-запрос** → `https://fb1.spb.ru:10443/api/chat`
+4. **nginx VPS1:** принимает HTTPS, расшифровывает TLS, проксирует через WireGuard → VPS2:80
+5. **nginx VPS2:** смотрит на путь `/api/chat` → проксирует на `localhost:3000` (BFF)
+6. **BFF:** проверяет JWT-токен (из куки), находит `org_id` пользователя, добавляет API-ключ, проксирует на Gateway: `http://170.168.91.95:30900/v1/chat/completions`
+7. **Gateway:** проверяет API-ключ, находит организацию, проверяет баланс, проверяет Rate Limiter, маршрутизирует к vLLM, проксирует запрос
+8. **vLLM:** модель генерирует ответ — prefill (200 ms) → decode (токен за токеном)
+9. **Обратный путь:** vLLM → Gateway (стриминг SSE) → BFF (стриминг SSE) → браузер (рендеринг токенов)
+10. **Последний SSE-чанк:** Gateway включает `usage.total_tokens`, BFF парсит, делает `UPDATE billing_accounts SET balance = balance - tokens`, отправляет фронтенду `{done: true, tokens_used: 40, balance: 9960}`
+11. **Браузер:** показывает toast «✅ Списано 40 токенов. Баланс: 9 960»
+
+Весь путь — от 300 до 400 миллисекунд (в зависимости от длины ответа).
+
+---
+
+### 6.2. База данных портала
+
+Портал хранит свои данные в PostgreSQL на VPS2. Это **отдельная** база от PostgreSQL в K8s (которая используется Gateway для биллинга).
+
+**Основные таблицы:**
+
+| Таблица | Назначение | Ключевые поля |
+|---|---|---|
+| `portal_orgs` | Организации-клиенты | `id`, `name`, `created_at` |
+| `users` | Пользователи портала | `id`, `email`, `org_id`, `password_hash`, `oauth_provider` |
+| `billing_accounts` | Балансы организаций | `org_id`, `balance`, `tokens_used` |
+| `api_keys` | Ключи доступа к API | `id`, `org_id`, `key_hash`, `name`, `created_at` |
+
+```dot
+digraph PortalDB {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    orgs [label="portal_orgs\n━━━━━━━━━━\nid (PK)\nname\ncreated_at", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+
+    users [label="users\n━━━━━━━━━━\nid (PK)\nemail\norg_id (FK)\npassword_hash\noauth_provider", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+
+    billing [label="billing_accounts\n━━━━━━━━━━\norg_id (PK, FK)\nbalance\ntokens_used", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+    keys [label="api_keys\n━━━━━━━━━━\nid (PK)\norg_id (FK)\nkey_hash\nname", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+
+    orgs -> users [label="1 : N"]
+    orgs -> billing [label="1 : 1"]
+    orgs -> keys [label="1 : N"]
+    users -> orgs [label="принадлежит"]
+}
+```
+
+*Схема 6.2. ER-диаграмма базы данных портала. `portal_orgs` — центральная таблица.*
+
+**Важное различие:** `billing_accounts` есть и в Portal DB (на VPS2), и в Gateway DB (в K8s). Это две разные таблицы в разных базах! Portal DB хранит «зеркало» баланса для показа в админке, Gateway DB — «источник истины» для списаний.
+
+⚠️ **Именно рассинхрон этих двух таблиц вызвал ошибку `toLocaleString`.** Когда админ нажимал «+Начислить», BFF шёл в Gateway DB, начислял токены, но ответ Gateway содержал `{"error": "org not found"}` (потому что org была в Portal DB, но не в Gateway DB). Фронтенд не проверял поле `error` и пытался отобразить `undefined.toLocaleString()` → крах. Урок: всегда проверяйте ответ API на наличие ошибок.
+
+### Миграции: как создавались таблицы
+
+Миграции лежат в `db/migrations/` и применяются при деплое:
+
+- **006_org_id_text.sql** — меняет тип `org_id` с `INTEGER` на `TEXT` (UUID)
+- **007_subscription_tiers.sql** — добавляет тарифные планы
+- **008_auth_tables_k8s.sql** — создаёт таблицы аутентификации для Gateway DB
+
+---
+
+### 6.3. Аутентификация и авторизация
+
+Портал поддерживает два способа входа:
+1. **OAuth** (сторонние провайдеры: GitHub, Google, Яндекс)
+2. **JWT-токены** (для API-доступа)
+
+### OAuth 2.0: как работает «Войти через GitHub»
+
+1. Пользователь нажимает «Войти через GitHub»
+2. Браузер → `https://github.com/login/oauth/authorize?client_id=...`
+3. GitHub показывает: «Приложение Aither запрашивает доступ к вашему email. Разрешить?»
+4. Пользователь разрешает → GitHub → callback: `https://fb1.spb.ru:10443/auth/github/callback?code=...`
+5. BFF меняет `code` на `access_token` (через GitHub API)
+6. BFF получает email пользователя, создаёт/находит запись в `users`, выпускает JWT
+7. JWT сохраняется в httpOnly cookie (недоступен JavaScript — защита от XSS)
+8. Все последующие запросы идут с этой кукой
+
+```dot
+digraph OAuth {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    browser [label="Браузер", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    bff [label="BFF\n:3000", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+    provider [label="OAuth-провайдер\n(GitHub/Google)", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    db [label="Portal DB", shape=cylinder, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+
+    browser -> bff [label="1. GET /auth/github"]
+    bff -> browser [label="2. Redirect → GitHub"]
+    browser -> provider [label="3. Логин + разрешение"]
+    provider -> browser [label="4. Redirect → callback?code=xxx"]
+    browser -> bff [label="5. GET /auth/github/callback?code=xxx"]
+    bff -> provider [label="6. code → access_token"]
+    provider -> bff [label="7. user info (email)"]
+    bff -> db [label="8. INSERT/UPDATE users"]
+    bff -> browser [label="9. Set-Cookie: JWT"]
+}
+```
+
+*Схема 6.3. OAuth 2.0 Authorisation Code Flow. 9 шагов от нажатия кнопки до JWT в куке.*
+
+### JWT: JSON Web Token
+
+**JWT** — это «удостоверение личности» в формате JSON, подписанное сервером. Состоит из трёх частей:
+
+```
+eyJhbGciOiJIUzI1NiJ9          ← Header: алгоритм подписи (HS256)
+.
+eyJvcmdfaWQiOiIxMjMifQ        ← Payload: данные (org_id, email, роль)
+.
+SflKxwRJSMeKKF2QT4fwpMeJf    ← Signature: подпись сервера
+```
+
+- **Header:** `{"alg": "HS256", "typ": "JWT"}` — как подписан
+- **Payload:** `{"sub": "user@org.ru", "org_id": "abc-123", "role": "admin", "exp": 1720303600}` — данные + срок действия (`exp`)
+- **Signature:** `HMAC-SHA256(header + "." + payload, secret)` — проверка, что токен не подделан
+
+BFF проверяет JWT при каждом запросе: расшифровывает, проверяет подпись, проверяет `exp`. Если всё ок — пропускает запрос.
+
+---
+
+## 6.B — BFF-сервер (Node.js/TypeScript)
+
+### 6.4. server.ts — точка входа, построчный разбор
+
+BFF написан на TypeScript и компилируется в JavaScript (`tsc` → `dist/server.js`). Запускается как systemd-сервис.
+
+```typescript
+// ===== ИМПОРТЫ =====
+import express from 'express';
+// ↑ Express — фреймворк для HTTP-серверов на Node.js.
+//   Самый популярный. Лёгкий, расширяемый middleware'ами.
+
+import cors from 'cors';
+// ↑ CORS (Cross-Origin Resource Sharing) — разрешает запросы
+//   с других доменов. Без него браузер блокирует запросы
+//   с fb1.spb.ru → localhost:3000.
+
+import cookieParser from 'cookie-parser';
+// ↑ Парсит куки из заголовка Cookie в req.cookies.
+
+import jwt from 'jsonwebtoken';
+// ↑ Библиотека для работы с JWT: выпуск, проверка, расшифровка.
+
+// ===== КОНФИГУРАЦИЯ =====
+const PORT = 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+// ↑ Секрет для подписи JWT. В продакшене — из env!
+const CORE_API = process.env.CORE_API || 'http://170.168.91.95:30900';
+// ↑ Адрес Gateway. BFF проксирует запросы к моделям через него.
+
+// ===== СОЗДАНИЕ ПРИЛОЖЕНИЯ =====
+const app = express();
+
+// ===== MIDDLEWARE (промежуточные обработчики) =====
+app.use(cors({
+  origin: 'https://fb1.spb.ru:10443',  // разрешаем только наш домен
+  credentials: true                      // разрешаем куки
+}));
+app.use(cookieParser());
+app.use(express.json());                 // парсим JSON в req.body
+
+// ===== ЗАЩИТА (helmet) =====
+import helmet from 'helmet';
+app.use(helmet());
+// ↑ Helmet добавляет security-заголовки:
+//   X-Content-Type-Options: nosniff
+//   X-Frame-Options: DENY
+//   Content-Security-Policy: ...
+//   Strict-Transport-Security: max-age=31536000
+
+// ===== РОУТЫ =====
+
+// Health-check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
+// Аутентификация через OAuth
+app.get('/auth/github', (req, res) => {
+  const redirectUrl = `https://github.com/login/oauth/authorize`
+    + `?client_id=${process.env.GITHUB_CLIENT_ID}`
+    + `&redirect_uri=https://fb1.spb.ru:10443/auth/github/callback`;
+  res.redirect(redirectUrl);
+});
+
+app.get('/auth/github/callback', async (req, res) => {
+  const { code } = req.query;
+  // 1. Меняем code на access_token
+  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: { 'Accept': 'application/json' },
+    body: new URLSearchParams({
+      client_id: process.env.GITHUB_CLIENT_ID!,
+      client_secret: process.env.GITHUB_CLIENT_SECRET!,
+      code: code as string
+    })
+  });
+  const { access_token } = await tokenRes.json();
+
+  // 2. Получаем email пользователя
+  const userRes = await fetch('https://api.github.com/user', {
+    headers: { Authorization: `Bearer ${access_token}` }
+  });
+  const githubUser = await userRes.json();
+
+  // 3. Находим или создаём пользователя в БД
+  const user = await db.findOrCreateUser(githubUser.email, 'github');
+
+  // 4. Выпускаем JWT
+  const token = jwt.sign(
+    { sub: user.email, org_id: user.org_id, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  // 5. Ставим куку и редиректим на главную
+  res.cookie('auth_token', token, {
+    httpOnly: true,     // JavaScript не может прочитать (защита от XSS)
+    secure: true,       // только по HTTPS
+    sameSite: 'strict', // не отправлять с других сайтов (защита от CSRF)
+    maxAge: 86400000    // 24 часа
+  });
+  res.redirect('/');
+});
+
+// Проксирование запроса к модели
+app.post('/api/chat', async (req, res) => {
+  // 1. Проверяем JWT
+  const token = req.cookies.auth_token;
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  let user;
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Token expired' });
+  }
+
+  // 2. Находим API-ключ организации
+  const apiKey = await db.getApiKey(user.org_id);
+  if (!apiKey) return res.status(403).json({ error: 'No API key' });
+
+  // 3. Проксируем запрос в Gateway
+  const gatewayRes = await fetch(`${CORE_API}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: req.body.model || 'qwen2.5-14b',
+      messages: req.body.messages,
+      stream: true               // всегда стримим — пользователь ждёт!
+    })
+  });
+
+  // 4. Стримим ответ обратно в браузер
+  res.setHeader('Content-Type', 'text/event-stream');
+
+  // 5. Парсим usage.total_tokens из последнего чанка
+  let lastChunk = '';
+  for await (const chunk of gatewayRes.body!) {
+    const text = chunk.toString();
+    res.write(text);             // отправляем браузеру
+    lastChunk = text;            // запоминаем последний
+  }
+
+  // 6. Списываем токены
+  //    (в реальном коде — парсим JSON из lastChunk)
+  res.end();
+});
+
+// ===== ЗАПУСК =====
+app.listen(PORT, () => {
+  console.log(`Aither BFF listening on port ${PORT}`);
+});
+```
+
+### 6.5. policies.ts — права доступа
+
+Файл определяет, кто что может делать:
+
+```typescript
+// Роли пользователей
+type Role = 'admin' | 'org_admin' | 'user';
+
+// Матрица доступа
+const POLICIES = {
+  // Админ — всё можно
+  admin: ['*'],
+
+  // Админ организации — управлять своей организацией
+  org_admin: [
+    'org:read',
+    'org:update',
+    'api_keys:manage',
+    'billing:view'
+  ],
+
+  // Обычный пользователь — только чат
+  user: [
+    'chat:send'
+  ]
+};
+
+// Проверка: имеет ли пользователь право на действие?
+function can(userRole: Role, action: string): boolean {
+  const allowed = POLICIES[userRole];
+  return allowed.includes('*') || allowed.includes(action);
+}
+```
+
+### 6.6. Списание токенов — механика
+
+Когда BFF получает финальный SSE-чанк от Gateway, он содержит:
+
+```json
+data: {
+  "choices": [{"finish_reason": "stop"}],
+  "usage": {
+    "prompt_tokens": 25,
+    "completion_tokens": 15,
+    "total_tokens": 40
+  }
+}
+```
+
+BFF парсит `total_tokens` и делает:
+
+```sql
+UPDATE billing_accounts
+SET balance = balance - 40,
+    tokens_used = tokens_used + 40
+WHERE org_id = 'abc-123';
+```
+
+Затем отправляет фронтенду **финальное событие**:
+
+```json
+data: {"done": true, "tokens_used": 40, "balance": 9960}
+```
+
+Фронтенд показывает toast:
+
+```javascript
+if (data.done) {
+  showToast(`✅ Списано ${data.tokens_used.toLocaleString()} токенов. Баланс: ${data.balance.toLocaleString()}`);
+  updateBalanceCounter(data.balance);
+}
+```
+
+> ⚠️ **Почему падало `toLocaleString`.** Если Gateway возвращает `{"error": "org not found"}`, а фронтенд не проверяет `if (data.error)`, то `data.balance` будет `undefined`, и вызов `undefined.toLocaleString()` вызывает исключение. Исправлено: добавлена проверка `if (r.ok && !d.error)`.
+
+---
+
+## 6.C — Фронтенд (HTML/CSS/JavaScript)
+
+### 6.7. index.html — чат-интерфейс
+
+Чат-интерфейс — это одна HTML-страница, которая делает всё через JavaScript (SPA — Single-Page Application).
+
+**Структура:**
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Aither — Чат</title>
+
+  <!-- CSS: фиксированная шапка, скроллируемая история, поле ввода снизу -->
+  <style>
+    body { margin: 0; font-family: system-ui; }
+    .header { position: fixed; top: 0; width: 100%;
+              background: #1a1a2e; color: white; padding: 12px 20px; }
+    .chat-container { margin: 60px 0 80px 0; padding: 20px; }
+    .message { margin: 10px 0; padding: 10px 14px; border-radius: 8px; }
+    .message.user { background: #e3f2fd; }
+    .message.assistant { background: #f5f5f5; }
+    .input-area { position: fixed; bottom: 0; width: 100%;
+                  padding: 12px; background: white; border-top: 1px solid #e0e0e0; }
+    .toast { position: fixed; top: 60px; right: 20px; padding: 10px 16px;
+             border-radius: 6px; animation: fadeIn 0.3s; }
+    .toast.info { background: #e8f5e9; color: #2e7d32; }
+    .toast.error { background: #fce4ec; color: #c2185b; }
+  </style>
+</head>
+<body>
+  <!-- Шапка -->
+  <div class="header">
+    <b>Aither</b> — Token-as-a-Service
+    <span id="balance" style="float:right">Баланс: —</span>
+  </div>
+
+  <!-- История чата -->
+  <div class="chat-container" id="chat"></div>
+
+  <!-- Поле ввода -->
+  <div class="input-area">
+    <input type="text" id="userInput" placeholder="Введите сообщение..."
+           style="width:80%; padding:10px; font-size:14px"
+           onkeydown="if(event.key==='Enter') sendMessage()">
+    <button onclick="sendMessage()">Отправить</button>
+  </div>
+
+  <script>
+    // ===== ОТПРАВКА СООБЩЕНИЯ =====
+    async function sendMessage() {
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Показываем сообщение пользователя
+      appendMessage('user', text);
+      input.value = '';
+
+      // Создаём div для ответа модели
+      const assistantMsg = appendMessage('assistant', '');
+
+      // Отправляем запрос
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'qwen2.5-14b',
+          messages: [{ role: 'user', content: text }]
+        })
+      });
+
+      // Читаем SSE-поток
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';   // незавершённая строка
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);  // убираем "data: "
+
+          if (data === '[DONE]') break;
+
+          try {
+            const json = JSON.parse(data);
+            const content = json.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantMsg.innerHTML += escapeHtml(content);
+            }
+
+            // Финальный чанк с usage
+            if (json.done) {
+              showToast(`✅ Списано ${json.tokens_used.toLocaleString()} токенов. Баланс: ${json.balance.toLocaleString()}`);
+              document.getElementById('balance').textContent =
+                `Баланс: ${json.balance.toLocaleString()}`;
+            }
+          } catch (e) {
+            // не JSON (пустая строка, комментарий)
+          }
+        }
+      }
+    }
+
+    // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+    function appendMessage(role, content) {
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.innerHTML = content;
+      document.getElementById('chat').appendChild(div);
+      div.scrollIntoView({ behavior: 'smooth' });
+      return div;
+    }
+
+    function showToast(text) {
+      const toast = document.createElement('div');
+      toast.className = 'toast info';
+      toast.textContent = text;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
+```
+
+**Ключевые моменты:**
+- **SSE-клиент:** читаем поток через `ReadableStream` (не EventSource — нам нужен POST, а EventSource умеет только GET)
+- **Стриминг:** каждый токен добавляется в `assistantMsg.innerHTML` → текст «печатается» на глазах
+- **escapeHtml:** обязательно экранировать! Иначе пользователь может вставить `<script>alert('XSS')</script>`
+- **Toast:** плавающее уведомление на 3 секунды
+
+### 6.8. admin.html — панель управления
+
+Вторая страница портала — админ-панель. Доступна только для ролей `admin` и `org_admin`.
+
+**Вкладки:**
+1. **Организации** — список, создание, редактирование
+2. **Пользователи** — кто в какой организации
+3. **API-ключи** — создать, отозвать
+4. **Баланс** — начислить токены, история списаний
+
+**Ключевая функция: начисление токенов**
+
+```javascript
+async function grantTokens() {
+  const orgId = document.getElementById('orgSelect').value;
+  const amount = parseInt(document.getElementById('tokenAmount').value);
+
+  const res = await fetch('/api/admin/billing/grant', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ org_id: orgId, amount })
+  });
+
+  const d = await res.json();
+
+  // ✅ ВАЖНО: проверяем ошибку ПЕРЕД отображением успеха
+  if (res.ok && !d.error) {
+    statusEl.innerHTML = `✅ Начислено ${d.added.toLocaleString()} токенов.`
+      + ` Новый баланс: ${d.new_balance.toLocaleString()}`;
+  } else {
+    // ❌ Ошибка — показываем честно
+    statusEl.innerHTML = `❌ Ошибка: ${d.error || 'Неизвестная ошибка'}`;
+  }
+}
+```
+
+> ⚠️ **Именно здесь была ошибка `toLocaleString`.** Старый код делал `d.new_balance.toLocaleString()` без проверки `d.error`. Когда Gateway возвращал ошибку, `d.new_balance` был `undefined` → `undefined.toLocaleString()` → крах страницы.
+
+---
+
+### 6.9. Деплой портала
+
+Деплой портала на VPS2 состоит из четырёх компонентов:
+
+| Компонент | Как запущен | Где конфиг |
+|---|---|---|
+| **nginx** | Docker-контейнер (host-сеть) | `configs/vps2/remote-configs.txt` |
+| **BFF** | systemd-сервис | `configs/vps2/aither-bff.service` |
+| **PostgreSQL** | Docker-контейнер | Docker Compose |
+| **Статика** | Файлы в `/opt/aither/static/` | `portal/static/index.html`, `admin.html` |
+
+**systemd-сервис BFF:**
+
+```ini
+# /etc/systemd/system/aither-bff.service
+[Unit]
+Description=Aither Portal BFF
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aither
+EnvironmentFile=/opt/aither/.env
+ExecStart=/usr/bin/node dist/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Процесс деплоя (deploy.sh):**
+
+```bash
+# 1. Компилируем TypeScript
+cd portal && npm run build       # tsc → dist/server.js
+
+# 2. Копируем на VPS2
+scp dist/server.js root@130.17.1.90:/opt/aither/dist/
+scp -r static/ root@130.17.1.90:/opt/aither/
+
+# 3. Перезапускаем BFF
+ssh root@130.17.1.90 'systemctl restart aither-bff'
+
+# 4. Проверяем
+sleep 2
+curl https://fb1.spb.ru:10443/health
+```
+
+**Обновление статики без перезапуска BFF:** статика (`index.html`, `admin.html`) отдаётся nginx напрямую. BFF не участвует. Поэтому обновление фронтенда = `scp static/*` → готово, мгновенно.
+
+---
+
+## 6.10. ✏️ Практикум: портал
+
+### Задание 1. «Проследи запрос»
+Нарисуйте схему: пользователь ввёл «Привет!» → ... → ответ появился в браузере. Подпишите каждый шаг: какой сервер, порт, протокол.
+
+### Задание 2. «Найди ошибку»
+В старом коде `admin.html` была строка:
+```javascript
+statusEl.innerHTML = `✅ Баланс: ${d.new_balance.toLocaleString()}`;
+```
+Почему она падала? Как правильно?
+
+### Задание 3. «Словарь термина»
+- SPA, BFF, CORS, CSP
+- OAuth 2.0, Authorisation Code Flow
+- JWT (header.payload.signature), httpOnly, SameSite
+- SSE, ReadableStream
+- XSS, CSRF, Helmet
+
+### Задание 4. «Деплой»
+Опишите по шагам, как обновить только фронтенд (цветовую схему), не трогая BFF.
+
+### Задание 5. «SQL»
+Напишите SQL-запрос, который показывает 10 организаций с наибольшим потраченным количеством токенов.
+
+---
+
+**Итог главы 6.** Вы узнали:
+- Архитектуру портала: SPA → nginx → BFF → Gateway → vLLM (полный путь запроса)
+- Структуру базы данных портала (portal_orgs, users, billing_accounts, api_keys) и отличие от Gateway DB
+- Как работает OAuth 2.0 (9 шагов), JWT (header.payload.signature), httpOnly/SameSite
+- Построчный разбор server.ts (Express, middleware, роуты, проксирование)
+- Как работает списание токенов: SSE → usage.total_tokens → UPDATE balance → toast
+- Структуру фронтенда: index.html (чат, SSE-клиент, стриминг) и admin.html (панель, начисление)
+- Почему падала ошибка `toLocaleString` и как её исправили
+- Как деплоить портал: systemd-сервис, deploy.sh, статика через nginx
+
+В следующей главе — Безопасность: модель угроз, DLP, Rate Limiter, сетевая защита.
