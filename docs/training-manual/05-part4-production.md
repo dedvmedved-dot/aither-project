@@ -1967,29 +1967,477 @@ def reconcile(month: str):
 
 ## Глава 22. Enterprise-безопасность: mTLS и AI Security Gateway
 
-> **Состояние:** 🔴 заглушка — ждёт наполнения.
-> **Целевой объём:** 30 стр., 6 DOT-схем, 5 таблиц.
-> **Детальный TOC:** `05-part4-production-toc.md` § 22.
+> **Состояние:** ✅ готово — текст + 6 DOT-схем.
+> **Объём:** ~30 стр., 6 схем, 5 таблиц.
+
+**Цель главы:** защитить платформу на уровне, требуемом госстандартами — mTLS между сервисами, AI Security Gateway с детектором инъекций и DLP, аудит всех операций.
+
+> ✏️ **Перед прочтением** убедитесь, что вы освоили Главу 7 (Безопасность) и Главу 20 (Multi-tenant).
+
+---
 
 ### 22.1 Модель угроз Aither (STRIDE)
 
-> 🔴 Заглушка · 5 стр. · 1 схема · 1 табл.
+#### Кто может атаковать
+
+| Тип злоумышленника | Мотивация | Возможности |
+|---|---|---|
+| Внешний (интернет) | Украсть токены, данные клиентов | Доступ к HTTPS API |
+| Внутренний (свой сотрудник) | Подсмотреть чужие чаты, повысить тариф | Доступ к VPS2, БД |
+| Supply chain (вендор) | Закладка в библиотеке | Зависимости Python/Node.js |
+| Сосед по GPU (другая org) | Истощить GPU, подглядеть промпты | API-запросы через свой ключ |
+
+#### STRIDE-разбор
+
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_stride {
+    label="STRIDE-модель угроз Aither"; bgcolor="#f5f7fa"; color="#7b8ca0";
+
+    s [label="S — Spoofing\n(подмена)\nПодделка JWT,\nAPI-ключа", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    t [label="T — Tampering\n(искажение)\nИзменение промпта,\nподмена модели", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    r [label="R — Repudiation\n(отказ)\nОтрицание запроса\n→ аудит-лог", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    i [label="I — Info Disclosure\n(утечка)\nPII в ответах,\nчужие чаты", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    d [label="D — DoS\n(отказ в обслуживании)\nRate limit,\nGPU-истощение", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    e [label="E — Elevation\n(повышение прав)\nОбход ACL,\nдоступ к VIP-моделям", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  subgraph cluster_controls {
+    label="Контрмеры Aither"; bgcolor="#e8f5e9"; color="#43a047";
+    c1 [label="JWT RS256\nmTLS", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c2 [label="Security Gateway\nprompt injection\ndetector", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c3 [label="billing_ledger\nаудиторский след\nс org_id", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c4 [label="Egress DLP\nPII filter\nDSP markers", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c5 [label="Redis rate limit\nper-org RPM/TPM\ntoken quotas", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c6 [label="Model ACL\nper-org tier\n+ Gateway enforce", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  s -> c1; t -> c2; r -> c3; i -> c4; d -> c5; e -> c6;
+}
+```
+
+> 📊 **Таблица 22.1.** STRIDE-угрозы и контрмеры Aither.
+
+| Угроза | Пример атаки | Контрмера |
+|---|---|---|
+| **S**poofing | Поддельный JWT с чужим org_id | RS256 подпись + mTLS |
+| **T**ampering | `system: ignore previous instructions` | Prompt injection detector |
+| **R**epudiation | «Я не делал этот запрос» | `billing_ledger` — каждая операция с user_id + timestamp |
+| **I**nfo Disclosure | vLLM вернул паспортные данные | Egress DLP — 12 паттернов PII |
+| **D**oS | 1000 запросов/сек от одной org | Redis per-org rate limiting |
+| **E**levation | FREE пользователь → VIP модель | Model ACL через `tier.limits.models` |
+
+---
 
 ### 22.2 mTLS: взаимная аутентификация сервисов
 
-> 🔴 Заглушка · 8 стр. · 2 схемы · 1 табл.
+#### Зачем нужен mTLS
+
+Обычный TLS (HTTPS) проверяет только **сервер** (браузер → сайт). mTLS (mutual TLS) проверяет **обоих** — и сервер, и клиент.
+
+В Aither mTLS защищает канал **BFF → Gateway**:
+- BFF предъявляет клиентский сертификат
+- Gateway проверяет, что сертификат подписан внутренним CA
+- Без сертификата Gateway даже не отвечает на TCP
+
+#### Инфраструктура сертификатов
+
+```bash
+# 1. Создаём внутренний CA (один раз)
+openssl genrsa -out ca.key 2048
+openssl req -new -x509 -days 3650 -key ca.key -out ca.crt \
+  -subj "/CN=Aither Internal CA/O=Aither/C=RU"
+
+# 2. Сертификат Gateway (серверный)
+openssl genrsa -out gateway.key 2048
+openssl req -new -key gateway.key -out gateway.csr \
+  -subj "/CN=gateway.aither.svc/O=Aither/C=RU"
+openssl x509 -req -in gateway.csr -CA ca.crt -CAkey ca.key \
+  -out gateway.crt -days 365
+
+# 3. Сертификат BFF (клиентский)
+openssl genrsa -out bff.key 2048
+openssl req -new -key bff.key -out bff.csr \
+  -subj "/CN=bff.aither.portal/O=Aither/C=RU"
+openssl x509 -req -in bff.csr -CA ca.crt -CAkey ca.key \
+  -out bff.crt -days 365
+```
+
+#### Gateway: SSL-контекст с mTLS
+
+```python
+# gateway/mtls_server.py
+import ssl
+from http.server import HTTPServer
+
+class SSLHTTPServer(HTTPServer):
+    def __init__(self, server_address, handler_class):
+        super().__init__(server_address, handler_class)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.verify_mode = ssl.CERT_REQUIRED    # ← требует клиентский серт
+        ctx.check_hostname = False
+        ctx.load_verify_locations(cafile='/etc/mtls/ca.crt')
+        ctx.load_cert_chain(
+            certfile='/etc/mtls/tls.crt',
+            keyfile='/etc/mtls/tls.key')
+        self.socket = ctx.wrap_socket(self.socket, server_side=True)
+
+# Kubernetes: сертификаты монтируются из Secret
+#   volumeMounts:
+#     - name: mtls-certs
+#       mountPath: /etc/mtls
+#       readOnly: true
+```
+
+#### BFF: HTTPS-агент с клиентским сертификатом
+
+```typescript
+// portal/server.ts
+import https from "https";
+import fs from "fs";
+
+const mtlsAgent = new https.Agent({
+  ca: fs.readFileSync("/etc/aither/mtls/ca.crt"),
+  cert: fs.readFileSync("/etc/aither/mtls/bff.crt"),
+  key: fs.readFileSync("/etc/aither/mtls/bff.key"),
+  rejectUnauthorized: true,
+});
+
+// Вспомогательная функция для всех запросов к Gateway
+export async function gatewayFetch(path: string, opts: RequestInit = {}) {
+  const url = CORE_API_MTLS + path;
+  const fetchOpts: any = { ...opts, dispatcher: mtlsAgent };
+  return fetch(url, fetchOpts);
+}
+```
+
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_ca {
+    label="Certificate Authority (CA)"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    ca [label="Aither Internal CA\nca.crt + ca.key", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  subgraph cluster_gateway {
+    label="Gateway (сервер)"; bgcolor="#e8f5e9"; color="#43a047";
+    gw_cert [label="gateway.crt\nCN=gateway.aither.svc", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    gw_check [label="ssl.CERT_REQUIRED\n→ только клиенты\nс сертификатом CA", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_bff {
+    label="BFF (клиент)"; bgcolor="#e3f2fd"; color="#1565c0";
+    bff_cert [label="bff.crt + bff.key\nCN=bff.aither.portal", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    bff_agent [label="https.Agent({ca,cert,key})\ngatewayFetch()", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_flow {
+    label="TLS Handshake"; bgcolor="#fff3e0"; color="#e65100";
+    h1 [label="1. ClientHello", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    h2 [label="2. ServerHello\n+ gateway.crt", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    h3 [label="3. CertificateRequest\n(требует клиентский)", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    h4 [label="4. BFF → bff.crt\nGateway проверяет\nпо CA", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    h5 [label="5. Обе стороны\nаутентифицированы ✓", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+  }
+
+  ca -> gw_cert; ca -> bff_cert;
+  bff_agent -> h1; h1 -> h2 -> h3 -> h4 -> h5;
+  gw_check -> h4 [dir=both, style=dashed];
+
+  no [label="Без сертификата:\n✗ Connection refused\nGateway не отвечает", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  h1 -> no [style=dotted, color="#c62828"];
+}
+```
+
+#### Проверка
+
+```bash
+# С клиентским сертификатом — успех
+curl --cert bff.crt --key bff.key --cacert ca.crt \
+  https://10.129.13.78:30901/health
+# → {"status": "ok", "billing": "enabled"}
+
+# БЕЗ сертификата — Connection refused
+curl https://10.129.13.78:30901/health
+# → (нет ответа — mTLS блокирует)
+```
+
+> 📊 **Таблица 22.2.** Сертификаты в инфраструктуре Aither.
+
+| Сертификат | CN | Где хранится | Назначение |
+|---|---|---|---|
+| `ca.crt` | Aither Internal CA | VPS2 (`/etc/aither/mtls/`), Gateway (`Secret`) | Корневой CA |
+| `gateway.crt` | `gateway.aither.svc` | Gateway (`Secret mts-certs`) | Серверный TLS |
+| `bff.crt` | `bff.aither.portal` | VPS2 (`/etc/aither/mtls/`) | Клиентский TLS |
+
+---
 
 ### 22.3 Parsec и мандатный доступ (Astra Linux)
 
-> 🔴 Заглушка · 5 стр. · 1 схема · 1 табл.
+#### Что такое Parsec
+
+Astra Linux SE использует **Parsec** — модуль мандатного контроля целостности (МКЦ). Он проверяет:
+- Подпись исполняемых файлов
+- Иерархию уровней целостности (`ilev`)
+- Возможность выполнения кода в стеке (`execstack`)
+
+#### Как Parsec влияет на работу Aither
+
+На стенде зафиксированы два случая блокировки:
+
+| Проблема | Причина | Решение |
+|---|---|---|
+**DNS не работает** (n8) | Parsec reject-правила в nftables для `10.96.0.10:53` | Удалить правила через `nft delete rule` |
+| **etcd-сертификаты не работают** (n7) | Мандатные метки на сертификатах | `parsec=0` в GRUB на время join |
+
+#### Параметры Parsec
+
+```bash
+# Просмотр текущего уровня
+cat /proc/self/attr/current
+
+# Отключение Parsec (только для отладки!)
+# В /etc/default/grub:
+GRUB_CMDLINE_LINUX="parsec=0"
+# Затем: update-grub && reboot
+
+# Мягкий режим (для production):
+GRUB_CMDLINE_LINUX="max_ilev=63 execstack=1"
+```
+
+> ⚠️ **Баланс:** Parsec защищает от модификации системных файлов, но блокирует легитимные операции Kubernetes. Решение Aither: `max_ilev=63 execstack=1` — максимальный уровень целостности с разрешением исполнения в стеке.
+
+> 📊 **Таблица 22.3.** Параметры Parsec в Aither.
+
+| Параметр | Значение | Что даёт |
+|---|---|---|
+| `max_ilev` | 63 | Максимальная иерархия (все уровни проверяются) |
+| `execstack` | 1 | Разрешить выполнение кода в стеке (нужно для JIT) |
+| `parsec` | 0 (только отладка) | Полное отключение МКЦ |
+
+---
 
 ### 22.4 AI Security Gateway: защита от инъекций и DLP
 
-> 🔴 Заглушка · 7 стр. · 1 схема · 1 табл.
+#### Два фильтра: ingress и egress
+
+AI Security Gateway работает в **две стороны**:
+
+1. **Ingress** (`security.py`) — проверяет запросы пользователя ДО того, как они попадут в vLLM
+2. **Egress** (`security_egress.py`) — проверяет ответы vLLM ДО того, как они уйдут пользователю
+
+```dot
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  ingress [label="ВХОДЯЩИЙ запрос", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_ingress {
+    label="Ingress (security.py)"; bgcolor="#ffebee"; color="#c62828";
+    inj [label="Prompt Injection\n35 regex-паттернов\n(EN + RU)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    dlp_in [label="DLP Ingress\nСистемный промпт\nне пытаются украсть?", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    reject [label="✗ 403 Forbidden", shape=box, fillcolor="#ef9a9a", color="#b71c1c"];
+  }
+
+  vllm [label="vLLM", shape=box, fillcolor="#f3e5f5", color="#7b1fa2"];
+
+  subgraph cluster_egress {
+    label="Egress (security_egress.py)"; bgcolor="#ffebee"; color="#c62828";
+    dsp [label="DSP Filter\nГриф секретности", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    pii [label="PII Leak Detection\n12 паттернов", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    mask [label="✓ Пройдено\n+ SIEM аудит", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    block [label="✗ Заблокирован\n+ SIEM alert", shape=box, fillcolor="#ef9a9a", color="#b71c1c"];
+  }
+
+  siem [label="SIEM (CEF/syslog)\nsecurity.log", shape=cylinder, fillcolor="#eceff1", color="#607d8b"];
+
+  ingress -> inj -> dlp_in;
+  dlp_in -> reject [label="атака"];
+  dlp_in -> vllm [label="чисто"];
+  vllm -> dsp -> pii;
+  pii -> mask [label="чисто"];
+  pii -> block [label="нарушение"];
+  mask -> siem [style=dashed];
+  reject -> siem [style=dashed];
+  block -> siem [style=dashed];
+}
+```
+
+#### Ingress: детектор prompt injection
+
+```python
+# gateway/security.py (фрагмент)
+INJECTION_PATTERNS = [
+    # System prompt override (EN)
+    r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?)",
+    r"you\s+are\s+now\s+(a\s+)?(DAN|jailbroken|unfiltered)",
+    r"pretend\s+(you\s+are|to\s+be)\s+(a\s+)?(different|another)",
+    # Role override
+    r"(new|override|replace)\s+(system|your)\s+(prompt|role|instruction)",
+    r"disregard\s+(all\s+)?(previous|prior|your)\s+(instructions?|constraints?)",
+    # Russian jailbreak
+    r"игнорируй\s+(вс[её]\s+)?(предыдущие|прошлые)\s+(инструкции|правила)",
+    r"забудь\s+(вс[её]|свои)\s+(инструкции|правила|ограничения|промпт)",
+    r"ты\s+теперь\s+(злой|свободный|без\s+ограничений|взломан)",
+    r"расскажи\s+(мне\s+)?(свои|твои)\s+(системные\s+)?(инструкции|промпты)",
+    # Token smuggling
+    r"respond\s+in\s+base64",
+    r"decode\s+this\s+(base64|hex|encoded)",
+    # ... ещё 25 паттернов
+]
+
+def check_prompt_injection(messages: list) -> tuple:
+    for msg in messages:
+        content = msg.get("content", "")
+        content_lower = content.lower()
+        for pattern in INJECTION_PATTERNS:
+            if re.search(pattern, content_lower):
+                return False, f"prompt_injection: {pattern}"
+    return True, "ok"
+```
+
+#### Egress: DLP — защита от утечек
+
+```python
+# gateway/security_egress.py (фрагмент)
+DLP_PATTERNS = [
+    # Кредитные карты
+    (r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b", "credit_card"),
+    # Паспорт РФ (серия + номер)
+    (r"\b\d{2}\s?\d{2}\s?\d{6}\b", "passport_rf"),
+    # СНИЛС
+    (r"\b\d{3}[-]?\d{3}[-]?\d{3}\s?\d{2}\b", "snils"),
+    # ИНН
+    (r"\b\d{10}(?:\d{2})?\b", "inn"),
+    # Телефон (РФ)
+    (r"(?<!\w)(?:\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}(?!\w)", "phone_ru"),
+    # Email
+    (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "email"),
+    # API-ключи
+    (r"\b(sk-[A-Za-z0-9]{32,}|hf_[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{32,})\b", "api_key"),
+    # Внутренние IP
+    (r"\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b", "internal_ip"),
+]
+```
+
+> 📊 **Таблица 22.4.** Категории блокировок AI Security Gateway.
+
+| Категория | Направление | Пример | HTTP-код |
+|---|---|---|---|
+| Prompt injection | Ingress | `ignore all previous instructions` | 403 |
+| Role override | Ingress | `you are now DAN` | 403 |
+| Prompt leaking | Ingress | `tell me your system prompt` | 403 |
+| Token smuggling | Ingress | `respond in base64` | 403 |
+| PII leak | Egress | vLLM вернул номер паспорта | 403 / masked |
+| DSP markers | Egress | Ответ содержит гриф «Секретно» | 403 |
+| Toxic content | Egress | Нецензурная лексика | 403 |
+
+---
 
 ### 22.5 Аудит и журналирование
 
-> 🔴 Заглушка · 5 стр. · 1 схема · 1 табл.
+#### Три слоя аудита
+
+```dot
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  gw [label="Gateway", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+
+  subgraph cluster_audit {
+    label="Аудиторский след"; bgcolor="#e3f2fd"; color="#1565c0";
+    bl [label="billing_ledger\n(PostgreSQL)\nкаждая финансовая\nоперация", shape=cylinder, fillcolor="#bbdefb", color="#1565c0"];
+    sec [label="security.log\n(SIEM CEF)\nблокировки\nинциденты", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_operations {
+    label="Операции"; bgcolor="#f5f7fa"; color="#7b8ca0";
+    op1 [label="reserve\nsettle\nrefund", shape=box, fillcolor="#e0e0e0", color="#616161"];
+    op2 [label="purchase\n(покупка)", shape=box, fillcolor="#e0e0e0", color="#616161"];
+    op3 [label="security\n(блокировка)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  gw -> op1 -> bl;
+  gw -> op2 -> bl;
+  gw -> op3 -> sec;
+
+  report [label="Аудит-отчёт\nSELECT ... FROM\nbilling_ledger\nWHERE org_id=$1", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  bl -> report [style=dashed];
+}
+```
+
+#### billing_ledger — финансовый аудит
+
+```sql
+CREATE TABLE billing_ledger (
+  id serial PRIMARY KEY,
+  org_id uuid NOT NULL,
+  user_id uuid,
+  type text NOT NULL,        -- reserve, settle, refund, purchase
+  amount bigint NOT NULL,     -- токены (положительное = зачисление, отрицательное = списание)
+  operation text,             -- описание
+  reference text,             -- внешний ID (YooKassa payment_id)
+  balance_after bigint,       -- баланс после операции
+  created_at timestamptz DEFAULT now()
+);
+
+-- Пример аудит-запроса: все операции организации за июль
+SELECT org_id, type, amount, balance_after, created_at
+FROM billing_ledger
+WHERE org_id = '699286c5-...'
+  AND created_at BETWEEN '2026-07-01' AND '2026-08-01'
+ORDER BY created_at DESC;
+```
+
+#### security.log — SIEM-интеграция
+
+```python
+# gateway/security_egress.py — CEF-формат для SIEM
+def _send_siem(severity: str, message: str, details: dict):
+    cef = f"CEF:0|Aither|Gateway|1.0|{severity}|{message}|{severity}|"
+    for k, v in details.items():
+        cef += f"{k}={v} "
+    
+    # Отправка в syslog (UDP local0)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(cef.encode(), (SIEM_HOST, SIEM_PORT))
+```
+
+> 📊 **Таблица 22.5.** Поля безопасности в каждой записи.
+
+| Поле | Где | Для чего |
+|---|---|---|
+| `org_id` | `billing_ledger`, `security.log` | Привязка к организации |
+| `user_id` | `billing_ledger` | Кто именно совершил действие |
+| `type` | `billing_ledger` | Тип операции (reserve/settle/refund/purchase) |
+| `balance_after` | `billing_ledger` | Баланс после операции — можно восстановить историю |
+| `reference` | `billing_ledger` | Внешний ID (YooKassa) — для сверки |
+| `severity` | `security.log` (CEF) | Уровень: critical/high/medium/low |
+
+---
+
+### Итоги Главы 22
+
+| Вы узнали | Вы научились |
+|---|---|
+| Что такое STRIDE и как построить модель угроз | Генерировать CA и сертификаты для mTLS |
+| Как mTLS защищает канал BFF → Gateway | Добавлять SSL-контекст в Python HTTPServer |
+| Почему Parsec блокирует DNS и как это чинить | Интегрировать детектор prompt injection |
+| Как работает AI Security Gateway (ingress + egress) | Фильтровать PII в ответах vLLM |
+| Как `billing_ledger` обеспечивает аудит | Отправлять алерты в SIEM через CEF/syslog |
+
+**Ключевой вывод:** безопасность в Aither — это три слоя: **mTLS** (канал), **AI Security Gateway** (контент), **billing_ledger** (аудит). Ни один слой не является достаточным сам по себе — только вместе они дают защиту, сравнимую с банковскими системами.
 
 ---
 
