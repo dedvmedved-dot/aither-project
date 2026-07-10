@@ -1716,6 +1716,102 @@ async function main() {
     return reply.send({ status: "revoked", key_id: keyId });
   });
 
+  // ── RAG endpoints ──────────────────────────────────────────
+  // GET /api/rag/status — hybrid RAG status from Gateway
+  app.get("/api/rag/status", async (req: any, reply) => {
+    try {
+      const resp = await gatewayFetch("/v1/rag/status", { method: "GET" });
+      const data = await resp.json();
+      return reply.send(data);
+    } catch (e: any) {
+      return reply.status(502).send({ error: "rag_unavailable", detail: safeError(e) });
+    }
+  });
+
+  // POST /api/rag/query — hybrid RAG search (keyword + wiki graph)
+  app.post("/api/rag/query", async (req: any, reply) => {
+    const { query, top_k, wiki_radius } = req.body || {};
+    if (!query) return reply.status(400).send({ error: "query required" });
+    // Auth: any valid token (Gateway checks tier)
+    const p = auth(req, reply); if (!p) return;
+    try {
+      const resp = await gatewayFetch("/v1/rag/hybrid-query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${signToken(p.user_id)}`,
+        },
+        body: JSON.stringify({ query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
+      });
+      const data = await resp.json();
+      return reply.status(resp.status).send(data);
+    } catch (e: any) {
+      return reply.status(502).send({ error: "rag_query_failed", detail: safeError(e) });
+    }
+  });
+
+  // POST /api/rag/chat — enhanced chat with RAG context injection
+  app.post("/api/rag/chat", async (req: any, reply) => {
+    const { messages, model, rag_query, top_k, wiki_radius, temperature } = req.body || {};
+    if (!messages || !rag_query) return reply.status(400).send({ error: "messages and rag_query required" });
+    const p = auth(req, reply); if (!p) return;
+
+    try {
+      // Step 1: RAG search
+      const ragResp = await gatewayFetch("/v1/rag/hybrid-query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${signToken(p.user_id)}`,
+        },
+        body: JSON.stringify({ query: rag_query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
+      });
+      const ragData = await ragResp.json();
+      const ragResults = ragData.results || [];
+
+      // Step 2: Build augmented prompt with RAG context
+      let ragContext = "";
+      if (ragResults.length > 0) {
+        ragContext = "[Контекст из базы знаний Aither]\n\n";
+        for (const r of ragResults) {
+          ragContext += `### ${r.page_title || r.source}\n${r.text}\n\n`;
+        }
+        ragContext += "[/Контекст]\n\n";
+      }
+
+      // Step 3: Inject RAG context into system message or create one
+      const augmentedMessages = [...messages];
+      const systemIdx = augmentedMessages.findIndex((m: any) => m.role === "system");
+      if (systemIdx >= 0) {
+        augmentedMessages[systemIdx].content = ragContext + augmentedMessages[systemIdx].content;
+      } else {
+        augmentedMessages.unshift({ role: "system", content: ragContext + "Ты — AI-ассистент платформы Aither. Отвечай на основе предоставленного контекста." });
+      }
+
+      // Step 4: Forward to Gateway chat completions
+      const chatResp = await gatewayFetch("/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${signToken(p.user_id)}`,
+        },
+        body: JSON.stringify({
+          model: model || "qwen2.5-14b",
+          messages: augmentedMessages,
+          temperature: temperature ?? 0.7,
+          stream: false,
+        }),
+      });
+      const chatData = await chatResp.json();
+      return reply.status(chatResp.status).send({
+        ...chatData,
+        rag: { query: rag_query, results_count: ragResults.length, sources: ragResults.map((r: any) => r.page_title) },
+      });
+    } catch (e: any) {
+      return reply.status(502).send({ error: "rag_chat_failed", detail: safeError(e) });
+    }
+  });
+
   // Proxy /api/v1/admin/* → Gateway /admin/*
   app.all("/api/v1/admin/*", async (req: any, reply) => {
     // Admin key bypass: skip user auth for automated/admin-panel access
