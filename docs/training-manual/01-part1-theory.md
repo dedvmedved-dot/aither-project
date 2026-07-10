@@ -2617,3 +2617,577 @@ curl -X POST https://fb1.spb.ru:10443/v1/chat/completions \
 - Формат OpenAI API: запрос, ответ, SSE-стриминг
 
 В следующей главе — vLLM: как всё это работает на практике, с нашими GPU и Kubernetes.
+
+
+# Глава 5. vLLM — движок инференса
+
+> **Цель главы:** понять, как vLLM запускает языковые модели на наших GPU, почему он быстрее «ручного» запуска, что такое Tensor Parallelism и PagedAttention, и как читать его параметры запуска. После этой главы вы сможете осмысленно запустить vLLM и понять, почему 14B даёт 28 tok/s, а 32B — 35 tok/s.
+
+---
+
+## 5.1. Зачем нужен vLLM
+
+### Запуск модели «руками»: почему это сложно
+
+В теории запустить языковую модель просто: загружаешь веса в Python, подаёшь текст, получаешь ответ. На практике — десятки проблем:
+
+```python
+# Наивный запуск модели (НЕ ДЕЛАЙТЕ ТАК)
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained("/models/Qwen2.5-14B-Instruct")
+# ↑ Загружает модель в оперативную память, а не в GPU.
+#   Даже если GPU есть — модель может не влезть.
+#   Нет батчинга — по одному запросу за раз.
+#   Нет KV-кэша — каждый токен считается заново.
+#   Нет API — нужно писать свой HTTP-сервер.
+```
+
+**vLLM** (Very Large Language Model) — это production-движок инференса. Он решает все эти проблемы «из коробки»:
+
+| Проблема | Решение vLLM |
+|---|---|
+| Модель не влезает в GPU | Tensor Parallelism (разрезание на 2 GPU) |
+| Медленно (один запрос за раз) | Continuous Batching (пакетная обработка) |
+| Каждый токен считается заново | PagedAttention (KV-кэш, как виртуальная память) |
+| Нет API | OpenAI-совместимый REST API (`/v1/chat/completions`) |
+| Нужен свой HTTP-сервер | Встроенный FastAPI-сервер |
+| Не умеет в LoRA | `--enable-lora --lora-modules` |
+
+> 🏭 **Аналогия.** Запустить модель «руками» — как самому печь хлеб: можно, но на один батон уходит полдня. vLLM — это хлебозавод: тысячи батонов в час, optimised до последнего винта.
+
+### Что vLLM умеет из коробки
+
+- Загружает модель из локальной папки или Hugging Face
+- Поддерживает десятки архитектур (Qwen, LLaMA, Mistral, GPT и др.)
+- Автоматически распределяет модель по GPU (Tensor Parallelism)
+- Кэширует KV-состояния (PagedAttention)
+- Обрабатывает запросы пачками (Continuous Batching)
+- Отдаёт OpenAI-совместимый API на порту 8000
+- Поддерживает LoRA-адаптеры (загрузка на лету)
+- Поддерживает квантизацию (GPTQ, AWQ, FP8)
+- Даёт метрики для Prometheus
+
+---
+
+## 5.2. Архитектура vLLM: как устроен внутри
+
+### PagedAttention: виртуальная память для KV-кэша
+
+Когда модель генерирует текст, она на каждом шагу вычисляет **внимание** (attention) ко всем предыдущим токенам. Результаты этих вычислений — **KV-кэш** (Key-Value cache) — можно сохранить и переиспользовать. Если бы мы не хранили KV-кэш, каждый следующий токен требовал бы пересчёта внимания ко ВСЕМ предыдущим токенам заново.
+
+Проблема: KV-кэш занимает много памяти. Для 14B модели при длине контекста 4096 токенов KV-кэш одного запроса — около 4 GB. Если запросов много, память быстро заканчивается.
+
+**PagedAttention** решает эту проблему так же, как операционная система решает проблему управления оперативной памятью — через **страничную организацию** (paging):
+
+- Вместо того чтобы выделять один большой непрерывный блок под KV-кэш, vLLM разбивает его на блоки (pages) фиксированного размера
+- Блоки не обязаны располагаться в памяти подряд
+- Можно «выгрузить» неиспользуемые блоки и «подгрузить» нужные
+
+> 📖 **Аналогия.** Обычный KV-кэш — как требование «мне нужна книга, где все 500 страниц склеены в одну ленту». PagedAttention — «мне нужна книга с обычными страницами, я буду перелистывать». Страницы можно хранить в любом порядке, брать только нужные, подкачивать с диска.
+
+```dot
+digraph PagedAttention {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_old {
+        label="Без PagedAttention (старый подход)"
+        style="rounded,dashed"
+        color="#e91e63"
+        fontname="system-ui"
+        fontsize=10
+
+        old_mem [label="Непрерывный блок\nпод KV-кэш\n\n████████████████████\n████████░░░░░░░░░░░░\n(занято/свободно)", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+        old_waste [label="❌ Фрагментация:\nсвободное место есть,\nно не непрерывное\n→ нельзя использовать", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63", fontsize=8]
+    }
+
+    subgraph cluster_new {
+        label="PagedAttention (vLLM)"
+        style="rounded,dashed"
+        color="#43a047"
+        fontname="system-ui"
+        fontsize=10
+
+        b1 [label="Блок 1", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        b2 [label="Блок 2", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        b3 [label="Свободен", shape=box, style="filled", fillcolor="#f5f5f5", color="#bdbdbd"]
+        b4 [label="Блок 3", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+
+        note [label="✅ Блоки не обязаны\nидти подряд.\nСвободный блок можно\nиспользовать сразу.", shape=plaintext, fontsize=8]
+    }
+}
+```
+
+*Схема 5.1. PagedAttention: KV-кэш разбит на блоки (как страницы памяти в ОС). Нет фрагментации, память используется эффективнее.*
+
+### Continuous Batching: пакетная обработка запросов
+
+Обычный сервер обрабатывает запросы по одному: принял → обработал → отдал → следующий. Если запросов 10, время = 10 × время_одного.
+
+**Continuous Batching** (непрерывная пакетная обработка) позволяет обрабатывать несколько запросов одновременно в одном «прогоне» модели через GPU. При этом:
+- Новый запрос может добавиться в пакет в любой момент (не нужно ждать завершения предыдущих)
+- Завершённый запрос удаляется из пакета, освобождая слот
+
+Это повышает пропускную способность GPU, потому что GPU эффективнее работает с большими матрицами, чем с одним запросом.
+
+> 🚌 **Аналогия.** Обычная обработка — такси (один пассажир за раз). Continuous Batching — автобус, в который пассажиры заходят и выходят на ходу. Автобус всегда заполнен, двигатель работает эффективно.
+
+### Prefill vs Decode: две фазы генерации
+
+Когда вы отправляете запрос модели, она проходит две фазы:
+
+| Фаза | Что делает | Время | Характер |
+|---|---|---|---|
+| **Prefill** | Обрабатывает ВЕСЬ входной текст (prompt) за один проход | ~200 ms (55%) | Compute-bound: много вычислений |
+| **Decode** | Генерирует по ОДНОМУ токену за шаг | ~6 ms/токен | Memory-bound: много чтений KV-кэша |
+
+Почему prefill такой долгий? Потому что каждый токен входного текста должен «увидеть» все остальные (attention O(n²)). Для prompt из 2000 токенов это 4 000 000 операций сравнения — за один проход.
+
+Decode быстрее, потому что на каждом шаге считается внимание только одного нового токена ко всем предыдущим (O(n)).
+
+```dot
+digraph PrefillDecode {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    input [label="Вход:\n2000 токенов\n(~1500 слов)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+
+    prefill [label="Prefill\n~200 ms\nОбрабатывает ВСЕ\n2000 токенов\nодновременно", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63", fontsize=10]
+
+    decode1 [label="Decode #1\n~6 ms\nГенерирует\nтокен #2001", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    decode2 [label="Decode #2\n~6 ms\nГенерирует\nтокен #2002", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    decodeN [label="...\n~6 ms/токен", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+
+    output [label="Выход:\n500 токенов\n(~375 слов)\nВсего: ~3.2 сек", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+
+    input -> prefill -> decode1 -> decode2 -> decodeN -> output
+}
+```
+
+*Схема 5.2. Prefill (один медленный проход) и Decode (много быстрых шагов). 55% времени уходит на prefill.*
+
+---
+
+## 5.3. Tensor Parallelism: модель на 2 GPU
+
+### Зачем разрезать модель
+
+Одна RTX 6000 имеет 24 GB VRAM. Этого хватает для 14B-модели в fp16 (~14 GB + KV-кэш). Но если модель больше — или если нужен больший KV-кэш для длинных запросов — одной карты мало.
+
+**Tensor Parallelism (TP)** разрезает модель на несколько GPU. Вместо того чтобы одна карта хранила все веса, они делятся между картами:
+
+- **TP=1:** одна карта хранит все веса (14 GB на RTX 6000 — влезает)
+- **TP=2:** две карты, каждая хранит половину весов (~7 GB на карту + место под KV-кэш)
+- **TP=4:** четыре карты, каждая хранит четверть
+
+### Как работает разрезание
+
+Матрицы весов разрезаются по одной из двух осей:
+- **По строкам:** каждая карта хранит часть строк → считает независимо → результаты объединяются (all-gather)
+- **По столбцам:** каждая карта хранит часть столбцов → вход делится (all-reduce)
+
+После вычислений карты синхронизируются через NVLink (быстрый мост между GPU) или PCIe (медленнее).
+
+> ✂️ **Аналогия.** Две карты — два бухгалтера. Вместо того чтобы один считал ВСЕ цифры (долго), они делят ведомость пополам. Каждый считает свою половину, потом сверяют итоги.
+
+```dot
+digraph TensorParallel {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    input [label="Входной тензор\n(матрица чисел)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+
+    subgraph cluster_gpu0 {
+        label="GPU 0 (RTX 6000)"
+        style="rounded"
+        color="#e91e63"
+        fontname="system-ui"
+
+        w0 [label="Половина весов\n(~7 GB)", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        r0 [label="Результат\nGPU 0", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        input -> w0 -> r0
+    }
+
+    subgraph cluster_gpu1 {
+        label="GPU 1 (RTX 6000)"
+        style="rounded"
+        color="#43a047"
+        fontname="system-ui"
+
+        w1 [label="Половина весов\n(~7 GB)", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        r1 [label="Результат\nGPU 1", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        input -> w1 -> r1
+    }
+
+    sync [label="All-Reduce\n(синхронизация\nрезультатов)", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+    output [label="Выходной тензор\n(объединённый)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+
+    r0 -> sync -> output
+    r1 -> sync
+}
+```
+
+*Схема 5.3. Tensor Parallelism (TP=2). Каждая карта хранит половину весов, результаты синхронизируются через All-Reduce.*
+
+### Почему TP=2, а не больше
+
+| TP | Плюсы | Минусы |
+|---|---|---|
+| **TP=1** | Проще, меньше накладных расходов | Меньше памяти под модель и KV-кэш |
+| **TP=2** | Больше памяти, быстрее prefill | Накладные расходы на синхронизацию (~5%) |
+| **TP=4** | Ещё больше памяти | Синхронизация через PCIe (медленно), больше расходов |
+
+В Aither:
+- **14B** использует TP=2: 14 GB модели + 4 GB KV-кэш = 18 GB → влезает в 2×24 GB с запасом
+- **32B** использует TP=2: 20 GB модели (GPTQ 4-bit) + 4 GB KV-кэш = 24 GB → плотно, но влезает
+
+Практический эффект TP=2 для 14B: 28 tok/s вместо 11 tok/s (на одной карте prefill был бы ещё медленнее, модель бы не влезла в одну карту с KV-кэшем).
+
+---
+
+## 5.4. Параметры запуска vLLM — построчный разбор
+
+Каждый параметр запуска vLLM — с объяснением **почему** именно такое значение:
+
+### 14B модель
+
+```bash
+python3 -m vllm.entrypoints.openai.api_server \
+  --model /models/Qwen2.5-14B-Instruct \
+  # ↑ Путь к модели. Папка должна содержать:
+  #   config.json, tokenizer.json, model-*.safetensors
+  #   vLLM сам определяет архитектуру по config.json
+
+  --dtype half \
+  # ↑ Точность вычислений. half = fp16 (16 бит).
+  #   Альтернативы: bfloat16, float32, auto.
+  #   fp16: быстрее, меньше памяти. bf16: стабильнее, но не на всех GPU.
+
+  --max-model-len 4096 \
+  # ↑ Максимальная длина контекста (в токенах).
+  #   Больше = больше памяти под KV-кэш.
+  #   limit = 4096 токенов (~3000 слов).
+  #   Если пользователь пришлёт 5000 токенов — будет обрезано.
+
+  --gpu-memory-utilization 0.90 \
+  # ↑ Сколько VRAM отдать vLLM (90% = 21.6 GB из 24).
+  #   Остальные 2.4 GB — запас на фрагментацию и CUDA-контекст.
+  #   0.95 можно, но риск OOM (Out Of Memory).
+
+  --tensor-parallel-size 2 \
+  # ↑ На сколько GPU разрезать модель.
+  #   2 = обе RTX 6000 на сервере.
+  #   Должно делиться на количество GPU без остатка!
+
+  --enable-lora \
+  # ↑ Включаем поддержку LoRA-адаптеров.
+
+  --lora-modules astra-14b=/models/lora-qwen14b-astra/ \
+  # ↑ Регистрируем адаптер:
+  #   astra-14b = имя модели в API
+  #   /models/lora-qwen14b-astra/ = папка с adapter_config.json + adapter_model.safetensors
+
+  --max-lora-rank 8
+  # ↑ Максимальный ранг LoRA-адаптера.
+  #   Должен совпадать с r в adapter_config.json.
+  #   Лучше указать чуть больше (запас).
+
+# env переменные:
+export HF_HUB_OFFLINE=1
+# ↑ Не пытаться скачать модель из Hugging Face.
+#   Модель уже лежит локально в /models.
+
+export VLLM_PORT=8000
+# ↑ Порт, на котором vLLM будет слушать API.
+
+export NVIDIA_VISIBLE_DEVICES=0,1
+# ↑ Какие GPU использовать (индексы из nvidia-smi).
+#   0,1 = обе карты.
+
+export VLLM_USE_V1=0
+# ↑ Использовать СТАРУЮ версию vLLM (v0).
+#   v1 — новый движок, быстрее, но менее стабилен.
+#   0 — проверенная версия, без сюрпризов.
+```
+
+### 32B модель (отличия)
+
+```bash
+python3 -m vllm.entrypoints.openai.api_server \
+  --model /models \
+  # ↑ Для GPTQ-моделей путь к папке, содержащей
+  #   model-*.safetensors с уже заквантизованными весами.
+  #   Не нужно указывать полное имя — vLLM сам разберётся.
+
+  --served-model-name qwen2.5-32b \
+  # ↑ Под каким именем модель будет видна в API.
+  #   В запросе: {"model": "qwen2.5-32b"}
+
+  --host 0.0.0.0 --port 8000 \
+  # ↑ Слушать на всех сетевых интерфейсах, порт 8000.
+
+  --max-model-len 8192 \
+  # ↑ Контекст 32B — вдвое больше, чем у 14B.
+  #   Внимание: KV-кэш для 8K токенов ~8 GB!
+
+  --gpu-memory-utilization 0.90 \
+  # ↑ Те же 90%. 32B-GPTQ ~20 GB + KV-кэш ~4 GB = 24 GB — плотно.
+
+  --dtype auto \
+  # ↑ Пусть vLLM сам выберет точность.
+  #   Для GPTQ моделей обычно = float16.
+
+  --tensor-parallel-size 2
+  # ↑ TP=2: модель на обе карты.
+  #   Важно: GPTQ веса загружаются на каждую карту,
+  #   но KV-кэш делится — экономия памяти!
+```
+
+### ⚠️ Антипример: `--enforce-eager`
+
+Этот флаг ОТКЛЮЧАЕТ компиляцию модели через CUDA Graph. Результат:
+- **С `--enforce-eager`:** модель компилируется каждый раз → 11 tok/s
+- **Без него:** модель компилируется один раз → 28 tok/s (в 2.5× быстрее!)
+
+`--enforce-eager` нужен ТОЛЬКО для отладки. В продакшене — никогда.
+
+---
+
+## 5.5. vLLM в Kubernetes
+
+### Почему Recreate, а не RollingUpdate
+
+Как мы обсуждали в главе 3, vLLM использует стратегию `Recreate`:
+
+```yaml
+strategy:
+  type: Recreate
+```
+
+Причина — GPU. vLLM 14B с TP=2 занимает ОБЕ RTX 6000 на сервере. Если бы K8s попытался сделать RollingUpdate, он бы запустил новый под (которому нужны 2 GPU) при ещё работающем старом (тоже занимает 2 GPU). Итого 4 GPU — а есть только 2. Результат: новый под висит в Pending навсегда, старый продолжает работать. Никакого обновления не происходит.
+
+Recreate решает проблему радикально: убить старый под (GPU освобождаются) → запустить новый (GPU занимаются).
+
+### nodeSelector и runtimeClassName
+
+```yaml
+nodeSelector:
+  kubernetes.io/hostname: bootsman-k8s-clnt01-n8-gpu
+# ↑ 14B — ТОЛЬКО на n8 (там модели в /data/models)
+
+runtimeClassName: nvidia
+# ↑ Использовать NVIDIA runtime для доступа к GPU
+#   (nvidia-container-toolkit, см. гл. 2)
+```
+
+### Ресурсы
+
+```yaml
+resources:
+  requests:
+    cpu: "4"           # гарантировано 4 ядра
+    memory: 32Gi       # гарантировано 32 GB RAM
+    nvidia.com/gpu: "2" # гарантировано 2 GPU
+  limits:
+    cpu: "16"          # максимум 16 ядер
+    memory: 64Gi       # максимум 64 GB RAM (больше не нужно)
+    nvidia.com/gpu: "2" # максимум 2 GPU
+```
+
+**Зачем requests и limits?** Requests — это то, что K8s **гарантирует**. Limits — то, что K8s **ограничивает**. Если под превысит `limits.memory` → OOMKilled.
+
+### Загрузка моделей: hostPath vs PVC
+
+```yaml
+# 14B — модели на локальном диске сервера
+volumes:
+- name: models
+  hostPath:
+    path: /data/models
+    type: DirectoryOrCreate
+
+# 32B — модели в PersistentVolumeClaim
+volumes:
+- name: models
+  persistentVolumeClaim:
+    claimName: models-32b-pvc
+```
+
+Почему разные подходы?
+- **14B** на n8: модели лежат в `/data/models` (42 TB SAS SSD). HostPath — самый быстрый доступ (напрямую к диску)
+- **32B** на n7: модели в PVC. PVC можно перенести на другой узел (если n7 выйдет из строя), hostPath — нет
+
+```dot
+digraph VLLM_K8s {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_k8s {
+        label="Kubernetes (default namespace)"
+        style="rounded,dashed"
+        color="#ff9800"
+        fontname="system-ui"
+        fontsize=11
+
+        deploy14 [label="Deployment: vllm-qwen\nСтратегия: Recreate\nnodeSelector: n8", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+        deploy32 [label="Deployment: vllm-qwen32b\nСтратегия: Recreate\nnodeSelector: n7", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+
+        svc14 [label="Service: vllm\nClusterIP:8000\nNodePort:32293", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+
+        svc32 [label="Service: vllm-qwen32b\nClusterIP:8000\nNodePort:32294", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+
+        deploy14 -> svc14
+        deploy32 -> svc32
+    }
+
+    subgraph cluster_n8 {
+        label="n8"
+        style="rounded"
+        color="#ff9800"
+
+        pod14 [label="Pod: vllm-qwen-abc1\nTP=2, 14B fp16\n28 tok/s", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+        disk_n8 [label="/data/models\nhostPath", shape=cylinder, style="filled", fillcolor="#f5f5f5", color="#616161"]
+
+        pod14 -> disk_n8
+    }
+
+    subgraph cluster_n7 {
+        label="n7"
+        style="rounded"
+        color="#ff9800"
+
+        pod32 [label="Pod: vllm-qwen32b-def2\nTP=2, 32B GPTQ\n35 tok/s", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+        pvc [label="PVC: models-32b-pvc\n100Gi", shape=cylinder, style="filled", fillcolor="#f5f5f5", color="#616161"]
+
+        pod32 -> pvc
+    }
+
+    gateway [label="Gateway\n(vllm:8000 → 14B\nvllm-qwen32b:8000 → 32B)", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+    gateway -> svc14 [label="vllm:8000", style=dashed]
+    gateway -> svc32 [label="vllm-qwen32b:8000", style=dashed]
+}
+```
+
+*Схема 5.4. vLLM в Kubernetes: два деплоймента (Recreate!), два сервиса (ClusterIP + NodePort), две модели на разных серверах.*
+
+---
+
+## 5.6. Проверка работоспособности
+
+### health endpoint
+
+```bash
+curl http://vllm:8000/health
+# → OK (или HTTP 200)
+```
+
+### Список моделей
+
+```bash
+curl http://vllm:8000/v1/models
+```
+
+Ответ:
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "qwen2.5-14b",
+      "object": "model",
+      "created": 1720300000,
+      "owned_by": "vllm"
+    },
+    {
+      "id": "astra-14b",
+      "object": "model",
+      "created": 1720300000,
+      "owned_by": "vllm",
+      "root": "qwen2.5-14b"
+    }
+  ]
+}
+```
+
+Обратите внимание: `astra-14b` — это LoRA-адаптер, его `root` — `qwen2.5-14b`.
+
+### Тестовый запрос
+
+```bash
+curl -X POST http://vllm:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen2.5-14b",
+    "messages": [{"role": "user", "content": "Привет! Сколько будет 2+2?"}],
+    "max_tokens": 50
+  }'
+```
+
+### Замер производительности
+
+```bash
+# Время ответа
+time curl -X POST http://vllm:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"Напиши 10 предложений о Москве"}],"max_tokens":500}' \
+  -s -o /dev/null -w "HTTP %{http_code}, time: %{time_total}s\n"
+
+# Результат:
+# HTTP 200, time: 18.2s
+# 500 токенов / 18.2 секунд ≈ 27.5 tok/s
+```
+
+Анализ: 55% времени (10 секунд) — prefill (обработка prompt), 45% (8.2 секунды) — decode (500 токенов × 16 ms/токен). Если уменьшить prompt — prefill станет быстрее.
+
+---
+
+## 5.7. ✏️ Практикум: vLLM
+
+### Задание 1. «Объясни коллеге»
+Коллега спрашивает: «Почему вы используете vLLM, а не просто загружаете модель через transformers?» Объясните в трёх предложениях.
+
+### Задание 2. «Параметры запуска»
+Для каждого параметра запуска 14B объясните, что будет, если его изменить:
+- `--gpu-memory-utilization 0.50` (вместо 0.90)
+- `--max-model-len 2048` (вместо 4096)
+- `--tensor-parallel-size 1` (вместо 2)
+- `--enforce-eager` (добавить)
+
+### Задание 3. «Сравнение моделей»
+Заполните таблицу:
+
+| Характеристика | 14B | 32B |
+|---|---|---|
+| Размер модели (fp16) | 28 GB | 64 GB |
+| Размер в production | ? | 20 GB (GPTQ) |
+| TP | 2 | ? |
+| Контекстное окно | 4096 | ? |
+| Скорость (tok/s) | 28 | ? |
+| На каком сервере | ? | n7 |
+
+### Задание 4. «Словарь термина»
+- vLLM, PagedAttention, Continuous Batching
+- Prefill, Decode
+- Tensor Parallelism, All-Reduce
+- KV-кэш
+- hostPath, PVC
+
+---
+
+**Итог главы 5.** Вы узнали:
+- Зачем нужен vLLM (PagedAttention, Continuous Batching, OpenAI API из коробки)
+- Как vLLM устроен внутри: Prefill vs Decode, KV-кэш, Continuous Batching
+- Как Tensor Parallelism разрезает модель на 2 GPU (All-Reduce)
+- Каждый параметр запуска с объяснением «почему именно так»
+- Почему `--enforce-eager` убивает производительность (11 → 28 tok/s)
+- Как vLLM деплоится в Kubernetes (Recreate, nodeSelector, hostPath vs PVC)
+- Как проверить работоспособность и замерить tok/s
+
+В следующей главе — Портал: веб-интерфейс платформы, от BFF до списания токенов.
