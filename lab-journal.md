@@ -3718,3 +3718,25 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 | dedvmedved-dot (github) | dedvmedved-dot-организация, MyOrg, CheckOrg |
 | Евгений Степашкин (yandex) | — |
 | newuser (email) | newuser-организация |
+
+---
+
+## 10.07.2026 — Аудит задания 7 + документация v1.1
+
+### Аудит дорожной карты
+- ROADMAP.md обновлён: этап 7 расширен с 1 до 7 подзадач (33a-33f)
+- Все подзадачи выполнены ✅
+- Готовность: 90% (46/51)
+
+### Документация
+- **Создан** `docs/01-architecture.md` — полная архитектура (VPS1→VPS2→K8s), схема БД, потоки данных, компоненты
+- **Создан** `docs/03-admin-guide.md` — руководство администратора: 11 вкладок, CRUD orgs/users/keys, LDAP, тарифы, troubleshooting
+- **Обновлён** `docs/user-guide.md` — добавлены разделы 15-18: организации и биллинг, администрирование, LDAP, ссылки
+
+### Конфигурации
+- **Создан** `configs/bff/.env.template` — эталонный шаблон переменных окружения BFF (все секции: PG, OAuth, LDAP, JWT, YooKassa, Gateway)
+
+### Состояние
+- Админ-панель: 11 вкладок, полный CRUD
+- Пользователей: 5, организаций: 6
+- Документация v1.1: архитектура + admin-guide + user-guide
