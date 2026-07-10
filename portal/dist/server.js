@@ -51936,6 +51936,66 @@ async function main() {
     }
     return reply.send({ status: "ok", updated: entries.length });
   });
+  app.get("/api/v1/admin/orgs", async (_req, reply) => {
+    const r = await pool.query(`
+      SELECT o.org_id, o.name, o.status, o.created_at,
+             COALESCE(b.total_tokens, 0) AS balance,
+             COALESCE(b.tier, 'none') AS tier,
+             (SELECT COUNT(*) FROM portal_org_members m WHERE m.org_id = o.org_id AND m.status = 'active') AS member_count,
+             (SELECT COUNT(*) FROM portal_api_keys k WHERE k.org_id = o.org_id AND k.status = 'active') AS key_count
+      FROM portal_organizations o
+      LEFT JOIN billing_accounts b ON b.org_id = o.org_id
+      ORDER BY o.created_at DESC LIMIT 100`);
+    return reply.send({ orgs: r.rows });
+  });
+  app.get("/api/v1/admin/orgs/:orgId", async (req, reply) => {
+    const { orgId } = req.params;
+    const org = await pool.query(
+      `SELECT o.*, COALESCE(b.total_tokens,0) AS balance, COALESCE(b.reserved,0) AS reserved,
+              COALESCE(b.tier, 'none') AS tier, b.meta AS billing_meta
+       FROM portal_organizations o
+       LEFT JOIN billing_accounts b ON b.org_id = o.org_id
+       WHERE o.org_id = $1`,
+      [orgId]
+    );
+    if (org.rows.length === 0) return reply.status(404).send({ error: "org not found" });
+    const members = await pool.query(
+      `SELECT m.*, u.display_name, u.email, u.user_id AS uid
+       FROM portal_org_members m
+       JOIN portal_users u ON u.user_id = m.user_id
+       WHERE m.org_id = $1`,
+      [orgId]
+    );
+    const keys = await pool.query(
+      "SELECT key_id, api_key_prefix, name, status, created_at, last_used_at FROM portal_api_keys WHERE org_id = $1",
+      [orgId]
+    );
+    return reply.send({ org: org.rows[0], members: members.rows, api_keys: keys.rows });
+  });
+  app.delete("/api/v1/admin/orgs/:orgId", async (req, reply) => {
+    const { orgId } = req.params;
+    await pool.query("DELETE FROM portal_org_members WHERE org_id = $1", [orgId]);
+    await pool.query("DELETE FROM portal_api_keys WHERE org_id = $1", [orgId]);
+    await pool.query("DELETE FROM billing_accounts WHERE org_id = $1", [orgId]);
+    await pool.query("DELETE FROM chat_messages WHERE chat_id IN (SELECT chat_id FROM chats WHERE org_id = $1)", [orgId]);
+    await pool.query("DELETE FROM chats WHERE org_id = $1", [orgId]);
+    await pool.query("DELETE FROM portal_organizations WHERE org_id = $1", [orgId]);
+    return reply.send({ status: "deleted", org_id: orgId });
+  });
+  app.get("/api/v1/admin/apikeys", async (_req, reply) => {
+    const r = await pool.query(`
+      SELECT k.key_id, k.api_key_prefix, k.name, k.status, k.created_at, k.last_used_at,
+             k.org_id, o.name AS org_name
+      FROM portal_api_keys k
+      LEFT JOIN portal_organizations o ON o.org_id = k.org_id
+      ORDER BY k.created_at DESC LIMIT 200`);
+    return reply.send({ keys: r.rows });
+  });
+  app.delete("/api/v1/admin/apikeys/:keyId", async (req, reply) => {
+    const { keyId } = req.params;
+    await pool.query("UPDATE portal_api_keys SET status = 'revoked' WHERE key_id = $1", [keyId]);
+    return reply.send({ status: "revoked", key_id: keyId });
+  });
   app.all("/api/v1/admin/*", async (req, reply) => {
     const adminHeader = req.headers["x-admin-key"] || "";
     const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;

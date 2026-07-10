@@ -161,10 +161,11 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <a href="#health" class="active" data-panel="health"><span class="icon">🫀</span> Health</a>
     <a href="#models" data-panel="models"><span class="icon">🧠</span> Модели</a>
     <a href="#queues" data-panel="queues"><span class="icon">📊</span> Очереди</a>
-    <a href="#orgs" data-panel="orgs"><span class="icon">🏢</span> Организации</a>
     <a href="#reaper" data-panel="reaper"><span class="icon">⏱️</span> Reaper</a>
     <div class="section">Управление</div>
+    <a href="#orgs" data-panel="orgs"><span class="icon">🏢</span> Организации</a>
     <a href="#users" data-panel="users"><span class="icon">👥</span> Пользователи</a>
+    <a href="#apikeys" data-panel="apikeys"><span class="icon">🔑</span> API-ключи</a>
     <a href="#tokens" data-panel="tokens"><span class="icon">💰</span> Токены</a>
     <a href="#tiers" data-panel="tiers"><span class="icon">⚙️</span> Тарифы</a>
     <a href="#settings" data-panel="settings"><span class="icon">🔧</span> Настройки</a>
@@ -193,12 +194,11 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <!-- ORGS -->
     <div id="panel-orgs" class="panel">
       <div class="card">
-        <h3>🏢 Организации</h3>
-        <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;">
-          <input type="text" id="org-id-input" placeholder="UUID организации" style="max-width:380px;">
-          <button class="btn" onclick="loadOrg()">🔍 Найти</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <h3>🏢 Организации</h3>
+          <span style="font-size:12px;color:var(--text-muted);" id="org-count"></span>
         </div>
-        <div id="org-body" style="color:var(--text-muted);">Введите UUID организации для просмотра.</div>
+        <div id="orgs-body">Загрузка…</div>
       </div>
     </div>
 
@@ -217,13 +217,20 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
       <div class="card">
         <h3>💰 Управление токенами</h3>
         <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
-          <input type="text" id="token-org-input" placeholder="UUID организации" style="max-width:340px;">
+          <select id="token-org-select" style="max-width:340px;">
+            <option value="">Выберите организацию…</option>
+          </select>
           <input type="number" id="token-amount-input" placeholder="Сумма токенов" style="max-width:160px;" value="100000">
           <button class="btn" onclick="tokensAdd()" style="background:var(--green-bg);color:var(--green);border-color:var(--green);">+ Начислить</button>
           <button class="btn btn-danger" onclick="tokensSubtract()">− Списать</button>
         </div>
-        <div id="token-result" style="font-size:13px;color:var(--text-muted);">Введите UUID организации и сумму.</div>
+        <div id="token-result" style="font-size:13px;color:var(--text-muted);">Выберите организацию и укажите сумму.</div>
       </div>
+    </div>
+
+    <!-- API KEYS -->
+    <div id="panel-apikeys" class="panel">
+      <div class="card"><h3>🔑 API-ключи</h3><div id="apikeys-body">Загрузка…</div></div>
     </div>
 
     <!-- TIERS -->
@@ -232,7 +239,9 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
         <h3>⚙️ Тарифные планы</h3>
         <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
           <span style="font-size:12px;color:var(--text-muted);">Сменить тариф организации:</span>
-          <input type="text" id="tier-org-input" placeholder="UUID организации" style="max-width:280px;">
+          <select id="tier-org-select" style="max-width:280px;">
+            <option value="">Выберите организацию…</option>
+          </select>
           <select id="tier-select" style="max-width:140px;"></select>
           <button class="btn" onclick="orgSetTier()">Применить</button>
         </div>
@@ -335,7 +344,8 @@ const ADMIN_KEY = 'hs256-shared-secret-key-for-admin-api-2026';
 const API_BASE = window.location.origin + '/api/v1/admin';
 
 // ── Auto-load ──
-const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper, users: loadUsers, tiers: loadTiers, settings: loadSettings };
+const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper,
+  orgs: loadOrgs, users: loadUsers, tokens: loadTokens, tiers: loadTiers, apikeys: loadApiKeys, settings: loadSettings };
 
 // ── Toast ──
 function toast(msg, ok) {
@@ -406,8 +416,9 @@ async function userSetRole(userId, role) {
 }
 
 // ── TOKENS ──
+function loadTokens() { populateOrgSelectors(); }
 async function tokensAdd() {
-  const orgId = document.getElementById('token-org-input').value.trim();
+  const orgId = document.getElementById('token-org-select').value;
   const amount = parseInt(document.getElementById('token-amount-input').value) || 0;
   if (!orgId || !amount) return;
   const el = document.getElementById('token-result');
@@ -424,7 +435,7 @@ async function tokensAdd() {
 }
 
 async function tokensSubtract() {
-  const orgId = document.getElementById('token-org-input').value.trim();
+  const orgId = document.getElementById('token-org-select').value;
   const amount = parseInt(document.getElementById('token-amount-input').value) || 0;
   if (!orgId || !amount) return;
   const el = document.getElementById('token-result');
@@ -485,7 +496,7 @@ async function tierSetLimits(tierId, rpm, tpm, daily) {
 }
 
 async function orgSetTier() {
-  const orgId = document.getElementById('tier-org-input').value.trim();
+  const orgId = document.getElementById('tier-org-select').value;
   const tier = document.getElementById('tier-select').value;
   if (!orgId || !tier) return;
   try {
@@ -629,31 +640,86 @@ async function loadQueues() {
   }
 }
 
-// ── ORG ──
-async function loadOrg() {
-  const id = document.getElementById('org-id-input').value.trim();
-  if (!id) return;
-  const el = document.getElementById('org-body');
+// ── ORGS ──
+async function loadOrgs() {
+  const el = document.getElementById('orgs-body');
+  try {
+    const data = await api('/orgs');
+    const orgs = data.orgs || [];
+    document.getElementById('org-count').textContent = `Всего: ${orgs.length}`;
+    if (!orgs.length) { el.innerHTML = '<span style="color:var(--text-muted);">Нет организаций.</span>'; return; }
+    const rows = orgs.map(o => `<tr>
+      <td><b>${h(o.name)}</b><br><span class="mono" style="font-size:9px;color:var(--text-muted);">${o.org_id}</span></td>
+      <td><span class="badge ${o.status==='active'?'badge-healthy':'badge-unhealthy'}">${o.status}</span></td>
+      <td>${o.tier||'none'}</td>
+      <td><span class="mono">${(o.balance||0).toLocaleString()}</span></td>
+      <td>${o.member_count}</td>
+      <td>${o.key_count}</td>
+      <td>
+        <button class="btn btn-sm" onclick="loadOrgDetail('${o.org_id}','${h(o.name)}')">👁</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteOrg('${o.org_id}','${h(o.name)}')">🗑</button>
+      </td>
+    </tr>`).join('');
+    el.innerHTML = `<table><thead><tr><th>Название / ID</th><th>Статус</th><th>Tier</th><th>Баланс</th><th>👥</th><th>🔑</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+function h(s) { return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function loadOrgDetail(orgId, name) {
+  const el = document.getElementById('orgs-body');
   el.innerHTML = '<span class="spinner"></span> Загрузка…';
   try {
-    const o = await api('/orgs/' + encodeURIComponent(id));
-    el.innerHTML = `
+    const d = await api('/orgs/' + encodeURIComponent(orgId));
+    const o = d.org; const members = d.members || []; const keys = d.api_keys || [];
+    let html = `<div style="margin-bottom:16px;"><button class="btn btn-sm" onclick="loadOrgs()">← Назад</button></div>
       <div class="stat-row">
-        <div class="stat-box"><div class="num">${o.balance ?? 0}</div><div class="lbl">Баланс (токены)</div></div>
-        <div class="stat-box"><div class="num">${o.reserved ?? 0}</div><div class="lbl">Зарезервировано</div></div>
-        <div class="stat-box"><div class="num">${o.requests_today ?? 0}</div><div class="lbl">Запросов сегодня</div></div>
-        <div class="stat-box"><div class="num">${o.tokens_today ?? 0}</div><div class="lbl">Токенов сегодня</div></div>
+        <div class="stat-box"><div class="num">${(o.balance||0).toLocaleString()}</div><div class="lbl">Баланс</div></div>
+        <div class="stat-box"><div class="num">${(o.reserved||0).toLocaleString()}</div><div class="lbl">Зарезервировано</div></div>
+        <div class="stat-box"><div class="num">${members.length}</div><div class="lbl">Участников</div></div>
+        <div class="stat-box"><div class="num">${keys.length}</div><div class="lbl">API-ключей</div></div>
       </div>
-      <table>
-        <tr><td>Tier</td><td><b>${o.tier || '—'}</b></td></tr>
-        <tr><td>RPM (текущий)</td><td><span class="mono">${o.current_rpm ?? 0}</span></td></tr>
-        <tr><td>TPM (текущий)</td><td><span class="mono">${o.current_tpm ?? 0}</span></td></tr>
-        <tr><td>RPM Limit</td><td><span class="mono">${o.rpm_limit ?? '—'}</span></td></tr>
-        <tr><td>TPM Limit</td><td><span class="mono">${o.tpm_limit ?? '—'}</span></td></tr>
-      </table>`;
-  } catch (e) {
-    el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`;
-  }
+      <table style="margin-bottom:8px;"><tr><td style="width:120px;"><b>ID</b></td><td><span class="mono" style="font-size:10px;">${o.org_id}</span></td></tr>
+      <tr><td>Название</td><td><b>${h(o.name)}</b></td></tr>
+      <tr><td>Статус</td><td>${h(o.status)}</td></tr>
+      <tr><td>Тариф</td><td>${h(o.tier||'none')}</td></tr></table>`;
+
+    if (members.length) {
+      html += '<h4 style="margin:14px 0 8px;font-size:13px;">👥 Участники</h4><table><thead><tr><th>Пользователь</th><th>Email</th><th>Роль</th><th>Статус</th></tr></thead><tbody>';
+      html += members.map(m => `<tr>
+        <td>${h(m.display_name||m.uid)}<br><span class="mono" style="font-size:9px;color:var(--text-muted);">${m.uid}</span></td>
+        <td>${h(m.email||'')}</td>
+        <td>${h(m.role)}</td>
+        <td>${h(m.status)}</td></tr>`).join('');
+      html += '</tbody></table>';
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+async function deleteOrg(orgId, name) {
+  if (!confirm(`Удалить организацию «${name}»?\nВСЕ участники, API-ключи, биллинг и чаты будут удалены безвозвратно.`)) return;
+  try {
+    const r = await fetch(API_BASE + '/orgs/' + encodeURIComponent(orgId), {
+      method: 'DELETE', headers: { 'X-Admin-Key': ADMIN_KEY }
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+    toast('🗑 Организация удалена', true);
+    loadOrgs();
+  } catch (e) { toast('❌ ' + e.message, false); }
+}
+
+// ── ORG SELECTOR helper (for tokens & tiers) ──
+let orgCache = [];
+async function populateOrgSelectors() {
+  try {
+    const data = await api('/orgs');
+    orgCache = data.orgs || [];
+    const opts = orgCache.map(o => `<option value="${o.org_id}">${h(o.name)} (${h(o.tier||'none')}, ${(o.balance||0).toLocaleString()} ток.)</option>`).join('');
+    const sel1 = document.getElementById('token-org-select');
+    const sel2 = document.getElementById('tier-org-select');
+    if (sel1) sel1.innerHTML = '<option value="">Выберите организацию…</option>' + opts;
+    if (sel2) sel2.innerHTML = '<option value="">Выберите организацию…</option>' + opts;
+  } catch (e) {}
 }
 
 // ── REAPER ──
@@ -669,6 +735,38 @@ async function loadReaper() {
   } catch (e) {
     el.innerHTML = `<span style="color:var(--red);">❌ Ошибка: ${e.message}</span>`;
   }
+}
+
+// ── API KEYS ──
+async function loadApiKeys() {
+  const el = document.getElementById('apikeys-body');
+  try {
+    const data = await api('/apikeys');
+    const keys = data.keys || [];
+    if (!keys.length) { el.innerHTML = '<span style="color:var(--text-muted);">Нет API-ключей.</span>'; return; }
+    const rows = keys.map(k => `<tr>
+      <td><span class="mono">${h(k.api_key_prefix)}…</span></td>
+      <td>${h(k.name)}</td>
+      <td>${h(k.org_name||'—')}<br><span class="mono" style="font-size:9px;color:var(--text-muted);">${k.org_id||''}</span></td>
+      <td><span class="badge ${k.status==='active'?'badge-healthy':'badge-unhealthy'}">${k.status}</span></td>
+      <td>${k.created_at ? new Date(k.created_at).toLocaleDateString() : '—'}</td>
+      <td>${k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : '—'}</td>
+      <td>${k.status==='active' ? `<button class="btn btn-sm btn-danger" onclick="revokeKey('${k.key_id}')">🚫 Отозвать</button>` : ''}</td>
+    </tr>`).join('');
+    el.innerHTML = `<table><thead><tr><th>Префикс</th><th>Название</th><th>Организация</th><th>Статус</th><th>Создан</th><th>Использован</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+async function revokeKey(keyId) {
+  if (!confirm('Отозвать API-ключ? Он перестанет работать немедленно.')) return;
+  try {
+    const r = await fetch(API_BASE + '/apikeys/' + encodeURIComponent(keyId), {
+      method: 'DELETE', headers: { 'X-Admin-Key': ADMIN_KEY }
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+    toast('🚫 Ключ отозван', true);
+    loadApiKeys();
+  } catch (e) { toast('❌ ' + e.message, false); }
 }
 
 // ── SETTINGS ──
