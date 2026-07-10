@@ -3639,3 +3639,38 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 
 **Процесс BFF:** PID 473898, порт 127.0.0.1:3000
 **Секреты:** `/root/aither-project/portal/secrets.env` (НЕ коммитить в публичный репо!)
+
+---
+
+## 10.07.2026 — Admin-панель: Тарифы + Настройки + LDAP (`cdaec20`)
+
+### Исправления
+- **Тарифы → 404**: не было обработчика `GET /api/v1/admin/tiers` в BFF. Запрос падал в catch-all → Gateway → 404. Добавлен хендлер — читает `subscription_tiers` из локальной БД (4 тарифа: free/standard/vip/enterprise).
+- **Настройки → пустая страница**: `admin.html` ошибочно копировался на VPS1, а статика отдаётся с VPS2 (`/root/aither-project/portal/static/`). Файл синхронизирован на VPS2 + `docker restart portal-portal-nginx-1`.
+- **LDAP-настройки** через БД: таблица `portal_settings` (9 ключей), API `GET/POST /api/v1/admin/settings` в BFF перед catch-all. При старте BFF загружает `portal_settings` → `process.env`.
+
+### Текущий статус (11:15 МСК)
+
+| Компонент | Хост | Статус |
+|---|---|---|
+| BFF (systemd) | VPS2:3000 | ✅ active |
+| PostgreSQL | VPS2 Docker | ✅ healthy |
+| Nginx (статика) | VPS2:80 | ✅ up |
+| Gateway (K8s) | n8:30900 | ✅ alive |
+| vLLM 14B/32B/Coder | n7 | ✅ |
+| Nginx (прокси) | VPS1:10443 | ✅ active |
+
+### Admin-панель: все 10 вкладок работают
+
+| Вкладка | Данные от |
+|---|---|
+| 🫀 Health | Gateway |
+| 🧠 Модели | Gateway |
+| 📊 Очереди | Gateway |
+| 🏢 Организации | Gateway |
+| ⏱️ Reaper | Gateway |
+| 👥 Пользователи | BFF (portal_users) |
+| 💰 Токены | Gateway |
+| ⚙️ Тарифы | BFF (subscription_tiers) |
+| 🔧 Настройки | BFF (portal_settings) |
+| 🗺️ Статус 5а | Статическая
