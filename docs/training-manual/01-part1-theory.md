@@ -666,4 +666,545 @@ cat /etc/hostname                                   # имя компьютер�
 
 ---
 
-*Глава 1 из 18. Продолжение следует.*
+*Глава 1 из 18.*
+
+
+# Глава 2. Виртуализация и контейнеризация
+
+> **Цель главы:** понять, что такое виртуальная машина и контейнер, чем они отличаются, как работает Docker и Docker Compose. После этой главы вы сможете собрать свой первый Docker-образ и запустить контейнер.
+
+---
+
+## 2.1. Виртуальные машины: компьютер внутри компьютера
+
+### Зачем нужна виртуализация
+
+Представьте: у вас есть один мощный сервер (YADRO VEGMAN S320, 56 ядер, 754 GB RAM). Вы хотите запустить на нём:
+- Kubernetes (для оркестрации)
+- Базу данных PostgreSQL
+- Отдельный тестовый сервер для экспериментов
+
+Проблема: если запустить всё на одной операционной системе, программы будут мешать друг другу. PostgreSQL займёт порт 5432, тестовый сервер — тоже порт 5432. Конфликт. Одна программа может «уронить» ядро, и всё упадёт.
+
+Решение: **виртуализация** — технология, позволяющая запустить несколько операционных систем на одном физическом сервере.
+
+### Как работает виртуальная машина
+
+**Гипервизор** (hypervisor) — программа, которая создаёт и управляет виртуальными машинами. Она «притворяется» железом: говорит гостевой ОС «у тебя есть 4 ядра, 8 GB RAM и диск на 100 GB», хотя на самом деле это лишь часть реального сервера.
+
+| Тип гипервизора | Где работает | Примеры | Используется в Aither? |
+|---|---|---|---|
+| **Тип 1** (bare-metal) | Прямо на железе, без ОС | VMware ESXi, KVM, Proxmox VE | ✅ Proxmox VE |
+| **Тип 2** (hosted) | Поверх обычной ОС | VirtualBox, VMware Workstation | Нет |
+
+**KVM** (Kernel-based Virtual Machine) — гипервизор, встроенный в ядро Linux. Он превращает ядро Linux в гипервизор типа 1. **QEMU** (Quick EMUlator) — эмулятор устройств: притворяется жёстким диском, сетевой картой, видеокартой.
+
+**Proxmox VE** (Virtual Environment) — это «обёртка» над KVM+QEMU с удобным веб-интерфейсом. В нашем проекте Proxmox используется для управления виртуальными машинами на серверах.
+
+> 🏢 **Аналогия.** Физический сервер — многоквартирный дом. Гипервизор — управляющая компания. Виртуальные машины — квартиры. Каждая квартира изолирована: что происходит у соседей, вас не касается. Но все пользуются общим фундаментом, водопроводом и электричеством.
+
+```dot
+digraph VM {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    hardware [label="Физическое железо\nCPU: 56 ядер | RAM: 754 GB | Диск: 42 TB", shape=box, style="rounded,filled", fillcolor="#f5f5f5", color="#616161", fontsize=10]
+
+    hypervisor [label="Гипервизор (KVM + QEMU)\nУправляет ресурсами: CPU, RAM, диск, сеть", shape=box, style="rounded,filled", fillcolor="#fce4ec", color="#e91e63", fontsize=10]
+
+    subgraph cluster_vm1 {
+        label="ВМ 1: Linux (K8s control-plane)"
+        style="rounded,dashed"
+        color="#1976d2"
+        fontname="system-ui"
+        vm1_os [label="Гостевая ОС\nAstra Linux SE 1.8", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+        vm1_app [label="kube-apiserver\nscheduler\ncontroller-manager", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2", fontsize=8]
+        vm1_os -> vm1_app
+    }
+
+    subgraph cluster_vm2 {
+        label="ВМ 2: Windows 11 (тестовая)"
+        style="rounded,dashed"
+        color="#43a047"
+        fontname="system-ui"
+        vm2_os [label="Гостевая ОС\nWindows 11", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    }
+
+    subgraph cluster_vm3 {
+        label="ВМ 3: Linux (База данных)"
+        style="rounded,dashed"
+        color="#ff9800"
+        fontname="system-ui"
+        vm3_os [label="Гостевая ОС\nUbuntu 24.04", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+        vm3_app [label="PostgreSQL 16", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800", fontsize=8]
+        vm3_os -> vm3_app
+    }
+
+    hardware -> hypervisor
+    hypervisor -> vm1_os
+    hypervisor -> vm2_os
+    hypervisor -> vm3_os
+
+    // Passthrough
+    gpu [label="GPU RTX 6000\n(проброшена в ВМ 1\nцеликом — PCIe Passthrough)", shape=box, style="rounded,filled", fillcolor="#fce4ec", color="#e91e63", fontsize=8]
+    hardware -> gpu [style=dashed, dir=none]
+    gpu -> vm1_os [style=dashed]
+}
+```
+
+*Схема 2.1. Гипервизор KVM с тремя виртуальными машинами. GPU проброшена в ВМ 1 целиком через PCIe Passthrough — ВМ «видит» настоящую видеокарту.*
+
+### PCIe Passthrough: отдаём GPU виртуальной машине
+
+Обычно виртуальная машина не видит настоящую видеокарту — гипервизор даёт ей виртуальную (медленную). Но для работы с моделями ИИ нужна производительность настоящей RTX 6000.
+
+**PCIe Passthrough** — технология, которая пробрасывает (перенаправляет) физическое PCIe-устройство (видеокарту) внутрь виртуальной машины. Гостевая ОС видит настоящую RTX 6000, устанавливает настоящие драйверы NVIDIA и работает с ней на полной скорости.
+
+⚠️ **Ограничение:** одну видеокарту можно пробросить только в одну ВМ. Нельзя «поделить» RTX 6000 между двумя виртуальными машинами (в отличие от процессора или памяти). Именно поэтому в сервере YADRO 2 видеокарты: одну можно отдать ВМ с vLLM, вторую — ВМ с обучением моделей.
+
+В Proxmox для проброса GPU нужно:
+1. Включить IOMMU (Input-Output Memory Management Unit) в BIOS и ядре — технология, которая изолирует устройства PCIe друг от друга
+2. Добавить в конфигурацию ВМ: `hostpci0: 01:00.0` (где `01:00.0` — адрес видеокарты на шине PCIe)
+
+---
+
+## 2.2. Контейнеры и Docker
+
+### Контейнер vs виртуальная машина
+
+Виртуальная машина — это полноценный компьютер: своё ядро ОС, свои драйверы, свои системные службы. На запуск уходит 30–60 секунд, занимает гигабайты памяти.
+
+**Контейнер** — это изолированное окружение для одной программы и её зависимостей. В отличие от ВМ, контейнер **не содержит своей операционной системы** — он использует ядро хостовой ОС.
+
+| | Виртуальная машина | Контейнер |
+|---|---|---|
+| **Что внутри** | Полноценная ОС + программы | Программа + её библиотеки |
+| **Ядро** | Своё, отдельное | Хостовое (общее с другими контейнерами) |
+| **Запуск** | 30–60 секунд | 1–2 секунды |
+| **Память** | Гигабайты (сама ОС) | Мегабайты (только программа) |
+| **Изоляция** | Полная (ничего не видно) | На уровне процессов (namespaces) |
+| **Аналогия** | Отдельная квартира | Отдельная комната в общежитии |
+
+```dot
+digraph VMvsContainer {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    subgraph cluster_vm_side {
+        label="Виртуальная машина"
+        style="rounded,dashed"
+        color="#e91e63"
+        fontname="system-ui"
+        fontsize=11
+
+        subgraph cluster_vm_real {
+            label=""
+            color=white
+            vm_app [label="BFF", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+            vm_bins [label="Библиотеки", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63"]
+            vm_os [label="Гостевая ОС\n(своё ядро)", shape=box, style="filled", fillcolor="#f5f5f5", color="#616161"]
+            vm_app -> vm_bins -> vm_os
+        }
+    }
+
+    subgraph cluster_container_side {
+        label="Контейнеры"
+        style="rounded,dashed"
+        color="#43a047"
+        fontname="system-ui"
+        fontsize=11
+
+        subgraph cluster_c1 {
+            label="Контейнер 1"
+            style="rounded"
+            color="#1976d2"
+            c1_app [label="Gateway", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+            c1_bins [label="Библиотеки", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+            c1_app -> c1_bins
+        }
+
+        subgraph cluster_c2 {
+            label="Контейнер 2"
+            style="rounded"
+            color="#ff9800"
+            c2_app [label="PostgreSQL", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+            c2_bins [label="Библиотеки", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+            c2_app -> c2_bins
+        }
+    }
+
+    hypervisor [label="Гипервизор", shape=box, style="filled", fillcolor="#f5f5f5", color="#616161"]
+    docker [label="Docker Engine", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+
+    host_os [label="Ядро хостовой ОС (Linux)", shape=box, style="filled", fillcolor="#fce4ec", color="#e91e63", fontsize=10]
+    hardware [label="Физическое железо", shape=box, style="filled", fillcolor="#f5f5f5", color="#616161", fontsize=10]
+
+    vm_os -> hypervisor -> host_os -> hardware
+    c1_bins -> docker -> host_os
+    c2_bins -> docker
+}
+```
+
+*Схема 2.2. Сравнение виртуальной машины и контейнеров. Ключевое отличие: контейнеры используют общее ядро ОС, ВМ — своё собственное.*
+
+### Как Docker изолирует контейнеры
+
+Docker использует две технологии ядра Linux:
+
+1. **Namespaces** (пространства имён) — изолируют то, что контейнер «видит»:
+   - `pid` namespace: контейнер видит только свои процессы (PID 1 внутри контейнера — не PID 1 в хосте)
+   - `net` namespace: контейнер имеет свои сетевые интерфейсы, свой IP-адрес
+   - `mnt` namespace: контейнер имеет свою файловую систему
+   - `uts` namespace: контейнер имеет свой hostname
+
+2. **Cgroups** (Control Groups) — ограничивают то, что контейнер может «потребить»:
+   - `cpu`: не больше 2 ядер
+   - `memory`: не больше 512 MB RAM
+   - `blkio`: не больше 100 MB/s на диск
+
+### Docker: архитектура
+
+Docker состоит из двух частей:
+- **Docker Daemon** (`dockerd`) — сервер, который управляет контейнерами, образами, сетями и томами
+- **Docker CLI** (`docker`) — команда, которую вы пишете в терминале. Она отправляет запросы демону
+
+Когда вы пишете `docker run nginx`, происходит:
+1. Docker CLI → Docker Daemon: «запусти контейнер из образа nginx»
+2. Docker Daemon → containerd: «запусти контейнер»
+3. containerd → runc: «создай контейнер с изоляцией (namespaces + cgroups)»
+4. runc запускает процесс nginx внутри изолированного окружения
+
+```dot
+digraph DockerArch {
+    rankdir=LR
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    user [label="Пользователь\nтерминал", shape=box, style="rounded,filled", fillcolor="#e3f2fd", color="#1976d2", fontsize=10]
+    cli [label="docker CLI\n(команда docker)", shape=box, style="rounded,filled", fillcolor="#e3f2fd", color="#1976d2"]
+    daemon [label="dockerd\n(Docker Daemon)\n— управляет образами\n— управляет контейнерами\n— управляет сетями\n— управляет томами", shape=box, style="rounded,filled", fillcolor="#fce4ec", color="#e91e63", fontsize=9]
+    containerd [label="containerd\n— запуск контейнеров\n— управление жизненным циклом", shape=box, style="rounded,filled", fillcolor="#e8f5e9", color="#43a047"]
+    runc [label="runc\n— создаёт namespaces\n— применяет cgroups\n— запускает процесс", shape=box, style="rounded,filled", fillcolor="#fff3e0", color="#ff9800"]
+
+    registry [label="Registry\n(Docker Hub, ghcr.io)\nхранилище образов", shape=cylinder, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+
+    container [label="Контейнер\n(изолированный\nпроцесс)", shape=box, style="rounded", color="#43a047", fontsize=10]
+
+    user -> cli [label="docker run"]
+    cli -> daemon [label="REST API\n/var/run/docker.sock"]
+    daemon -> containerd [label="gRPC"]
+    containerd -> runc [label="OCI runtime"]
+    runc -> container
+    daemon -> registry [label="docker pull", style=dashed, color="#9c27b0"]
+    registry -> daemon [label="образ", style=dashed, color="#9c27b0"]
+}
+```
+
+*Схема 2.3. Архитектура Docker. Команда docker → демон → containerd → runc → контейнер. Образы скачиваются из Registry.*
+
+> ⚠️ **containerd vs Docker.** На серверах Kubernetes мы используем containerd напрямую (без Docker). Docker — это «всё в одном», containerd — только среда выполнения контейнеров (легче и быстрее). Но команды `docker` удобнее для разработки — поэтому изучаем Docker.
+
+### Dockerfile: инструкция по сборке образа
+
+**Образ** (image) — это «слепок» контейнера: операционная система + программа + все зависимости. Как ISO-файл для установки ОС: один раз создали, много раз запустили.
+
+**Dockerfile** — текстовый файл с инструкциями, как собрать образ.
+
+Разберём на примере нашего Gateway:
+
+```dockerfile
+# syntax=docker/dockerfile:1          ← версия синтаксиса
+
+FROM python:3.12-slim                ← базовый образ: берём готовый Python 3.12
+                                      #   (slim = облегчённый, без лишнего)
+
+WORKDIR /app                          ← рабочая папка внутри контейнера
+                                      #   (все следующие команды — из /app)
+
+COPY gateway/requirements.txt .       ← копируем файл зависимостей из проекта
+                                      #   (слева — путь на хосте, справа — в контейнере)
+
+RUN pip install --no-cache-dir -r requirements.txt
+                                      ← выполняем команду внутри образа:
+                                      #   устанавливаем Python-пакеты
+
+COPY gateway/ .                       ← копируем весь код Gateway
+
+RUN mkdir -p /app/wiki                ← создаём папку для базы знаний
+
+EXPOSE 8080                           ← сообщаем Docker: контейнер слушает порт 8080
+                                      #   (это документация, порт не открывается автоматически)
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+                                      ← проверка здоровья контейнера каждые 10 секунд
+
+CMD ["python3", "gateway.py"]         ← команда, которая выполняется при запуске контейнера
+```
+
+**Слои (layers):** каждая инструкция (FROM, RUN, COPY) создаёт новый слой. Слои кэшируются: если вы изменили только `gateway.py`, а `requirements.txt` не менялся — Docker не будет заново выполнять `pip install`, а возьмёт готовый слой из кэша. Это ускоряет сборку.
+
+```dot
+digraph Layers {
+    rankdir=TB
+    bgcolor="#ffffff"
+    node [fontname="system-ui", fontsize=9]
+
+    l1 [label="Слой 1: python:3.12-slim\n(базовый образ, ~50 MB)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    l2 [label="Слой 2: WORKDIR /app\n(метаданные, 0 MB)", shape=box, style="filled", fillcolor="#e3f2fd", color="#1976d2"]
+    l3 [label="Слой 3: COPY requirements.txt\n(~100 B)", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    l4 [label="Слой 4: RUN pip install\n(~50 MB — пакеты Python)", shape=box, style="filled", fillcolor="#e8f5e9", color="#43a047"]
+    l5 [label="Слой 5: COPY gateway/\n(~300 KB — код)", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+    l6 [label="Слой 6: RUN mkdir /app/wiki\n(0 MB)", shape=box, style="filled", fillcolor="#fff3e0", color="#ff9800"]
+    l7 [label="Слой 7: CMD\n(метаданные, 0 MB)", shape=box, style="filled", fillcolor="#f3e5f5", color="#9c27b0"]
+
+    l1 -> l2 -> l3 -> l4 -> l5 -> l6 -> l7
+
+    note [label="Слои 1-4 кэшируются\n(меняются редко)\n\nСлой 5 пересобирается\nпри каждом изменении кода", shape=plaintext, fontsize=9]
+
+    l7 -> note [style=invis]
+}
+```
+
+*Схема 2.4. Слои Docker-образа Gateway. При изменении кода пересобирается только слой 5.*
+
+### Основные команды Docker
+
+| Команда | Что делает | Пример |
+|---|---|---|
+| `docker build -t name .` | Собрать образ из Dockerfile | `docker build -t my-gateway .` |
+| `docker run -d -p 8080:8080 name` | Запустить контейнер | `docker run -d -p 8080:8080 my-gateway` |
+| `docker ps` | Список запущенных контейнеров | `docker ps` |
+| `docker ps -a` | Все контейнеры (включая остановленные) | |
+| `docker logs -f name` | Логи контейнера | `docker logs -f gateway` |
+| `docker exec -it name bash` | Зайти внутрь контейнера | `docker exec -it gateway bash` |
+| `docker stop name` | Остановить контейнер | `docker stop gateway` |
+| `docker rm name` | Удалить контейнер | `docker rm gateway` |
+| `docker rmi name` | Удалить образ | `docker rmi my-gateway` |
+| `docker pull name` | Скачать образ из registry | `docker pull nginx:alpine` |
+| `docker push name` | Отправить образ в registry | `docker push ghcr.io/my-org/gateway:latest` |
+| `docker save -o file.tar name` | Сохранить образ в файл (для переноса) | `docker save -o gateway.tar gateway:latest` |
+| `docker load -i file.tar` | Загрузить образ из файла | `docker load -i gateway.tar` |
+
+Ключевые флаги `docker run`:
+- `-d` — запустить в фоне (detached mode: контейнер работает, терминал свободен)
+- `-p 8080:8080` — пробросить порт (внешний:внутренний)
+- `-v /host/path:/container/path` — примонтировать папку (том)
+- `--name gateway` — дать контейнеру имя (вместо случайного)
+- `--restart always` — перезапускать при падении
+- `-e VAR=value` — задать переменную окружения
+- `--gpus all` — дать контейнеру доступ ко всем GPU (нужен nvidia-container-toolkit)
+
+### Сеть в Docker
+
+По умолчанию Docker создаёт виртуальную сеть `bridge`. Контейнеры в этой сети видят друг друга по именам:
+```
+docker run -d --name redis redis:7-alpine
+docker run -d --name gateway --link redis my-gateway
+# Теперь gateway может обратиться к redis по адресу redis:6379
+```
+
+Режимы сети:
+- **bridge** (по умолчанию) — изолированная сеть, контейнеры видят друг друга
+- **host** — контейнер использует сеть хоста напрямую (нет изоляции, но быстрее). Используется для nginx на VPS2
+- **none** — без сети
+
+### Тома (volumes): постоянное хранилище
+
+Контейнеры — временные. Если контейнер удалить, все данные внутри него пропадут. **Тома** (volumes) решают эту проблему — данные хранятся на хосте, а контейнер их «видит» через примонтированную папку.
+
+```bash
+# Bind mount: пробрасываем реальную папку хоста внутрь контейнера
+docker run -v /mnt/models:/models vllm/vllm-openai
+# Теперь контейнер «видит» наши модели в /mnt/models
+```
+
+Типы:
+- **bind mount** — конкретная папка на хосте (`/mnt/models` → `/models`)
+- **volume** — Docker сам управляет папкой (лучше для продакшена)
+- **tmpfs** — временная папка в RAM (исчезает при остановке)
+
+---
+
+## 2.3. Docker Compose: много контейнеров сразу
+
+**Docker Compose** — инструмент для запуска нескольких контейнеров одной командой. Вместо трёх команд `docker run` вы описываете все контейнеры в одном YAML-файле и запускаете: `docker compose up -d`.
+
+Файл `docker-compose.yml` для VPS2 (nginx + PostgreSQL + BFF):
+
+```yaml
+version: "3.8"
+
+services:
+  nginx:
+    image: nginx:alpine          # готовый образ nginx (облегчённый)
+    network_mode: host           # используем сеть хоста напрямую
+    volumes:
+      - ./static:/usr/share/nginx/html  # пробрасываем статику портала
+      - ./nginx.conf:/etc/nginx/nginx.conf  # и конфиг nginx
+    restart: always
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: aither
+      POSTGRES_PASSWORD: ***
+      POSTGRES_DB: aither
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # данные БД — в томе (не исчезнут)
+    ports:
+      - "5432:5432"
+    restart: always
+
+volumes:
+  pgdata:                         # объявляем именованный том
+```
+
+Ключевые команды:
+- `docker compose up -d` — запустить все сервисы в фоне
+- `docker compose down` — остановить и удалить
+- `docker compose logs -f` — логи всех сервисов
+- `docker compose restart nginx` — перезапустить конкретный сервис
+
+---
+
+## 2.4. containerd и nvidia-runtime
+
+### containerd — «движок» Kubernetes
+
+**containerd** (произносится «контэйнэр-ди») — это промышленная среда выполнения контейнеров. Docker использует containerd внутри себя, но Kubernetes использует containerd напрямую — без Docker.
+
+Зачем? Docker — это «комбайн»: сборка образов, управление контейнерами, сеть, тома, registry. Kubernetes нужна только среда выполнения (запустить контейнер, следить за ним). containerd делает именно это.
+
+> Если Docker = швейцарский нож (всё в одном), то containerd = скальпель (одна задача, идеально).
+
+Команда для работы с containerd (аналог `docker`):
+```bash
+# docker ps          →  crictl ps
+# docker logs        →  crictl logs
+# docker pull        →  crictl pull
+# docker run         →  ctr run   (низкоуровневая)
+```
+
+### nvidia-container-toolkit: GPU в контейнере
+
+Обычный контейнер не видит видеокарту — у него нет драйверов NVIDIA. **nvidia-container-toolkit** решает эту проблему: он «подсовывает» контейнеру драйверы с хоста.
+
+```bash
+# Без toolkit:
+docker run --gpus all nvidia/cuda:12.0-base nvidia-smi
+# Ошибка: GPU не найдена
+
+# С toolkit:
+docker run --gpus all nvidia/cuda:12.0-base nvidia-smi
+# Показывает RTX 6000!
+```
+
+Как работает:
+1. На хосте установлены драйверы NVIDIA и `nvidia-container-toolkit`
+2. containerd настроен использовать `nvidia` runtime для контейнеров с GPU
+3. При запуске контейнера с флагом `--gpus all` toolkit монтирует в контейнер `/usr/lib/x86_64-linux-gnu/libcuda.so` и другие файлы драйверов
+4. Контейнер «видит» GPU, как будто драйверы установлены внутри
+
+В Kubernetes это делается через `runtimeClassName: nvidia` в манифесте пода.
+
+---
+
+## 2.5. Docker Registry: хранилище образов
+
+**Registry** — это сервер, который хранит Docker-образы. Как GitHub для кода, но для образов.
+
+Публичные registry:
+- **Docker Hub** (`docker.io/library/nginx`) — самый большой, общедоступный
+- **GitHub Container Registry** (`ghcr.io/dedvmedved-dot/aither-project-gateway`) — наш registry для Gateway
+- **Quay.io** — Red Hat
+
+Приватный registry для закрытого контура:
+```bash
+# На любой машине в контуре:
+docker run -d -p 5000:5000 --restart always --name registry registry:2
+
+# Теперь можно пушить в него:
+docker tag my-image localhost:5000/my-image
+docker push localhost:5000/my-image
+```
+
+В закрытом контуре без интернета — это единственный способ доставки образов:
+1. На машине с интернетом: `docker pull` → `docker save -o images.tar.gz`
+2. Перенос `images.tar.gz` на флешке в закрытый контур
+3. В контуре: `docker load -i images.tar.gz` → `docker tag` → `docker push localhost:5000/...`
+
+---
+
+## 2.6. ✏️ Практикум: Docker своими руками
+
+### Задание 1. Первый контейнер
+```bash
+# Запускаем nginx
+docker run -d -p 8080:80 --name my-nginx nginx:alpine
+
+# Проверяем:
+docker ps                  # видим контейнер
+curl http://localhost:8080 # видим приветствие nginx
+
+# Заходим внутрь:
+docker exec -it my-nginx sh
+# Вы внутри контейнера! Попробуйте:
+hostname      # имя контейнера (не вашего сервера)
+cat /etc/os-release  # Alpine Linux (не ваш хост!)
+exit          # выходим обратно
+
+# Останавливаем и удаляем:
+docker stop my-nginx
+docker rm my-nginx
+```
+
+### Задание 2. Свой Dockerfile
+Создайте файл `Dockerfile`:
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+RUN echo 'print("Привет, Aither! Я внутри контейнера.")' > app.py
+CMD ["python3", "app.py"]
+```
+
+Соберите и запустите:
+```bash
+docker build -t my-python .
+docker run my-python
+# → Привет, Aither! Я внутри контейнера.
+```
+
+### Задание 3. Docker Compose
+Создайте `docker-compose.yml` с двумя сервисами: nginx и ваш Python-образ. Проверьте, что оба запускаются одной командой `docker compose up -d`.
+
+### Задание 4. «Переведи на русский»
+Объясните своими словами, что делают эти команды:
+- `docker build -t gateway .`
+- `docker run -d -p 3000:3000 --name bff -e PG_URL=... bff:latest`
+- `docker exec -it postgres psql -U aither`
+- `docker save -o gateway.tar gateway:latest`
+
+### Задание 5. «Словарь термина»
+Выпишите и дайте определение:
+- Гипервизор, KVM, QEMU
+- Образ, контейнер, Dockerfile
+- Слой, кэширование
+- Том (volume), bind mount
+- Registry, containerd, runc
+- Namespace, cgroup, runtimeClassName
+
+---
+
+**Итог главы 2.** Вы узнали:
+- Чем отличается виртуальная машина от контейнера (ядро, изоляция, скорость)
+- Как работает Docker: клиент → демон → containerd → runc → контейнер
+- Как писать Dockerfile (FROM, COPY, RUN, CMD) и почему слои кэшируются
+- Как запускать много контейнеров через Docker Compose
+- Что такое containerd и почему Kubernetes использует его вместо Docker
+- Как GPU попадает в контейнер (nvidia-container-toolkit)
+- Как переносить образы в закрытый контур (docker save/load)
+
+В следующей главе — Kubernetes: от Pod до кластера.
