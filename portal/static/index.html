@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aither — Token‑as‑a‑Service</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -815,6 +818,12 @@ function formatNumber(n) {
   return n.toLocaleString('ru-RU');
 }
 
+function safeParse(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch(e) {} }
+  return [];
+}
+
 // ===== AUTH =====
 async function checkAuth() {
   if (!state.token) return false;
@@ -1258,6 +1267,7 @@ async function renderOrgDetail() {
         <button class="btn btn-primary btn-sm" onclick="showCreateKey()">+ Новый ключ</button>
       </div>
       <div class="card-body" id="keys-body">
+        <div id="keys-list">
         ${state.apiKeys.length === 0 ? `
           <div class="empty-state">
             <div class="empty-state-icon">🔑</div>
@@ -1283,6 +1293,7 @@ async function renderOrgDetail() {
             </table>
           </div>
         `}
+        </div>
         <div class="key-reveal" id="key-reveal">
           <div class="key-reveal-label">⚠️ Новый ключ — скопируйте сейчас. Больше не будет показан:</div>
           <div id="key-reveal-value"></div>
@@ -1347,7 +1358,7 @@ async function getDelegationToken() {
 }
 
 async function loadUsage(delegationToken) {
-  const GATEWAY = window.location.origin.replace(':80','').replace(':443','') + ':8080';
+  const GATEWAY = window.location.origin;
   try {
     const [usageR, billingR, historyR] = await Promise.all([
       fetch(`${GATEWAY}/v1/usage/`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
@@ -1432,10 +1443,33 @@ async function createKey() {
     $('#key-reveal').style.display = 'block';
     $('#key-reveal-value').textContent = data.key.api_key;
     toast('API-ключ создан');
-    renderOrgDetail();
+    // Refresh keys list without losing the reveal
+    const keysR = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/api-keys`);
+    if (keysR.ok) {
+      state.apiKeys = keysR.data.keys || [];
+      renderKeysTable();
+    }
   } else {
     toast((data||{}).error || 'Ошибка', 'error');
   }
+}
+
+function renderKeysTable() {
+  const el = document.getElementById('keys-list');
+  if (!el) return;
+  const rows = state.apiKeys.map(k => 
+    '<tr>' +
+      '<td><strong>' + esc(k.name) + '</strong></td>' +
+      '<td><code>' + esc(k.api_key_prefix) + '</code></td>' +
+      '<td><span class="badge ' + (k.status==='active'?'badge-green':'badge-red') + '">' + esc(k.status) + '</span></td>' +
+      '<td style="color:var(--text-dim);font-size:13px;">' + formatDate(k.created_at) + '</td>' +
+      '<td style="color:var(--text-dim);font-size:13px;">' + formatDate(k.last_used_at) + '</td>' +
+      '<td>' + (k.status==='active' ? '<button class="btn btn-danger btn-sm" onclick="revokeKey(\'' + k.key_id + '\')">Отозвать</button>' : '') + '</td>' +
+    '</tr>'
+  ).join('');
+  el.innerHTML = state.apiKeys.length === 0 ?
+    '<div class="empty-state"><div class="empty-state-icon">🔑</div><h4>Нет ключей</h4><p>Создайте API-ключ для доступа к инференсу</p></div>' :
+    '<div class="table-wrap"><table><thead><tr><th>Название</th><th>Префикс</th><th>Статус</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
 async function revokeKey(keyId) {
@@ -1892,30 +1926,83 @@ async function renderShared() {
 
 // ===== TARIFFS PAGE =====
 async function renderTiers() {
-  const { ok, data } = await api('/api/v1/tiers');
-  const tiers = ok ? data?.tiers || [] : [];
+  try {
+  // Load orgs if not cached
+  if (!state.orgs || state.orgs.length === 0) {
+    const orgsR = await api('/api/v1/orgs');
+    if (orgsR.ok && orgsR.data.orgs) state.orgs = orgsR.data.orgs;
+  }
 
-  const tierColors = {
-    free: 'var(--border)', standard: 'var(--warning)', vip: 'var(--danger)', enterprise: 'var(--info)'
-  };
+  const { ok, data } = await api('/api/v1/tiers');
+  const tiers = ok ? (data?.tiers || []).map(t => ({
+    ...t,
+    models: safeParse(t.models),
+    features: safeParse(t.features)
+  })) : [];
+
+  // If org selected but not in state.orgs, find it
+  if (!state.selectedOrg && state.orgs && state.orgs.length > 0) {
+    state.selectedOrg = state.orgs[0];
+  }
+
   const tierEmojis = { free: '🆓', standard: '⚡', vip: '👑', enterprise: '🏢' };
 
   let currentTier = 'free';
-  if (state.selectedOrg) {
-    const tResp = await api('/api/v1/org/tier?org_id=' + state.selectedOrg.org_id);
+  const selOrg = state.selectedOrg;
+  if (selOrg) {
+    const tResp = await api('/api/v1/org/tier?org_id=' + selOrg.org_id);
     if (tResp.ok) currentTier = tResp.data?.tier || 'free';
   }
 
+  // Build nav
+  const pages = [
+    { id:'chats', label:'Чаты' },
+    { id:'dashboard', label:'Дашборд' },
+    { id:'orgs', label:'Организации' },
+    { id:'tiers', label:'Тарифы' },
+  ];
+  const navHtml = pages.map(p =>
+    `<button class="nav-btn${p.id==='tiers'?' active':''}" onclick="navigate('${p.id}')">${p.label}</button>`
+  ).join('');
+
+  // Build org selector
+  const orgs = state.orgs || [];
+  const orgOpts = orgs.map(o =>
+    `<option value="${o.org_id}" ${selOrg&&selOrg.org_id===o.org_id?'selected':''}>${esc(o.name)} (${esc(o.org_id).slice(0,8)}…)</option>`
+  ).join('');
+
   $('#app').innerHTML = `
     <div class="header">
-      <div class="header-left"><span class="logo">Aither</span><span class="header-sub">Тарифные планы</span></div>
-      <div class="header-right" id="user-zone"></div>
+      <div class="header-left">
+        <span class="logo">Aither</span>
+        <span class="header-subtitle">Пилотный проект Управления виртуализации и облачных сервисов (Группа разработки AI-систем), АО «Гринатом»</span>
+        <nav class="nav">${navHtml}</nav>
+      </div>
+      <div class="header-right">
+        <span class="user-name">${state.user ? state.user.display_name : ''}</span>
+        <button class="btn-logout" onclick="logout()">Выйти</button>
+      </div>
     </div>
     <div class="main">
       <div class="page-header">
         <h2>📦 Тарифные планы</h2>
         <p>Выберите тариф под свои задачи. Текущий тариф выделен рамкой.</p>
       </div>
+
+      <!-- Org selector -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header"><h3>🏢 Организация</h3></div>
+        <div class="card-body">
+          <div style="display:flex;gap:12px;align-items:center;">
+            <select class="form-input" id="tiers-org-select" onchange="onTierOrgSelect(this.value)" style="max-width:400px;">
+              ${orgOpts || '<option value="">— нет организаций —</option>'}
+            </select>
+            ${selOrg ? `<span style="color:var(--text-dim);font-size:13px;">Текущий тариф: <strong style="color:var(--accent);">${currentTier.toUpperCase()}</strong></span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Tariff cards -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
         ${tiers.map(t => `
           <div style="background:var(--bg-input);border:2px solid ${t.tier_id===currentTier?'var(--accent)':'var(--border)'};border-radius:var(--radius);padding:24px;${t.tier_id===currentTier?'box-shadow:0 0 12px var(--accent-alpha);':''}">
@@ -1923,15 +2010,15 @@ async function renderTiers() {
             <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(t.name)}</div>
             <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">${esc(t.description)}</div>
             <div style="font-size:32px;font-weight:800;margin-bottom:4px;">
-              ${t.price_rub_month ? t.price_rub_month.toLocaleString()+' ₽' : 'Бесплатно'}
+              ${t.price_rub_month ? Number(t.price_rub_month).toLocaleString()+' ₽' : 'Бесплатно'}
               ${t.price_rub_month ? '<span style="font-size:14px;color:var(--text-dim);"> /мес</span>' : ''}
             </div>
             <hr style="border-color:var(--border);margin:16px 0;">
             <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Лимиты:</div>
             <div style="font-size:13px;line-height:1.8;">
               📊 <b>${t.rpm_limit}</b> запросов/мин<br>
-              🔤 <b>${t.tpm_limit.toLocaleString()}</b> токенов/мин<br>
-              ${t.daily_request_limit ? '📅 <b>'+t.daily_request_limit.toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
+              🔤 <b>${Number(t.tpm_limit).toLocaleString()}</b> токенов/мин<br>
+              ${t.daily_request_limit ? '📅 <b>'+Number(t.daily_request_limit).toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
               🧠 Модели: <b>${(t.models||[]).join(', ')}</b><br>
               ${t.rag_enabled ? '📚 RAG: <b style="color:var(--success)">✅ Доступен</b><br>' : '📚 RAG: <b style="color:var(--text-dim)">❌</b><br>'}
             </div>
@@ -1942,12 +2029,22 @@ async function renderTiers() {
             </ul>
             ${t.tier_id===currentTier
               ? '<div style="margin-top:16px;text-align:center;padding:8px;background:var(--accent-alpha);border-radius:var(--radius-sm);font-weight:600;font-size:13px;">✅ Ваш текущий тариф</div>'
-              : '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier(\'' + (state.selectedOrg?.org_id||'') + '\',\'' + t.tier_id + '\')">Перейти</button>'}
+              : `<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier('${selOrg ? selOrg.org_id : ''}','${t.tier_id}')">Перейти</button>`}
           </div>
         `).join('')}
       </div>
     </div>`;
-  renderUserZone();
+  } catch(e) {
+    $('#app').innerHTML = '<div class="header"><div class="header-left"><span class="logo">Aither</span></div></div><div class="main"><div class="page-header"><h2>📦 Тарифные планы</h2><p style="color:var(--red);">Ошибка загрузки: ' + esc(e.message) + '</p></div></div>';
+  }
+}
+
+function onTierOrgSelect(orgId) {
+  const org = (state.orgs||[]).find(o => o.org_id === orgId);
+  if (org) {
+    state.selectedOrg = org;
+    renderTiers();
+  }
 }
 
 // ===== INIT =====
@@ -2027,32 +2124,24 @@ function highlightCode(el) {
   code = code.replace(/\b(\w+)(?=\s*\()/g, '<span class="hljs-function">$1</span>');
 
   el.innerHTML = code;
-
-// ===== DASHBOARD =====
-async function renderDashboard() {
-  const orgId = state.selectedOrg?.org_id;
-  if (!orgId) { $$("#view").innerHTML = '<div class="empty">Выберите организацию</div>'; return; }
-  const { ok, data } = await api("/api/v1/billing/dashboard?org_id=" + orgId);
-  if (!ok) { $$("#view").innerHTML = '<div class="empty">Ошибка загрузки</div>'; return; }
-  const bal = data.balance || {};
-  const month = data.month || {};
-  const daily = data.daily || [];
-  const byModel = data.by_model || [];
-  $$("#view").innerHTML = `<h2>Дашборд</h2>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-val">${(bal.total_tokens||0).toLocaleString()}</div><div class="stat-label">Токенов на счету</div></div>
-      <div class="stat-card"><div class="stat-val">${(month.total||0).toLocaleString()}</div><div class="stat-label">Токенов за месяц</div></div>
-      <div class="stat-card"><div class="stat-val">${(month.count||0)}</div><div class="stat-label">Запросов за месяц</div></div>
-      <div class="stat-card"><div class="stat-val">${(bal.reserved||0).toLocaleString()}</div><div class="stat-label">Зарезервировано</div></div>
-    </div>
-    <div class="chart-row">
-      <div class="chart-box"><canvas id="dailyChart"></canvas></div>
-      <div class="chart-box"><canvas id="modelChart"></canvas></div>
-    </div>`;
-  if (daily.length) { new Chart(document.getElementById("dailyChart"),{type:"line",data:{labels:daily.map(d=>d.day.slice(5)),datasets:[{label:"Токенов",data:daily.map(d=>+d.tokens),borderColor:"#6366f1",backgroundColor:"rgba(99,102,241,0.1)",fill:true,tension:0.3}]},options:{responsive:true,plugins:{legend:{labels:{color:"#71718a"}}},scales:{x:{ticks:{color:"#4a4a5e"}},y:{ticks:{color:"#4a4a5e"}}}}}); }
-  if (byModel.length) { new Chart(document.getElementById("modelChart"),{type:"doughnut",data:{labels:byModel.map(m=>m.model),datasets:[{data:byModel.map(m=>+m.tokens),backgroundColor:["#6366f1","#34d399","#fbbf24","#f87171","#818cf8","#a78bfa"]}]},options:{responsive:true,plugins:{legend:{position:"bottom",labels:{color:"#71718a",padding:12}}}}}); }
 }
-async function upgradeTier(orgId,tier){if(!confirm("Перейти на тариф "+tier.toUpperCase()+"?"))return;const{ok,data}=await api("/api/v1/orgs/"+orgId+"/upgrade",{method:"POST",body:JSON.stringify({tier})});if(ok){alert("Тариф обновлён!");render();}else{alert("Ошибка: "+((data||{}).error||"неизвестно"));}}
+
+async function upgradeTier(orgId,tier){if(!orgId){navigate('orgs');toast('Сначала выберите организацию','error');return;}
+  if(!confirm("Перейти на тариф "+tier.toUpperCase()+"?"))return;
+  const{ok,data}=await api("/api/v1/orgs/"+orgId+"/purchase-tier",{method:"POST",body:JSON.stringify({tier})});
+  if(ok){
+    if(data.confirmation_url){
+      // Paid tier — redirect to YooKassa
+      window.open(data.confirmation_url,'_blank');
+      toast('Открыта страница оплаты. После оплаты обновите страницу.','success');
+    } else {
+      // Free or dev mode — upgraded immediately
+      alert("Тариф обновлён!");
+      render();
+    }
+  }else{
+    alert("Ошибка: "+((data||{}).error||"неизвестно"));
+  }
 }
 </script>
 </body>

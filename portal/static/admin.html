@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aither Admin — Панель управления</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg-card: #13131a;
+  --bg-card-hover: #1a1a24;
+  --bg-input: #0d0d14;
+  --border: #1f1f2e;
+  --border-focus: #4f46e5;
+  --text: #e4e4ec;
+  --text-muted: #71718a;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --green: #34d399;
+  --green-bg: rgba(52,211,153,0.1);
+  --red: #f87171;
+  --red-bg: rgba(248,113,113,0.1);
+  --yellow: #fbbf24;
+  --yellow-bg: rgba(251,191,36,0.1);
+  --radius: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+a { color:var(--accent); text-decoration:none; }
+.mono { font-family:'JetBrains Mono',monospace; }
+/* ── Layout ── */
+.topbar {
+  background:var(--bg-card); border-bottom:1px solid var(--border);
+  padding:14px 24px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:10;
+}
+.topbar h1 { font-size:18px; font-weight:600; }
+.topbar .back { font-size:13px; color:var(--text-muted); }
+.topbar .back:hover { color:var(--text); }
+.layout { display:grid; grid-template-columns:220px 1fr; min-height:calc(100vh - 57px); }
+/* ── Sidebar ── */
+.sidebar {
+  background:var(--bg-card); border-right:1px solid var(--border);
+  padding:20px 0;
+}
+.sidebar a {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 24px; font-size:13px; color:var(--text-muted);
+  border-left:2px solid transparent; transition:all .15s;
+}
+.sidebar a:hover, .sidebar a.active {
+  color:var(--text); background:rgba(99,102,241,0.06);
+  border-left-color:var(--accent);
+}
+.sidebar .icon { font-size:16px; width:20px; text-align:center; }
+.sidebar .section { font-size:10px; text-transform:uppercase; letter-spacing:1px;
+  color:var(--text-dim); padding:18px 24px 8px; font-weight:600; }
+/* ── Content ── */
+.content { padding:24px 28px; overflow-y:auto; }
+.panel { display:none; }
+.panel.active { display:block; }
+/* ── Cards ── */
+.card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius); padding:20px; margin-bottom:18px;
+}
+.card h3 { font-size:14px; font-weight:600; margin-bottom:14px; color:var(--text-muted); }
+/* ── Status grid ── */
+.status-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:12px; }
+.status-item {
+  background:var(--bg-input); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px;
+}
+.status-item .label { font-size:11px; color:var(--text-muted); text-transform:uppercase; }
+.status-item .value { font-size:13px; margin-top:6px; font-weight:500; }
+.status-item .badge {
+  display:inline-block; padding:2px 8px; border-radius:20px;
+  font-size:11px; font-weight:600; margin-top:6px;
+}
+.badge-healthy { background:var(--green-bg); color:var(--green); }
+.badge-unhealthy { background:var(--red-bg); color:var(--red); }
+.badge-degraded { background:var(--yellow-bg); color:var(--yellow); }
+/* ── Tables ── */
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { text-align:left; font-weight:500; color:var(--text-muted); text-transform:uppercase;
+  font-size:10px; letter-spacing:.5px; padding:8px 10px; border-bottom:1px solid var(--border); }
+td { padding:10px; border-bottom:1px solid var(--border); }
+tr:hover td { background:rgba(99,102,241,0.03); }
+/* ── Buttons ── */
+.btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:7px 14px; border-radius:var(--radius); font-size:12px; font-weight:500;
+  cursor:pointer; border:1px solid var(--border); background:var(--bg-input);
+  color:var(--text); transition:all .15s;
+}
+.btn:hover { border-color:var(--accent); background:var(--accent-glow); }
+.btn-danger:hover { border-color:var(--red); background:var(--red-bg); color:var(--red); }
+.btn-sm { padding:4px 10px; font-size:11px; }
+/* ── Input ── */
+input[type=text], select {
+  background:var(--bg-input); border:1px solid var(--border);
+  border-radius:var(--radius); color:var(--text); padding:8px 12px; font-size:13px;
+  width:100%;
+}
+input:focus, select:focus { outline:none; border-color:var(--accent); }
+/* ── Badge row ── */
+.stat-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+.stat-box {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px 20px; flex:1; min-width:140px;
+}
+.stat-box .num { font-size:28px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.stat-box .lbl { font-size:11px; color:var(--text-muted); margin-top:4px; text-transform:uppercase; }
+/* ── 5а links ── */
+.xlinks { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:10px; }
+.xlink {
+  background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px; display:flex; align-items:center; gap:12px;
+}
+.xlink .tag {
+  font-size:10px; background:var(--accent); color:#fff; padding:2px 6px;
+  border-radius:4px; font-weight:600;
+}
+.xlink:hover { border-color:var(--accent); }
+/* ── Toast ── */
+.toast {
+  position:fixed; bottom:20px; right:20px; padding:12px 20px;
+  border-radius:var(--radius); font-size:13px; font-weight:500;
+  opacity:0; transform:translateY(10px); transition:all .3s;
+  pointer-events:none; z-index:1000;
+}
+.toast.show { opacity:1; transform:translateY(0); }
+.toast-ok { background:#065f46; color:var(--green); border:1px solid var(--green); }
+.toast-err { background:#7f1d1d; color:var(--red); border:1px solid var(--red); }
+/* ── Spinner ── */
+.spinner {
+  display:inline-block; width:16px; height:16px; border:2px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%; animation:spin .6s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <h1>⚙️ Aither Admin</h1>
+    <span style="font-size:11px;color:var(--text-muted);">v0.7 — Gateway API</span>
+  </div>
+  <a href="/" class="back">← Вернуться в портал</a>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="section">Gateway</div>
+    <a href="#health" class="active" data-panel="health"><span class="icon">🫀</span> Health</a>
+    <a href="#models" data-panel="models"><span class="icon">🧠</span> Модели</a>
+    <a href="#queues" data-panel="queues"><span class="icon">📊</span> Очереди</a>
+    <a href="#orgs" data-panel="orgs"><span class="icon">🏢</span> Организации</a>
+    <a href="#reaper" data-panel="reaper"><span class="icon">⏱️</span> Reaper</a>
+    <div class="section">Управление</div>
+    <a href="#users" data-panel="users"><span class="icon">👥</span> Пользователи</a>
+    <a href="#tokens" data-panel="tokens"><span class="icon">💰</span> Токены</a>
+    <a href="#tiers" data-panel="tiers"><span class="icon">⚙️</span> Тарифы</a>
+    <div class="section">Этап 5а</div>
+    <a href="#stage5a" data-panel="stage5a"><span class="icon">🗺️</span> Статус 5а</a>
+  </nav>
+
+  <!-- CONTENT -->
+  <main class="content" id="content">
+
+    <!-- HEALTH -->
+    <div id="panel-health" class="panel active">
+      <div class="card"><h3>🫀 Health Check</h3><div id="health-body">Загрузка…</div></div>
+    </div>
+
+    <!-- MODELS -->
+    <div id="panel-models" class="panel">
+      <div class="card"><h3>🧠 Каталог моделей</h3><div id="models-body">Загрузка…</div></div>
+    </div>
+
+    <!-- QUEUES -->
+    <div id="panel-queues" class="panel">
+      <div class="card"><h3>📊 Очереди (Rate Limit per Org)</h3><div id="queues-body">Загрузка…</div></div>
+    </div>
+
+    <!-- ORGS -->
+    <div id="panel-orgs" class="panel">
+      <div class="card">
+        <h3>🏢 Организации</h3>
+        <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;">
+          <input type="text" id="org-id-input" placeholder="UUID организации" style="max-width:380px;">
+          <button class="btn" onclick="loadOrg()">🔍 Найти</button>
+        </div>
+        <div id="org-body" style="color:var(--text-muted);">Введите UUID организации для просмотра.</div>
+      </div>
+    </div>
+
+    <!-- REAPER -->
+    <div id="panel-reaper" class="panel">
+      <div class="card"><h3>⏱️ Reservation Reaper</h3><div id="reaper-body">Загрузка…</div></div>
+    </div>
+
+    <!-- USERS -->
+    <div id="panel-users" class="panel">
+      <div class="card"><h3>👥 Пользователи</h3><div id="users-body">Загрузка…</div></div>
+    </div>
+
+    <!-- TOKENS -->
+    <div id="panel-tokens" class="panel">
+      <div class="card">
+        <h3>💰 Управление токенами</h3>
+        <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="token-org-input" placeholder="UUID организации" style="max-width:340px;">
+          <input type="number" id="token-amount-input" placeholder="Сумма токенов" style="max-width:160px;" value="100000">
+          <button class="btn" onclick="tokensAdd()" style="background:var(--green-bg);color:var(--green);border-color:var(--green);">+ Начислить</button>
+          <button class="btn btn-danger" onclick="tokensSubtract()">− Списать</button>
+        </div>
+        <div id="token-result" style="font-size:13px;color:var(--text-muted);">Введите UUID организации и сумму.</div>
+      </div>
+    </div>
+
+    <!-- TIERS -->
+    <div id="panel-tiers" class="panel">
+      <div class="card">
+        <h3>⚙️ Тарифные планы</h3>
+        <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12px;color:var(--text-muted);">Сменить тариф организации:</span>
+          <input type="text" id="tier-org-input" placeholder="UUID организации" style="max-width:280px;">
+          <select id="tier-select" style="max-width:140px;"></select>
+          <button class="btn" onclick="orgSetTier()">Применить</button>
+        </div>
+        <div id="tiers-body">Загрузка…</div>
+      </div>
+    </div>
+
+    <!-- STAGE 5A -->
+    <div id="panel-stage5a" class="panel">
+      <div class="card">
+        <h3>🗺️ Этап 5а — Требования руководства</h3>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:18px;">
+          Ниже — что из 5а доступно в админ-панели, а что в других системах.
+        </p>
+        <table>
+          <thead><tr><th>#</th><th>Задача</th><th>Админ-доступ</th><th>Где</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>39</td><td>API Gateway management API</td>
+              <td><span class="badge badge-healthy">✅ Здесь</span></td>
+              <td>Вкладки: Health, Модели, Очереди, Организации, Reaper</td>
+            </tr>
+            <tr>
+              <td>40</td><td>TTFT-мониторинг</td>
+              <td><span class="badge" style="background:var(--accent);color:#fff;">↗ Grafana</span></td>
+              <td><a href="https://fb1.spb.ru:10443/grafana" target="_blank" class="mono">fb1.spb.ru:10443/grafana</a></td>
+            </tr>
+            <tr>
+              <td>34</td><td>Security Gateway Egress</td>
+              <td><span class="badge" style="background:var(--yellow-bg);color:var(--yellow);">⚠ Логи</span></td>
+              <td><code class="mono" style="font-size:11px;">/var/log/aither/egress.log</code> на n8</td>
+            </tr>
+            <tr>
+              <td>35</td><td>SIEM-интеграция</td>
+              <td><span class="badge" style="background:var(--yellow-bg);color:var(--yellow);">⚠ Syslog</span></td>
+              <td>CEF-события → syslog на <code class="mono" style="font-size:11px;">10.129.13.78:514</code></td>
+            </tr>
+            <tr>
+              <td>36</td><td>Vault-интеграция</td>
+              <td><span class="badge" style="background:var(--yellow-bg);color:var(--yellow);">⚠ Внешний</span></td>
+              <td>Hashicorp Vault / внешний HSM</td>
+            </tr>
+            <tr>
+              <td>37</td><td>LLM-Wiki + RAG</td>
+              <td><span class="badge" style="background:var(--yellow-bg);color:var(--yellow);">⚠ Нет UI</span></td>
+              <td>ChromaDB на n8, API через Gateway</td>
+            </tr>
+            <tr>
+              <td>23a</td><td>LDAP-аутентификация</td>
+              <td><span class="badge" style="background:var(--yellow-bg);color:var(--yellow);">⚠ Конфиг</span></td>
+              <td>BFF <code class="mono" style="font-size:11px;">.env</code>: LDAP_URL, LDAP_BASE_DN</td>
+            </tr>
+            <tr>
+              <td>38</td><td>Профили организаций</td>
+              <td><span class="badge header-healthy">✅ Частично</span></td>
+              <td>Вкладка «Организации» (read-only)</td>
+            </tr>
+            <tr>
+              <td>23b</td><td>Чат опционально</td>
+              <td><span class="badge" style="background:var(--yellow-bg);color:var(--yellow);">⚠ Конфиг</span></td>
+              <td>BFF <code class="mono" style="font-size:11px;">.env</code>: CHAT_ENABLED</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Config ──
+const ADMIN_KEY = 'hs256-shared-secret-key-for-admin-api-2026';
+const API_BASE = window.location.origin + '/api/v1/admin';
+
+// ── Auto-load ──
+const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper, users: loadUsers, tiers: loadTiers };
+
+// ── Toast ──
+function toast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err') + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── API helper ──
+async function api(path) {
+  const r = await fetch(API_BASE + path, {
+    headers: { 'X-Admin-Key': ADMIN_KEY }
+  });
+  if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 100));
+  return r.json();
+}
+
+document.querySelectorAll('.sidebar a[data-panel]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.sidebar a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + a.dataset.panel).classList.add('active');
+    if (loaders[a.dataset.panel]) loaders[a.dataset.panel]();
+  });
+});
+
+// ── USERS ──
+async function loadUsers() {
+  const el = document.getElementById('users-body');
+  try {
+    const data = await api('/users');
+    const users = data.users || [];
+    if (!users.length) { el.innerHTML = '<span style="color:var(--text-muted);">Нет пользователей.</span>'; return; }
+    const rows = users.map(u => `<tr>
+      <td><span class="mono" style="font-size:10px;">${u.user_id}</span></td>
+      <td>${u.display_name || '—'}</td>
+      <td>${u.email || '—'}</td>
+      <td>${u.provider}</td>
+      <td>${u.org_count}</td>
+      <td>
+        <select onchange="userSetRole('${u.user_id}', this.value)" style="width:120px;font-size:11px;">
+          <option value="">Роль…</option>
+          <option value="owner">owner</option>
+          <option value="billing_admin">billing_admin</option>
+          <option value="developer">developer</option>
+          <option value="viewer">viewer</option>
+        </select>
+      </td>
+    </tr>`).join('');
+    el.innerHTML = `<table><thead><tr><th>User ID</th><th>Имя</th><th>Email</th><th>OAuth</th><th>Orgs</th><th>Сменить роль</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+async function userSetRole(userId, role) {
+  if (!role) return;
+  try {
+    const r = await fetch(API_BASE + '/users/' + userId + '/role', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role })
+    });
+    const d = await r.json();
+    if (r.ok) toast(`✅ Роль изменена: ${d.updated_memberships} участий`, true);
+    else toast('❌ ' + (d.error || r.status), false);
+  } catch (e) { toast('❌ ' + e.message, false); }
+}
+
+// ── TOKENS ──
+async function tokensAdd() {
+  const orgId = document.getElementById('token-org-input').value.trim();
+  const amount = parseInt(document.getElementById('token-amount-input').value) || 0;
+  if (!orgId || !amount) return;
+  const el = document.getElementById('token-result');
+  el.innerHTML = '<span class="spinner"></span> Начисление…';
+  try {
+    const r = await fetch(API_BASE + '/orgs/' + orgId + '/tokens/add', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+    const d = await r.json();
+    if (r.ok) el.innerHTML = `✅ Начислено <b>${d.added.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
+    else el.innerHTML = `❌ ${d.error || r.status}`;
+  } catch (e) { el.innerHTML = `❌ ${e.message}`; }
+}
+
+async function tokensSubtract() {
+  const orgId = document.getElementById('token-org-input').value.trim();
+  const amount = parseInt(document.getElementById('token-amount-input').value) || 0;
+  if (!orgId || !amount) return;
+  const el = document.getElementById('token-result');
+  el.innerHTML = '<span class="spinner"></span> Списание…';
+  try {
+    const r = await fetch(API_BASE + '/orgs/' + orgId + '/tokens/subtract', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+    const d = await r.json();
+    if (r.ok) el.innerHTML = `✅ Списано <b>${d.subtracted.toLocaleString()}</b> токенов. Новый баланс: <b>${d.new_balance.toLocaleString()}</b>`;
+    else el.innerHTML = `❌ ${d.error || r.status}`;
+  } catch (e) { el.innerHTML = `❌ ${e.message}`; }
+}
+
+// ── TIERS ──
+async function loadTiers() {
+  const el = document.getElementById('tiers-body');
+  const sel = document.getElementById('tier-select');
+  try {
+    const data = await api('/tiers');
+    const tiers = data.tiers || [];
+    sel.innerHTML = tiers.map(t => `<option value="${t.tier_id}">${t.name} (${t.tier_id})</option>`).join('');
+
+    const rows = tiers.map(t => `<tr>
+      <td><b>${t.name}</b><br><span class="mono" style="font-size:10px;color:var(--text-muted);">${t.tier_id}</span></td>
+      <td><span class="mono">${t.rpm_limit}</span></td>
+      <td><span class="mono">${t.tpm_limit?.toLocaleString()}</span></td>
+      <td><span class="mono">${t.daily_limit || '—'}</span></td>
+      <td>${t.price_rub ? t.price_rub + ' ₽/мес' : '—'}</td>
+      <td>
+        <button class="btn btn-sm" onclick="tierEditLimits('${t.tier_id}', ${t.rpm_limit}, ${t.tpm_limit}, ${t.daily_limit||0})">⚙️</button>
+      </td>
+    </tr>`).join('');
+    el.innerHTML = `<table><thead><tr><th>Тариф</th><th>RPM</th><th>TPM</th><th>Daily</th><th>Цена</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`; }
+}
+
+function tierEditLimits(tierId, rpm, tpm, daily) {
+  const nr = prompt(`Тариф «${tierId}»\nRPM:`, rpm);
+  if (nr === null) return;
+  const nt = prompt(`TPM:`, tpm);
+  if (nt === null) return;
+  const nd = prompt(`Daily limit (0=безлимит):`, daily);
+  if (nd === null) return;
+  tierSetLimits(tierId, parseInt(nr), parseInt(nt), parseInt(nd));
+}
+
+async function tierSetLimits(tierId, rpm, tpm, daily) {
+  try {
+    const r = await fetch(API_BASE + '/tiers/' + tierId + '/limits', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rpm, tpm, daily })
+    });
+    if (r.ok) { toast(`✅ Лимиты «${tierId}» обновлены`, true); loadTiers(); }
+    else { const d = await r.json(); toast('❌ ' + (d.error || r.status), false); }
+  } catch (e) { toast('❌ ' + e.message, false); }
+}
+
+async function orgSetTier() {
+  const orgId = document.getElementById('tier-org-input').value.trim();
+  const tier = document.getElementById('tier-select').value;
+  if (!orgId || !tier) return;
+  try {
+    const r = await fetch(API_BASE + '/orgs/' + orgId + '/tier', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier })
+    });
+    const d = await r.json();
+    if (r.ok) toast(`✅ Тариф «${orgId}» → ${d.tier} (баланс: ${d.balance.toLocaleString()})`, true);
+    else toast('❌ ' + (d.error || r.status), false);
+  } catch (e) { toast('❌ ' + e.message, false); }
+}
+
+// ── Auto-load health ──
+async function loadHealth() {
+  const el = document.getElementById('health-body');
+  try {
+    const h = await api('/health');
+    const comps = h.components || {};
+    const cards = [];
+
+    for (const [name, c] of Object.entries(comps)) {
+      let badge = '';
+      let detail = '';
+
+      if (name === 'backends') {
+        // Nested: {total, healthy, unhealthy, details: {url: {healthy, models}}}
+        const allOk = c.unhealthy === 0;
+        badge = allOk
+          ? `<span class="badge badge-healthy">✓ ${c.healthy}/${c.total} Healthy</span>`
+          : `<span class="badge badge-unhealthy">✗ ${c.unhealthy}/${c.total} Down</span>`;
+        if (c.details) {
+          detail = Object.entries(c.details).map(([url, d]) =>
+            `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${d.healthy ? '🟢' : '🔴'} ${url.split('//')[1]?.split(':')[0] || url}: ${(d.models||[]).join(', ')}</div>`
+          ).join('');
+        }
+      } else if (name === 'reaper') {
+        // {last_run, last_refunded} — active if last_run exists
+        const recent = c.last_run && c.last_run !== 'never';
+        badge = recent
+          ? `<span class="badge badge-healthy">✓ Active</span>`
+          : `<span class="badge badge-unhealthy">✗ Inactive</span>`;
+        detail = `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Запуск: ${c.last_run || 'never'}</div>`;
+        if (c.last_refunded) detail += `<div style="font-size:10px;color:var(--text-muted);">Возвращено: ${c.last_refunded} токенов</div>`;
+      } else {
+        // Flat: {status: 'healthy'/'unhealthy'}
+        const ok = c.status === 'healthy' || c.alive === true;
+        badge = ok
+          ? '<span class="badge badge-healthy">✓ Healthy</span>'
+          : '<span class="badge badge-unhealthy">✗ Down</span>';
+      }
+
+      cards.push(`<div class="status-item">
+        <div class="label">${name}</div>${badge}${detail}
+      </div>`);
+    }
+    el.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <span class="badge ${h.status==='ok'?'badge-healthy':'badge-degraded'}">${h.status.toUpperCase()}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:10px;">${h.timestamp}</span>
+      </div>
+      <div class="status-grid">${cards.join('')}</div>`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--red);">❌ Ошибка: ${e.message}</span>`;
+  }
+}
+
+// ── MODELS ──
+async function loadModels() {
+  const el = document.getElementById('models-body');
+  try {
+    const models = await api('/models');
+    if (!models.length) { el.innerHTML = '<span style="color:var(--text-muted);">Нет моделей в каталоге.</span>'; return; }
+    const rows = models.map(m => {
+      const hb = m.health === 'healthy'
+        ? '<span class="badge badge-healthy">Healthy</span>'
+        : '<span class="badge badge-unhealthy">Unhealthy</span>';
+      const drainBtn = m.drained
+        ? `<button class="btn btn-sm" onclick="undrainModel('${m.name}')" title="Вернуть в ротацию">↩ Undrain</button>`
+        : `<button class="btn btn-sm btn-danger" onclick="drainModel('${m.name}')" title="Слить из ротации">🚫 Drain</button>`;
+      return `<tr>
+        <td><b>${m.display_name || m.name}</b><br><span class="mono" style="font-size:10px;color:var(--text-muted);">${m.backend}</span></td>
+        <td>${hb}</td>
+        <td>${m.drained ? '<span style="color:var(--red);">Да</span>' : '<span style="color:var(--green);">Нет</span>'}</td>
+        <td><span class="mono" style="font-size:11px;">${m.max_tokens || '—'}</span></td>
+        <td>${drainBtn}</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `<table><thead><tr><th>Модель</th><th>Health</th><th>Drain</th><th>Max Tokens</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--red);">❌ Ошибка: ${e.message}</span>`;
+  }
+}
+
+async function drainModel(name) {
+  try {
+    const r = await fetch(API_BASE + '/models/' + encodeURIComponent(name) + '/drain', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY }
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast(`🚫 Модель ${name} слита`, true);
+    loadModels();
+  } catch (e) { toast('Ошибка: ' + e.message, false); }
+}
+
+async function undrainModel(name) {
+  try {
+    const r = await fetch(API_BASE + '/models/' + encodeURIComponent(name) + '/undrain', {
+      method: 'POST', headers: { 'X-Admin-Key': ADMIN_KEY }
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast(`↩ Модель ${name} возвращена`, true);
+    loadModels();
+  } catch (e) { toast('Ошибка: ' + e.message, false); }
+}
+
+// ── QUEUES ──
+async function loadQueues() {
+  const el = document.getElementById('queues-body');
+  try {
+    const q = await api('/queues');
+    if (!q.orgs || !q.orgs.length) {
+      el.innerHTML = `<span style="color:var(--text-muted);">Нет активных организаций.</span>`;
+      return;
+    }
+    const rows = q.orgs.map(o => `<tr>
+      <td><span class="mono" style="font-size:10px;">${o.org_id}</span></td>
+      <td>${o.tier || '—'}</td>
+      <td><span class="mono">${o.rpm}</span></td>
+      <td><span class="mono">${o.tpm}</span></td>
+      <td><span class="mono">${o.daily}</span></td>
+    </tr>`).join('');
+    el.innerHTML = `
+      <div style="margin-bottom:10px;font-size:12px;color:var(--text-muted);">
+        Активных организаций: <b>${q.active_orgs}</b> &nbsp;|&nbsp; Окно: <span class="mono">${q.window}</span>
+      </div>
+      <table><thead><tr><th>Org ID</th><th>Tier</th><th>RPM</th><th>TPM</th><th>Daily</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--red);">❌ Ошибка: ${e.message}</span>`;
+  }
+}
+
+// ── ORG ──
+async function loadOrg() {
+  const id = document.getElementById('org-id-input').value.trim();
+  if (!id) return;
+  const el = document.getElementById('org-body');
+  el.innerHTML = '<span class="spinner"></span> Загрузка…';
+  try {
+    const o = await api('/orgs/' + encodeURIComponent(id));
+    el.innerHTML = `
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">${o.balance ?? 0}</div><div class="lbl">Баланс (токены)</div></div>
+        <div class="stat-box"><div class="num">${o.reserved ?? 0}</div><div class="lbl">Зарезервировано</div></div>
+        <div class="stat-box"><div class="num">${o.requests_today ?? 0}</div><div class="lbl">Запросов сегодня</div></div>
+        <div class="stat-box"><div class="num">${o.tokens_today ?? 0}</div><div class="lbl">Токенов сегодня</div></div>
+      </div>
+      <table>
+        <tr><td>Tier</td><td><b>${o.tier || '—'}</b></td></tr>
+        <tr><td>RPM (текущий)</td><td><span class="mono">${o.current_rpm ?? 0}</span></td></tr>
+        <tr><td>TPM (текущий)</td><td><span class="mono">${o.current_tpm ?? 0}</span></td></tr>
+        <tr><td>RPM Limit</td><td><span class="mono">${o.rpm_limit ?? '—'}</span></td></tr>
+        <tr><td>TPM Limit</td><td><span class="mono">${o.tpm_limit ?? '—'}</span></td></tr>
+      </table>`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--red);">❌ ${e.message}</span>`;
+  }
+}
+
+// ── REAPER ──
+async function loadReaper() {
+  const el = document.getElementById('reaper-body');
+  try {
+    const r = await api('/reaper');
+    el.innerHTML = `
+      <div class="stat-row">
+        <div class="stat-box"><div class="lbl">Последний запуск</div><div class="num" style="font-size:16px;">${r.last_run}</div></div>
+        <div class="stat-box"><div class="lbl">Возвращено токенов</div><div class="num">${r.last_refunded}</div></div>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--red);">❌ Ошибка: ${e.message}</span>`;
+  }
+}
+
+// ── Auto-load health ──
+loadHealth();
+</script>
+</body>
+</html>
