@@ -1,13 +1,14 @@
 # config.yaml.template — конфигурация Gateway
-# Скопируйте в gateway/config.yaml
+# Версия: 1.1.0 (синхронизировано с ConfigMap gateway-catalog)
+# Используется как основа для ConfigMap в K8s
 
-# Каталог моделей
 models:
   - name: qwen2.5-14b
     display_name: "Qwen 2.5 14B"
     backend: "http://YOUR_K8S_NODE_IP:32293"
     model_path: "/models/Qwen2.5-14B-Instruct"
     max_tokens: 4096
+    description: "Быстрая универсальная модель — чаты, summarization, код"
     tokens_per_ruble: 100
     tags: [chat, code, fast]
     status: active
@@ -15,19 +16,19 @@ models:
   - name: qwen2.5-32b
     display_name: "Qwen 2.5 32B"
     backend: "http://YOUR_K8S_NODE_IP:32294"
-    model_path: "/models/Qwen2.5-32B-Instruct-GPTQ"
+    model_path: "qwen2.5-32b"
     max_tokens: 8192
+    description: "Мощная модель — сложный код, аналитика, длинные тексты"
     tokens_per_ruble: 30
     tags: [code, analysis, large-context]
     status: active
 
-# Rate Limiting
-rate_limit:
-  rpm: 60          # запросов/мин на организацию
-  tpm: 100000      # токенов/мин на организацию
-
-# Безопасность
-security:
-  dlp_enabled: true
-  prompt_injection_enabled: true
-  jailbreak_detection: true
+# Gateway env-переменные (передаются через K8s env)
+# VLLM_URL=http://vllm:8000
+# VLLM_32B_URL=http://vllm-qwen32b:8000
+# CATALOG_PATH=/app/catalog.yaml
+# REDIS_URL=redis
+# RATE_LIMIT_RPM=300
+# RATE_LIMIT_TPM=100000
+# PORT=8080
+# TOKEN_COST=1
