@@ -1,7 +1,8 @@
 """
-Hybrid RAG: Wiki Graph (keyword) + ChromaDB (vector via REST API).
+Hybrid RAG: Wiki Graph (keyword) + ChromaDB proxy (text→vector→search).
 
-No external dependencies — uses urllib for ChromaDB REST calls.
+Gateway calls chroma-proxy service which handles embedding internally.
+No chromadb dependency needed in Gateway.
 """
 
 import json, os
@@ -10,34 +11,34 @@ from urllib.error import HTTPError
 from wiki_graph import get_wiki_graph, reload_wiki_graph
 
 # ── Config ────────────────────────────────────────────────────────────────
-CHROMA_URL = os.environ.get("CHROMA_URL", "http://chromadb:8000")
-CHROMA_COLLECTION = os.environ.get("CHROMA_COLLECTION", "textbook")
+CHROMA_PROXY_URL = os.environ.get("CHROMA_PROXY_URL", "http://chroma-proxy.default.svc.cluster.local:9000")
 
 
-def _chroma_req(method: str, path: str, body: dict = None) -> dict:
-    """Call ChromaDB REST API. Returns parsed JSON."""
-    url = f"{CHROMA_URL}/api/v1/{path}"
-    data = json.dumps(body).encode() if body else None
-    req = Request(url, data=data, method=method)
-    req.add_header("Content-Type", "application/json")
+def _proxy_get(path: str) -> dict:
+    """GET request to chroma-proxy."""
+    url = f"{CHROMA_PROXY_URL}/{path}"
     try:
-        resp = urlopen(req, timeout=10)
+        resp = urlopen(Request(url), timeout=10)
         return json.loads(resp.read())
     except HTTPError as e:
         return {"error": str(e), "status": e.code}
+    except Exception as e:
+        return {"error": str(e), "status": 0}
 
 
-def _get_or_create_collection() -> dict:
-    """Ensure textbook collection exists."""
-    # Try to get the collection
-    result = _chroma_req("GET", f"collections/{CHROMA_COLLECTION}")
-    if result.get("error"):
-        # Create it
-        result = _chroma_req("POST", "collections", {
-            "name": CHROMA_COLLECTION,
-            "metadata": {"description": "Учебник Aither"}
-        })
-    return result
+def _proxy_post(path: str, body: dict) -> dict:
+    """POST request to chroma-proxy."""
+    url = f"{CHROMA_PROXY_URL}/{path}"
+    data = json.dumps(body).encode()
+    req = Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        resp = urlopen(req, timeout=30)
+        return json.loads(resp.read())
+    except HTTPError as e:
+        return {"error": str(e), "status": e.code}
+    except Exception as e:
+        return {"error": str(e), "status": 0}
 
 
 # ── Ingestion ─────────────────────────────────────────────────────────────
@@ -65,33 +66,29 @@ def wiki_status() -> dict:
 
 
 def chroma_status() -> dict:
-    """Get ChromaDB textbook collection status."""
-    try:
-        result = _chroma_req("GET", f"collections/{CHROMA_COLLECTION}")
-        count = 0
-        if not result.get("error") and isinstance(result, dict):
-            count = result.get("metadata", {}).get("count", 0) if isinstance(result.get("metadata"), dict) else 0
+    """Get ChromaDB textbook collection status via proxy."""
+    result = _proxy_get("status")
+    if result.get("error"):
         return {
-            "chroma_url": CHROMA_URL,
-            "collection": CHROMA_COLLECTION,
-            "documents": count,
-            "embed_dim": 384,
-        }
-    except Exception as e:
-        return {
-            "chroma_url": CHROMA_URL,
-            "collection": CHROMA_COLLECTION,
+            "chroma_url": CHROMA_PROXY_URL,
+            "collection": "textbook",
             "documents": 0,
             "embed_dim": 384,
-            "error": str(e)[:100],
+            "error": result.get("error", "unknown"),
         }
+    return {
+        "chroma_url": CHROMA_PROXY_URL,
+        "collection": result.get("collection", "textbook"),
+        "documents": result.get("documents", 0),
+        "embed_dim": result.get("embed_dim", 384),
+    }
 
 
 # ── Query ─────────────────────────────────────────────────────────────────
 
 def hybrid_query(query: str, wiki_radius: int = 1, top_k: int = 5) -> dict:
     """
-    Hybrid search: Wiki Graph keyword + ChromaDB vector (via REST API).
+    Hybrid search: Wiki Graph keyword + ChromaDB via proxy.
 
     Returns: {
         "query": str,
@@ -108,35 +105,25 @@ def hybrid_query(query: str, wiki_radius: int = 1, top_k: int = 5) -> dict:
     for page in wiki_pages:
         wiki_results.append({
             "page_title": page.title,
-            "slug": page.slug,
+            "slug": page.path,
             "relevance": 1.0,
             "source": "wiki",
             "preview": page.content[:300] if page.content else "",
         })
 
-    # ── 2. ChromaDB (vector search via REST API) ──
+    # ── 2. ChromaDB (vector search via proxy) ──
     chroma_results = []
     try:
-        coll_info = _chroma_req("GET", f"collections/{CHROMA_COLLECTION}")
-        if not coll_info.get("error"):
-            result = _chroma_req("POST", f"collections/{CHROMA_COLLECTION}/query", {
-                "query_texts": [query],
-                "n_results": top_k,
-                "include": ["documents", "metadatas", "distances"],
-            })
-            if not result.get("error") and result.get("ids") and result["ids"]:
-                for i, doc_id in enumerate(result["ids"][0]):
-                    meta = result["metadatas"][0][i] if result.get("metadatas") else {}
-                    dist = result["distances"][0][i] if result.get("distances") else 1.0
-                    doc = result["documents"][0][i] if result.get("documents") else ""
-
-                    chroma_results.append({
-                        "page_title": f"{meta.get('chapter', '')} › {meta.get('section', '')}",
-                        "slug": meta.get("source", ""),
-                        "relevance": round(1.0 - min(dist, 1.0), 3),
-                        "source": "chroma",
-                        "preview": doc[:300],
-                    })
+        result = _proxy_post("query", {"query": query, "top_k": top_k})
+        if not result.get("error") and result.get("results"):
+            for item in result["results"]:
+                chroma_results.append({
+                    "page_title": item.get("page_title", ""),
+                    "slug": item.get("source", ""),
+                    "relevance": item.get("relevance", 0),
+                    "source": "chroma",
+                    "preview": item.get("preview", ""),
+                })
     except Exception as e:
         chroma_results.append({
             "page_title": "ChromaDB error",

@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chroma-proxy
+  namespace: default
+  labels:
+    app: chroma-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chroma-proxy
+  template:
+    metadata:
+      labels:
+        app: chroma-proxy
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu
+      containers:
+      - name: proxy
+        image: chromadb/chroma:0.5.23
+        command: ["python3", "/scripts/proxy.py", "9000"]
+        workingDir: /chroma
+        env:
+        - name: PYTHONPATH
+          value: /chroma
+        - name: IS_PERSISTENT
+          value: "TRUE"
+        - name: PERSIST_DIRECTORY
+          value: /chroma/chroma
+        ports:
+        - containerPort: 9000
+          name: proxy
+        volumeMounts:
+        - name: proxy-script
+          mountPath: /scripts
+        - name: chroma-data
+          mountPath: /chroma/chroma
+          readOnly: false
+      volumes:
+      - name: proxy-script
+        configMap:
+          name: chroma-proxy-script
+      - name: chroma-data
+        persistentVolumeClaim:
+          claimName: chromadb-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chroma-proxy
+  namespace: default
+spec:
+  selector:
+    app: chroma-proxy
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: proxy
