@@ -1,0 +1,205 @@
+digraph AitherPhysicalArchitecture {
+    // ── Layout ──
+    rankdir=TB
+    splines=ortho
+    nodesep=0.4
+    ranksep=0.8
+    fontname="DejaVu Sans"
+    fontsize=10
+    bgcolor="white"
+    labeljust=l
+    pad=0.2
+    size="26,20!"
+    ratio=fill
+    dpi=150
+    overlap=false
+    concentrate=false
+    compound=true
+
+    // ═══════════════════════════════════════════════════════════════
+    // VPS LAYER — Blue
+    // ═══════════════════════════════════════════════════════════════
+    subgraph cluster_vps1 {
+        label="VPS1 (170.168.91.95)  |  Hermes-хост, nginx"
+        style="filled,rounded"
+        fillcolor="#e3f2fd"
+        color="#1565c0"
+        fontcolor="#000000"
+        fontsize=10
+        penwidth=2
+
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=9, penwidth=1.5]
+        v1_hermes [label="Hermes Agent\nуправление", width=2.2, height=1.0]
+        v1_nginx  [label="nginx :80", width=2.0, height=0.7]
+    }
+
+    subgraph cluster_vps3 {
+        label="VPS3 (89.127.217.88)  |  Hermes-резерв"
+        style="filled,rounded"
+        fillcolor="#e3f2fd"
+        color="#1565c0"
+        fontcolor="#000000"
+        fontsize=10
+        penwidth=2
+
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=9, penwidth=1.5]
+        v3_hermes [label="Hermes Agent\nрезерв", width=2.2, height=1.0]
+    }
+
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90)  |  Портал + BFF"
+        style="filled,rounded"
+        fillcolor="#e3f2fd"
+        color="#1565c0"
+        fontcolor="#000000"
+        fontsize=10
+        penwidth=2
+
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=9, penwidth=1.5]
+        v2_nginx [label="nginx (SPA) :80", width=2.2, height=0.9]
+        v2_bff   [label="BFF (Node.js)\nFastify :3000", width=2.2, height=1.0]
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // NETWORK LAYER — Yellow
+    // ═══════════════════════════════════════════════════════════════
+    subgraph cluster_cisco {
+        label="Cisco815 (V1)  |  10.129.11.0/24"
+        style="filled,rounded"
+        fillcolor="#fff9c4"
+        color="#f9a825"
+        fontcolor="#000000"
+        fontsize=10
+        penwidth=2
+
+        cisco [shape=box, style="filled,rounded", fillcolor="#fff176", color="#f9a825", fontcolor="#000000", label="Cisco815", width=2.5, height=0.9, fontsize=10]
+    }
+
+    subgraph cluster_huawei {
+        label="HuaweiHP (V2)  |  10.129.13.0/24, VLAN 308"
+        style="filled,rounded"
+        fillcolor="#fff9c4"
+        color="#f9a825"
+        fontcolor="#000000"
+        fontsize=10
+        penwidth=2
+
+        huawei [shape=box, style="filled,rounded", fillcolor="#fff176", color="#f9a825", fontcolor="#000000", label="HuaweiHP", width=2.5, height=0.9, fontsize=10]
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // n8-gpu — Green — control-plane
+    // ═══════════════════════════════════════════════════════════════
+    subgraph cluster_n8 {
+        label="n8-gpu (40.51)  |  control-plane  |  bootsman-k8s-clnt01-n8-gpu\n2× RTX6000 Ada  |  28C/56T  |  754 GB RAM  |  /mnt/models 3.5 TB"
+        style="filled,rounded"
+        fillcolor="#e8f5e9"
+        color="#2e7d32"
+        fontcolor="#000000"
+        fontsize=9
+        penwidth=2
+
+        node [shape=box, style="filled,rounded", fontcolor="#000000", fontsize=9, penwidth=1.5]
+
+        n8_gw    [label="Gateway\nFastAPI :30900\n13 модулей", fillcolor="#c8e6c9", color="#2e7d32", width=2.2, height=1.1]
+        n8_pg    [label="PostgreSQL 16\n:5432", fillcolor="#fff3e0", color="#e65100", width=1.8, height=0.9]
+        n8_redis [label="Redis 7\n:6379", fillcolor="#ffebee", color="#c62828", width=1.6, height=0.8]
+        n8_v14   [label="vLLM Qwen 2.5 14B\n:32293  |  TP=2", fillcolor="#f3e5f5", color="#7b1fa2", width=2.3, height=1.0]
+        n8_prom  [label="Prometheus\n:30909", fillcolor="#e0e0e0", color="#616161", width=1.7, height=0.8]
+        n8_graf  [label="Grafana\n:30300", fillcolor="#e0e0e0", color="#616161", width=1.7, height=0.8]
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // n7-gpu — Green — worker
+    // ═══════════════════════════════════════════════════════════════
+    subgraph cluster_n7 {
+        label="n7-gpu (40.50)  |  worker  |  bootsmam-k8s-clnt01-n7-gpu\n2× RTX6000 Ada  |  28C/56T  |  754 GB RAM  |  /mnt/models 3.5 TB"
+        style="filled,rounded"
+        fillcolor="#e8f5e9"
+        color="#2e7d32"
+        fontcolor="#000000"
+        fontsize=9
+        penwidth=2
+
+        node [shape=box, style="filled,rounded", fontcolor="#000000", fontsize=9, penwidth=1.5]
+
+        n7_v32    [label="vLLM Qwen 2.5 32B\n:32294  |  TP=2\nQwen 2.5 32B GPTQ", fillcolor="#f3e5f5", color="#7b1fa2", width=2.4, height=1.1]
+        n7_proxy  [label="chroma-proxy\n:9000\nall-MiniLM-L6-v2\nэмбеддинги", fillcolor="#e0f2f1", color="#00695c", width=2.2, height=1.2]
+        n7_chroma [label="ChromaDB 0.5.23\n:8000\nPVC 20 GB RWO\nучебник 322 чанка", fillcolor="#fff3e0", color="#e65100", width=2.2, height=1.3]
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RANK ENFORCEMENT
+    // ═══════════════════════════════════════════════════════════════
+    { rank=same; v1_hermes; v2_nginx; v3_hermes }
+    { rank=same; cisco; huawei }
+    { rank=same; n8_v14; n7_v32 }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EDGES
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── WireGuard (bold green) ──
+    v1_hermes -> v2_nginx [color="#2e7d32", penwidth=2.5, style=bold]
+    v1_hermes -> v3_hermes [color="#2e7d32", penwidth=2.5, style=bold]
+
+    // ── VPS2 internal: nginx → BFF ──
+    v2_nginx -> v2_bff [color="#0d47a1", penwidth=1.8, style=solid]
+
+    // ── VPS2 → Network switches ──
+    v2_bff -> cisco [color="#1976d2", penwidth=2.2, style=solid]
+    v2_bff -> huawei [color="#1976d2", penwidth=2.2, style=solid]
+
+    // ── Network → GPU nodes ──
+    cisco -> n8_gw [color="#1976d2", penwidth=2.0, style=solid]
+    cisco -> n8_v14 [color="#1976d2", penwidth=1.8, style=solid]
+    huawei -> n7_v32 [color="#1976d2", penwidth=2.0, style=solid]
+
+    // ── BFF → Gateway (JWT API) ──
+    v2_bff -> n8_gw [color="#0d47a1", penwidth=2.8, style=solid]
+
+    // ── Gateway → vLLM ──
+    n8_gw -> n8_v14 [color="#7b1fa2", penwidth=2.0, style=solid]
+    n8_gw -> n7_v32 [color="#7b1fa2", penwidth=1.8, style=dashed]
+
+    // ── Gateway → DB/Redis ──
+    n8_gw -> n8_pg [color="#e65100", penwidth=1.5, style=dashed]
+    n8_gw -> n8_redis [color="#c62828", penwidth=1.5, style=dashed]
+
+    // ── Gateway → chroma-proxy (RAG) ──
+    n8_gw -> n7_proxy [color="#00695c", penwidth=2.5, style="bold,dashed"]
+
+    // ── chroma-proxy → ChromaDB ──
+    n7_proxy -> n7_chroma [color="#00695c", penwidth=2.0, style=solid]
+
+    // ── Health checks ──
+    v1_hermes -> n8_gw [color="#9e9e9e", penwidth=1.0, style=dotted]
+
+    // ── Metrics (Prometheus scraping) ──
+    n8_prom -> n8_gw [color="#ff8f00", penwidth=0.7, style=dotted, arrowhead=none]
+    n8_prom -> n8_v14 [color="#ff8f00", penwidth=0.7, style=dotted, arrowhead=none]
+    n8_prom -> n7_v32 [color="#ff8f00", penwidth=0.7, style=dotted, arrowhead=none]
+    n8_prom -> n7_proxy [color="#ff8f00", penwidth=0.7, style=dotted, arrowhead=none]
+    n8_prom -> n8_pg [color="#ff8f00", penwidth=0.7, style=dotted, arrowhead=none]
+    n8_graf -> n8_prom [color="#ff8f00", penwidth=1.0, style=dashed]
+
+    // ═══════════════════════════════════════════════════════════════
+    // LEGEND
+    // ═══════════════════════════════════════════════════════════════
+    subgraph cluster_legend {
+        label="Условные обозначения"
+        style="filled,rounded"
+        fillcolor="#fafafa"
+        color="#bdbdbd"
+        fontcolor="#000000"
+        fontsize=10
+
+        node [shape=plaintext, fillcolor="#fafafa", color="#fafafa", fontsize=9, fontcolor="#000000"]
+
+        le1 [label="━━━  API / HTTP (сплошная синяя)"]
+        le2 [label="╌╌╌  SQL / DB (пунктир оранжевый)"]
+        le3 [label="┅┅┅  RAG / Proxy (жирный пунктир бирюзовый)"]
+        le4 [label="━━━  WireGuard (жирная зелёная)"]
+        le5 [label="···  Metrics / Health (пунктир жёлтый/серый)"]
+    }
+}

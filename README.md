@@ -4,7 +4,7 @@
 
 ## Физическая схема
 
-![Физическая схема Aither](docs/diagrams/physical-architecture.svg)
+![Физическая схема Aither](docs/diagrams/physical-architecture-v2.svg)
 
 ## Статус — ✅ 100% (51/51 задач, учебник завершён)
 
@@ -140,7 +140,7 @@ aither-project/
 │   └── 📁 bff/
 │       └── 📄 .env.template         — шаблон переменных BFF
 │
-├── 📁 offline-deploy/         ★ Офлайн-пакет для закрытого контура (v1.1.0)
+├── 📁 offline-deploy/         ★ Офлайн-пакет для закрытого контура (v1.2.0)
 │   ├── 📄 README.md
 │   ├── 📁 k8s/                — эталонные манифесты
 │   ├── 📁 scripts/            — скрипты эксплуатации
@@ -171,8 +171,9 @@ aither-project/
 │   │   ├── 📄 05-part4-production.md   — Часть IV: Production (гл. 19–24) ✅
 │   │   └── 📄 04-appendices-labs.md    — Приложения + Практикум
 │   └── 📁 diagrams/
-│       ├── 📄 physical-architecture.dot  — исходник схемы (Graphviz DOT)
-│       └── 📄 physical-architecture.svg  — рендер схемы
+│       ├── 📄 physical-architecture.dot    — исходник схемы (Graphviz DOT)
+│       ├── 📄 physical-architecture.svg    — рендер схемы v1
+│       └── 📄 physical-architecture-v2.svg — рендер физической схемы v2 (в README)
 │
 ├── 📁 wiki/                   База знаний Aither (LLM-Wiki, 8 страниц)
 │   ├── 📁 entities/           — AI Gateway, vLLM, ChromaDB, Vault, Security
