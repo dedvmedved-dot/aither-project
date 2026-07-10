@@ -1352,7 +1352,7 @@ async function getDelegationToken() {
 }
 
 async function loadUsage(delegationToken) {
-  const GATEWAY = window.location.origin.replace(':80','').replace(':443','') + ':8080';
+  const GATEWAY = window.location.origin;
   try {
     const [usageR, billingR, historyR] = await Promise.all([
       fetch(`${GATEWAY}/v1/usage/`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
