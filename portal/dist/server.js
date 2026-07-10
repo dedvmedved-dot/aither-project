@@ -49,6 +49,8 @@ const policies_1 = require("./policies");
 const api_gateway_1 = require("./api-gateway");
 const fs_1 = __importDefault(require("fs"));
 const https_1 = __importDefault(require("https"));
+const static_1 = __importDefault(require("@fastify/static"));
+const path_1 = __importDefault(require("path"));
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
 const CORE_API = process.env.CORE_API || "http://gateway:8080";
@@ -123,8 +125,8 @@ async function checkOrgOwner(orgId, userId) {
     const r = await pool.query("SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND role='owner'", [orgId, userId]);
     return r.rows.length > 0;
 }
-const STARTER_TOKENS = 100000; // 100K токенов новому пользователю
-const REFILL_TOKENS = 100000; // авто-пополнение при обнулении
+const STARTER_TOKENS = 100_000; // 100K токенов новому пользователю
+const REFILL_TOKENS = 100_000; // авто-пополнение при обнулении
 const REFILL_LIMIT = 10; // максимум авто-пополнений (защита от бесконечного цикла)
 /** Создаёт личный org для нового пользователя и начисляет стартовые токены */
 async function ensurePersonalOrg(userId, displayName) {
@@ -183,11 +185,11 @@ setInterval(() => {
         if (v.expires < now)
             oauthStates.delete(k);
     }
-}, 300000);
+}, 300_000);
 /** Store OAuth state in memory, return state value */
 function setOAuthState(_reply, prefix) {
     const state = (0, crypto_1.randomBytes)(16).toString("hex");
-    oauthStates.set(state, { prefix, expires: Date.now() + 600000 });
+    oauthStates.set(state, { prefix, expires: Date.now() + 600_000 });
     return state;
 }
 /** Validate OAuth state from memory. Returns true if valid. */
@@ -206,6 +208,11 @@ async function main() {
     await app.register(cors_1.default, { origin: CORS_ORIGIN, credentials: true });
     // Rate limiting: 100 req/min per IP
     await app.register(rate_limit_1.default, { max: 100, timeWindow: "1 minute" });
+    // Serve static files (SPA: index.html, admin.html, etc.)
+    await app.register(static_1.default, {
+        root: path_1.default.join(__dirname, "..", "static"),
+        prefix: "/",
+    });
     // DDL
     await pool.query(`
     CREATE TABLE IF NOT EXISTS portal_users (
@@ -1727,7 +1734,7 @@ async function main() {
             if (method === "POST" || method === "PUT") {
                 body = JSON.stringify(req.body);
             }
-            const resp = await gatewayFetch(adminPath, { method, headers, body });
+            const resp = await fetch(gwUrl, { method, headers, body });
             const data = await resp.json();
             return reply.status(resp.status).send(data);
         }

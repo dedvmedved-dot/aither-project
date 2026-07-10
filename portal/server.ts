@@ -10,6 +10,8 @@ import { POLICIES_DDL, loadPolicy, savePolicy, validatePolicy } from "./policies
 import { registerApiGateway } from "./api-gateway";
 import fs from "fs";
 import https from "https";
+import fastifyStatic from "@fastify/static";
+import path from "path";
 
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
@@ -168,6 +170,12 @@ async function main() {
 
   // Rate limiting: 100 req/min per IP
   await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
+
+  // Serve static files (SPA: index.html, admin.html, etc.)
+  await app.register(fastifyStatic, {
+    root: path.join(__dirname, "..", "static"),
+    prefix: "/",
+  });
 
   // DDL
   await pool.query(`
@@ -1853,7 +1861,7 @@ async function main() {
         body = JSON.stringify(req.body);
       }
 
-      const resp = await gatewayFetch(adminPath, { method, headers, body });
+      const resp = await fetch(gwUrl, { method, headers, body });
       const data = await resp.json();
       return reply.status(resp.status).send(data);
     } catch (e: any) {
