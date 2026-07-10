@@ -5,25 +5,25 @@
  -->
 <!-- Title: AitherPhysicalArchitecture Pages: 1 -->
 <svg width="100%" height="100%"
- viewBox="0.00 0.00 4051.00 1427.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+ viewBox="0.00 0.00 2158.00 1427.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <g id="graph0" class="graph" transform="scale(1.33 1.33) rotate(0) translate(64.8 1005.3)">
 <title>AitherPhysicalArchitecture</title>
-<polygon fill="white" stroke="transparent" points="-36,36 -36,-976.5 2945,-976.5 2945,36 -36,36"/>
+<polygon fill="white" stroke="transparent" points="-36,36 -36,-976.5 1525,-976.5 1525,36 -36,36"/>
 <g id="clust1" class="cluster">
 <title>cluster_vps1</title>
-<path fill="#e3f2fd" stroke="#1565c0" stroke-width="2" d="M1218,-846.5C1218,-846.5 1478,-846.5 1478,-846.5 1484,-846.5 1490,-852.5 1490,-858.5 1490,-858.5 1490,-920.5 1490,-920.5 1490,-926.5 1484,-932.5 1478,-932.5 1478,-932.5 1218,-932.5 1218,-932.5 1212,-932.5 1206,-926.5 1206,-920.5 1206,-920.5 1206,-858.5 1206,-858.5 1206,-852.5 1212,-846.5 1218,-846.5"/>
-<text text-anchor="middle" x="1348" y="-918.9" font-family="DejaVu Sans" font-size="12.00" fill="#000000">VPS1 (170.168.91.95) &#160;| &#160;Hermes&#45;хост, nginx</text>
+<path fill="#e3f2fd" stroke="#1565c0" stroke-width="2" d="M1033,-846.5C1033,-846.5 1293,-846.5 1293,-846.5 1299,-846.5 1305,-852.5 1305,-858.5 1305,-858.5 1305,-920.5 1305,-920.5 1305,-926.5 1299,-932.5 1293,-932.5 1293,-932.5 1033,-932.5 1033,-932.5 1027,-932.5 1021,-926.5 1021,-920.5 1021,-920.5 1021,-858.5 1021,-858.5 1021,-852.5 1027,-846.5 1033,-846.5"/>
+<text text-anchor="middle" x="1163" y="-918.9" font-family="DejaVu Sans" font-size="12.00" fill="#000000">VPS1 (170.168.91.95) &#160;| &#160;Hermes&#45;хост, nginx</text>
 </g>
 <g id="clust3" class="cluster">
 <title>cluster_vps2</title>
-<path fill="#e3f2fd" stroke="#1565c0" stroke-width="2" d="M877,-678C877,-678 1088,-678 1088,-678 1094,-678 1100,-684 1100,-690 1100,-690 1100,-773 1100,-773 1100,-779 1094,-785 1088,-785 1088,-785 877,-785 877,-785 871,-785 865,-779 865,-773 865,-773 865,-690 865,-690 865,-684 871,-678 877,-678"/>
-<text text-anchor="middle" x="982.5" y="-771.4" font-family="DejaVu Sans" font-size="12.00" fill="#000000">VPS2 (130.17.1.90) &#160;| &#160;Портал + BFF</text>
+<path fill="#e3f2fd" stroke="#1565c0" stroke-width="2" d="M814,-678C814,-678 1025,-678 1025,-678 1031,-678 1037,-684 1037,-690 1037,-690 1037,-773 1037,-773 1037,-779 1031,-785 1025,-785 1025,-785 814,-785 814,-785 808,-785 802,-779 802,-773 802,-773 802,-690 802,-690 802,-684 808,-678 814,-678"/>
+<text text-anchor="middle" x="919.5" y="-771.4" font-family="DejaVu Sans" font-size="12.00" fill="#000000">VPS2 (130.17.1.90) &#160;| &#160;Портал + BFF</text>
 </g>
 <g id="clust6" class="cluster">
 <title>cluster_n8</title>
-<path fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" d="M422,-199C422,-199 784,-199 784,-199 790,-199 796,-205 796,-211 796,-211 796,-777 796,-777 796,-783 790,-789 784,-789 784,-789 422,-789 422,-789 416,-789 410,-783 410,-777 410,-777 410,-211 410,-211 410,-205 416,-199 422,-199"/>
-<text text-anchor="middle" x="603" y="-776.2" font-family="DejaVu Sans" font-size="11.00" fill="#000000">n8&#45;gpu (40.51) &#160;| &#160;control&#45;plane &#160;| &#160;bootsman&#45;k8s&#45;clnt01&#45;n8&#45;gpu</text>
-<text text-anchor="middle" x="603" y="-764.2" font-family="DejaVu Sans" font-size="11.00" fill="#000000">2× RTX6000 Ada &#160;| &#160;28C/56T &#160;| &#160;754 GB RAM &#160;| &#160;/mnt/models 3.5 TB</text>
+<path fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" d="M415,-199C415,-199 777,-199 777,-199 783,-199 789,-205 789,-211 789,-211 789,-777 789,-777 789,-783 783,-789 777,-789 777,-789 415,-789 415,-789 409,-789 403,-783 403,-777 403,-777 403,-211 403,-211 403,-205 409,-199 415,-199"/>
+<text text-anchor="middle" x="596" y="-776.2" font-family="DejaVu Sans" font-size="11.00" fill="#000000">n8&#45;gpu (40.51) &#160;| &#160;control&#45;plane &#160;| &#160;bootsman&#45;k8s&#45;clnt01&#45;n8&#45;gpu</text>
+<text text-anchor="middle" x="596" y="-764.2" font-family="DejaVu Sans" font-size="11.00" fill="#000000">2× RTX6000 Ada &#160;| &#160;28C/56T &#160;| &#160;754 GB RAM &#160;| &#160;/mnt/models 3.5 TB</text>
 </g>
 <g id="clust7" class="cluster">
 <title>cluster_n7</title>
@@ -33,40 +33,40 @@
 </g>
 <g id="clust11" class="cluster">
 <title>cluster_legend</title>
-<path fill="#fafafa" stroke="#bdbdbd" d="M1502,-861C1502,-861 2889,-861 2889,-861 2895,-861 2901,-867 2901,-873 2901,-873 2901,-906 2901,-906 2901,-912 2895,-918 2889,-918 2889,-918 1502,-918 1502,-918 1496,-918 1490,-912 1490,-906 1490,-906 1490,-873 1490,-873 1490,-867 1496,-861 1502,-861"/>
-<text text-anchor="middle" x="2195.5" y="-904.4" font-family="DejaVu Sans" font-size="12.00" fill="#000000">Условные обозначения</text>
+<path fill="#fafafa" stroke="#bdbdbd" d="M1331,-220.5C1331,-220.5 1469,-220.5 1469,-220.5 1475,-220.5 1481,-226.5 1481,-232.5 1481,-232.5 1481,-906 1481,-906 1481,-912 1475,-918 1469,-918 1469,-918 1331,-918 1331,-918 1325,-918 1319,-912 1319,-906 1319,-906 1319,-232.5 1319,-232.5 1319,-226.5 1325,-220.5 1331,-220.5"/>
+<text text-anchor="middle" x="1400" y="-904.4" font-family="DejaVu Sans" font-size="12.00" fill="#000000">Условные обозначения</text>
 </g>
 <!-- v1_hermes -->
 <g id="node1" class="node">
 <title>v1_hermes</title>
-<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M683,-922C683,-922 505,-922 505,-922 499,-922 493,-916 493,-910 493,-910 493,-848 493,-848 493,-842 499,-836 505,-836 505,-836 683,-836 683,-836 689,-836 695,-842 695,-848 695,-848 695,-910 695,-910 695,-916 689,-922 683,-922"/>
-<text text-anchor="middle" x="594" y="-882.2" font-family="Times,serif" font-size="11.00" fill="#000000">Hermes Agent</text>
-<text text-anchor="middle" x="594" y="-870.2" font-family="Times,serif" font-size="11.00" fill="#000000">управление</text>
+<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M517,-922C517,-922 339,-922 339,-922 333,-922 327,-916 327,-910 327,-910 327,-848 327,-848 327,-842 333,-836 339,-836 339,-836 517,-836 517,-836 523,-836 529,-842 529,-848 529,-848 529,-910 529,-910 529,-916 523,-922 517,-922"/>
+<text text-anchor="middle" x="428" y="-882.2" font-family="Times,serif" font-size="11.00" fill="#000000">Hermes Agent</text>
+<text text-anchor="middle" x="428" y="-870.2" font-family="Times,serif" font-size="11.00" fill="#000000">управление</text>
 </g>
 <!-- v3_hermes -->
 <g id="node3" class="node">
 <title>v3_hermes</title>
-<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M928,-922C928,-922 750,-922 750,-922 744,-922 738,-916 738,-910 738,-910 738,-848 738,-848 738,-842 744,-836 750,-836 750,-836 928,-836 928,-836 934,-836 940,-842 940,-848 940,-848 940,-910 940,-910 940,-916 934,-922 928,-922"/>
-<text text-anchor="middle" x="839" y="-882.2" font-family="Times,serif" font-size="11.00" fill="#000000">Hermes Agent</text>
-<text text-anchor="middle" x="839" y="-870.2" font-family="Times,serif" font-size="11.00" fill="#000000">резерв</text>
+<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M762,-922C762,-922 584,-922 584,-922 578,-922 572,-916 572,-910 572,-910 572,-848 572,-848 572,-842 578,-836 584,-836 584,-836 762,-836 762,-836 768,-836 774,-842 774,-848 774,-848 774,-910 774,-910 774,-916 768,-922 762,-922"/>
+<text text-anchor="middle" x="673" y="-882.2" font-family="Times,serif" font-size="11.00" fill="#000000">Hermes Agent</text>
+<text text-anchor="middle" x="673" y="-870.2" font-family="Times,serif" font-size="11.00" fill="#000000">резерв</text>
 </g>
 <!-- v1_hermes&#45;&gt;v3_hermes -->
 <g id="edge2" class="edge">
 <title>v1_hermes&#45;&gt;v3_hermes</title>
-<path fill="none" stroke="#2e7d32" stroke-width="3" d="M695.07,-879C695.07,-879 727.77,-879 727.77,-879"/>
-<polygon fill="#2e7d32" stroke="#2e7d32" stroke-width="3" points="727.77,-882.5 737.77,-879 727.77,-875.5 727.77,-882.5"/>
+<path fill="none" stroke="#2e7d32" stroke-width="3" d="M529.07,-879C529.07,-879 561.77,-879 561.77,-879"/>
+<polygon fill="#2e7d32" stroke="#2e7d32" stroke-width="3" points="561.77,-882.5 571.77,-879 561.77,-875.5 561.77,-882.5"/>
 </g>
 <!-- v2_nginx -->
 <g id="node4" class="node">
 <title>v2_nginx</title>
-<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M1173,-918.5C1173,-918.5 995,-918.5 995,-918.5 989,-918.5 983,-912.5 983,-906.5 983,-906.5 983,-851.5 983,-851.5 983,-845.5 989,-839.5 995,-839.5 995,-839.5 1173,-839.5 1173,-839.5 1179,-839.5 1185,-845.5 1185,-851.5 1185,-851.5 1185,-906.5 1185,-906.5 1185,-912.5 1179,-918.5 1173,-918.5"/>
-<text text-anchor="middle" x="1084" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">nginx (SPA) :80</text>
+<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M1007,-918.5C1007,-918.5 829,-918.5 829,-918.5 823,-918.5 817,-912.5 817,-906.5 817,-906.5 817,-851.5 817,-851.5 817,-845.5 823,-839.5 829,-839.5 829,-839.5 1007,-839.5 1007,-839.5 1013,-839.5 1019,-845.5 1019,-851.5 1019,-851.5 1019,-906.5 1019,-906.5 1019,-912.5 1013,-918.5 1007,-918.5"/>
+<text text-anchor="middle" x="918" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">nginx (SPA) :80</text>
 </g>
 <!-- v1_hermes&#45;&gt;v2_nginx -->
 <g id="edge1" class="edge">
 <title>v1_hermes&#45;&gt;v2_nginx</title>
-<path fill="none" stroke="#2e7d32" stroke-width="3" d="M623,-835.8C623,-817.36 623,-800 623,-800 623,-800 1012,-800 1012,-800 1012,-800 1012,-829.5 1012,-829.5"/>
-<polygon fill="#2e7d32" stroke="#2e7d32" stroke-width="3" points="1008.5,-829.5 1012,-839.5 1015.5,-829.5 1008.5,-829.5"/>
+<path fill="none" stroke="#2e7d32" stroke-width="3" d="M486,-835.8C486,-817.36 486,-800 486,-800 486,-800 883,-800 883,-800 883,-800 883,-829.5 883,-829.5"/>
+<polygon fill="#2e7d32" stroke="#2e7d32" stroke-width="3" points="879.5,-829.5 883,-839.5 886.5,-829.5 879.5,-829.5"/>
 </g>
 <!-- n8_gw -->
 <g id="node8" class="node">
@@ -79,27 +79,27 @@
 <!-- v1_hermes&#45;&gt;n8_gw -->
 <g id="edge16" class="edge">
 <title>v1_hermes&#45;&gt;n8_gw</title>
-<path fill="none" stroke="#9e9e9e" stroke-width="1.5" stroke-dasharray="1,5" d="M659,-835.95C659,-835.95 659,-465.29 659,-465.29"/>
-<polygon fill="#9e9e9e" stroke="#9e9e9e" stroke-width="1.5" points="662.5,-465.29 659,-455.29 655.5,-465.29 662.5,-465.29"/>
+<path fill="none" stroke="#9e9e9e" stroke-width="1.5" stroke-dasharray="1,5" d="M437.5,-835.95C437.5,-719.68 437.5,-408 437.5,-408 437.5,-408 544.75,-408 544.75,-408"/>
+<polygon fill="#9e9e9e" stroke="#9e9e9e" stroke-width="1.5" points="544.75,-411.5 554.75,-408 544.75,-404.5 544.75,-411.5"/>
 </g>
 <!-- v1_nginx -->
 <g id="node2" class="node">
 <title>v1_nginx</title>
-<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M1412.5,-911.5C1412.5,-911.5 1263.5,-911.5 1263.5,-911.5 1257.5,-911.5 1251.5,-905.5 1251.5,-899.5 1251.5,-899.5 1251.5,-858.5 1251.5,-858.5 1251.5,-852.5 1257.5,-846.5 1263.5,-846.5 1263.5,-846.5 1412.5,-846.5 1412.5,-846.5 1418.5,-846.5 1424.5,-852.5 1424.5,-858.5 1424.5,-858.5 1424.5,-899.5 1424.5,-899.5 1424.5,-905.5 1418.5,-911.5 1412.5,-911.5"/>
-<text text-anchor="middle" x="1338" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">nginx :80</text>
+<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M1255.5,-911.5C1255.5,-911.5 1106.5,-911.5 1106.5,-911.5 1100.5,-911.5 1094.5,-905.5 1094.5,-899.5 1094.5,-899.5 1094.5,-858.5 1094.5,-858.5 1094.5,-852.5 1100.5,-846.5 1106.5,-846.5 1106.5,-846.5 1255.5,-846.5 1255.5,-846.5 1261.5,-846.5 1267.5,-852.5 1267.5,-858.5 1267.5,-858.5 1267.5,-899.5 1267.5,-899.5 1267.5,-905.5 1261.5,-911.5 1255.5,-911.5"/>
+<text text-anchor="middle" x="1181" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">nginx :80</text>
 </g>
 <!-- v2_bff -->
 <g id="node5" class="node">
 <title>v2_bff</title>
-<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M1058,-764C1058,-764 880,-764 880,-764 874,-764 868,-758 868,-752 868,-752 868,-690 868,-690 868,-684 874,-678 880,-678 880,-678 1058,-678 1058,-678 1064,-678 1070,-684 1070,-690 1070,-690 1070,-752 1070,-752 1070,-758 1064,-764 1058,-764"/>
-<text text-anchor="middle" x="969" y="-724.2" font-family="Times,serif" font-size="11.00" fill="#000000">BFF (Node.js)</text>
-<text text-anchor="middle" x="969" y="-712.2" font-family="Times,serif" font-size="11.00" fill="#000000">Fastify :3000</text>
+<path fill="#bbdefb" stroke="#1976d2" stroke-width="1.5" d="M1003,-764C1003,-764 825,-764 825,-764 819,-764 813,-758 813,-752 813,-752 813,-690 813,-690 813,-684 819,-678 825,-678 825,-678 1003,-678 1003,-678 1009,-678 1015,-684 1015,-690 1015,-690 1015,-752 1015,-752 1015,-758 1009,-764 1003,-764"/>
+<text text-anchor="middle" x="914" y="-724.2" font-family="Times,serif" font-size="11.00" fill="#000000">BFF (Node.js)</text>
+<text text-anchor="middle" x="914" y="-712.2" font-family="Times,serif" font-size="11.00" fill="#000000">Fastify :3000</text>
 </g>
 <!-- v2_nginx&#45;&gt;v2_bff -->
 <g id="edge3" class="edge">
 <title>v2_nginx&#45;&gt;v2_bff</title>
-<path fill="none" stroke="#0d47a1" stroke-width="2" d="M1041,-839.13C1041,-839.13 1041,-774.19 1041,-774.19"/>
-<polygon fill="#0d47a1" stroke="#0d47a1" stroke-width="2" points="1044.5,-774.19 1041,-764.19 1037.5,-774.19 1044.5,-774.19"/>
+<path fill="none" stroke="#0d47a1" stroke-width="2" d="M949,-839.13C949,-839.13 949,-774.19 949,-774.19"/>
+<polygon fill="#0d47a1" stroke="#0d47a1" stroke-width="2" points="952.5,-774.19 949,-764.19 945.5,-774.19 952.5,-774.19"/>
 </g>
 <!-- cisco -->
 <g id="node6" class="node">
@@ -110,8 +110,8 @@
 <!-- v2_bff&#45;&gt;cisco -->
 <g id="edge4" class="edge">
 <title>v2_bff&#45;&gt;cisco</title>
-<path fill="none" stroke="#1976d2" stroke-width="2.5" d="M944,-677.96C944,-677.96 944,-616.13 944,-616.13"/>
-<polygon fill="#1976d2" stroke="#1976d2" stroke-width="2.5" points="947.5,-616.13 944,-606.13 940.5,-616.13 947.5,-616.13"/>
+<path fill="none" stroke="#1976d2" stroke-width="2.5" d="M914,-677.96C914,-677.96 914,-616.13 914,-616.13"/>
+<polygon fill="#1976d2" stroke="#1976d2" stroke-width="2.5" points="917.5,-616.13 914,-606.13 910.5,-616.13 917.5,-616.13"/>
 </g>
 <!-- huawei -->
 <g id="node7" class="node">
@@ -122,20 +122,20 @@
 <!-- v2_bff&#45;&gt;huawei -->
 <g id="edge5" class="edge">
 <title>v2_bff&#45;&gt;huawei</title>
-<path fill="none" stroke="#1976d2" stroke-width="2.5" d="M1066.5,-677.96C1066.5,-677.96 1066.5,-616.13 1066.5,-616.13"/>
-<polygon fill="#1976d2" stroke="#1976d2" stroke-width="2.5" points="1070,-616.13 1066.5,-606.13 1063,-616.13 1070,-616.13"/>
+<path fill="none" stroke="#1976d2" stroke-width="2.5" d="M1015.05,-690C1049.16,-690 1078.75,-690 1078.75,-690 1078.75,-690 1078.75,-616.26 1078.75,-616.26"/>
+<polygon fill="#1976d2" stroke="#1976d2" stroke-width="2.5" points="1082.25,-616.26 1078.75,-606.26 1075.25,-616.26 1082.25,-616.26"/>
 </g>
 <!-- v2_bff&#45;&gt;n8_gw -->
 <g id="edge9" class="edge">
 <title>v2_bff&#45;&gt;n8_gw</title>
-<path fill="none" stroke="#0d47a1" stroke-width="3" d="M867.84,-681C808.21,-681 744.33,-681 744.33,-681 744.33,-681 744.33,-465.24 744.33,-465.24"/>
-<polygon fill="#0d47a1" stroke="#0d47a1" stroke-width="3" points="747.83,-465.24 744.33,-455.24 740.83,-465.24 747.83,-465.24"/>
+<path fill="none" stroke="#0d47a1" stroke-width="3" d="M812.77,-681C746.46,-681 672,-681 672,-681 672,-681 672,-465.24 672,-465.24"/>
+<polygon fill="#0d47a1" stroke="#0d47a1" stroke-width="3" points="675.5,-465.24 672,-455.24 668.5,-465.24 675.5,-465.24"/>
 </g>
 <!-- cisco&#45;&gt;n8_gw -->
 <g id="edge6" class="edge">
 <title>cisco&#45;&gt;n8_gw</title>
-<path fill="none" stroke="#1976d2" stroke-width="2.5" d="M803.94,-554C774.55,-554 750.67,-554 750.67,-554 750.67,-554 750.67,-465.4 750.67,-465.4"/>
-<polygon fill="#1976d2" stroke="#1976d2" stroke-width="2.5" points="754.17,-465.4 750.67,-455.4 747.17,-465.4 754.17,-465.4"/>
+<path fill="none" stroke="#1976d2" stroke-width="2.5" d="M812,-526.82C812,-489.72 812,-440 812,-440 812,-440 767,-440 767,-440"/>
+<polygon fill="#1976d2" stroke="#1976d2" stroke-width="2.5" points="767,-436.5 757,-440 767,-443.5 767,-436.5"/>
 </g>
 <!-- n8_v14 -->
 <g id="node11" class="node">
@@ -193,14 +193,14 @@
 <!-- n8_gw&#45;&gt;n8_v14 -->
 <g id="edge10" class="edge">
 <title>n8_gw&#45;&gt;n8_v14</title>
-<path fill="none" stroke="#7b1fa2" stroke-width="2.5" d="M757.17,-392C819.15,-392 886.67,-392 886.67,-392 886.67,-392 886.67,-291.67 886.67,-291.67"/>
-<polygon fill="#7b1fa2" stroke="#7b1fa2" stroke-width="2.5" points="890.17,-291.67 886.67,-281.67 883.17,-291.67 890.17,-291.67"/>
+<path fill="none" stroke="#7b1fa2" stroke-width="2.5" d="M757.17,-370C819.15,-370 886.67,-370 886.67,-370 886.67,-370 886.67,-291.56 886.67,-291.56"/>
+<polygon fill="#7b1fa2" stroke="#7b1fa2" stroke-width="2.5" points="890.17,-291.56 886.67,-281.56 883.17,-291.56 890.17,-291.56"/>
 </g>
 <!-- n8_gw&#45;&gt;n7_v32 -->
 <g id="edge11" class="edge">
 <title>n8_gw&#45;&gt;n7_v32</title>
-<path fill="none" stroke="#7b1fa2" stroke-width="2" stroke-dasharray="5,2" d="M757.12,-423C892.41,-423 1115.5,-423 1115.5,-423 1115.5,-423 1115.5,-291.76 1115.5,-291.76"/>
-<polygon fill="#7b1fa2" stroke="#7b1fa2" stroke-width="2" points="1119,-291.76 1115.5,-281.76 1112,-291.76 1119,-291.76"/>
+<path fill="none" stroke="#7b1fa2" stroke-width="2" stroke-dasharray="5,2" d="M757.12,-380C892.41,-380 1115.5,-380 1115.5,-380 1115.5,-380 1115.5,-291.72 1115.5,-291.72"/>
+<polygon fill="#7b1fa2" stroke="#7b1fa2" stroke-width="2" points="1119,-291.72 1115.5,-281.72 1112,-291.72 1119,-291.72"/>
 </g>
 <!-- n7_proxy -->
 <g id="node15" class="node">
@@ -237,7 +237,7 @@
 <!-- n8_prom&#45;&gt;n8_v14 -->
 <g id="edge18" class="edge">
 <title>n8_prom&#45;&gt;n8_v14</title>
-<path fill="none" stroke="#ff8f00" stroke-dasharray="1,5" d="M587.02,-578C668.65,-578 790.5,-578 790.5,-578 790.5,-578 790.5,-238 790.5,-238 790.5,-238 802.77,-238 819.79,-238"/>
+<path fill="none" stroke="#ff8f00" stroke-dasharray="1,5" d="M587.02,-566C668.65,-566 790.5,-566 790.5,-566 790.5,-566 790.5,-238 790.5,-238 790.5,-238 802.77,-238 819.79,-238"/>
 </g>
 <!-- n8_prom&#45;&gt;n7_v32 -->
 <g id="edge19" class="edge">
@@ -280,27 +280,38 @@
 <!-- le1 -->
 <g id="node17" class="node">
 <title>le1</title>
-<text text-anchor="middle" x="2792" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">━━━ &#160;API / HTTP (сплошная синяя)</text>
+<text text-anchor="middle" x="1388" y="-882" font-family="Times,serif" font-size="10.00" fill="#000000">━━━ &#160;API / HTTP</text>
+<text text-anchor="middle" x="1388" y="-871" font-family="Times,serif" font-size="10.00" fill="#000000">(сплошная синяя)</text>
 </g>
 <!-- le2 -->
 <g id="node18" class="node">
 <title>le2</title>
-<text text-anchor="middle" x="2525" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">╌╌╌ &#160;SQL / DB (пунктир оранжевый)</text>
+<text text-anchor="middle" x="1388" y="-724" font-family="Times,serif" font-size="10.00" fill="#000000">╌╌╌ &#160;SQL / DB</text>
+<text text-anchor="middle" x="1388" y="-713" font-family="Times,serif" font-size="10.00" fill="#000000">(пунктир оранжевый)</text>
 </g>
+<!-- le1&#45;&gt;le2 -->
 <!-- le3 -->
 <g id="node19" class="node">
 <title>le3</title>
-<text text-anchor="middle" x="2219" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">┅┅┅ &#160;RAG / Proxy (жирный пунктир бирюзовый)</text>
+<text text-anchor="middle" x="1388" y="-575" font-family="Times,serif" font-size="10.00" fill="#000000">┅┅┅ &#160;RAG / Proxy</text>
+<text text-anchor="middle" x="1388" y="-564" font-family="Times,serif" font-size="10.00" fill="#000000">(жирный пунктир</text>
+<text text-anchor="middle" x="1388" y="-553" font-family="Times,serif" font-size="10.00" fill="#000000">бирюзовый)</text>
 </g>
+<!-- le2&#45;&gt;le3 -->
 <!-- le4 -->
 <g id="node20" class="node">
 <title>le4</title>
-<text text-anchor="middle" x="1920" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">━━━ &#160;WireGuard (жирная зелёная)</text>
+<text text-anchor="middle" x="1388" y="-411" font-family="Times,serif" font-size="10.00" fill="#000000">━━━ &#160;WireGuard</text>
+<text text-anchor="middle" x="1388" y="-400" font-family="Times,serif" font-size="10.00" fill="#000000">(жирная зелёная)</text>
 </g>
+<!-- le3&#45;&gt;le4 -->
 <!-- le5 -->
 <g id="node21" class="node">
 <title>le5</title>
-<text text-anchor="middle" x="1630" y="-876.2" font-family="Times,serif" font-size="11.00" fill="#000000">··· &#160;Metrics / Health (пунктир жёлтый/серый)</text>
+<text text-anchor="middle" x="1388" y="-247" font-family="Times,serif" font-size="10.00" fill="#000000">··· &#160;Metrics</text>
+<text text-anchor="middle" x="1388" y="-236" font-family="Times,serif" font-size="10.00" fill="#000000">(пунктир</text>
+<text text-anchor="middle" x="1388" y="-225" font-family="Times,serif" font-size="10.00" fill="#000000">жёлтый/серый)</text>
 </g>
+<!-- le4&#45;&gt;le5 -->
 </g>
 </svg>

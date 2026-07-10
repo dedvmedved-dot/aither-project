@@ -188,13 +188,17 @@ digraph AitherPhysicalArchitecture {
         color="#bdbdbd"
         fontcolor="#000000"
         fontsize=12
+        rankdir=LR
+        rank=same
 
-        node [shape=plaintext, fillcolor="#fafafa", color="#fafafa", fontsize=11, fontcolor="#000000"]
+        node [shape=plaintext, fillcolor="#fafafa", color="#fafafa", fontsize=10, fontcolor="#000000", margin="0.05,0.02"]
 
-        le1 [label="━━━  API / HTTP (сплошная синяя)"]
-        le2 [label="╌╌╌  SQL / DB (пунктир оранжевый)"]
-        le3 [label="┅┅┅  RAG / Proxy (жирный пунктир бирюзовый)"]
-        le4 [label="━━━  WireGuard (жирная зелёная)"]
-        le5 [label="···  Metrics / Health (пунктир жёлтый/серый)"]
+        le1 [label="━━━  API / HTTP\n(сплошная синяя)"]
+        le2 [label="╌╌╌  SQL / DB\n(пунктир оранжевый)"]
+        le3 [label="┅┅┅  RAG / Proxy\n(жирный пунктир\nбирюзовый)"]
+        le4 [label="━━━  WireGuard\n(жирная зелёная)"]
+        le5 [label="···  Metrics\n(пунктир\nжёлтый/серый)"]
+
+        le1 -> le2 -> le3 -> le4 -> le5 [style=invis]
     }
 }
