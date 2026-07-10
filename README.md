@@ -68,7 +68,7 @@ n7 ↔ n8: Flannel VXLAN (10.244.0.0/16)
 
 ```bash
 # Портал: https://fb1.spb.ru:10443
-# Grafana: http://grafana.130.17.1.90.nip.io:30300
+# Grafana: https://fb1.spb.ru:10443/grafana/
 # API: https://fb1.spb.ru:10443/v1/chat/completions
 # RAG: https://fb1.spb.ru:10443/api/v1/rag/status (JWT)
 ```
