@@ -1915,6 +1915,51 @@ function main() {
         });
     }); });
 
+    // Admin settings — LDAP configuration
+    app.get("/api/v1/admin/settings", function (req, reply) { return __awaiter(void 0, void 0, void 0, function () {
+        var r;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, pool.query("SELECT key, value, description, updated_at FROM portal_settings ORDER BY key")];
+                case 1:
+                    r = _a.sent();
+                    return [2 /*return*/, reply.send({ settings: r.rows })];
+            }
+        });
+    }); });
+
+    app.post("/api/v1/admin/settings", function (req, reply) { return __awaiter(void 0, void 0, void 0, function () {
+        var settings, updates, _i, _a, s, r, e_24;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    settings = req.body;
+                    if (!settings || typeof settings !== "object") {
+                        return [2 /*return*/, reply.status(400).send({ error: "settings object required" })];
+                    }
+                    updates = [];
+                    _b.label = 1;
+                case 1:
+                    _b.trys.push([1, 3, , 4]);
+                    for (_i = 0, _a = Object.entries(settings); _i < _a.length; _i++) {
+                        s = _a[_i];
+                        updates.push(pool.query(
+                            "INSERT INTO portal_settings (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2, updated_at=now()",
+                            [s[0], String(s[1] || "")]
+                        ));
+                    }
+                    return [4 /*yield*/, Promise.all(updates)];
+                case 2:
+                    _b.sent();
+                    return [2 /*return*/, reply.send({ status: "ok", updated: updates.length })];
+                case 3:
+                    e_24 = _b.sent();
+                    return [2 /*return*/, reply.status(500).send({ error: "settings update failed", detail: String(e_24) })];
+                case 4: return [2 /*return*/];
+            }
+        });
+    }); });
+
 app.all("/api/v1/admin/*", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {
                         var adminHeader, isAdminKey, p, orgs, path, gwUrl, method, headers, ADMIN_JWT_SECRET, adminToken, body, resp, data, e_22;
                         return __generator(this, function (_a) {
@@ -1963,10 +2008,21 @@ app.all("/api/v1/admin/*", function (req, reply) { return __awaiter(_this, void 
                         });
                     }); });
                     listenHost = IS_PRODUCTION ? "127.0.0.1" : "0.0.0.0";
-                    return [4 /*yield*/, app.listen({ port: PORT, host: listenHost })];
+                    // Load LDAP settings from DB
+                    return [4 /*yield*/, pool.query("SELECT key, value FROM portal_settings WHERE key LIKE 'ldap_%' AND value != ''")];
                 case 5:
+                    var dbSettings = _a.sent();
+                    for (var _si = 0; _si < dbSettings.rows.length; _si++) {
+                        var s = dbSettings.rows[_si];
+                        if (s.value && !process.env[s.key.toUpperCase()]) {
+                            process.env[s.key.toUpperCase()] = s.value;
+                            console.log("Settings: " + s.key.toUpperCase() + " loaded from DB");
+                        }
+                    }
+                    return [4 /*yield*/, app.listen({ port: PORT, host: listenHost })];
+                case 6:
                     _a.sent();
-                    console.log("Portal BFF v0.6.0 (security-hardened) on ".concat(listenHost, ":").concat(PORT));
+                    console.log("Portal BFF v0.6.1 (security-hardened) on ".concat(listenHost, ":").concat(PORT));
                     return [2 /*return*/];
             }
         });

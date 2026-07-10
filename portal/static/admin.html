@@ -169,6 +169,7 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
     <a href="#tiers" data-panel="tiers"><span class="icon">⚙️</span> Тарифы</a>
     <div class="section">Этап 5а</div>
     <a href="#stage5a" data-panel="stage5a"><span class="icon">🗺️</span> Статус 5а</a>
+    <a href="#settings" data-panel="settings"><span class="icon">⚙️</span> Настройки</a>
     <a href="/" style="color:var(--text-muted);margin-top:auto;" title="Вернуться в портал"><span class="icon">🚪</span> Выход</a>
   </nav>
 
@@ -298,7 +299,27 @@ input:focus, select:focus { outline:none; border-color:var(--accent); }
           </tbody>
         </table>
       </div>
+    
+    <!-- SETTINGS -->
+    <div id="panel-settings" class="panel">
+      <div class="card"><h3>⚙️ Настройки LDAP</h3>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">FreeIPA / ALD Pro / OpenLDAP. После сохранения требуется <b>перезапуск BFF</b>.</p>
+        <form id="settings-form" onsubmit="saveSettings(event)" style="display:grid;gap:10px;max-width:500px;">
+          <label style="font-size:12px;color:var(--text-muted);">LDAP-сервер (ldap://host:389)<input name="ldap_url" placeholder="ldap://ipa.example.com:389" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">Базовый DN<input name="ldap_base_dn" placeholder="dc=example,dc=com" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">Сервисная учётка (DN)<input name="ldap_bind_dn" placeholder="uid=svc,cn=users,cn=accounts,dc=..." style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">Пароль сервисной учётки<input name="ldap_bind_password" type="password" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">User Base (где искать пользователей)<input name="ldap_user_base" placeholder="cn=users,cn=accounts,dc=example,dc=com" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">Group Base (где искать группы)<input name="ldap_group_base" placeholder="cn=groups,cn=accounts,dc=example,dc=com" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">Атрибут логина<input name="ldap_uid_attr" placeholder="uid" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">Атрибут почты<input name="ldap_mail_attr" placeholder="mail" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <label style="font-size:12px;color:var(--text-muted);">Атрибут имени<input name="ldap_name_attr" placeholder="displayName" style="width:100%;padding:6px 10px;margin-top:2px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:4px;"></label>
+          <button type="submit" style="margin-top:8px;padding:8px 24px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">💾 Сохранить</button>
+          <span id="settings-status" style="font-size:12px;"></span>
+        </form>
+      </div>
     </div>
+</div>
 
   </main>
 </div>
@@ -312,7 +333,7 @@ const ADMIN_KEY = 'hs256-shared-secret-key-for-admin-api-2026';
 const API_BASE = window.location.origin + '/api/v1/admin';
 
 // ── Auto-load ──
-const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper, users: loadUsers, tiers: loadTiers };
+const loaders = { health: loadHealth, models: loadModels, queues: loadQueues, reaper: loadReaper, users: loadUsers, tiers: loadTiers, settings: loadSettings };
 
 // ── Toast ──
 function toast(msg, ok) {
@@ -476,6 +497,48 @@ async function orgSetTier() {
   } catch (e) { toast('❌ ' + e.message, false); }
 }
 
+
+// ── SETTINGS ──
+async function loadSettings() {
+  try {
+    const data = await api('/settings');
+    const settings = data.settings || [];
+    const form = document.getElementById('settings-form');
+    if (!form) return;
+    for (const s of settings) {
+      const el = form.querySelector('[name="' + s.key + '"]');
+      if (el) el.value = s.value || '';
+    }
+  } catch (e) {
+    document.getElementById('settings-status').innerHTML = '<span style="color:var(--red);">❌ ' + e.message + '</span>';
+  }
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  const form = document.getElementById('settings-form');
+  const data = {};
+  for (const el of form.querySelectorAll('input')) {
+    data[el.name] = el.value;
+  }
+  const st = document.getElementById('settings-status');
+  st.innerHTML = '<span style="color:var(--text-muted);">Сохранение...</span>';
+  try {
+    const r = await fetch(API_BASE + '/settings', {
+      method: 'POST',
+      headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const j = await r.json();
+    if (r.ok) {
+      st.innerHTML = '<span style="color:var(--green);">✅ Сохранено (' + j.updated + ' полей). Не забудьте перезапустить BFF.</span>';
+    } else {
+      st.innerHTML = '<span style="color:var(--red);">❌ ' + (j.error || r.status) + '</span>';
+    }
+  } catch (e) {
+    st.innerHTML = '<span style="color:var(--red);">❌ ' + e.message + '</span>';
+  }
+}
 // ── Auto-load health ──
 async function loadHealth() {
   const el = document.getElementById('health-body');

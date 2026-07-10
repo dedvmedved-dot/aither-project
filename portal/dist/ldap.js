@@ -239,5 +239,5 @@ function authenticateViaLDAP(username, password) {
 }
 // --- Check if LDAP is configured ---
 function isLDAPEnabled() {
-    return LDAP_ENABLED;
+    return !!(process.env.LDAP_URL);
 }
