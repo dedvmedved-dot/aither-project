@@ -8,10 +8,39 @@ import { randomBytes, createHash, scryptSync, timingSafeEqual } from "crypto";
 import { authenticateViaLDAP, isLDAPEnabled } from "./ldap";
 import { POLICIES_DDL, loadPolicy, savePolicy, validatePolicy } from "./policies";
 import { registerApiGateway } from "./api-gateway";
+import fs from "fs";
+import https from "https";
 
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
 const CORE_API = process.env.CORE_API || "http://gateway:8080";
+const CORE_API_MTLS = process.env.CORE_API_MTLS || "https://gateway:8443";
+
+// mTLS agent for Gateway communication
+const mtlsAgent = (() => {
+  try {
+    return new https.Agent({
+      ca: fs.readFileSync(process.env.MTLS_CA || "/etc/aither/mtls/ca.crt"),
+      cert: fs.readFileSync(process.env.MTLS_CERT || "/etc/aither/mtls/bff.crt"),
+      key: fs.readFileSync(process.env.MTLS_KEY || "/etc/aither/mtls/bff.key"),
+      rejectUnauthorized: true,
+    });
+  } catch (e) {
+    console.warn("[mtls] Agent creation failed, falling back to plain HTTP:", e);
+    return null;
+  }
+})();
+
+// Helper: fetch from Gateway with mTLS if available
+export async function gatewayFetch(path: string, opts: RequestInit = {}): Promise<Response> {
+  const url = (mtlsAgent ? CORE_API_MTLS : CORE_API) + path;
+  const fetchOpts: any = { ...opts };
+  if (mtlsAgent) {
+    // @ts-ignore — Node.js fetch supports agent via dispatcher
+    fetchOpts.dispatcher = mtlsAgent;
+  }
+  return fetch(url, fetchOpts);
+}
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const PUBLIC_HOST = process.env.PUBLIC_HOST || "localhost";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || (IS_PRODUCTION ? `https://${PUBLIC_HOST}` : `http://${PUBLIC_HOST}`);
@@ -194,11 +223,6 @@ async function main() {
     );
     -- Migration: add org_id to existing chats (set to user's personal org)
     ALTER TABLE chats ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES portal_organizations(org_id);
-    UPDATE chats SET org_id = sub.org_id FROM (
-      SELECT DISTINCT ON (c.chat_id) c.chat_id, m.org_id
-      FROM chats c JOIN portal_org_members m ON m.user_id = c.user_id AND m.role = 'owner'
-    ) sub WHERE chats.chat_id = sub.chat_id AND chats.org_id IS NULL;
-    ALTER TABLE chats ALTER COLUMN org_id SET NOT NULL;
     CREATE TABLE IF NOT EXISTS chat_messages (
       message_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       chat_id uuid NOT NULL REFERENCES chats(chat_id) ON DELETE CASCADE,
@@ -619,7 +643,7 @@ async function main() {
   });
 
   // ── External API Gateway (API-key auth, OpenAI-compatible) ──
-  registerApiGateway(app, pool, CORE_API);
+  registerApiGateway(app, pool);
 
   app.get("/api/v1/me", async (req: any, reply) => {
     const p = auth(req, reply); if (!p) return;
@@ -651,7 +675,7 @@ async function main() {
   
   app.get("/api/v1/core/status", async (_r, reply) => {
     try {
-      const r = await fetch(CORE_API + "/health");
+      const r = await gatewayFetch("/health");
       const text = await r.text();
       if (!text) return reply.send({ status: "ok", model: "vLLM", note: "health returned empty (vLLM direct)" });
       try { return reply.send(JSON.parse(text)); }
@@ -995,8 +1019,8 @@ async function main() {
       const vllmModel = modelInfo.vllm_path;
       const vllmEndpoint = CORE_API;
 
-      // Call vLLM with streaming
-      const vllmRes = await fetch(vllmEndpoint + "/v1/chat/completions", {
+      // Call Gateway (with mTLS) which proxies to vLLM
+      const vllmRes = await gatewayFetch("/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1711,12 +1735,12 @@ async function main() {
     const path = (req.params as any)["*"];
     // Admin API is at Gateway root, not under /v1
     const gwUrl = `${CORE_API.replace(/\/v1\/?$/, "")}/admin/${path}`;
+    const adminPath = `/admin/${path}`;
     try {
       const method = req.method;
       const headers: any = { "Content-Type": "application/json" };
       // Generate admin JWT — Gateway verifies with shared secret
-      // Default Gateway secret is "aither-admin-secret" (JWT_SECRET env or ADMIN_SECRET fallback)
-      const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "aither-admin-secret";
+      const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "change-me";
       const adminToken = jwt.sign(
         { role: "admin", iat: Math.floor(Date.now() / 1000) },
         ADMIN_JWT_SECRET,
@@ -1727,10 +1751,9 @@ async function main() {
       let body: string | undefined;
       if (method === "POST" || method === "PUT") {
         body = JSON.stringify(req.body);
-        headers["Content-Length"] = String(body.length);
       }
 
-      const resp = await fetch(gwUrl, { method, headers, body });
+      const resp = await gatewayFetch(adminPath, { method, headers, body });
       const data = await resp.json();
       return reply.status(resp.status).send(data);
     } catch (e: any) {

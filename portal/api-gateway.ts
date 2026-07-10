@@ -7,7 +7,7 @@
 
 import { Pool } from "pg";
 import crypto from "crypto";
-
+import { gatewayFetch } from "./server";
 const MODEL_MAP: Record<string, { display_name: string; vllm_path: string; description: string }> = {
   "qwen2.5-14b": {
     display_name: "Qwen 2.5 14B",
@@ -61,7 +61,7 @@ async function authApiKey(req: any, reply: any, pool: Pool): Promise<ApiKeyPaylo
 
 // ── Routes ────────────────────────────────────────────────────
 
-export function registerApiGateway(app: any, pool: Pool, CORE_API: string) {
+export function registerApiGateway(app: any, pool: Pool) {
 
   // GET /api/v1/models — public model list (no auth required for discovery)
   app.get("/api/v1/models", async (_r: any, reply: any) => {
@@ -106,8 +106,8 @@ export function registerApiGateway(app: any, pool: Pool, CORE_API: string) {
     };
 
     try {
-      // Proxy to Gateway with billing headers
-      const resp = await fetch(CORE_API + "/v1/chat/completions", {
+      // Proxy to Gateway (with mTLS) — Gateway handles API key auth + billing
+      const resp = await gatewayFetch("/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
