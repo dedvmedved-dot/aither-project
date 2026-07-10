@@ -2653,108 +2653,100 @@ def search(self, query: str, limit: int = 10) -> list[WikiPage]:
     return [p for _, p in scored[:limit]]
 ```
 
-### 23.3 Гибридный RAG: keyword + graph expansion
+### 23.3 Гибридный RAG: Wiki + ChromaDB через прокси
 
-**Идея гибрида.** Чистый keyword search находит страницы — но не учитывает
-их семантические связи. Чистый векторный поиск теряет структуру.
-Гибридный подход объединяет оба метода.
+**Идея гибрида.** Wiki-граф даёт keyword-поиск по структурированным знаниям.
+ChromaDB — векторный поиск по учебнику (322 чанка). Гибридный RAG объединяет
+оба источника: keyword + vector → комбинированный ответ.
+
+Проблема прямой интеграции ChromaDB в Gateway: REST API версий 0.5.x и 0.6.x
+не принимает текстовые запросы — требует готовые эмбеддинги. Установка
+Python-клиента ChromaDB в Gateway-под требует тяжёлых зависимостей (onnxruntime,
+hnswlib) и увеличивает Docker-образ на 2+ ГБ.
+
+**Решение — chroma-proxy:** отдельный под в Kubernetes, использующий
+Python-клиент ChromaDB. Прокси принимает текстовые запросы, генерирует
+эмбеддинги (ONNX MiniLM-L6-v2) и выполняет векторный поиск. Gateway
+вызывает прокси по HTTP без chromadb-зависимостей.
 
 ```dot
-digraph hybrid_rag {
+digraph hybrid_rag_arch {
     rankdir=TB;
     bgcolor="#ffffff";
-    node [fontname="Arial", fontsize=11];
+    node [fontname="Arial", fontsize=10, fontcolor="#000000"];
+    edge [fontname="Arial", fontsize=9, fontcolor="#000000"];
 
-    query [label="Запрос", shape=oval, style=filled, fillcolor="#e3f2fd"];
-    kw [label="Keyword\nSearch\n(все страницы)", shape=box, style=filled, fillcolor="#e8f5e9"];
-    match [label="Match &\nDeduplicate", shape=box, style=filled, fillcolor="#f3e5f5"];
-    expand [label="Graph\nExpansion\n(1-hop)", shape=box, style=filled, fillcolor="#fff3e0"];
-    rerank [label="Re-rank\nkeyword×0.7 +\nwiki×0.3", shape=box, style=filled, fillcolor="#fce4ec"];
-    fill [label="Fill\ngaps", shape=box, style=filled, fillcolor="#c8e6c9"];
-    result [label="Top-K\nрезультатов", shape=oval, style=filled, fillcolor="#e3f2fd"];
+    user [label="Пользователь", shape=oval, style=filled, fillcolor="#e3f2fd"];
+    gw [label="Gateway\nhybrid_rag.py", shape=box, style=filled, fillcolor="#fff3e0"];
+    wiki [label="Wiki Graph\n8 страниц\nkeyword search", shape=box, style=filled, fillcolor="#e8f5e9"];
+    proxy [label="chroma-proxy\n:9000\nPython API", shape=box, style="filled,dashed", fillcolor="#e1bee7"];
+    chroma [label="ChromaDB 0.5.23\n322 чанка\nвекторная БД", shape=cylinder, style=filled, fillcolor="#fce4ec"];
+    result [label="Top-K\nрезультатов", shape=oval, style=filled, fillcolor="#c8e6c9"];
 
-    query -> kw;
-    kw -> match;
-    match -> expand;
-    match -> rerank;
-    expand -> rerank;
-    rerank -> fill;
-    fill -> result;
+    user -> gw [label="запрос"];
+    gw -> wiki [label="keyword\nsearch"];
+    gw -> proxy [label="текст\nHTTP"];
+    proxy -> chroma [label="Python\nAPI"];
+    wiki -> gw [label="wiki\nhits"];
+    proxy -> gw [label="chroma\nhits"];
+    gw -> result [label="merge\n+ dedup"];
 }
 ```
 
-**Фазы гибридного запроса (hybrid_rag.py):**
+**Фазы гибридного запроса (hybrid_rag.py, 184 строки):**
 
-**Фаза 1 — Keyword search:**
+**Фаза 1 — Wiki keyword search:**
 ```python
-hits = graph.search(query, limit=top_k * 3)
-# Преобразуем в (score, page): позиционный вес
-keyword_hits = [((n - i) / n, page) for i, page in enumerate(hits)]
+graph = get_wiki_graph()
+wiki_pages = graph.search(query)[:top_k]
+# Преобразуем в список: {page_title, slug, relevance=1.0, source="wiki"}
 ```
 
-**Фаза 2 — Match & Deduplicate:** Оставляем лучший score для каждого slug.
-
-**Фаза 3 — Graph Expansion:** Для каждой найденной страницы обходим её
-соседей (1-hop через `[[wikilinks]]`). Считаем wiki_score:
-
+**Фаза 2 — ChromaDB vector search (через chroma-proxy):**
 ```python
-inlink_count = len(graph._inlinks.get(slug, set()))
-wiki_score = min(0.3 + 0.15 * inlink_count, 1.0)
+result = _proxy_post("query", {"query": query, "top_k": top_k})
+# Прокси сам генерирует эмбеддинги (ONNX MiniLM-L6-v2)
+# Возвращает: {page_title, preview, relevance, source="chroma"}
 ```
 
-**Фаза 4 — Re-rank:**
+**Фаза 3 — Combine & Deduplicate:**
 ```python
-combined_score = keyword_score * 0.7 + wiki_score * 0.3
+seen = set()
+combined = []
+for r in wiki_results + chroma_results:
+    key = r["page_title"][:80]
+    if key not in seen:
+        seen.add(key)
+        combined.append(r)
+combined.sort(key=lambda x: x["relevance"], reverse=True)
 ```
 
-Страницы с большим числом входящих ссылок получают более высокий вес —
-это эвристика «авторитетности» страницы в графе знаний.
+**Фаза 4 — Результат:** топ-k уникальных страниц из обоих источников,
+отсортированных по релевантности.
 
-**Фаза 5 — Fill gaps:** Если результатов меньше top_k —
-добираем из соседей найденных страниц (с фиксированным score 0.2).
-
-**Результат:**
-
-```json
-{
-  "query": "как работает безопасность и фильтрация",
-  "mode": "hybrid",
-  "results": [
-    {
-      "id": "wiki:ai-gateway",
-      "text": "Центральный компонент платформы Aither...",
-      "page_title": "AI Gateway",
-      "score": 0.7025,
-      "keyword_score": 0.875,
-      "wiki_score": 0.3,
-      "neighbors": ["Vault PKI", "Security Egress"]
-    }
-  ]
-}
+**HTTP API chroma-proxy:**
+```
+GET  /health          → {"status": "ok"}
+GET  /status          → {"collection": "textbook", "documents": 322, ...}
+POST /query           → {"query": "...", "top_k": 5} → {"results": [...]}
 ```
 
-| Фаза | Операция | Где реализовано |
-|---|---|---|
-| 1. Keyword | Полнотекстовый поиск по wiki | `wiki_graph.search()` |
-| 2. Match | Дедупликация по slug | `hybrid_rag._match_wiki_pages()` |
-| 3. Expand | 1-hop обход графа | `wiki_graph.neighbors()` |
-| 4. Re-rank | keyword×0.7 + wiki×0.3 | `hybrid_rag.hybrid_query()` |
-| 5. Fill | Добираем из соседей | `hybrid_rag.hybrid_query()` |
-|||| *Табл. 23.3 — Фазы гибридного RAG* |
+| Фаза | Операция | Источник | Где реализовано |
+|---|---|---|---|
+| 1. Wiki | Keyword search по графу | wiki_graph.search() | `hybrid_rag.py:hybrid_query()` |
+| 2. Chroma | Текст → прокси → векторы → поиск | chroma-proxy:9000 | `hybrid_rag.py:_proxy_post()` |
+| 3. Combine | Дедупликация по title[:80] | оба источника | `hybrid_rag.py:hybrid_query()` |
+| 4. Sort | По relevance (убывание) | — | `hybrid_rag.py:hybrid_query()` |
+||||| *Табл. 23.3 — Фазы гибридного RAG (актуальная архитектура)* |
 
-### 23.4 ChromaDB: векторная база данных
+### 23.4 ChromaDB: развёртывание и chroma-proxy
 
-**Зачем ChromaDB если есть wiki-граф?** Wiki-граф работает для
-структурированных знаний — документация, архитектура, SOP.
-Но для произвольных документов (технические задания, PDF-отчёты,
-пользовательские загрузки) нужна векторная база.
+**ChromaDB 0.5.23** — стабильная версия с работающим REST API.
+Версия 0.6.3 имела ошибки (coroutine object в /api/v1/collections,
+несовместимость форматов запросов), поэтому был выполнен откат.
+Данные (322 чанка учебника) успешно мигрированы.
 
-**ChromaDB** — open-source векторная БД на Python:
-- Embedding-модель ONNX MiniLM-L6-v2 (384-мерные векторы)
-- Коллекции документов с метаданными
-- HTTP API (клиент → сервер через REST)
-
-**Развёртывание ChromaDB в Kubernetes:**
+**Развёртывание ChromaDB в Kubernetes (n7, nodeSelector):**
 
 ```yaml
 # k8s/chroma-deployment.yaml
@@ -2765,9 +2757,21 @@ spec:
     spec:
       containers:
       - name: chromadb
-        image: chromadb/chroma:latest
+        image: chromadb/chroma:0.5.23
         ports:
         - containerPort: 8000
+        env:
+        - name: IS_PERSISTENT
+          value: "TRUE"
+        - name: PERSIST_DIRECTORY
+          value: /chroma/chroma
+        volumeMounts:
+        - name: chroma-data
+          mountPath: /chroma/chroma
+      volumes:
+      - name: chroma-data
+        persistentVolumeClaim:
+          claimName: chromadb-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -2778,66 +2782,108 @@ spec:
   - port: 8000
 ```
 
-**Интеграция с Gateway (ленивая инициализация):**
+**chroma-proxy — отдельный под с Python-клиентом ChromaDB:**
 
-```python
-# gateway.py — ChromaDB клиент создаётся при первом обращении
-CHROMA_URL = "http://chromadb:8000"
-_rag_chroma = None
-_rag_ef = None
-
-def _get_chroma():
-    global _rag_chroma
-    if _rag_chroma is None:
-        import chromadb
-        _rag_chroma = chromadb.HttpClient(host="chromadb", port=8000)
-    return _rag_chroma
-
-def _get_ef():
-    global _rag_ef
-    if _rag_ef is None:
-        from chromadb.utils import embedding_functions
-        _rag_ef = embedding_functions.ONNXMiniLM_L6_V2()
-    return _rag_ef
+```yaml
+# k8s/chroma-proxy.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chroma-proxy
+spec:
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu  # PVC RWO
+      containers:
+      - name: proxy
+        image: chromadb/chroma:0.5.23
+        command: ["python3", "/scripts/proxy.py", "9000"]
+        workingDir: /chroma
+        env:
+        - name: PYTHONPATH
+          value: /chroma
+        - name: IS_PERSISTENT
+          value: "TRUE"
+        - name: PERSIST_DIRECTORY
+          value: /chroma/chroma
+        volumeMounts:
+        - name: chroma-data
+          mountPath: /chroma/chroma
+        - name: proxy-script
+          mountPath: /scripts
+      volumes:
+      - name: chroma-data
+        persistentVolumeClaim:
+          claimName: chromadb-pvc
+      - name: proxy-script
+        configMap:
+          name: chroma-proxy-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chroma-proxy
+spec:
+  selector:
+    app: chroma-proxy
+  ports:
+  - port: 9000
 ```
 
-**Загрузка документов (ingest):**
+**Почему PVC RWO и nodeSelector на n7:**
+PVC `chromadb-pvc` имеет режим `ReadWriteOnce` — может быть смонтирован
+только на одном узле одновременно. ChromaDB и chroma-proxy должны находиться
+на одной ноде (n7, где находится PVC).
+
+**Интеграция с Gateway — без chromadb-зависимостей:**
 
 ```python
-def rag_ingest(documents: list) -> dict:
-    chroma = _get_chroma()
-    ef = _get_ef()
-    coll = chroma.get_or_create_collection("documents")
-    ids = [doc["id"] for doc in documents]
-    texts = [doc["text"] for doc in documents]
-    embeddings = ef(texts)  # ONNX — без GPU!
-    coll.add(ids=ids, embeddings=embeddings, documents=texts)
-    return {"ingested": len(documents)}
+# hybrid_rag.py — Gateway вызывает chroma-proxy по HTTP
+CHROMA_PROXY_URL = "http://chroma-proxy.default.svc.cluster.local:9000"
+
+def _proxy_get(path: str) -> dict:
+    """GET запрос к chroma-proxy."""
+    url = f"{CHROMA_PROXY_URL}/{path}"
+    resp = urlopen(Request(url), timeout=10)
+    return json.loads(resp.read())
+
+def _proxy_post(path: str, body: dict) -> dict:
+    """POST запрос к chroma-proxy."""
+    url = f"{CHROMA_PROXY_URL}/{path}"
+    data = json.dumps(body).encode()
+    req = Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    resp = urlopen(req, timeout=30)
+    return json.loads(resp.read())
 ```
 
-**Векторный поиск (query):**
+**Gateway не импортирует chromadb.** Все RAG-функции делегированы
+в `hybrid_rag.py`, который общается с chroma-proxy через urllib.
+Это устраняет зависимость от тяжёлых пакетов (onnxruntime, hnswlib)
+и упрощает Docker-образ Gateway.
 
-```python
-def rag_query(query: str, top_k: int = 5) -> list:
-    chroma = _get_chroma()
-    ef = _get_ef()
-    coll = chroma.get_or_create_collection("documents")
-    q_embedding = ef(["query: " + query])
-    results = coll.query(query_embeddings=q_embedding, n_results=top_k)
-    return [
-        {"id": id_, "text": doc, "score": round(1 - float(dist), 4)}
-        for id_, doc, dist in zip(ids, docs, distances)
-    ]
-```
-
-| Компонент | Технология | Модель | Размерность |
-|---|---|---|---|
-| Embedding | ONNX Runtime | MiniLM-L6-v2 | 384 |
-| Векторная БД | ChromaDB | — | Flat index |
-| Поиск | Cosine distance | — | top_k |
-|||| *Табл. 23.4 — Стек векторного RAG* |
+| Компонент | Технология | Модель | Размерность | Где |
+|---|---|---|---|---|
+| Embedding | ONNX Runtime | MiniLM-L6-v2 | 384 | chroma-proxy |
+| Векторная БД | ChromaDB 0.5.23 | — | Flat index | n7 (PVC) |
+| Прокси | Python HTTP | — | :9000 | chroma-proxy pod |
+| Поиск | Cosine distance | — | top_k | chroma-proxy |
+|||||| *Табл. 23.4 — Стек векторного RAG (актуальная архитектура)* |
 
 ### 23.5 RAG Pipeline в Gateway
+
+**Архитектура:** Gateway → hybrid_rag.py → (wiki_graph + chroma-proxy).
+Gateway не содержит chromadb-кода — весь RAG делегирован.
+
+**Ключевое изменение (июль 2026):** удалены функции `_get_ef()`, `_get_chroma()`,
+`rag_ingest()`, `rag_query()` из `gateway.py`. Вместо них — прямой импорт
+из `hybrid_rag`:
+
+```python
+# gateway.py — импорт вместо chromadb-зависимостей
+from hybrid_rag import chroma_status, hybrid_query, wiki_ingest, wiki_status
+```
 
 **API эндпоинты:**
 
@@ -2845,58 +2891,54 @@ def rag_query(query: str, top_k: int = 5) -> list:
 digraph rag_endpoints {
     rankdir=LR;
     bgcolor="#ffffff";
-    node [fontname="Arial", fontsize=10];
+    node [fontname="Arial", fontsize=10, fontcolor="#000000"];
+    edge [fontname="Arial", fontsize=9, fontcolor="#000000"];
 
     gw [label="Gateway\n:8080", shape=box, style=filled, fillcolor="#e3f2fd"];
     hybrid [label="/v1/rag/\nhybrid-query\nPOST", shape=box, style=filled, fillcolor="#e8f5e9"];
     status [label="/v1/rag/\nstatus\nGET", shape=box, style=filled, fillcolor="#fff3e0"];
     wiki [label="/v1/rag/\nwiki-ingest\nGET/POST", shape=box, style=filled, fillcolor="#fce4ec"];
-    chroma_q [label="/v1/rag/\nquery\nPOST", shape=box, style=filled, fillcolor="#f3e5f5"];
-    chroma_i [label="/v1/rag/\ningest\nPOST", shape=box, style=filled, fillcolor="#c8e6c9"];
+    query [label="/v1/rag/\nquery\nPOST", shape=box, style=filled, fillcolor="#f3e5f5"];
 
     gw -> hybrid;
     gw -> status;
     gw -> wiki;
-    gw -> chroma_q;
-    gw -> chroma_i;
+    gw -> query;
 }
 ```
 
 **Поток запроса `/v1/rag/hybrid-query`:**
 
-1. **JWT-аутентификация** — `_check_jwt()` валидирует токен (RS256 или legacy)
-2. **Tier check** — `_get_tier_limits()` проверяет `rag_enabled` в подписке
-3. **Hybrid query** — вызов `hybrid_query(query, top_k, wiki_radius)`
-4. **Ответ** — JSON с результатами, score, соседями по графу
+1. **JWT-аутентификация** — `_check_jwt()` валидирует токен
+2. **Tier check** — `_get_tier_limits()` проверяет `rag_enabled`
+3. **Hybrid query** — `hybrid_query()` выполняет параллельный поиск:
+   - Wiki Graph: keyword search → топ-5 страниц
+   - chroma-proxy: текст → векторы → поиск по учебнику → топ-5 чанков
+4. **Combine & Dedup** — объединение результатов, удаление дублей
+5. **Ответ** — JSON с wiki_results, chroma_results, combined
+
+```python
+# gateway.py — фрагмент RAG-обработчика
+result = hybrid_query(query, top_k=top_k)
+self._json(200, result)
+```
 
 **Управление доступом:**
 
 ```
 Free tier     → rag_enabled = false → 403 "rag_not_available"
 Standard tier → rag_enabled = false → 403
-VIP tier      → rag_enabled = true  → доступ разрешён
+VIP tier      → rag_enabled = true  → доступ разрешён (322 чанка учебника)
 Enterprise    → rag_enabled = true  → доступ разрешён
 ```
 
-```python
-# gateway.py — фрагмент проверки tier
-_oid = payload.get("org_id", "unknown")
-_tier = _get_org_tier(_oid)
-_limits = _get_tier_limits(_tier)
-if not _limits["rag"]:
-    self._json(403, {"error": "rag_not_available", "tier": _tier})
-    return
-results = hybrid_query(query, top_k=top_k, wiki_radius=wiki_radius)
-```
-
-| Метод | Путь | Аутентификация | Tier check | Назначение |
+| Метод | Путь | Аутентификация | Tier | Назначение |
 |---|---|---|---|---|
-| POST | `/v1/rag/hybrid-query` | JWT / API-key | RAG tier | Гибридный поиск |
-| POST | `/v1/rag/query` | JWT / API-key | RAG tier | Векторный поиск (ChromaDB) |
-| POST | `/v1/rag/ingest` | JWT / API-key | — | Загрузка документов в ChromaDB |
-| GET | `/v1/rag/status` | JWT / API-key | — | Статус wiki + ChromaDB |
+| POST | `/v1/rag/hybrid-query` | JWT / API-key | RAG | Гибридный поиск (wiki + ChromaDB) |
+| POST | `/v1/rag/query` | JWT / API-key | RAG | Поиск (→ hybrid_query) |
+| GET | `/v1/rag/status` | JWT / API-key | — | Статус: wiki_pages + documents |
 | GET/POST | `/v1/rag/wiki-ingest` | JWT / API-key | — | Перезагрузка wiki-графа |
-||||| *Табл. 23.5 — RAG API Gateway* |
+|||||| *Табл. 23.5 — RAG API Gateway (актуальная архитектура)* |
 
 ### 23.6 RAG в Portal: BFF и UI
 
@@ -3017,20 +3059,23 @@ function toggleRAG() {
 ---
 
 **Итог главы 23:** RAG-подсистема Aither построена на гибридном подходе:
-ключевой поиск по wiki-графу (Karpathy-style) + опциональный векторный
-поиск через ChromaDB. Portal получил переключатель RAG в чате, BFF —
-прокси-эндпоинты с tier-based доступом. Вся система работает без GPU
-для embedding'ов (ONNX MiniLM-L6-v2 на CPU).
+ключевой поиск по wiki-графу (Karpathy-style, 8 страниц) + векторный
+поиск через ChromaDB 0.5.23 (322 чанка учебника). Gateway делегирует
+RAG в `hybrid_rag.py`, который вызывает chroma-proxy по HTTP — без
+chromadb-зависимостей. chroma-proxy работает на n7 (PVC RWO), генерирует
+эмбеддинги через ONNX MiniLM-L6-v2. Portal получил переключатель RAG
+в чате, админ-панель — вкладку с мониторингом. Вся система работает
+без GPU для embedding'ов.
 
 | Раздел | Стр. | Схем | Табл | Реальный код |
 |---|---|---|---|---|
 | 23.1 Каталог моделей | 6 | 1 | 1 | `catalog.py`, `catalog.yaml` |
 | 23.2 LLM-Wiki | 7 | 1 | 1 | `wiki_graph.py` (340 строк) |
-| 23.3 Гибридный RAG | 6 | 1 | 1 | `hybrid_rag.py` (157 строк) |
-| 23.4 ChromaDB | 5 | 0 | 1 | `gateway.py:209-257` |
-| 23.5 RAG Pipeline | 5 | 1 | 1 | `gateway.py:682-782` |
-| 23.6 RAG в Portal | 3 | 2 | 1 | `server.ts:1717-1813`, `index.html` |
-| **Итого** | **32** | **6** | **6** | — |
+| 23.3 Гибридный RAG | 7 | 1 | 1 | `hybrid_rag.py` (184 строки) |
+| 23.4 ChromaDB + chroma-proxy | 8 | 0 | 1 | `chroma_proxy.py`, `chroma-proxy.yaml` |
+| 23.5 RAG Pipeline | 5 | 1 | 1 | `gateway.py` (импорт hybrid_rag) |
+| 23.6 RAG в Portal | 3 | 2 | 1 | `server.ts`, `index.html` |
+| **Итого** | **36** | **6** | **6** | — |
 
 ---
 
