@@ -29,6 +29,14 @@ digraph aither_arch {
         nginx_vps2 [label="nginx\n:80 (статика портала)", shape=box, style=filled, fillcolor="#fff3e0"];
         bff [label="Portal BFF\nFastify :3000\nserver.ts", shape=box, style=filled, fillcolor="#e8f5e9"];
         pg_portal [label="PostgreSQL 16\nпортал:5432", shape=cylinder, style=filled, fillcolor="#f3e5f5"];
+        hermes_vps2 [label="Hermes Agent\nDeepSeek V4", shape=box, style="filled,dashed", fillcolor="#c8e6c9"];
+    }
+
+    // VPS3
+    subgraph cluster_vps3 {
+        label="VPS3 · 89.127.217.88\nUbuntu 24.04";
+        bgcolor="#f5f5f5";
+        hermes_vps3 [label="Hermes Agent\nDeepSeek V4", shape=box, style="filled,dashed", fillcolor="#c8e6c9"];
     }
 
     // K8s Cluster
@@ -62,9 +70,8 @@ digraph aither_arch {
     // Connections
     user -> nginx_vps1 [label="HTTPS"];
     admin -> hermes [label="SSH"];
-    nginx_vps1 -> gw [label=":30900\nHTTP", style=dashed];
-    nginx_vps1 -> gw [label=":30901\nmTLS"];
-    hermes -> bff [label="SSH\nдеплой"];
+    nginx_vps1 -> gw [label=":30900\\nHTTP", style=dashed];
+    nginx_vps1 -> gw [label=":30901\\nmTLS"];
 
     nginx_vps2 -> bff [label="proxy"];
     bff -> pg_portal [label="SQL"];
@@ -83,6 +90,11 @@ digraph aither_arch {
     cisco -> n7 [label="VLAN 308"];
     nginx_vps2 -> cisco [label="VPN\ntun1"];
     hermes -> cisco [label="SSH"];
+    hermes -> bff [label="SSH\nуправл.", style=dotted];
+    hermes -> hermes_vps2 [label="SSH\nсинхр."];
+    hermes -> hermes_vps3 [label="SSH\nсинхр."];
+    hermes_vps2 -> bff [label="SSH\nдеплой"];
+    hermes_vps3 -> cisco [label="SSH", style=dashed];
 }
 ```
 
@@ -125,8 +137,9 @@ digraph aither_arch {
 
 | Узел | Адрес | Роль | GPU |
 |---|---|---|---|
-| **VPS1** | 170.168.91.95 | Hermes, nginx, входная точка | — |
-| **VPS2** | 130.17.1.90 | Портал, BFF, PostgreSQL, VPN | — |
+| **VPS1** | 170.168.91.95 | Hermes, nginx, входная точка, мастер-синхронизация | — |
+| **VPS2** | 130.17.1.90 | Портал, BFF, PostgreSQL, VPN, Hermes (деплой) | — |
+| **VPS3** | 89.127.217.88 | Резервный Hermes, синхронизация памяти/навыков | — |
 | **Cisco 815** | 10.129.11.0/24 | VPN-терминатор | — |
 | **n8** | 10.129.13.78 | K8s control-plane, Gateway, vLLM 14B | 2× RTX 6000 |
 | **n7** | 10.129.13.77 | K8s worker, vLLM 32B, Prometheus | 2× RTX 6000 |
@@ -134,8 +147,10 @@ digraph aither_arch {
 ## Сеть
 
 ```
-VPS1 ←→ VPS2: публичная сеть (HTTPS :10443, SSH)
+VPS1 ←→ VPS2: публичная сеть (HTTPS :10443, SSH синхронизация)
+VPS1 ←→ VPS3: публичная сеть (SSH синхронизация Hermes)
 VPS2 → Cisco 815: VPN tun1
+VPS3 → Cisco 815: SSH (закрытый контур)
 Cisco 815 → n7, n8: VLAN 308 (10.129.13.0/24)
 n7 ↔ n8: Flannel VXLAN (10.244.0.0/16)
 ```
