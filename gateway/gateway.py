@@ -206,55 +206,8 @@ def get_balance(org_id: str):
         db_pool.putconn(conn)
 
 
-CHROMA_URL = os.environ.get("CHROMA_URL", "http://chromadb:8000")
-_rag_chroma = None
-_rag_ef = None
-
-def _get_ef():
-    global _rag_ef
-    if _rag_ef is None:
-        from chromadb.utils import embedding_functions
-        _rag_ef = embedding_functions.ONNXMiniLM_L6_V2()
-    return _rag_ef
-
-def _get_chroma():
-    global _rag_chroma
-    if _rag_chroma is None:
-        import chromadb
-        _rag_chroma = chromadb.HttpClient(host=CHROMA_URL.split("://")[1].split(":")[0],
-                                          port=int(CHROMA_URL.split(":")[-1]))
-    return _rag_chroma
-
-def rag_ingest(documents: list) -> dict:
-    """Ingest documents into ChromaDB. Each doc: {id, text, metadata?}"""
-    chroma = _get_chroma()
-    ef = _get_ef()
-    coll = chroma.get_or_create_collection("documents")
-    ids, texts, metadatas = [], [], []
-    for doc in documents:
-        ids.append(doc.get("id", str(uuid.uuid4())[:8]))
-        texts.append(doc["text"])
-        metadatas.append(doc.get("metadata", {"source": "unknown"}))
-    embeddings = ef(texts)
-    coll.add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
-    return {"ingested": len(documents), "ids": ids}
-
-def rag_query(query: str, top_k: int = 5) -> list:
-    """Query ChromaDB for relevant documents."""
-    chroma = _get_chroma()
-    ef = _get_ef()
-    coll = chroma.get_or_create_collection("documents")
-    count = coll.count()
-    if count == 0:
-        return []
-    q_embedding = ef(["query: " + query])
-    results = coll.query(query_embeddings=q_embedding, n_results=min(top_k, count))
-    return [{"id": id_, "text": doc, "metadata": meta,
-             "score": round(1 - float(dist), 4) if dist is not None else 0}
-            for id_, doc, meta, dist in zip(
-                results["ids"][0], results["documents"][0],
-                results["metadatas"][0] if results["metadatas"] else [{}]*len(results["ids"][0]),
-                results.get("distances", [[1]]*len(results["ids"][0]))[0])]
+# RAG: delegated to hybrid_rag.py (chroma-proxy based, no chromadb dependency)
+from hybrid_rag import chroma_status, hybrid_query, wiki_ingest, wiki_status
 
 
 class Gateway(BaseHTTPRequestHandler):
@@ -717,7 +670,7 @@ class Gateway(BaseHTTPRequestHandler):
                 if not docs:
                     self._json(400, {"error": "documents array required"})
                     return
-                result = rag_ingest(docs)
+                result = {"ingested": 0, "message": "direct ChromaDB ingest disabled, use /v1/rag/wiki-ingest for wiki or re-deploy ingest script"}
                 self._json(200, result)
             except Exception as e:
                 self._json(500, {"error": "ingest_failed", "detail": str(e)})
@@ -746,8 +699,8 @@ class Gateway(BaseHTTPRequestHandler):
                     if not _limits["rag"]:
                         self._json(403, {"error": "rag_not_available", "tier": _tier})
                         return
-                results = rag_query(query, top_k)
-                self._json(200, {"query": query, "results": results})
+                result = hybrid_query(query, top_k=top_k)
+                self._json(200, result)
             except Exception as e:
                 self._json(500, {"error": "query_failed", "detail": str(e)})
             return
@@ -1113,14 +1066,7 @@ def reaper_loop():
 if __name__ == "__main__":
     print(f"[Reaper] Starting (interval={REAP_INTERVAL}s, threshold={STUCK_THRESHOLD}s)", flush=True)
     threading.Thread(target=reaper_loop, daemon=True).start()
-    # Pre-load ONNX embedding model at startup (avoids blocking first RAG request)
-    print("[Init] Pre-loading ONNX embedding model...", flush=True)
-    try:
-        ef = _get_ef()
-        _ = ef(["warmup"])
-        print("[Init] ONNX embedding model ready", flush=True)
-    except Exception as e:
-        print(f"[Init] ONNX warmup failed (will retry on first request): {e}", flush=True)
+    # No ONNX warmup needed — chroma-proxy handles embeddings internally
     # Pre-load wiki graph at startup
     print("[Init] Loading wiki graph...", flush=True)
     try:
