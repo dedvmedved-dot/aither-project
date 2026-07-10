@@ -19,9 +19,9 @@ spec:
         - |
           set -e
           echo "=== Установка зависимостей ==="
-          pip install peft datasets --quiet
+          pip install peft datasets bitsandbytes accelerate --quiet
 
-          echo "=== QLoRA 32B ==="
+          echo "=== QLoRA 32B (4-bit) ==="
           export HF_HOME=/mnt/models/.cache
 
           mkdir -p /data

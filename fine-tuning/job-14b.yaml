@@ -19,9 +19,9 @@ spec:
         - |
           set -e
           echo "=== Установка зависимостей ==="
-          pip install peft datasets --quiet
+          pip install peft datasets bitsandbytes accelerate --quiet
 
-          echo "=== Загрузка модели Qwen 2.5 14B ==="
+          echo "=== QLoRA 14B (4-bit) ==="
           export HF_HOME=/mnt/models/.cache
           export HF_HUB_ENABLE_HF_TRANSFER=1
 
