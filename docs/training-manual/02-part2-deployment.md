@@ -844,3 +844,248 @@ digraph K8sClusterReady {
 - Metrics Server, cert-manager
 
 В следующей главе — деплой vLLM и моделей.
+
+
+# Глава 10. Развёртывание vLLM и моделей
+
+> **Цель главы:** задеплоить две модели (14B и 32B) в Kubernetes, подключить LoRA-адаптер, проверить и замерить скорость.
+
+---
+
+## 10.1. Подготовка моделей
+
+```bash
+# Скачивание (на машине с интернетом)
+huggingface-cli download Qwen/Qwen2.5-14B-Instruct --local-dir /data/models/Qwen2.5-14B-Instruct
+huggingface-cli download Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4 --local-dir /data/models/Qwen2.5-32B-Instruct-GPTQ
+
+# Перенос в закрытый контур: tar -czf models.tar.gz → внешний диск → tar -xzf
+# Проверка: sha256sum /data/models/*/model-*.safetensors
+```
+
+## 10.2. PVC для 32B
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: models-32b-pvc
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 100Gi}}
+  storageClassName: local-path
+```
+
+## 10.3. Деплой vLLM 14B
+
+```bash
+kubectl apply -f k8s/vllm-14b/deployment.yaml
+kubectl apply -f k8s/vllm-14b/service.yaml
+# Проверка: curl http://10.129.13.78:32293/health → OK
+# Первый запрос: curl .../v1/chat/completions -d '{"model":"qwen2.5-14b","messages":[...]}'
+# ⚠️ Прогрев: 10-30 сек первый раз, потом быстро
+```
+
+## 10.4. Деплой vLLM 32B (GPTQ)
+
+```bash
+kubectl apply -f k8s/vllm-32b/deployment.yaml
+# Отличия: --quantization gptq, --dtype auto, PVC, контекст 8192
+# Скорость: 14B ~28 tok/s (fp16), 32B ~35 tok/s (GPTQ 4-bit — быстрее!)
+```
+
+## 10.5. LoRA astra-14b
+
+```bash
+cp -r lora-qwen14b-astra/ /data/models/
+kubectl rollout restart deploy/vllm-qwen
+# Проверка: curl /v1/models | jq '.data[] | select(.id=="astra-14b")'
+```
+
+
+# Глава 11. Развёртывание Gateway
+
+> **Цель:** собрать Docker-образ Gateway, задеплоить, проверить биллинг и Rate Limiter.
+
+---
+
+## 11.1. Сборка и деплой
+
+```bash
+docker build -t ghcr.io/dedvmedved-dot/aither-project-gateway:latest -f gateway/Dockerfile .
+docker push ghcr.io/dedvmedved-dot/aither-project-gateway:latest
+
+# ИЛИ для закрытого контура:
+docker tag gateway:latest localhost:5000/gateway:latest
+docker push localhost:5000/gateway:latest
+
+# Деплой
+kubectl create secret generic pg-url --from-literal=url=postgresql://...
+kubectl apply -f k8s/gateway/deployment.yaml
+kubectl apply -f k8s/gateway/service.yaml
+```
+
+## 11.2. Проверка биллинга
+
+```bash
+curl -X POST http://10.129.13.77:30900/v1/chat/completions \
+  -H "Authorization: Bearer *** \
+  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"2+2"}]}'
+
+# Проверка баланса
+kubectl exec -it deploy/postgres -- psql -U aither -d aither \
+  -c "SELECT org_id, balance, tokens_used FROM billing_accounts;"
+```
+
+## 11.3. Rate Limiter — проверка
+
+```bash
+for i in $(seq 301); do
+  curl -s -o /dev/null -w "%{http_code}\n" ... http://gateway:8080/...
+done
+# → 300 × 200, затем 429 Too Many Requests
+```
+
+## 11.4. HPA Gateway
+
+```bash
+kubectl apply -f k8s/hpa/gateway-hpa.yaml
+kubectl get hpa  # → gateway-hpa  Deployment/gateway  1%/70%  1  max=3
+```
+
+
+# Глава 12. Развёртывание в закрытом контуре (air-gap)
+
+> **Цель:** развернуть всю платформу в изолированной сети без Интернета, используя пакет offline-deploy.
+
+---
+
+## 12.1. Пакет offline-deploy v1.1.0
+
+Состав (подробно разбирали в гл. 2 и гл. 8 TOC):
+
+```
+offline-deploy/
+├── Makefile          — make bundle / make deploy / make test
+├── k8s/              — все манифесты
+├── offline/          — docker save/load, pip download, модели
+├── playbooks/        — 10 Ansible playbooks
+├── scripts/          — backup, restore, rotate-keys, health-check
+├── configs/          — шаблоны конфигов
+└── tests/            — приёмо-сдаточные (smoke, API, security)
+```
+
+## 12.2. Сборка (на машине с интернетом)
+
+```bash
+make bundle
+# → docker save -o offline/docker/images.tar.gz ...
+# → pip download -d offline/pip/packages/ -r requirements.txt
+# → sha256sum всех файлов → offline/checksums.sha256
+```
+
+## 12.3. Перенос и загрузка
+
+```bash
+# Носитель → целевая машина
+rsync -av offline-deploy/ /mnt/usb/offline-deploy/
+
+# Загрузка зависимостей
+make offline-load
+# → docker load -i images.tar.gz → push в локальный registry
+# → pip install --no-index --find-links=packages/
+```
+
+## 12.4. Ansible playbooks
+
+10 playbook-ов, от установки ОС до smoke-тестов:
+
+| Playbook | Что делает |
+|---|---|
+| `site.yml` | Оркестрация всех 9 playbook-ов |
+| `01-prerequisites.yml` | Пакеты, сеть, SSH, брандмауэр |
+| `02-gpu-setup.yml` | NVIDIA driver, nvidia-smi |
+| `03-k8s-deploy.yml` | containerd → kubeadm → Flannel |
+| `04-storage.yml` | Local Path, PVC |
+| `05-vllm-deploy.yml` | vLLM 14B + 32B, прогрев |
+| `06-gateway-deploy.yml` | Gateway, Postgres, Redis, ChromaDB |
+| `07-portal-deploy.yml` | Портал на VPS2 |
+| `08-monitoring-deploy.yml` | Prometheus, Grafana |
+| `09-post-deploy.yml` | Seed-данные, smoke-тесты |
+
+## 12.5. Приёмо-сдаточные тесты
+
+```bash
+make test
+# → 01-smoke.sh: все поды Running, health-чеки отвечают
+# → 02-api.sh: /v1/models, /v1/chat/completions работают
+# → 03-security.sh: DLP блокирует паспорт, Rate Limiter → 429
+```
+
+
+# Глава 13. Мониторинг и эксплуатация
+
+> **Цель:** настроить сбор метрик (Prometheus + Grafana), логи (journalctl + kubectl logs), резервное копирование.
+
+---
+
+## 13.1. Prometheus + Grafana
+
+```bash
+kubectl apply -f k8s/monitoring/prometheus.yaml
+kubectl apply -f k8s/monitoring/grafana.yaml
+# Grafana доступна на http://n7:30300 (NodePort)
+```
+
+Ключевые дашборды:
+- **GPU Overview:** температура, загрузка, VRAM, throttle
+- **Gateway Dashboard:** RPM, TPM, latency, ошибки
+- **vLLM Performance:** requests/sec, tokens/sec, queue depth
+
+## 13.2. Логи
+
+```bash
+# Системные логи
+journalctl -u kubelet --no-pager -p 3 --since "1 hour ago"
+
+# Логи контейнеров
+kubectl logs -f deploy/vllm-qwen
+kubectl logs -l app=gateway --tail=100
+
+# Типовые ошибки:
+# OOMKilled → увеличить limits.memory
+# CrashLoopBackOff → проверить команду/порты
+# ImagePullBackOff → проверить registry/образ
+```
+
+## 13.3. Резервное копирование
+
+```bash
+# База данных
+pg_dump -U aither -h postgres aither > backup-$(date +%Y%m%d).sql
+
+# Модели (редко — только при обновлении)
+rsync -av /data/models/ /backup/models/
+
+# Конфиги — Git
+cd /root/aither-project && git add -A && git commit -m "backup: $(date)" && git push
+```
+
+## 13.4. Ротация ключей
+
+```bash
+scripts/rotate-keys.sh
+# → Генерация нового JWT_SECRET
+# → kubectl create secret generic jwt-secret --from-literal=secret=...
+# → kubectl rollout restart deploy/gateway
+```
+
+---
+
+**Итог глав 10-13.** Платформа развёрнута и готова к эксплуатации:
+- vLLM 14B (28 tok/s) и 32B (35 tok/s) с LoRA
+- Gateway с биллингом и Rate Limiter
+- Air-gap деплой через offline-пакет
+- Мониторинг (Grafana :30300) и бэкапы
+
+**Часть II завершена.**
