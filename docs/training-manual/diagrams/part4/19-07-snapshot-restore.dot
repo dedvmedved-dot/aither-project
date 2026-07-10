@@ -1,0 +1,32 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_etcd_vps1 {
+    label="etcd VPS1"; style=dashed; color="#f9a825"; bgcolor="#fffde7";
+    step1 [label="1. Снимем снапшот\nс работающего etcd\netcdctl snapshot save\nsnapshot.db", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_restore {
+    label="Восстановление"; style=dashed; color="#2e7d32"; bgcolor="#f1f8e9";
+    step2 [label="2. Остановим etcd\nsystemctl stop etcd", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    step3 [label="3. Удалим старые данные\nrm -rf /var/lib/etcd/member", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    step4 [label="4. Восстановим из снапшота\netcdctl snapshot restore\n--data-dir /var/lib/etcd", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    step5 [label="5. Запустим etcd\nsystemctl start etcd", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+  }
+
+  subgraph cluster_result {
+    label="Результат"; style=filled; color="#1565c0"; bgcolor="#e3f2fd";
+    done [label="✓ etcd работает\n✓ данные на момент снапшота\n✓ можно добавлять\nобратно в кластер", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  step1 -> step2 [label="snapshot.db"];
+  step2 -> step3;
+  step3 -> step4;
+  step4 -> step5 [label="новый\nmember ID"];
+  step5 -> done;
+
+  note [label="⚠️ Важно:\nСнапшот не содержит\nданные новее снимка\n(окно потери ~секунды)", shape=note, fillcolor="#ffebee", color="#c62828", fontsize=9, fontcolor="#c62828"];
+  step1 -> note [style=dotted, dir=none, color="#c62828"];
+}
