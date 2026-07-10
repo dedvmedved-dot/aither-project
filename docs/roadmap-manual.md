@@ -682,7 +682,7 @@ BFF → Gateway K8s :30900 (JWT HS256 → RS256 fallback)
 
 ### Физическая схема (этап 5)
 
-![Продакшен-класс](diagrams/physical-architecture-v2.svg)
+![Продакшен-класс](diagrams/physical-architecture-v2-stage5.svg)
 
 ### Конфигурационные файлы
 
@@ -834,7 +834,7 @@ API-запрос → [Gateway] → rate_limit_check(org_id)
 
 ### Физическая схема
 
-![Требования руководства](diagrams/physical-architecture-v2.svg)
+![Требования руководства](diagrams/physical-architecture-v2-stage5a.svg)
 
 ### Конфигурационные файлы
 
@@ -967,7 +967,7 @@ Push в main (gateway/**) →
 
 ### Физическая схема
 
-![Эксплуатация и развитие](diagrams/physical-architecture-v2.svg)
+![Эксплуатация и развитие](diagrams/physical-architecture-v2-stage6.svg)
 
 ### Конфигурационные файлы
 
@@ -1116,7 +1116,7 @@ offline-deploy/
 
 ### Физическая схема
 
-![Закрытый контур](diagrams/physical-architecture-v2.svg)
+![Закрытый контур](diagrams/physical-architecture-v2-stage7.svg)
 
 ### Конфигурационные файлы
 
