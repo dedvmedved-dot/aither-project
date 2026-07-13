@@ -46,6 +46,24 @@ spec:
     resources:
       requests:
         cpu: 250m
+    livenessProbe:
+      httpGet:
+        path: /livez
+        port: 6443
+        scheme: HTTPS
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 10
+      failureThreshold: 5
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: 6443
+        scheme: HTTPS
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
     volumeMounts:
     - mountPath: /etc/ssl/certs
       name: ca-certs
