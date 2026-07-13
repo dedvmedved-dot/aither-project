@@ -3955,4 +3955,28 @@ failover-узла и подключение AIOps 3.0.
 - n8: Cisco → `sshpass -p 'root' ssh root@10.129.13.78`
 - VPS3: `ssh vps3` (ключ id_ed25519_aither)
 
+### Итог восстановления (05:30 МСК)
+
+| Компонент | Статус |
+|---|---|
+| **K8s** (201-206) | ✅ 6 узлов Ready, Flannel OK |
+| **AIOps 3.0** | ✅ 7/7 подов Running |
+| **Aither Gateway** n8:30900 | ✅ PG+Redis OK |
+| **Aither vLLM 32B** n7:8000 | ✅ driver 590, torch cu130 |
+| **Aither vLLM 14B** n8:32293 | ❌ driver 570 < 590 — все версии vLLM падают |
+| **llm-lab** VM 110 | ❌ нет сети (NAT skhome01) |
+| **VPS3** | ⏳ голый, ждёт развёртывания |
+
+**Корень проблемы vLLM 14B:** на n8 драйвер 570.195 (CUDA 12.8), на n7 — 590.48 (CUDA 13.1).
+Попытки: pip venv (cu128/cu130), Docker v0.8.5 — все падают с `cudaErrorInsufficientDriver`.
+Решение: обновить драйвер на n8 до 590+ → требуется ребут.
+
+### План на 14.07 (утро)
+
+1. **Обновить NVIDIA driver на n8** → запустить vLLM 14B
+2. **llm-lab** — `ip route add default via 192.168.0.107` + NAT на skhome01
+3. **VPS3** — развернуть BFF + nginx + туннели
+4. **AIOps → Aither** — подключить мониторинг, правила авто-восстановления
+5. **Flink JM** — liveness probe fix
+
 ```
