@@ -1,0 +1,130 @@
+digraph Aither_Infrastructure {
+    rankdir=TB;
+    bgcolor="#1a1a2e";
+    fontname="Arial";
+    fontcolor="#e0e0e0";
+    fontsize=20;
+    label="Aither Platform — Physical Architecture\nn8 K8s Cluster + n7 vLLM | 13.07.2026";
+    labelloc="t";
+    
+    node [fontname="Arial", fontsize=11, style=filled, color="#333344"];
+    edge [fontname="Arial", fontsize=9, color="#666688"];
+    
+    subgraph cluster_internet {
+        label="Internet";
+        fontcolor="#ff9900";
+        color="#ff9900";
+        bgcolor="#1a1a2e11";
+        style=dashed;
+        
+        vps1 [label="VPS1\n170.168.91.95\nHermes Agent\nTelegram Gateway", shape=box, fillcolor="#2d2d44", fontcolor="#ffffff"];
+        vps2 [label="VPS2\nHermes + Portal\nWireGuard Hub", shape=box, fillcolor="#2d2d44", fontcolor="#ffffff"];
+        telegram [label="Telegram\nSergey Kravchuk", shape=note, fillcolor="#2299dd", fontcolor="#ffffff"];
+        
+        telegram -> vps1 [label="Bot API", color="#2299dd"];
+    }
+    
+    subgraph cluster_vpn_zones {
+        label="VPN Zones (WireGuard)";
+        fontcolor="#44cc44";
+        color="#44cc44";
+        bgcolor="#1a1a2e11";
+        style=dashed;
+        
+        subgraph cluster_vpn1 {
+            label="VLAN 1 — Cisco815";
+            fontcolor="#44aacc";
+            color="#44aacc";
+            
+            cisco [label="Cisco815 / Core3\n10.129.11.21\nJump Host\nAstra Linux", shape=box, fillcolor="#2d4433", fontcolor="#ffffff"];
+        }
+        
+        subgraph cluster_vpn2 {
+            label="VLAN 308 — HuaweiHP";
+            fontcolor="#44aacc";
+            color="#44aacc";
+            
+            n8 [label="n8-gpu\n10.129.13.78\nK8s Control Plane\nAstra Linux\n2×RTX 6000", shape=box, fillcolor="#334444", fontcolor="#ffffff", width=2.5];
+            n7 [label="n7-gpu\n10.129.13.77\nK8s Worker\nAstra Linux\n2×RTX 6000", shape=box, fillcolor="#334444", fontcolor="#ffffff", width=2.5];
+        }
+    }
+    
+    vps2 -> cisco [label="WireGuard", color="#44cc44"];
+    cisco -> n8 [label="SSH Jump", color="#44aacc"];
+    cisco -> n7 [label="SSH Jump", color="#44aacc"];
+    vps1 -> vps2 [label="WireGuard", color="#44cc44", style=dashed];
+    
+    subgraph cluster_n8_details {
+        label="n8 — K8s Control Plane";
+        fontcolor="#ffcc44";
+        color="#ffcc44";
+        bgcolor="#1a1a2e22";
+        style=dashed;
+        
+        subgraph cluster_n8_disks {
+            label="Disks";
+            fontcolor="#aaaaaa";
+            color="#666666";
+            fontsize=9;
+            
+            sda [label="sda\n447G RAID HDD\nSystem (/)", shape=cylinder, fillcolor="#663333", fontcolor="#ff6666", fontsize=9, width=1.5];
+            sdb [label="sdb2\n1.7T SAS SSD\n/var/lib/etcd", shape=cylinder, fillcolor="#336633", fontcolor="#66ff66", fontsize=9, width=1.5];
+            sdc [label="sdc\n3.5T SSD\n/data/models", shape=cylinder, fillcolor="#333366", fontcolor="#6688ff", fontsize=9, width=1.5];
+            extra [label="sdd–sdm\n10×3.5T SSD\nFree", shape=cylinder, fillcolor="#333344", fontcolor="#888888", fontsize=8, width=1.5];
+        }
+        
+        subgraph cluster_n8_k8s {
+            label="K8s Components";
+            fontcolor="#ffcc44";
+            color="#ffcc44";
+            
+            etcd [label="etcd\nStatic Pod\nNo probes\nGrace=300s", shape=component, fillcolor="#225522", fontcolor="#66ff66", width=2];
+            apiserver [label="kube-apiserver\nStatic Pod\nNo probes\nPort 6443", shape=component, fillcolor="#225522", fontcolor="#66ff66", width=2];
+            cm [label="controller-\nmanager", shape=component, fillcolor="#444422", fontcolor="#ffcc44", width=1.5];
+            sched [label="kube-scheduler", shape=component, fillcolor="#444422", fontcolor="#ffcc44", width=1.5];
+            flannel [label="Flannel\nCNI (10.244.0.0/16)", shape=component, fillcolor="#224466", fontcolor="#88ccff", width=1.5];
+            coredns [label="CoreDNS\n10.96.0.10", shape=component, fillcolor="#224466", fontcolor="#88ccff", width=1.5];
+            nvidia_ds [label="NVIDIA Device\nPlugin DS", shape=component, fillcolor="#446622", fontcolor="#aadd44", width=1.5, style=dashed];
+        }
+        
+        etcd -> sdb [label="data", color="#66ff66", style=bold];
+        apiserver -> etcd [label=":2379", color="#ffcc44", style=bold];
+        cm -> apiserver [label=":6443", color="#ffcc44"];
+        sched -> apiserver [label=":6443", color="#ffcc44"];
+        flannel -> apiserver;
+        coredns -> apiserver;
+        nvidia_ds -> apiserver [style=dashed];
+        
+        { rank=same; etcd apiserver }
+    }
+    
+    subgraph cluster_n7_details {
+        label="n7 — GPU Worker";
+        fontcolor="#ff6644";
+        color="#ff6644";
+        bgcolor="#1a1a2e22";
+        style=dashed;
+        
+        vllm [label="vLLM\nQwen2.5-32B-GPTQ\n2×GPU (TP=2)\nPort 8000\nbare-metal", shape=component, fillcolor="#442222", fontcolor="#ff6644", width=2.5];
+        gpu_n7 [label="2× RTX 6000\n22.2/23.0 GiB\nCUDA 13.1", shape=box, fillcolor="#332222", fontcolor="#ff6644", width=1.5];
+        
+        vllm -> gpu_n7 [label="TP=2", color="#ff6644", style=bold];
+    }
+    
+    n8 -> n7 [label="K8s API :6443", color="#ffcc44", style=dashed];
+    vps2 -> n8 [label="Portal → K8s", color="#ff9900", style=dashed];
+    
+    subgraph cluster_legend {
+        label="Legend";
+        fontcolor="#888888";
+        color="#444444";
+        fontsize=9;
+        
+        l1 [label="Stable / Verified", shape=box, fillcolor="#225522", fontcolor="#66ff66", fontsize=9, width=2];
+        l2 [label="Running / Needs check", shape=box, fillcolor="#444422", fontcolor="#ffcc44", fontsize=9, width=2];
+        l3 [label="Pending / WIP", shape=box, fillcolor="#446622", fontcolor="#aadd44", fontsize=9, width=2, style=dashed];
+        l4 [label="External / Bare-metal", shape=box, fillcolor="#442222", fontcolor="#ff6644", fontsize=9, width=2];
+        
+        { rank=same; l1 l2 l3 l4 }
+    }
+}
