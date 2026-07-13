@@ -3898,3 +3898,61 @@ Push в main (gateway/**) →
 e32a528 fix(ci-cd): make ghcr.io package public + trigger on push
 93acce3 ci: trigger deploy workflow
 ```
+
+## День 22 — 14.07.2026 (ночь): Диагностика после сбоя + подготовка к AIOps 3.0
+
+### Контекст
+
+После каскадного сбоя 13.07.2026 (etcd потерял кворум, K8s API упал, Gateway в K8s нестабилен)
+система была восстановлена в упрощённой конфигурации (Gateway + PG + Redis как systemd на n8,
+vLLM 32B как systemd на n7). Требуется полное восстановление Aither, настройка VPS3 как
+failover-узла и подключение AIOps 3.0.
+
+### Текущий статус (04:30 МСК)
+
+| Компонент | Узел | Статус |
+|---|---|---|
+| **vLLM 32B** | n7 (10.129.13.77) | ✅ active, порт 8000, GPU загружены |
+| **Gateway** | n8 (10.129.13.78) | ✅ active, порт 30900 |
+| **PostgreSQL** | n8 | ✅ active, порт 5432, БД portal |
+| **Redis** | n8 | ✅ active, порт 6379 |
+| **etcd** | n8 | ✅ active, single-node |
+| **K8s** | n8 | ⚠️ 1 узел Ready (n8), n7 не в кластере |
+| **vLLM 14B** | n8 | 🔄 vLLM устанавливается в venv (pip install) |
+| **Portal BFF** | VPS2 (130.17.1.90) | ⚠️ работает, но PG с portal_users на VPS2 |
+| **VPS3** | 89.127.217.88 | ❌ голый, Aither не развёрнут |
+
+### Проблемы
+
+1. **PG на n8 пустая** — только billing_ledger и usage_records. Нет portal_users, portal_api_keys,
+   chats, payment_transactions. Auth-данные на VPS2.
+2. **Gateway env был испорчен** — VLLM_URL и PG_URL обрезаны Hermes. Исправлено через base64.
+3. **VPS3 переустановлен 07.07** — не 09.07 как в lab-journal. Aither не восстановлен.
+4. **K8s single-node** — n7 не в кластере, Flannel не работает.
+
+### Выполнено сегодня
+
+- ✅ Диагностика n7 и n8 через Cisco (sshpass)
+- ✅ Gateway env исправлен: VLLM_URL=localhost:32293, VLLM_32B_URL=10.129.13.77:8000
+- ✅ Gateway запущен и работает
+- ✅ vLLM 14B service-файл создан (`/etc/systemd/system/vllm-14b.service`)
+- ✅ vLLM устанавливается в /opt/vllm-venv (python3.11, ~150 пакетов)
+- ✅ PG пароль portal сброшен на aither_pass
+
+### План на 14.07.2026
+
+1. **Дождаться vLLM install** → запустить vLLM-14B на n8 :32293
+2. **Миграция portal_users** с VPS2 → PG на n8
+3. **VPS3** — развернуть полную копию: BFF + nginx + PG-туннель + Gateway-туннель
+4. **AIOps 3.0** (`aiops-mvp0`) — подключить к Aither для мониторинга и авто-восстановления
+5. **K8s** — восстановить кластер (n7 + n8), Flannel
+6. **etcd HA** — добавить VPS1 как etcd-member
+
+### Доступ
+
+- Cisco: `sshpass -p '!QAZxsw2123' ssh svlkravchuk@10.129.11.21`
+- n7: Cisco → `sshpass -p 'root' ssh root@10.129.13.77`
+- n8: Cisco → `sshpass -p 'root' ssh root@10.129.13.78`
+- VPS3: `ssh vps3` (ключ id_ed25519_aither)
+
+```
