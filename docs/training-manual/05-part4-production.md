@@ -3488,4 +3488,138 @@ runbook включает процедуру.
 
 ---
 
+
+
+---
+
+# Приложение Б. Актуальная конфигурация стенда (июль 2026)
+
+> **Цель раздела:** дать читателю точную картину production-стенда Aither на июль 2026: хосты, сервисы, сеть, биллинг. Это работающая конфигурация — не учебный пример.
+
+## Б.1. Хосты и роли
+
+| Хост | IP | ОС | Роль | GPU |
+|---|---|---|---|---|
+| **VPS1** | 130.17.1.90 | Ubuntu 24.04 | Портал (Node.js :3000, nginx :80) | — |
+| **VPS2** | 170.168.91.95 | Ubuntu 24.04 | Hermes Agent, nginx :10443 (SSL LetsEncrypt) | — |
+| **VPS3** | 89.127.217.88 | Ubuntu 24.04 | Резервный (бэкапы, синк каждые 30 мин) | — |
+| **n7** | 10.129.13.77 | Astra Linux SE 1.8 | K8s worker, vLLM 32B (systemd :8000) | 2× RTX 6000 |
+| **n8** | 10.129.13.78 | Astra Linux SE 1.8 | K8s control-plane, Gateway :8080, vLLM 14B (pod :30014), PostgreSQL :5432, Redis :6379 | 2× RTX 6000 |
+| **Cisco** | 10.129.11.21 | Cisco 815 | Jump Host, VPN-концентратор | — |
+
+## Б.2. Сервисы
+
+| Сервис | Где | Порт | Технология | Назначение |
+|---|---|---|---|---|
+| **Gateway** | n8 | :8080 | Python (systemd) | Маршрутизация, rate limiting, billing, RAG |
+| **vLLM 14B** | n8 (K8s pod) | :30014 | vLLM + Qwen2.5-14B-Instruct | Основная модель (код), TP=2 |
+| **vLLM 32B** | n7 (systemd) | :8000 | vLLM + Qwen2.5-32B-GPTQ | Тяжёлая модель (анализ), TP=2, INT4 |
+| **Портал** | VPS1 | :80/:3000 | Node.js (Fastify) + nginx | UI, OAuth, чат |
+| **PostgreSQL** | n8 | :5432 | PostgreSQL 16 | Billing DB |
+| **Redis** | n8 | :6379 | Redis 7 | Кэш tier'ов |
+| **Kubernetes** | n8 | :6443 | K8s v1.33.5 | Оркестрация, 2 ноды Ready |
+
+## Б.3. Сетевая топология
+
+```dot
+digraph RequestFlow {
+    bgcolor="#ffffff";
+    fontname="system-ui";
+    node [fontname="system-ui", fontsize=9, style=filled, color="#555555"];
+    edge [fontname="system-ui", fontsize=7, color="#888888"];
+    rankdir=LR;
+    
+    user [label="Пользователь", shape=component, fillcolor="#fce4ec", color="#e53935", fontcolor="#1a1a2e"];
+    vps2_nginx [label="VPS2 :10443\nnginx SSL", shape=box, fillcolor="#bbdefb", color="#1e88e5", fontcolor="#1a1a2e"];
+    wg [label="WireGuard\n10.99.0.1→0.2", shape=box, fillcolor="#c8e6c9", color="#43a047", fontcolor="#1a1a2e"];
+    vps1 [label="VPS1 :80\nnginx + BFF :3000", shape=box, fillcolor="#e1bee7", color="#7b1fa2", fontcolor="#1a1a2e"];
+    cisco [label="Cisco 815\nVPN tun1", shape=box, fillcolor="#c8e6c9", color="#43a047", fontcolor="#1a1a2e"];
+    gateway [label="Gateway n8:8080\nrouting+billing", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+    vllm [label="vLLM 14B/32B\nGPU RTX 6000×2", shape=box, fillcolor="#ffcdd2", color="#e53935", fontcolor="#1a1a2e"];
+    
+    user -> vps2_nginx -> wg -> vps1 -> cisco -> gateway -> vllm;
+}
+```
+
+*Схема Б.1. Путь запроса: пользователь → VPS2 → WireGuard → VPS1 → Cisco VPN → Gateway → vLLM.*
+
+| Туннель | Между | Технология | IP |
+|---|---|---|---|
+| VPS1 ↔ VPS2 | Публичный интернет | WireGuard (wg0) | 10.99.0.0/24 |
+| VPS2 → n7/n8 | Через Cisco | Cisco VPN (tun1) | 10.129.11.0/24 |
+| n7 ↔ n8 | Локальная сеть | VLAN 308 | 10.129.13.0/24 |
+| VPS3 → VPS2 | Публичный интернет | SSH + rsync | hermes-sync /30 мин |
+
+## Б.4. Billing
+
+| Tier | RPM | TPM | Дневной лимит | Модели | RAG | Цена |
+|---|---|---|---|---|---|---|
+| Free | 10 | 5000 | 10000 | 14B | ❌ | 0 ₽ |
+| Pro | 100 | 50000 | 100000 | 14B, 32B | ❌ | 990 ₽/мес |
+| VIP | 300 | 100000 | 500000 | 14B, 32B | ✅ | 4990 ₽/мес |
+| Enterprise | 1200 | 500000 | 10000000 | 14B, 32B | ✅ | Договор |
+
+**Аккаунты:** 4 организации, все VIP, ~1M токенов каждая.
+
+**Таблицы:** billing_accounts, billing_ledger, subscription_tiers, usage_records.
+
+## Б.5. Текущий статус компонентов
+
+| Компонент | Статус | Примечание |
+|---|---|---|
+| Gateway | ✅ | n8:8080, systemd, auto-restart |
+| vLLM 14B | ✅ | K8s pod на n8, NodePort :30014 |
+| vLLM 32B | ✅ | systemd на n7, порт :8000 |
+| Портал | ✅ | VPS1:80, OAuth работает |
+| PostgreSQL | ✅ | n8:5432, все 4 таблицы |
+| Redis | ✅ | n8:6379, кэш tier'ов активен |
+| K8s | ✅ | v1.33.5, 2 ноды Ready |
+| RAG (wiki-graph) | ✅ | 6 страниц, hybrid mode |
+| ChromaDB | ❌ | Не работает, используется wiki-graph |
+| WireGuard | ✅ | VPS1 ↔ VPS2 |
+| Cisco VPN | ✅ | tun1 до n7/n8 |
+| VPS3 (резерв) | ✅ | hermes-sync каждые 30 мин |
+
+> ⚠️ **ChromaDB не работает.** Векторная база для RAG не поднята. Вместо неё Gateway использует wiki-graph (6 wiki-страниц) в режиме hybrid-query. Для промышленной эксплуатации ChromaDB нужно восстановить — это задача в ближайшем плане развития.
+
+## Б.6. ✏️ Практикум: проверка стенда
+
+**Задание:** проверьте состояние всех компонентов Aither.
+
+1. **Проверка Gateway:**
+   ```bash
+   ssh -J svlkravchuk@10.129.11.21 root@10.129.13.78 \
+     'curl -s http://127.0.0.1:8080/health | python3 -m json.tool'
+   ```
+   Ожидаемый ответ: `{"status": "ok", "billing": "enabled"}`
+
+2. **Проверка vLLM моделей:**
+   ```bash
+   ssh -J svlkravchuk@10.129.11.21 root@10.129.13.78 \
+     'curl -s http://127.0.0.1:8080/v1/models | python3 -c "import sys,json; [print(m[\"id\"]) for m in json.load(sys.stdin)[\"data\"]]"'
+   ```
+
+3. **Проверка Portal:**
+   ```bash
+   curl -sI http://130.17.1.90/auth/yandex | head -1
+   ```
+   Ожидаемый ответ: `HTTP/1.1 302 Found`
+
+4. **Проверка K8s:**
+   ```bash
+   kubectl get nodes
+   ```
+   Ожидаемый ответ: обе ноды `Ready`.
+
+5. **Проверка VPN:**
+   ```bash
+   ip route show | grep -E 'wg0|tun1'
+   ```
+
+---
+
+**Итог приложения Б.** Конфигурация стенда Aither на июль 2026: 6 хостов, 7 сервисов, 4 tier'а, 5 туннелей. 11 из 12 компонентов исправны. ChromaDB требует восстановления.
+
+---
+
 *Конец части IV. Конец учебника.*

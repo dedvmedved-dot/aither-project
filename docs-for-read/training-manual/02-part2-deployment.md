@@ -1329,3 +1329,228 @@ echo "JWT_SECRET=$NEW_SECRET" | ssh root@130.17.1.90 \
 ---
 
 **Часть II завершена: ~140 стр., 18 схем, 20 таблиц.**
+
+---
+
+# Приложение А. Актуальная конфигурация стенда (июль 2026)
+
+> **Цель раздела:** дать читателю точную картину того, как выглядит production-стенд Aither на момент лета 2026 года: хосты, сервисы, сеть, биллинг. Это не теория и не учебный пример — это реальная работающая конфигурация.
+
+## А.1. Хосты и роли
+
+> 💡 **Почему шесть хостов?** Каждый хост решает одну задачу. VPS для входа пользователей, VPS для портала, два GPU-сервера для моделей, Cisco для VPN, резервный VPS для аварийного восстановления. Как в ресторане: зал (портал), кухня (GPU), служебный вход (VPN), пожарный выход (резерв).
+
+| Хост | IP | ОС | Роль | GPU |
+|---|---|---|---|---|
+| **VPS1** | 130.17.1.90 | Ubuntu 24.04 | Портал (Node.js :3000, nginx :80) | — |
+| **VPS2** | 170.168.91.95 | Ubuntu 24.04 | Hermes Agent, nginx :10443 (SSL) | — |
+| **VPS3** | 89.127.217.88 | Ubuntu 24.04 | Резервный (бэкапы, синк каждые 30 мин) | — |
+| **n7** | 10.129.13.77 | Astra Linux SE 1.8 | K8s worker, vLLM 32B (systemd :8000) | 2× RTX 6000 (24 GB) |
+| **n8** | 10.129.13.78 | Astra Linux SE 1.8 | K8s control-plane, Gateway :8080, vLLM 14B (pod :30014), PostgreSQL :5432, Redis :6379 | 2× RTX 6000 (24 GB) |
+| **Cisco** | 10.129.11.21 | Cisco 815 | Jump Host, VPN-концентратор | — |
+
+*Таблица А.1. Шесть хостов платформы Aither.*
+
+## А.2. Сервисы Aither
+
+> 💡 **Gateway — дирижёр оркестра.** Все запросы проходят через Gateway. Он решает: какую модель выбрать (14B или 32B), сколько токенов осталось у организации, можно ли использовать RAG. Как администратор в кинотеатре: проверяет билет, указывает зал, следит за заполненностью.
+
+| Сервис | Где | Порт | Технология | Описание |
+|---|---|---|---|---|
+| **Gateway** | n8 | :8080 | Python (systemd) | Маршрутизация, rate limiting, billing, RAG |
+| **vLLM 14B Coder** | n8 (K8s pod) | :30014 | vLLM + Qwen2.5-14B-Instruct | Основная модель для кода, TP=2 |
+| **vLLM 32B GPTQ** | n7 (systemd) | :8000 | vLLM + Qwen2.5-32B-GPTQ | Тяжёлая модель для анализа, TP=2 |
+| **Портал** | VPS1 | :3000 / :80 | Node.js (Fastify) + nginx | Пользовательский интерфейс, OAuth, чат |
+| **PostgreSQL** | n8 | :5432 | PostgreSQL 16 | Billing DB: billing_accounts, billing_ledger, subscription_tiers, usage_records |
+| **Redis** | n8 | :6379 | Redis 7 | Кэш tier'ов (tier:vip), снижает нагрузку на БД |
+| **Kubernetes** | n8 (control-plane) | :6443 | K8s v1.33.5 | Оркестрация: 1 control-plane + 1 worker (n7) |
+
+*Таблица А.2. Семь ключевых сервисов платформы.*
+
+### Gateway — детали
+
+Gateway — центральный компонент. Написан на Python, запущен через systemd на n8:
+
+```bash
+# Запуск Gateway (systemd-юнит aither-gateway.service)
+/usr/bin/python3 /opt/gateway/gateway.py
+# ↑ основной процесс — слушает порт 8080
+```
+
+**Функции Gateway:**
+- **Cost-aware routing:** короткие запросы → 14B (дешевле), сложные «объясни» → 32B
+- **Rate limiting:** RPM/TPM на организацию согласно tier (Free/VIP/Enterprise)
+- **Billing:** списание токенов посекундно, Reservation Reaper для возврата при обрыве
+- **RAG:** hybrid-query по wiki-графу (6 страниц), Tier check (Free = без RAG)
+- **JWT delegation:** BFF подписывает JWT (RS256), Gateway проверяет публичным ключом
+
+### vLLM — две модели
+
+| Модель | Где | Запуск | TP | VRAM | Когда используется |
+|---|---|---|---|---|---|
+| Qwen2.5-14B-Instruct | n8, K8s pod | `kubectl apply -f vllm-deployment.yaml` | 2 | ~28 GB | Код, короткие запросы |
+| Qwen2.5-32B-GPTQ | n7, systemd | `systemctl start vllm-32b` | 2 | ~17.6 GB (INT4) | Анализ, сравнения, сложные запросы |
+
+> ⚠️ **Почему 32B на INT4, а 14B на FP16?** 32B в FP16 весит 64 GB — не влезает в 48 GB двух RTX 6000. INT4-квантизация сжимает до 17.6 GB ценой небольшой потери точности. Для учебных задач — незаметно. Для «объясни сложное» — допустимо.
+
+### Портал
+
+Портал — SPA (Single Page Application) на VPS1:
+
+```bash
+# BFF (Backend For Frontend) — Fastify :3000
+cd /root/aither-project/portal
+set -a && source .env && set +a
+node dist/server.js
+# ↑ обрабатывает OAuth (Яндекс/Google/GitHub), JWT, проксирует запросы к Gateway
+```
+
+```nginx
+# nginx.conf — маршрутизация на VPS1
+server {
+    listen 80;
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /index.html;   # SPA fallback
+    }
+    location /auth/ { proxy_pass http://127.0.0.1:3000; }
+    location /api/  { proxy_pass http://127.0.0.1:3000; }
+}
+```
+
+## А.3. Сетевая топология
+
+> 💡 **Сеть как водопровод.** WireGuard — труба между VPS1 и VPS2 (быстрая, шифрованная). Cisco VPN — труба от VPS2 к GPU-серверам (через корпоративный шлюз). VLAN 308 — изолированный сегмент для серверов с GPU. Прямого доступа из интернета к n7/n8 нет — только через Cisco.
+
+| Туннель | Между | Технология | IP-адреса |
+|---|---|---|---|
+| VPS1 ↔ VPS2 | Публичный интернет | WireGuard (wg0) | 10.99.0.1 ↔ 10.99.0.2 |
+| VPS2 → n7/n8 | Через Cisco | Cisco VPN (tun1) | 10.129.11.0/24 |
+| n7 → n8 | Локальная сеть | VLAN 308 | 10.129.13.0/24 |
+| Пользователь → VPS2 | Публичный интернет | HTTPS (TLS 1.3) | fb1.spb.ru:10443 |
+| VPS3 → VPS2 | Публичный интернет | SSH + rsync | hermes-sync (каждые 30 мин) |
+
+*Таблица А.3. Пять сетевых туннелей.*
+
+**Полный путь запроса (7 шагов):**
+
+1. Пользователь → `https://fb1.spb.ru:10443` (nginx на VPS2, SSL LetsEncrypt)
+2. VPS2 nginx → VPS1:80 через WireGuard (10.99.0.1 → 10.99.0.2)
+3. VPS1 nginx:80 → BFF:3000 (localhost)
+4. BFF проверяет JWT, подписывает delegation-токен (RS256)
+5. BFF → Gateway (n8:8080) через WireGuard → Cisco VPN
+6. Gateway выбирает модель (14B/32B), проверяет tier, списывает токены
+7. Gateway → vLLM pod (n8:30014) или vLLM systemd (n7:8000)
+
+```dot
+digraph RequestPath {
+    bgcolor="#ffffff";
+    fontname="system-ui";
+    node [fontname="system-ui", fontsize=10, style=filled];
+    edge [fontname="system-ui", fontsize=8, color="#888888"];
+    rankdir=LR;
+    
+    step1 [label="1. Браузер\nHTTPS :10443", shape=box, fillcolor="#fce4ec", color="#e53935", fontcolor="#1a1a2e"];
+    step2 [label="2. VPS2 nginx\n(SSL)", shape=box, fillcolor="#bbdefb", color="#1e88e5", fontcolor="#1a1a2e"];
+    step3 [label="3. WireGuard\nVPS2 → VPS1", shape=box, fillcolor="#c8e6c9", color="#43a047", fontcolor="#1a1a2e"];
+    step4 [label="4. VPS1 nginx\n→ BFF :3000", shape=box, fillcolor="#e1bee7", color="#7b1fa2", fontcolor="#1a1a2e"];
+    step5 [label="5. BFF\nJWT check +\ndelegation", shape=box, fillcolor="#e1bee7", color="#7b1fa2", fontcolor="#1a1a2e"];
+    step6 [label="6. Gateway\nn8:8080\ncost-aware\nrouting", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+    step7 [label="7. vLLM\n14B / 32B", shape=box, fillcolor="#ffcdd2", color="#e53935", fontcolor="#1a1a2e"];
+    
+    step1 -> step2 -> step3 -> step4 -> step5 -> step6 -> step7;
+}
+```
+
+*Схема А.1. Семь шагов одного запроса: от браузера до GPU.*
+
+## А.4. Billing
+
+> 💡 **Биллинг как счётчик электроэнергии.** Организация получает ежемесячный лимит токенов. Каждый запрос к модели «сжигает» токены со счёта. Gateway списывает их посекундно. Если токены кончились — запросы блокируются до пополнения (автоматического 1-го числа).
+
+| Аккаунт | Tier | Токенов | Модели | RAG |
+|---|---|---|---|---|
+| test-org | VIP | ~1M | 14B, 32B | ✅ |
+| (3 других) | VIP | ~1M каждый | 14B, 32B | ✅ |
+
+| Tier | RPM | TPM | Дневной лимит | Модели | RAG | Цена |
+|---|---|---|---|---|---|---|
+| **Free** | 10 | 5000 | 10000 | 14B | ❌ | 0 ₽ |
+| **Pro** | 100 | 50000 | 100000 | 14B, 32B | ❌ | 990 ₽/мес |
+| **VIP** | 300 | 100000 | 500000 | 14B, 32B | ✅ | 4990 ₽/мес |
+| **Enterprise** | 1200 | 500000 | 10000000 | 14B, 32B | ✅ | Договор |
+
+*Таблица А.4. Четыре tier'а подписки.*
+
+**Таблицы PostgreSQL (billing):**
+
+| Таблица | Назначение | Пример записи |
+|---|---|---|
+| `billing_accounts` | Организации и их баланс | `org_id=test-org, tier=vip, tokens=1000000` |
+| `billing_ledger` | Все списания (аудит) | `-150 tokens, chat_id=..., timestamp=...` |
+| `subscription_tiers` | Параметры tier'ов | `tier_id=vip, rpm=300, rag_enabled=true` |
+| `usage_records` | Статистика использования | `date=2026-07-14, tokens=45000` |
+
+**Gateway .env (на n8):**
+```bash
+# /etc/aither/gateway.env — переменные окружения Gateway
+VLLM_URL=http://localhost:30014          # vLLM 14B (K8s NodePort на n8)
+VLLM_32B_URL=http://10.129.13.77:8000    # vLLM 32B (systemd на n7)
+PG_URL=postgresql://aither@localhost:5432/aither   # Billing DB (локально на n8)
+REDIS_URL=redis://localhost:6379         # Кэш tier'ов
+ADMIN_KEY=***                            # Админ-ключ для /admin/*
+```
+
+## А.5. Что работает, что нет
+
+| Компонент | Статус | Примечание |
+|---|---|---|
+| Gateway (n8:8080) | ✅ | systemd, авто-перезапуск |
+| vLLM 14B (n8:30014) | ✅ | K8s pod, NodePort |
+| vLLM 32B (n7:8000) | ✅ | systemd, Qwen2.5-32B-GPTQ |
+| Портал (VPS1:80) | ✅ | nginx + BFF :3000 |
+| PostgreSQL (n8:5432) | ✅ | Billing DB |
+| Redis (n8:6379) | ✅ | Кэш tier'ов |
+| K8s API (n8:6443) | ✅ | v1.33.5, 2 ноды Ready |
+| OAuth (Яндекс/Google/GitHub) | ✅ | Через BFF, JWT HS256 |
+| Billing | ✅ | 4 VIP-аккаунта, списания идут |
+| RAG (wiki-граф) | ✅ | 6 страниц, hybrid mode |
+| ChromaDB | ❌ | Не работает (векторная БД отключена) |
+| WireGuard (VPS1 ↔ VPS2) | ✅ | 10.99.0.0/24 |
+| Cisco VPN (VPS2 → n7/n8) | ✅ | tun1 |
+| Резервный VPS3 | ✅ | Синк каждые 30 мин |
+| AIOps (VPS2 → VPS3) | 🔴 | Разворачивается, см. Задачу 2 |
+
+*Таблица А.5. Статус всех компонентов на июль 2026.*
+
+## А.6. ✏️ Практикум: исследуй стенд
+
+1. **Подключись к VPS2** через SSH и посмотри маршруты:
+   ```bash
+   ssh root@170.168.91.95
+   ip route show | grep -E 'wg0|tun1'   # WireGuard и Cisco VPN
+   ```
+
+2. **Проверь Gateway** — он должен отвечать на health check:
+   ```bash
+   curl -s http://n8:8080/health | python3 -m json.tool
+   ```
+
+3. **Посмотри список моделей** через Gateway:
+   ```bash
+   curl -s http://n8:8080/v1/models | python3 -c "import sys,json; [print(m['id']) for m in json.load(sys.stdin)['data']]"
+   ```
+
+4. **Проверь K8s** — все ли поды живы:
+   ```bash
+   kubectl get pods -A | grep -E 'vllm|gateway|chromadb'
+   ```
+
+5. **Проверь баланс организации** в billing DB:
+   ```bash
+   PGPASSWORD=*** psql -h n8 -U aither -d aither -c "SELECT org_id, tier, tokens FROM billing_accounts;"
+   ```
+
+---
+
+**Итог раздела А.** Мы рассмотрели реальную production-конфигурацию платформы Aither: 6 хостов, 7 сервисов, 5 сетевых туннелей, 4 tier'а биллинга. Эта конфигурация — не учебный пример, а работающий стенд, который обслуживает пользователей. Следующий шаг — настройка AIOps для автоматического мониторинга и восстановления (см. Задачу 2).
