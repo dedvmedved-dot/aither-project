@@ -3979,4 +3979,62 @@ failover-узла и подключение AIOps 3.0.
 4. **AIOps → Aither** — подключить мониторинг, правила авто-восстановления
 5. **Flink JM** — liveness probe fix
 
+---
+
+## 2026-07-13/14: Ночная сессия — RAG, очистка VPS, бэкап на VPS3
+
+**Модель:** DeepSeek v4 Pro (Hermes Agent на VPS2)
+
+### RAG-отладка (3+ часа)
+
+**Проблема:** RAG включён, источники видны, но контент wiki не попадает в ответ модели.
+
+**Диагностика по слоям:**
+1. **Gateway RAG-поиск** (`/v1/rag/hybrid-query`) — ✅ 3-4 wiki-результата, preview 271-300 симв.
+2. **Инжект контекста в промпт** — ✅ модель использует wiki-детали при прямом тесте
+3. **Портал `/api/rag/chat`** — ✅ API возвращает 200, RAG meta + контент (659-2302 симв.)
+4. **Фронтенд** — код корректен, `renderMessages()` правильно обрабатывает `m.content` + `m.ragSources`
+
+**Итог RAG:** API работает идеально, проблема вероятно на уровне фронтенда (кэш браузера?) — отложено до утра.
+
+**Структура ответа Gateway (найдена нестыковка):**
+- Было: `ragData.results || []` — ожидался массив
+- Стало: `results.wiki_results + results.chroma_results` — Gateway возвращает объект `{wiki_results:[], chroma_results:[]}`
+- Исправлено в dist/server.js (поле `r.text` → `r.preview`)
+
+### Очистка дисков
+
+| Хост | До | После | Удалено |
+|---|---|---|---|
+| **VPS1** (130.17.1.90) | 94% (3.1G) | **40% (29G)** | Модели (26G): Qwen2.5-32B, Coder-14B, saiga_llama3_8b — дубликаты с n7/n8 |
+| **VPS2** (170.168.91.95) | 85% (5.7G) | **62% (15G)** | RED OS ISO (5.7G) + journald/syslog (3G) |
+
+### Бэкап на VPS3 (89.127.217.88, 120G)
+
+**Выполнено:**
+- ✅ VPS1 → VPS3: portal (код + .env), PostgreSQL дамп (59K)
+- ✅ VPS2 → VPS3: Hermes (685M: конфиг + навыки + память), nginx
+- ⚠️ n8 → VPS3: Gateway + PostgreSQL + wiki — host key добавлен, повторный прогон прерван
+
+### Диагностика системы
+
+| Компонент | Хост | Статус |
+|---|---|---|
+| **Gateway** | n8:8080 | ✅ 14B + 32B, RAG 6 wiki-стр. |
+| **vLLM 14B Coder** | n8 K8s pod :30014 | ✅ Running, 20.4/23.0 GB VRAM |
+| **vLLM 32B GPTQ** | n7 systemd :8000 | ✅ Active, 22.2/23.0 GB VRAM |
+| **K8s** | n8 ctrl-plane + n7 worker | ✅ Обе Ready, v1.33.5 |
+| **PostgreSQL** | n8 :5432 | ✅ 4 billing-аккаунта (все vip) |
+| **Redis** | n8 :6379 | ✅ кэш tier'ов |
+| **Портал** | VPS1 :3000 (через nginx) | ✅ 6 API-ключей |
+| **Nginx** | VPS2 :10443 → VPS1:80 | ✅ SSL LetsEncrypt |
+| **ChromaDB** | K8s (chroma-proxy) | ❌ 0 документов, DNS-ошибка |
+
+### Проблемы (открытые)
+- 🔴 VPS1 был 94% — исправлено
+- 🟡 ChromaDB не работает — RAG только wiki-graph
+- 🟡 RAG-контент в чате — отложено до утра
+- 🟡 vLLM 32B в systemd, не в K8s
+- ⚠️ Бэкап n8 → VPS3 не завершён (host key + scp)
+
 ```
