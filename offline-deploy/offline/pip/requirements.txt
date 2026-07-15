@@ -1,8 +1,7 @@
-fastapi>=0.100.0
-uvicorn>=0.23.0
-redis>=4.0.0
-psycopg2-binary>=2.9.0
-PyJWT>=2.8.0
-cryptography>=41.0.0
-httpx>=0.24.0
+# Gateway Python-зависимости
+# Версия: 1.2.0 — точное соответствие gateway/requirements.txt
+# НЕ включает chromadb/sentence-transformers — они только в chroma-proxy (образ chromadb/chroma)
+redis>=5.0
+pyjwt>=2.8
+psycopg2-binary>=2.9
 pyyaml>=6.0

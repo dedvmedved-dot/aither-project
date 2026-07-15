@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gateway
+  name: gateway
+  namespace: default
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: ghcr.io/dedvmedved-dot/aither-project-gateway:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: VLLM_URL
+          value: http://vllm:8000
+        - name: VLLM_32B_URL
+          value: http://vllm-qwen32b:8000
+        - name: CATALOG_PATH
+          value: /app/catalog.yaml
+        - name: REDIS_URL
+          value: redis
+        - name: RATE_LIMIT_RPM
+          value: "300"
+        - name: RATE_LIMIT_TPM
+          value: "100000"
+        - name: PORT
+          value: "8080"
+        - name: TOKEN_COST
+          value: "1"
+        - name: CHROMA_URL
+          value: http://chromadb:8000
+        - name: WIKI_ROOT
+          value: /app/wiki
+        - name: PG_URL
+          valueFrom:
+            secretKeyRef:
+              key: url
+              name: pg-url
+        - name: ADMIN_KEY
+          value: admin-388b0ed63777c064f0afd5da38904ccc
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+          timeoutSeconds: 1
+        volumeMounts:
+        - name: catalog
+          mountPath: /app/catalog.yaml
+          subPath: catalog.yaml
+        - name: wiki
+          mountPath: /app/wiki
+        - name: delegation-key
+          mountPath: /app/delegation
+      volumes:
+      - name: catalog
+        configMap:
+          name: gateway-catalog
+      - name: wiki
+        configMap:
+          name: gateway-wiki
+      - name: delegation-key
+        configMap:
+          name: delegation-public-key

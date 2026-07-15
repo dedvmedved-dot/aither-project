@@ -1,0 +1,48 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_ha {
+    label="HA Kubernetes Cluster"; style=dashed; color="#2e7d32"; bgcolor="#f1f8e9"; penwidth=2;
+
+    subgraph cluster_etcd {
+      label="etcd Cluster (HA)"; style=filled; color="#f9a825"; bgcolor="#fffde7";
+      etcd_vps1 [label="etcd\nVPS1\n(170.168.91.95)", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+      etcd_n8 [label="etcd\nn8 (40.51)\nЛидер ★", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+      etcd_future [label="etcd\n(будущий\n3-й узел)", shape=box, fillcolor="#e0e0e0", color="#9e9e9e", style="dashed,filled"];
+    }
+
+    subgraph cluster_cp {
+      label="Control-Plane (HA)"; style=filled; color="#1565c0"; bgcolor="#e3f2fd";
+      cp_n8 [label="kube-apiserver\ncontroller-manager\nscheduler\nn8 (40.51)", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+      cp_n7 [label="kube-apiserver\ncontroller-manager\nscheduler\nn7 (40.50)", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    }
+
+    lb [label="nginx LB\n:6443\nVPS1", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+
+    subgraph cluster_workers {
+      label="Workers"; style=dashed; color="#90a4ae"; bgcolor="#ffffff";
+      w_n7 [label="Worker\nn7 (40.50)\n2× RTX6000\nvLLM", shape=box, fillcolor="#e8f5e9", color="#43a047"];
+      w_n8 [label="Worker\nn8 (40.51)\n2× RTX6000\nGateway, PostgreSQL", shape=box, fillcolor="#e8f5e9", color="#43a047"];
+    }
+  }
+
+  users [label="Пользователи", shape=cylinder, fillcolor="#f3e5f5", color="#7b1fa2"];
+  vps2 [label="VPS2\nBFF + Portal\n:80/:3000", shape=box, fillcolor="#fce4ec", color="#c62828"];
+
+  users -> vps2;
+  vps2 -> lb [label="kubectl / API"];
+  lb -> cp_n8 [label=":6443"];
+  lb -> cp_n7 [label=":6443"];
+  
+  cp_n8 -> etcd_n8 [label=":2379", style=dashed, color="#f9a825"];
+  cp_n7 -> etcd_n8 [label=":2379", style=dashed, color="#f9a825"];
+  cp_n8 -> etcd_vps1 [label=":2379", style=dashed, color="#f9a825"];
+
+  etcd_n8 -> etcd_vps1 [dir=both, label="peer\n:2380", color="#f9a825", fontcolor="#f9a825"];
+  etcd_n8 -> etcd_future [dir=both, label="peer\n:2380", color="#9e9e9e", fontcolor="#9e9e9e", style=dashed];
+
+  w_n7 -> cp_n8 [style=invis];
+  w_n8 -> cp_n8 [style=invis];
+}

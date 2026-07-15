@@ -1,0 +1,36 @@
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  gw [label="Gateway", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+
+  subgraph cluster_audit {
+    label="Аудиторский след"; bgcolor="#e3f2fd"; color="#1565c0";
+    
+    bl [label="billing_ledger\n(PostgreSQL)\norg_id, user_id\ntype, tokens\namount_rub\ncreated_at", shape=cylinder, fillcolor="#bbdefb", color="#1565c0"];
+    
+    sec [label="security.log\n(/var/log/aither/)\nSIEM CEF формат\nротация 30 дней", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_operations {
+    label="Операции с аудитом"; bgcolor="#f5f7fa"; color="#7b8ca0";
+    op1 [label="reserve\n(блокировка\nперед vLLM)", shape=box, fillcolor="#e0e0e0", color="#616161"];
+    op2 [label="settle\n(списание после\nуспешного ответа)", shape=box, fillcolor="#e0e0e0", color="#616161"];
+    op3 [label="refund\n(возврат при\nошибке vLLM)", shape=box, fillcolor="#e0e0e0", color="#616161"];
+    op4 [label="purchase\n(покупка токенов\nчерез YooKassa)", shape=box, fillcolor="#e0e0e0", color="#616161"];
+    op5 [label="security\n(блокировка по\nAI Security)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  gw -> op1 -> bl;
+  gw -> op2 -> bl;
+  gw -> op3 -> bl;
+  gw -> op4 -> bl;
+  gw -> op5 -> sec;
+
+  report [label="Аудит-отчёт\nSELECT ... FROM\nbilling_ledger\nWHERE org_id=$1\nAND created_at\nBETWEEN ...", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  bl -> report [style=dashed];
+
+  check [label="Сверка:\npayment_transactions\n↔ YooKassa выписка\nежемесячно", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  bl -> check [style=dashed];
+}

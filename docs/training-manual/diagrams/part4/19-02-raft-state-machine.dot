@@ -1,0 +1,26 @@
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=11, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_raft {
+    label="RAFT Cluster (3 узла)"; style=dashed; color="#7b8ca0"; bgcolor="#f5f7fa";
+    
+    leader [label="Лидер\n(Leader)\n● принимает записи\n● реплицирует логи", shape=box, fillcolor="#c8e6c9", color="#2e7d32", width=2.2];
+    
+    f1 [label="Follower 1\n● реплицирует\n● может стать лидером", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    f2 [label="Follower 2\n● реплицирует\n● может стать лидером", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  client [label="Клиент\n(kube-apiserver)", shape=cylinder, fillcolor="#fff9c4", color="#f9a825"];
+
+  client -> leader [label="1. Запись\n(PUT /key)", color="#2e7d32", fontcolor="#2e7d32"];
+  leader -> f1 [label="2. AppendEntries\n(репликация)", color="#1565c0"];
+  leader -> f2 [label="2. AppendEntries\n(репликация)", color="#1565c0"];
+  f1 -> leader [label="3. ACK ✓", color="#7b8ca0"];
+  f2 -> leader [label="3. ACK ✓", color="#7b8ca0"];
+  leader -> client [label="4. OK (кворум)\n✓ запись применена", color="#2e7d32", fontcolor="#2e7d32"];
+
+  quorum [label="Кворум = ⌊N/2⌋+1 = 2\n(2 из 3 подтвердили → запись принята)", shape=note, fillcolor="#f3e5f5", color="#7b1fa2", fontsize=10];
+  quorum -> leader [style=dotted, dir=none];
+}

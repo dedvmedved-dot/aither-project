@@ -1,0 +1,28 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_stride {
+    label="STRIDE-модель угроз Aither"; bgcolor="#f5f7fa"; color="#7b8ca0";
+
+    s [label="S — Spoofing\n(подмена)\nПодделка JWT,\nAPI-ключа", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    t [label="T — Tampering\n(искажение)\nИзменение промпта,\nподмена модели", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    r [label="R — Repudiation\n(отказ)\nОтрицание запроса\n→ аудит-лог", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    i [label="I — Info Disclosure\n(утечка)\nPII в ответах,\nчужие чаты", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    d [label="D — DoS\n(отказ в обслуживании)\nRate limit,\nGPU-истощение", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    e [label="E — Elevation\n(повышение прав)\nОбход ACL,\nдоступ к VIP-моделям", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  subgraph cluster_controls {
+    label="Контрмеры Aither"; bgcolor="#e8f5e9"; color="#43a047";
+    c1 [label="JWT RS256\nmTLS", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c2 [label="Security Gateway\nprompt injection\ndetector", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c3 [label="billing_ledger\nаудиторский след\nс org_id", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c4 [label="Egress DLP\nPII filter\nDSP markers", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c5 [label="Redis rate limit\nper-org RPM/TPM\ntoken quotas", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    c6 [label="Model ACL\nper-org tier\n+ Gateway enforce", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  s -> c1; t -> c2; r -> c3; i -> c4; d -> c5; e -> c6;
+}

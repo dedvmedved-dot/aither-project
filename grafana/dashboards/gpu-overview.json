@@ -4,7 +4,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -38,7 +38,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "avg(DCGM_FI_DEV_GPU_TEMP)",
           "refId": "A"
@@ -50,7 +50,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -84,7 +84,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "avg(DCGM_FI_DEV_GPU_UTIL)",
           "refId": "A"
@@ -96,7 +96,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -114,7 +114,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "sum(DCGM_FI_DEV_FB_USED) / 1024",
           "refId": "A"
@@ -126,7 +126,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -144,7 +144,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "sum(DCGM_FI_DEV_POWER_USAGE)",
           "refId": "A"
@@ -156,7 +156,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -178,7 +178,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "DCGM_FI_DEV_GPU_TEMP",
           "legendFormat": "{{gpu}}",
@@ -191,7 +191,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -213,7 +213,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "DCGM_FI_DEV_GPU_UTIL",
           "legendFormat": "{{gpu}}",
@@ -226,7 +226,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -248,7 +248,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "DCGM_FI_DEV_FB_USED / 1024",
           "legendFormat": "{{gpu}} used",
@@ -261,7 +261,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "efrm6h7sxughsd"
+        "uid": "afrmx6pnt3jswb"
       },
       "fieldConfig": {
         "defaults": {
@@ -283,7 +283,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "efrm6h7sxughsd"
+            "uid": "afrmx6pnt3jswb"
           },
           "expr": "DCGM_FI_DEV_POWER_USAGE",
           "legendFormat": "{{gpu}}",
@@ -306,6 +306,6 @@
   },
   "timezone": "browser",
   "title": "Aither GPU Overview",
-  "uid": "aither-gpu",
+  "uid": "afrmx6pnt3jswb",
   "version": 3
 }

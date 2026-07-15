@@ -1,0 +1,659 @@
+=== WATCHDOG ===
+2026-07-13T23:54:26+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.699087ms
+2026-07-13T23:54:56+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.006028ms
+2026-07-13T23:55:26+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.835505ms
+2026-07-13T23:55:56+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3001 milliseconds with 0 bytes received | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.303046ms
+2026-07-13T23:56:31+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 20.151115ms
+2026-07-13T23:57:01+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.834303ms
+2026-07-13T23:57:31+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 21.366583ms
+2026-07-13T23:58:01+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.932456ms
+2026-07-13T23:58:31+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3000 milliseconds with 0 bytes received | etcd=Error: unhealthy cluster
+2026-07-13T23:59:12+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 19.237054ms
+2026-07-13T23:59:42+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.253196ms
+2026-07-14T00:00:12+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.850964ms
+2026-07-14T00:00:42+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.679538ms
+2026-07-14T00:01:12+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.713339ms
+2026-07-14T00:01:42+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.781782ms
+2026-07-14T00:02:12+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.484976ms
+2026-07-14T00:02:42+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.616308ms
+2026-07-14T00:03:13+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.716524ms
+2026-07-14T00:03:43+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.084967ms
+2026-07-14T00:04:13+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.12109ms
+2026-07-14T00:04:43+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.884377ms
+2026-07-14T00:05:13+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.504526ms
+2026-07-14T00:05:43+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.819172ms
+2026-07-14T00:06:13+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.872271ms
+2026-07-14T00:06:43+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3000 milliseconds with 0 bytes received | etcd=Error: unhealthy cluster
+2026-07-14T00:07:24+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.005775ms
+2026-07-14T00:07:54+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.019335ms
+2026-07-14T00:08:24+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 14.542675ms
+2026-07-14T00:08:54+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.475162ms
+2026-07-14T00:09:24+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.961482ms
+2026-07-14T00:09:54+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.025963ms
+2026-07-14T00:10:24+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 12.2384ms
+2026-07-14T00:10:54+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.892655ms
+2026-07-14T00:11:25+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 12.8812ms
+2026-07-14T00:11:55+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.696305ms
+2026-07-14T00:12:25+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.502066ms
+2026-07-14T00:12:55+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.434777ms
+2026-07-14T00:13:25+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.600545ms
+2026-07-14T00:13:55+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.502019ms
+2026-07-14T00:14:25+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.750797ms
+2026-07-14T00:14:55+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.510939ms
+2026-07-14T00:15:26+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 12.346129ms
+2026-07-14T00:15:56+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3000 milliseconds with 0 bytes received | etcd=Error: unhealthy cluster
+2026-07-14T00:16:36+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3000 milliseconds with 0 bytes received | etcd=Error: unhealthy cluster
+2026-07-14T00:17:16+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3001 milliseconds with 0 bytes received | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.219477ms
+2026-07-14T00:17:51+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.648697ms
+2026-07-14T00:18:21+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.311577ms
+2026-07-14T00:18:51+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3000 milliseconds with 0 bytes received | etcd=Error: unhealthy cluster
+2026-07-14T00:19:31+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]etcd-readiness ok
+[+]informer-sync ok
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+[+]shutdown ok
+readyz check failed | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.882179ms
+2026-07-14T00:20:05+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.556428ms
+2026-07-14T00:20:36+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.693784ms
+2026-07-14T00:21:06+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.871016ms
+2026-07-14T00:21:36+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3001 milliseconds with 0 bytes received | etcd=Error: unhealthy cluster
+2026-07-14T00:22:16+03:00 | livez=[+]ping ok
+[+]log ok
+[-]etcd failed: reason withheld
+[+]poststarthook/start-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/priority-and-fairness-config-consumer ok
+[+]poststarthook/priority-and-fairness-filter ok
+[+]poststarthook/storage-object-count-tracker-hook ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/start-system-namespaces-controller ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-controller ok
+[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok
+[+]poststarthook/start-legacy-token-tracking-controller ok
+[+]poststarthook/start-service-ip-repair-controllers ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/priority-and-fairness-config-producer ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/start-kubernetes-service-cidr-controller ok
+[+]poststarthook/aggregator-reload-proxy-client-cert ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-status-local-available-controller ok
+[+]poststarthook/apiservice-status-remote-available-controller ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-discovery-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]poststarthook/apiservice-openapiv3-controller ok
+livez check failed | readyz=curl: (28) Operation timed out after 3001 milliseconds with 0 bytes received | etcd=Error: unhealthy cluster
+2026-07-14T00:22:56+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 13.03126ms
+2026-07-14T00:23:26+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.572227ms
+2026-07-14T00:23:56+03:00 | livez=ok | readyz=ok | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 18.022899ms
+2026-07-14T00:24:26+03:00 | livez=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | readyz=curl: (7) Failed to connect to 127.0.0.1 port 6443 after 0 ms: Couldn't connect to server | etcd=https://127.0.0.1:2379 is healthy: successfully committed proposal: took = 17.651677ms
+
+=== CONTAINERD EVENTS ===
+time="2026-07-14T00:12:30+03:00" level=warning msg="DEPRECATION: The `mirrors` property of `[plugins.\"io.containerd.grpc.v1.cri\".registry]` is deprecated since containerd v1.5 and will be removed in containerd v2.1. Use `config_path` instead."
+2026-07-13 21:12:56.149577259 +0000 UTC k8s.io /snapshot/remove {"key":"078d5ca1cae013df6264bdaa3e2c65d9ebaca833b8954bc9dcba94c1c9f2f72e","snapshotter":"overlayfs"}
+2026-07-13 21:12:56.150065682 +0000 UTC k8s.io /containers/delete {"id":"078d5ca1cae013df6264bdaa3e2c65d9ebaca833b8954bc9dcba94c1c9f2f72e"}
+2026-07-13 21:12:56.200979302 +0000 UTC k8s.io /snapshot/remove {"key":"d160247a4addd8aa52956345fcb0fa7ba50089251f29dcea95fff80b29a86b62","snapshotter":"overlayfs"}
+2026-07-13 21:12:56.201422672 +0000 UTC k8s.io /containers/delete {"id":"d160247a4addd8aa52956345fcb0fa7ba50089251f29dcea95fff80b29a86b62"}
+2026-07-13 21:12:56.206466114 +0000 UTC k8s.io /snapshot/remove {"key":"284a19ea62023d35dfdee25f0f4cfa6da4b18b1f6c8203967af6ed2a08642e29","snapshotter":"overlayfs"}
+2026-07-13 21:12:56.206958129 +0000 UTC k8s.io /containers/delete {"id":"284a19ea62023d35dfdee25f0f4cfa6da4b18b1f6c8203967af6ed2a08642e29"}
+2026-07-13 21:14:39.421535233 +0000 UTC k8s.io /tasks/exit {"container_id":"e67c058132e92b259b01a7790ed60d0d51a598ee5ba6fce46c86c4ad55e720c9","id":"e67c058132e92b259b01a7790ed60d0d51a598ee5ba6fce46c86c4ad55e720c9","pid":759271,"exited_at":{"seconds":1783977279,"nanos":421397707}}
+2026-07-13 21:14:39.464479374 +0000 UTC k8s.io /tasks/delete {"container_id":"e67c058132e92b259b01a7790ed60d0d51a598ee5ba6fce46c86c4ad55e720c9","pid":759271,"exited_at":{"seconds":1783977279,"nanos":421397707}}
+2026-07-13 21:14:39.551822151 +0000 UTC k8s.io /tasks/exit {"container_id":"1a36d3b0680103a7f6b7d42efffaca200bb7cc9f50d3fda2d53dec6deae9ae07","id":"1a36d3b0680103a7f6b7d42efffaca200bb7cc9f50d3fda2d53dec6deae9ae07","pid":757523,"exit_status":137,"exited_at":{"seconds":1783977279,"nanos":551789259}}
+2026-07-13 21:14:39.594276604 +0000 UTC k8s.io /tasks/delete {"container_id":"1a36d3b0680103a7f6b7d42efffaca200bb7cc9f50d3fda2d53dec6deae9ae07","pid":757523,"exit_status":137,"exited_at":{"seconds":1783977279,"nanos":551789259}}
+2026-07-13 21:14:39.834994405 +0000 UTC k8s.io /snapshot/remove {"key":"235e0487ff50d767d7c8dc4c3e27db2a34da9927e7aa2d764ed0b3a93a3872a5","snapshotter":"overlayfs"}
+2026-07-13 21:14:39.835554409 +0000 UTC k8s.io /containers/delete {"id":"235e0487ff50d767d7c8dc4c3e27db2a34da9927e7aa2d764ed0b3a93a3872a5"}
+2026-07-13 21:14:40.884829719 +0000 UTC k8s.io /snapshot/prepare {"key":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:14:40.885750136 +0000 UTC k8s.io /containers/create {"id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:14:40.888876451 +0000 UTC k8s.io /containers/update {"id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-b2w7k","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"41893e0d-7ac2-4254-b188-57c35332f176","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6"}
+2026-07-13 21:14:40.939487838 +0000 UTC k8s.io /containers/update {"id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-b2w7k","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"41893e0d-7ac2-4254-b188-57c35332f176","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6"}
+2026-07-13 21:14:41.071133935 +0000 UTC k8s.io /tasks/create {"container_id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6638/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6638/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":769016}
+2026-07-13 21:14:41.088037198 +0000 UTC k8s.io /tasks/start {"container_id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","pid":769016}
+2026-07-13 21:14:41.096707263 +0000 UTC k8s.io /snapshot/prepare {"key":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","parent":"sha256:0c46b3b43cce082ce5ec34ffc6c294e0417d17b9d1e6f366d114b6aadc4f96dc","snapshotter":"overlayfs"}
+2026-07-13 21:14:41.09890004 +0000 UTC k8s.io /containers/create {"id":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","image":"registry.k8s.io/coredns/coredns:v1.12.0","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:14:41.204457195 +0000 UTC k8s.io /tasks/create {"container_id":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6639/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6639/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/31/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/30/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/29/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/28/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/27/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/26/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/25/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/24/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/23/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/22/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/21/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/20/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/19/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96/io/1842613202/33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96/io/1842613202/33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96-stderr"},"pid":769092}
+2026-07-13 21:14:41.218674813 +0000 UTC k8s.io /tasks/start {"container_id":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","pid":769092}
+2026-07-13 21:14:44.403909544 +0000 UTC k8s.io /snapshot/prepare {"key":"010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","parent":"sha256:0c46b3b43cce082ce5ec34ffc6c294e0417d17b9d1e6f366d114b6aadc4f96dc","snapshotter":"overlayfs"}
+2026-07-13 21:14:44.406961988 +0000 UTC k8s.io /containers/create {"id":"010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","image":"registry.k8s.io/coredns/coredns:v1.12.0","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:14:44.524662434 +0000 UTC k8s.io /tasks/create {"container_id":"010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6640/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6640/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/31/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/30/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/29/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/28/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/27/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/26/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/25/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/24/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/23/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/22/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/21/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/20/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/19/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a/io/2212158408/010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a/io/2212158408/010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a-stderr"},"pid":769162}
+2026-07-13 21:14:44.539830252 +0000 UTC k8s.io /tasks/start {"container_id":"010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","pid":769162}
+2026-07-13 21:14:56.264743446 +0000 UTC k8s.io /snapshot/remove {"key":"564c756b0665ead8d0a6c590bf17da681de6d14d5d38d3e7a811c4ee9c418836","snapshotter":"overlayfs"}
+2026-07-13 21:14:56.265252489 +0000 UTC k8s.io /containers/delete {"id":"564c756b0665ead8d0a6c590bf17da681de6d14d5d38d3e7a811c4ee9c418836"}
+2026-07-13 21:15:44.427479467 +0000 UTC k8s.io /tasks/exit {"container_id":"a3accf72ca11026ca725be6288a9117decb239c7bd520e9cb01a930adc0ef51e","id":"a3accf72ca11026ca725be6288a9117decb239c7bd520e9cb01a930adc0ef51e","pid":760905,"exited_at":{"seconds":1783977344,"nanos":427313882}}
+2026-07-13 21:15:44.473179847 +0000 UTC k8s.io /tasks/delete {"container_id":"a3accf72ca11026ca725be6288a9117decb239c7bd520e9cb01a930adc0ef51e","pid":760905,"exited_at":{"seconds":1783977344,"nanos":427313882}}
+2026-07-13 21:15:44.547308339 +0000 UTC k8s.io /tasks/exit {"container_id":"3902fe89780c2d884000b52f722500259cae93bdf957490ee11701482be21e07","id":"3902fe89780c2d884000b52f722500259cae93bdf957490ee11701482be21e07","pid":760760,"exit_status":137,"exited_at":{"seconds":1783977344,"nanos":547276532}}
+2026-07-13 21:15:44.585479767 +0000 UTC k8s.io /tasks/delete {"container_id":"3902fe89780c2d884000b52f722500259cae93bdf957490ee11701482be21e07","pid":760760,"exit_status":137,"exited_at":{"seconds":1783977344,"nanos":547276532}}
+2026-07-13 21:15:44.993152807 +0000 UTC k8s.io /snapshot/remove {"key":"6b9468d941b37046c93ac534c2f1ff85fbb154744a6ec5211d576f71645ffc44","snapshotter":"overlayfs"}
+2026-07-13 21:15:44.994685944 +0000 UTC k8s.io /containers/delete {"id":"6b9468d941b37046c93ac534c2f1ff85fbb154744a6ec5211d576f71645ffc44"}
+2026-07-13 21:15:44.997342056 +0000 UTC k8s.io /snapshot/prepare {"key":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:15:44.998415307 +0000 UTC k8s.io /containers/create {"id":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:15:45.120339332 +0000 UTC k8s.io /tasks/create {"container_id":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6641/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6641/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":769519}
+2026-07-13 21:15:45.137553525 +0000 UTC k8s.io /tasks/start {"container_id":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","pid":769519}
+2026-07-13 21:15:56.275057744 +0000 UTC k8s.io /snapshot/remove {"key":"f981a42c264ff3aad5bbc5495521eb005a062a3e00f70993f8e86d892bfd3599","snapshotter":"overlayfs"}
+2026-07-13 21:15:56.27562659 +0000 UTC k8s.io /containers/delete {"id":"f981a42c264ff3aad5bbc5495521eb005a062a3e00f70993f8e86d892bfd3599"}
+2026-07-13 21:16:25.454934183 +0000 UTC k8s.io /snapshot/prepare {"key":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","parent":"sha256:6168c11cb87376717c8d55a24379700155fe9bab1a0ff1b6dac9bbd06ce9c987","snapshotter":"overlayfs"}
+2026-07-13 21:16:25.460561073 +0000 UTC k8s.io /containers/create {"id":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","image":"registry.k8s.io/kube-proxy:v1.33.13","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:16:25.60102297 +0000 UTC k8s.io /tasks/create {"container_id":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6642/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6642/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/18/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/17/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323/io/2651538724/3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323/io/2651538724/3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323-stderr"},"pid":769634}
+2026-07-13 21:16:25.61691264 +0000 UTC k8s.io /tasks/start {"container_id":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","pid":769634}
+2026-07-13 21:16:44.405466608 +0000 UTC k8s.io /snapshot/prepare {"key":"65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","parent":"sha256:0b02767565c394f9e78a32ee28a87fcc3228354330f01d3814b709a8778b1786","snapshotter":"overlayfs"}
+2026-07-13 21:16:44.410033473 +0000 UTC k8s.io /containers/create {"id":"65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","image":"registry.k8s.io/kube-scheduler:v1.33.13","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:16:44.560228945 +0000 UTC k8s.io /tasks/create {"container_id":"65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6643/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6643/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/16/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/13/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/12/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/11/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/10/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/9/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/8/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/7/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/5/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/4/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/3/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/1/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7/io/3020715122/65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7/io/3020715122/65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7-stderr"},"pid":769778}
+2026-07-13 21:16:44.57650011 +0000 UTC k8s.io /tasks/start {"container_id":"65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","pid":769778}
+2026-07-13 21:17:02.415497236 +0000 UTC k8s.io /snapshot/prepare {"key":"fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","parent":"sha256:3e053c66429eaecfc428ae452c33e5d40529fe624d57f513368224605b2c6840","snapshotter":"overlayfs"}
+2026-07-13 21:17:02.41871479 +0000 UTC k8s.io /containers/create {"id":"fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","image":"registry.k8s.io/kube-controller-manager:v1.33.13","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:17:02.568596323 +0000 UTC k8s.io /tasks/create {"container_id":"fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6644/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6644/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/15/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/13/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/12/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/11/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/10/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/9/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/8/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/7/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/5/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/4/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/3/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/1/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a/io/3167154406/fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a/io/3167154406/fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a-stderr"},"pid":769891}
+2026-07-13 21:17:02.585131811 +0000 UTC k8s.io /tasks/start {"container_id":"fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","pid":769891}
+2026-07-13 21:17:08.407460894 +0000 UTC k8s.io /snapshot/prepare {"key":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","parent":"sha256:c75dcc65fdb812b2c0d122b85e33fcc56212a36435b36bd937b6a3f8e63d4391","snapshotter":"overlayfs"}
+2026-07-13 21:17:08.449435392 +0000 UTC k8s.io /containers/create {"id":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","image":"registry.k8s.io/etcd:3.5.21-0","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:17:08.573799155 +0000 UTC k8s.io /tasks/create {"container_id":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6645/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6645/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/46/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/45/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/44/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/43/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/42/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/41/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/40/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/39/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/38/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/37/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/36/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/35/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/34/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/33/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34/io/264104856/5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34/io/264104856/5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34-stderr"},"pid":769962}
+2026-07-13 21:17:08.588469537 +0000 UTC k8s.io /tasks/start {"container_id":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","pid":769962}
+2026-07-13 21:17:10.404041714 +0000 UTC k8s.io /snapshot/prepare {"key":"97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","parent":"sha256:af8fcc14dd4ff8570590a20b4bfc32518b5241cd2e757aceb0c8448876c93377","snapshotter":"overlayfs"}
+2026-07-13 21:17:10.407047899 +0000 UTC k8s.io /containers/create {"id":"97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","image":"ghcr.io/flannel-io/flannel:v0.28.7","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:17:10.513602187 +0000 UTC k8s.io /tasks/create {"container_id":"97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6646/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6646/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2819/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2818/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2817/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2816/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2815/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2814/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2813/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2812/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2811/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2810/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e/io/3889170736/97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e/io/3889170736/97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e-stderr"},"pid":770041}
+2026-07-13 21:17:10.52876805 +0000 UTC k8s.io /tasks/start {"container_id":"97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","pid":770041}
+2026-07-13 21:17:27.436108112 +0000 UTC k8s.io /tasks/exit {"container_id":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","id":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","pid":769634,"exit_status":2,"exited_at":{"seconds":1783977447,"nanos":435270777}}
+2026-07-13 21:17:27.486309347 +0000 UTC k8s.io /tasks/delete {"container_id":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","pid":769634,"exit_status":2,"exited_at":{"seconds":1783977447,"nanos":435270777}}
+2026-07-13 21:17:27.538121636 +0000 UTC k8s.io /tasks/exit {"container_id":"3e16bc27a8c756f43c8f726ecca49c1e144e8c8e0a40ed7088dcba140bf18d37","id":"3e16bc27a8c756f43c8f726ecca49c1e144e8c8e0a40ed7088dcba140bf18d37","pid":766660,"exit_status":137,"exited_at":{"seconds":1783977447,"nanos":538086668}}
+2026-07-13 21:17:27.57951873 +0000 UTC k8s.io /tasks/delete {"container_id":"3e16bc27a8c756f43c8f726ecca49c1e144e8c8e0a40ed7088dcba140bf18d37","pid":766660,"exit_status":137,"exited_at":{"seconds":1783977447,"nanos":538086668}}
+2026-07-13 21:17:28.249828591 +0000 UTC k8s.io /snapshot/remove {"key":"8ae716a5ea8c9a5257075ca28df6b9ede79ed98f16de0b55ff17dd285ac539bf","snapshotter":"overlayfs"}
+2026-07-13 21:17:28.250283498 +0000 UTC k8s.io /containers/delete {"id":"8ae716a5ea8c9a5257075ca28df6b9ede79ed98f16de0b55ff17dd285ac539bf"}
+2026-07-13 21:17:28.257947135 +0000 UTC k8s.io /snapshot/prepare {"key":"8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:17:28.258669599 +0000 UTC k8s.io /containers/create {"id":"8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:17:28.354434464 +0000 UTC k8s.io /tasks/create {"container_id":"8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6647/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6647/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":770322}
+2026-07-13 21:17:28.369647206 +0000 UTC k8s.io /tasks/start {"container_id":"8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","pid":770322}
+2026-07-13 21:17:28.464594182 +0000 UTC k8s.io /tasks/exit {"container_id":"bd3859f94e6793b84acd99087a1b389068b6fec3d04ece47e4bc4e674153af2f","id":"bd3859f94e6793b84acd99087a1b389068b6fec3d04ece47e4bc4e674153af2f","pid":761783,"exit_status":137,"exited_at":{"seconds":1783977448,"nanos":464453200}}
+2026-07-13 21:17:28.576503993 +0000 UTC k8s.io /tasks/delete {"container_id":"bd3859f94e6793b84acd99087a1b389068b6fec3d04ece47e4bc4e674153af2f","pid":761783,"exit_status":137,"exited_at":{"seconds":1783977448,"nanos":464453200}}
+2026-07-13 21:17:28.626119167 +0000 UTC k8s.io /tasks/exit {"container_id":"630ec0a67c3bd1e6b452fcf4967dcdc2435dc2706f83d30238d414ec8694b812","id":"630ec0a67c3bd1e6b452fcf4967dcdc2435dc2706f83d30238d414ec8694b812","pid":761128,"exit_status":137,"exited_at":{"seconds":1783977448,"nanos":626072074}}
+2026-07-13 21:17:28.668559504 +0000 UTC k8s.io /tasks/delete {"container_id":"630ec0a67c3bd1e6b452fcf4967dcdc2435dc2706f83d30238d414ec8694b812","pid":761128,"exit_status":137,"exited_at":{"seconds":1783977448,"nanos":626072074}}
+2026-07-13 21:17:29.259395994 +0000 UTC k8s.io /snapshot/remove {"key":"e788ad923965e10b00bc72e99621522dbed1d1a7c22ae03fb77697a074979213","snapshotter":"overlayfs"}
+2026-07-13 21:17:29.25994723 +0000 UTC k8s.io /containers/delete {"id":"e788ad923965e10b00bc72e99621522dbed1d1a7c22ae03fb77697a074979213"}
+2026-07-13 21:17:29.263543924 +0000 UTC k8s.io /snapshot/prepare {"key":"99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:17:29.264507903 +0000 UTC k8s.io /containers/create {"id":"99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:17:29.397109828 +0000 UTC k8s.io /tasks/create {"container_id":"99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6648/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6648/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":770435}
+2026-07-13 21:17:29.413747091 +0000 UTC k8s.io /tasks/start {"container_id":"99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","pid":770435}
+2026-07-13 21:17:29.469994949 +0000 UTC k8s.io /tasks/exit {"container_id":"97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","id":"97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","pid":770041,"exit_status":1,"exited_at":{"seconds":1783977449,"nanos":469955746}}
+2026-07-13 21:17:29.578367258 +0000 UTC k8s.io /tasks/delete {"container_id":"97079f662ebb32fdee4cde44d16d03474d105c3af5f07ac6dd349fd765d31a8e","pid":770041,"exit_status":1,"exited_at":{"seconds":1783977449,"nanos":469955746}}
+2026-07-13 21:17:30.268627163 +0000 UTC k8s.io /snapshot/remove {"key":"42127a9682dc96c80e80aa9b5d233ec2ae776d21ec4dac01d7a8c1ddb29f6168","snapshotter":"overlayfs"}
+2026-07-13 21:17:30.269126395 +0000 UTC k8s.io /containers/delete {"id":"42127a9682dc96c80e80aa9b5d233ec2ae776d21ec4dac01d7a8c1ddb29f6168"}
+2026-07-13 21:17:41.403374897 +0000 UTC k8s.io /snapshot/prepare {"key":"78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","parent":"sha256:86dfa7004ca46d6407fc8ba53044c2a1864e745a8c1db454e47500cccb3203a8","snapshotter":"overlayfs"}
+2026-07-13 21:17:41.405695277 +0000 UTC k8s.io /containers/create {"id":"78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","image":"registry.k8s.io/kube-apiserver:v1.33.13","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:17:41.532735963 +0000 UTC k8s.io /tasks/create {"container_id":"78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6649/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6649/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/14/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/13/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/12/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/11/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/10/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/9/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/8/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/7/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/5/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/4/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/3/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/1/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa/io/273970543/78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa/io/273970543/78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa-stderr"},"pid":770506}
+2026-07-13 21:17:41.548499522 +0000 UTC k8s.io /tasks/start {"container_id":"78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","pid":770506}
+2026-07-13 21:17:43.546371743 +0000 UTC k8s.io /tasks/exit {"container_id":"78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","id":"78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","pid":770506,"exit_status":255,"exited_at":{"seconds":1783977463,"nanos":546233847}}
+2026-07-13 21:17:43.72085072 +0000 UTC k8s.io /tasks/delete {"container_id":"78357e454ee9612c1b9f684179571df8a65c7c1dbfd9cc3e28416fc3d35789aa","pid":770506,"exit_status":255,"exited_at":{"seconds":1783977463,"nanos":546233847}}
+2026-07-13 21:17:43.759584164 +0000 UTC k8s.io /tasks/exit {"container_id":"99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","id":"99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","pid":770435,"exit_status":137,"exited_at":{"seconds":1783977463,"nanos":759541138}}
+2026-07-13 21:17:43.783924005 +0000 UTC k8s.io /tasks/delete {"container_id":"99b9ef4529ef54ce9d2e01180b9c9ed09c778c2b76dedcbc5603a069b6e68628","pid":770435,"exit_status":137,"exited_at":{"seconds":1783977463,"nanos":759541138}}
+2026-07-13 21:17:44.313942097 +0000 UTC k8s.io /snapshot/remove {"key":"bd3859f94e6793b84acd99087a1b389068b6fec3d04ece47e4bc4e674153af2f","snapshotter":"overlayfs"}
+2026-07-13 21:17:44.314402951 +0000 UTC k8s.io /containers/delete {"id":"bd3859f94e6793b84acd99087a1b389068b6fec3d04ece47e4bc4e674153af2f"}
+2026-07-13 21:17:44.31761445 +0000 UTC k8s.io /snapshot/prepare {"key":"aab71be2959f4d62d8ccece999d0f7f81220f1c6dc8a9d4e444cb4bb04e28ca5","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:17:44.318422908 +0000 UTC k8s.io /containers/create {"id":"aab71be2959f4d62d8ccece999d0f7f81220f1c6dc8a9d4e444cb4bb04e28ca5","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:17:44.460198561 +0000 UTC k8s.io /tasks/create {"container_id":"aab71be2959f4d62d8ccece999d0f7f81220f1c6dc8a9d4e444cb4bb04e28ca5","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/aab71be2959f4d62d8ccece999d0f7f81220f1c6dc8a9d4e444cb4bb04e28ca5","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6650/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6650/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":770768}
+2026-07-13 21:17:44.477328751 +0000 UTC k8s.io /tasks/start {"container_id":"aab71be2959f4d62d8ccece999d0f7f81220f1c6dc8a9d4e444cb4bb04e28ca5","pid":770768}
+2026-07-13 21:17:56.290812158 +0000 UTC k8s.io /snapshot/remove {"key":"f8ab2fd3de180f34e2f6270b367c68674210955819ea8c17d53db464ee8167f9","snapshotter":"overlayfs"}
+2026-07-13 21:17:56.291340987 +0000 UTC k8s.io /containers/delete {"id":"f8ab2fd3de180f34e2f6270b367c68674210955819ea8c17d53db464ee8167f9"}
+2026-07-13 21:17:56.295825636 +0000 UTC k8s.io /snapshot/remove {"key":"846f65a6fce638977f87df322c6fdc02b3ba34ec239f6b3a37f7d2d3e5ee7c32","snapshotter":"overlayfs"}
+2026-07-13 21:17:56.296267139 +0000 UTC k8s.io /containers/delete {"id":"846f65a6fce638977f87df322c6fdc02b3ba34ec239f6b3a37f7d2d3e5ee7c32"}
+2026-07-13 21:17:56.300488823 +0000 UTC k8s.io /snapshot/remove {"key":"630ec0a67c3bd1e6b452fcf4967dcdc2435dc2706f83d30238d414ec8694b812","snapshotter":"overlayfs"}
+2026-07-13 21:17:56.300926845 +0000 UTC k8s.io /containers/delete {"id":"630ec0a67c3bd1e6b452fcf4967dcdc2435dc2706f83d30238d414ec8694b812"}
+2026-07-13 21:17:56.303417892 +0000 UTC k8s.io /snapshot/remove {"key":"8c1635b2605981ed18ba7bc1853098ffa5e8b68a1de11468a459bde8fbec0cc9","snapshotter":"overlayfs"}
+2026-07-13 21:17:56.303874201 +0000 UTC k8s.io /containers/delete {"id":"8c1635b2605981ed18ba7bc1853098ffa5e8b68a1de11468a459bde8fbec0cc9"}
+2026-07-13 21:18:11.432377516 +0000 UTC k8s.io /snapshot/prepare {"key":"0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4","parent":"sha256:86dfa7004ca46d6407fc8ba53044c2a1864e745a8c1db454e47500cccb3203a8","snapshotter":"overlayfs"}
+2026-07-13 21:18:11.43696138 +0000 UTC k8s.io /containers/create {"id":"0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4","image":"registry.k8s.io/kube-apiserver:v1.33.13","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:18:11.592225538 +0000 UTC k8s.io /tasks/create {"container_id":"0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6651/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6651/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/14/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/13/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/12/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/11/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/10/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/9/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/8/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/7/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/5/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/4/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/3/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/1/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4/io/2135314405/0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4/io/2135314405/0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4-stderr"},"pid":770866}
+2026-07-13 21:18:11.608829728 +0000 UTC k8s.io /tasks/start {"container_id":"0bd891eac66aa407678a0bcf7129e89a242d2084f4970f2d14299a26661646b4","pid":770866}
+2026-07-13 21:18:35.434841139 +0000 UTC k8s.io /tasks/exit {"container_id":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","id":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","pid":769962,"exited_at":{"seconds":1783977515,"nanos":434653862}}
+2026-07-13 21:18:35.495879497 +0000 UTC k8s.io /tasks/delete {"container_id":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","pid":769962,"exited_at":{"seconds":1783977515,"nanos":434653862}}
+2026-07-13 21:18:35.567385318 +0000 UTC k8s.io /tasks/exit {"container_id":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","id":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","pid":769519,"exit_status":137,"exited_at":{"seconds":1783977515,"nanos":567346413}}
+2026-07-13 21:18:35.611413341 +0000 UTC k8s.io /tasks/delete {"container_id":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","pid":769519,"exit_status":137,"exited_at":{"seconds":1783977515,"nanos":567346413}}
+2026-07-13 21:18:36.452434962 +0000 UTC k8s.io /snapshot/remove {"key":"a3accf72ca11026ca725be6288a9117decb239c7bd520e9cb01a930adc0ef51e","snapshotter":"overlayfs"}
+2026-07-13 21:18:36.45286971 +0000 UTC k8s.io /containers/delete {"id":"a3accf72ca11026ca725be6288a9117decb239c7bd520e9cb01a930adc0ef51e"}
+2026-07-13 21:18:36.4561607 +0000 UTC k8s.io /snapshot/prepare {"key":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:18:36.457466224 +0000 UTC k8s.io /containers/create {"id":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:18:36.561732216 +0000 UTC k8s.io /tasks/create {"container_id":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6652/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6652/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":771173}
+2026-07-13 21:18:36.57756359 +0000 UTC k8s.io /tasks/start {"container_id":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","pid":771173}
+2026-07-13 21:18:48.403617489 +0000 UTC k8s.io /snapshot/prepare {"key":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","parent":"sha256:c75dcc65fdb812b2c0d122b85e33fcc56212a36435b36bd937b6a3f8e63d4391","snapshotter":"overlayfs"}
+2026-07-13 21:18:48.408226055 +0000 UTC k8s.io /containers/create {"id":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","image":"registry.k8s.io/etcd:3.5.21-0","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:18:48.562038291 +0000 UTC k8s.io /tasks/create {"container_id":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6653/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6653/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/46/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/45/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/44/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/43/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/42/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/41/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/40/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/39/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/38/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/37/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/36/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/35/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/34/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/33/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e/io/4216507955/64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e/io/4216507955/64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e-stderr"},"pid":771241}
+2026-07-13 21:18:48.578235781 +0000 UTC k8s.io /tasks/start {"container_id":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","pid":771241}
+2026-07-13 21:18:49.519050997 +0000 UTC k8s.io /tasks/exit {"container_id":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","id":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","pid":771241,"exited_at":{"seconds":1783977529,"nanos":518925087}}
+2026-07-13 21:18:49.676632315 +0000 UTC k8s.io /tasks/delete {"container_id":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","pid":771241,"exited_at":{"seconds":1783977529,"nanos":518925087}}
+2026-07-13 21:18:49.726130961 +0000 UTC k8s.io /tasks/exit {"container_id":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","id":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","pid":771173,"exit_status":137,"exited_at":{"seconds":1783977529,"nanos":726098190}}
+2026-07-13 21:18:49.768009016 +0000 UTC k8s.io /tasks/delete {"container_id":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","pid":771173,"exit_status":137,"exited_at":{"seconds":1783977529,"nanos":726098190}}
+2026-07-13 21:18:50.496197314 +0000 UTC k8s.io /snapshot/remove {"key":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34","snapshotter":"overlayfs"}
+2026-07-13 21:18:50.496641137 +0000 UTC k8s.io /containers/delete {"id":"5883d9ace5d11bf9550a80af9bb56112e5bff24113a824f6ca32e6263fae5a34"}
+2026-07-13 21:18:50.500085191 +0000 UTC k8s.io /snapshot/prepare {"key":"547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:18:50.501175986 +0000 UTC k8s.io /containers/create {"id":"547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:18:50.629113689 +0000 UTC k8s.io /tasks/create {"container_id":"547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6654/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6654/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":771397}
+2026-07-13 21:18:50.64705007 +0000 UTC k8s.io /tasks/start {"container_id":"547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","pid":771397}
+2026-07-13 21:18:56.313981369 +0000 UTC k8s.io /snapshot/remove {"key":"3902fe89780c2d884000b52f722500259cae93bdf957490ee11701482be21e07","snapshotter":"overlayfs"}
+2026-07-13 21:18:56.314423381 +0000 UTC k8s.io /containers/delete {"id":"3902fe89780c2d884000b52f722500259cae93bdf957490ee11701482be21e07"}
+2026-07-13 21:18:56.319008005 +0000 UTC k8s.io /snapshot/remove {"key":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7","snapshotter":"overlayfs"}
+2026-07-13 21:18:56.319436599 +0000 UTC k8s.io /containers/delete {"id":"a29b1c09c7bfe6c1f31dc3ca7b949b763a943cbbb63612a105fa603396f3f0b7"}
+2026-07-13 21:19:15.404490209 +0000 UTC k8s.io /snapshot/prepare {"key":"b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","parent":"sha256:c75dcc65fdb812b2c0d122b85e33fcc56212a36435b36bd937b6a3f8e63d4391","snapshotter":"overlayfs"}
+2026-07-13 21:19:15.407618731 +0000 UTC k8s.io /containers/create {"id":"b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","image":"registry.k8s.io/etcd:3.5.21-0","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:19:15.558850375 +0000 UTC k8s.io /tasks/create {"container_id":"b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6655/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6655/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/46/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/45/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/44/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/43/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/42/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/41/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/40/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/39/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/38/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/37/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/36/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/35/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/34/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/33/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1/io/674112238/b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1/io/674112238/b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1-stderr"},"pid":771500}
+2026-07-13 21:19:15.575151583 +0000 UTC k8s.io /tasks/start {"container_id":"b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","pid":771500}
+2026-07-13 21:19:55.421032363 +0000 UTC k8s.io /tasks/exit {"container_id":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","id":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","pid":769092,"exited_at":{"seconds":1783977595,"nanos":420862463}}
+2026-07-13 21:19:55.534433962 +0000 UTC k8s.io /tasks/delete {"container_id":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","pid":769092,"exited_at":{"seconds":1783977595,"nanos":420862463}}
+2026-07-13 21:19:55.579984041 +0000 UTC k8s.io /tasks/exit {"container_id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","pid":769016,"exit_status":137,"exited_at":{"seconds":1783977595,"nanos":579948736}}
+2026-07-13 21:19:55.623414703 +0000 UTC k8s.io /tasks/delete {"container_id":"c5604a0f89efab8b7d15deb6e130f1e22062b6fcb94263a7f4e88604a7e4b5c6","pid":769016,"exit_status":137,"exited_at":{"seconds":1783977595,"nanos":579948736}}
+2026-07-13 21:19:55.656599822 +0000 UTC k8s.io /snapshot/remove {"key":"e67c058132e92b259b01a7790ed60d0d51a598ee5ba6fce46c86c4ad55e720c9","snapshotter":"overlayfs"}
+2026-07-13 21:19:55.657194911 +0000 UTC k8s.io /containers/delete {"id":"e67c058132e92b259b01a7790ed60d0d51a598ee5ba6fce46c86c4ad55e720c9"}
+2026-07-13 21:19:56.371112906 +0000 UTC k8s.io /snapshot/remove {"key":"1a36d3b0680103a7f6b7d42efffaca200bb7cc9f50d3fda2d53dec6deae9ae07","snapshotter":"overlayfs"}
+2026-07-13 21:19:56.37154066 +0000 UTC k8s.io /containers/delete {"id":"1a36d3b0680103a7f6b7d42efffaca200bb7cc9f50d3fda2d53dec6deae9ae07"}
+2026-07-13 21:19:56.686079157 +0000 UTC k8s.io /snapshot/prepare {"key":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:19:56.687004082 +0000 UTC k8s.io /containers/create {"id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:19:56.690323951 +0000 UTC k8s.io /containers/update {"id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-b2w7k","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"41893e0d-7ac2-4254-b188-57c35332f176","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5"}
+2026-07-13 21:19:56.743192117 +0000 UTC k8s.io /containers/update {"id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-b2w7k","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"41893e0d-7ac2-4254-b188-57c35332f176","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5"}
+2026-07-13 21:19:56.884412391 +0000 UTC k8s.io /tasks/create {"container_id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6656/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6656/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":772159}
+2026-07-13 21:19:56.901479741 +0000 UTC k8s.io /tasks/start {"container_id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","pid":772159}
+2026-07-13 21:20:16.449849146 +0000 UTC k8s.io /snapshot/prepare {"key":"64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","parent":"sha256:0c46b3b43cce082ce5ec34ffc6c294e0417d17b9d1e6f366d114b6aadc4f96dc","snapshotter":"overlayfs"}
+2026-07-13 21:20:16.452455272 +0000 UTC k8s.io /containers/create {"id":"64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","image":"registry.k8s.io/coredns/coredns:v1.12.0","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:20:16.560483162 +0000 UTC k8s.io /tasks/create {"container_id":"64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6657/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6657/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/31/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/30/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/29/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/28/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/27/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/26/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/25/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/24/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/23/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/22/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/21/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/20/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/19/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef/io/3288034914/64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef/io/3288034914/64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef-stderr"},"pid":772317}
+2026-07-13 21:20:16.575140614 +0000 UTC k8s.io /tasks/start {"container_id":"64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","pid":772317}
+2026-07-13 21:20:37.442154189 +0000 UTC k8s.io /tasks/exit {"container_id":"fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","id":"fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","pid":769891,"exit_status":2,"exited_at":{"seconds":1783977637,"nanos":441997395}}
+2026-07-13 21:20:37.509868327 +0000 UTC k8s.io /tasks/delete {"container_id":"fd6597b909e83a7f6cb9be8f4a1de0c852ee38bc8dbce48d459ea321fdcfa21a","pid":769891,"exit_status":2,"exited_at":{"seconds":1783977637,"nanos":441997395}}
+2026-07-13 21:20:37.562111851 +0000 UTC k8s.io /tasks/exit {"container_id":"2f18026c62a2da881196c5a3cc9cc212c24b17181c3b3f5de99b017c24f3d636","id":"2f18026c62a2da881196c5a3cc9cc212c24b17181c3b3f5de99b017c24f3d636","pid":767453,"exit_status":137,"exited_at":{"seconds":1783977637,"nanos":562081750}}
+2026-07-13 21:20:37.604908221 +0000 UTC k8s.io /tasks/delete {"container_id":"2f18026c62a2da881196c5a3cc9cc212c24b17181c3b3f5de99b017c24f3d636","pid":767453,"exit_status":137,"exited_at":{"seconds":1783977637,"nanos":562081750}}
+2026-07-13 21:20:37.757735907 +0000 UTC k8s.io /snapshot/remove {"key":"8cbc205adddd3ec07146d42c94dfdc24e08da3d353c90f9204ce791b7014d4f4","snapshotter":"overlayfs"}
+2026-07-13 21:20:37.758182035 +0000 UTC k8s.io /containers/delete {"id":"8cbc205adddd3ec07146d42c94dfdc24e08da3d353c90f9204ce791b7014d4f4"}
+2026-07-13 21:20:37.761616675 +0000 UTC k8s.io /snapshot/prepare {"key":"2bc1870ace2da47b1f09c9b67184995fbd76f3fb503b774c987435cd6a3c2188","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:20:37.7625706 +0000 UTC k8s.io /containers/create {"id":"2bc1870ace2da47b1f09c9b67184995fbd76f3fb503b774c987435cd6a3c2188","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:20:37.894462346 +0000 UTC k8s.io /tasks/create {"container_id":"2bc1870ace2da47b1f09c9b67184995fbd76f3fb503b774c987435cd6a3c2188","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/2bc1870ace2da47b1f09c9b67184995fbd76f3fb503b774c987435cd6a3c2188","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6658/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6658/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":772520}
+2026-07-13 21:20:37.913081332 +0000 UTC k8s.io /tasks/start {"container_id":"2bc1870ace2da47b1f09c9b67184995fbd76f3fb503b774c987435cd6a3c2188","pid":772520}
+2026-07-13 21:20:56.38149982 +0000 UTC k8s.io /snapshot/remove {"key":"e83b167c5f8e532152446b4c947a44bc50283de20e1c8578aa7dde8926d1b769","snapshotter":"overlayfs"}
+2026-07-13 21:20:56.382046062 +0000 UTC k8s.io /containers/delete {"id":"e83b167c5f8e532152446b4c947a44bc50283de20e1c8578aa7dde8926d1b769"}
+2026-07-13 21:21:32.434049955 +0000 UTC k8s.io /tasks/exit {"container_id":"b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","id":"b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","pid":771500,"exited_at":{"seconds":1783977692,"nanos":433854169}}
+2026-07-13 21:21:32.537662232 +0000 UTC k8s.io /tasks/delete {"container_id":"b7abcb4135c169be2123002ad3cd0c9260c35007986d638c20c09523b83502a1","pid":771500,"exited_at":{"seconds":1783977692,"nanos":433854169}}
+2026-07-13 21:21:32.590144118 +0000 UTC k8s.io /tasks/exit {"container_id":"547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","id":"547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","pid":771397,"exit_status":137,"exited_at":{"seconds":1783977692,"nanos":590113727}}
+2026-07-13 21:21:32.634755955 +0000 UTC k8s.io /tasks/delete {"container_id":"547cafbaf5c370a7163e0c666749ef494c520ff5ede9a3cecdcf5a834731c355","pid":771397,"exit_status":137,"exited_at":{"seconds":1783977692,"nanos":590113727}}
+2026-07-13 21:21:32.892009832 +0000 UTC k8s.io /snapshot/remove {"key":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e","snapshotter":"overlayfs"}
+2026-07-13 21:21:32.8925425 +0000 UTC k8s.io /containers/delete {"id":"64f958d85a6950f3fe0e2b03e4fcc6cda04bb58d1ca3e1af072d43f780434c3e"}
+2026-07-13 21:21:32.895889361 +0000 UTC k8s.io /snapshot/prepare {"key":"b3821f48387a0ae59d04c1dfbb216100782cc7ac672fcd82b40661b006294074","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:21:32.896781272 +0000 UTC k8s.io /containers/create {"id":"b3821f48387a0ae59d04c1dfbb216100782cc7ac672fcd82b40661b006294074","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:21:33.024567299 +0000 UTC k8s.io /tasks/create {"container_id":"b3821f48387a0ae59d04c1dfbb216100782cc7ac672fcd82b40661b006294074","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/b3821f48387a0ae59d04c1dfbb216100782cc7ac672fcd82b40661b006294074","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6659/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6659/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":772773}
+2026-07-13 21:21:33.041437402 +0000 UTC k8s.io /tasks/start {"container_id":"b3821f48387a0ae59d04c1dfbb216100782cc7ac672fcd82b40661b006294074","pid":772773}
+2026-07-13 21:21:33.421687383 +0000 UTC k8s.io /tasks/exit {"container_id":"010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","id":"010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","pid":769162,"exited_at":{"seconds":1783977693,"nanos":421566034}}
+2026-07-13 21:21:33.479767955 +0000 UTC k8s.io /tasks/delete {"container_id":"010ecaa05f26bc64fbdbe74f88396cec0a32ecbc607985fa016bdd994511be5a","pid":769162,"exited_at":{"seconds":1783977693,"nanos":421566034}}
+2026-07-13 21:21:33.551774772 +0000 UTC k8s.io /tasks/exit {"container_id":"4cd9e1cf4fbd39fdb4801b92902043765d0e7761a3b213b1c3322d79411c721e","id":"4cd9e1cf4fbd39fdb4801b92902043765d0e7761a3b213b1c3322d79411c721e","pid":767959,"exit_status":137,"exited_at":{"seconds":1783977693,"nanos":551743106}}
+2026-07-13 21:21:33.613072652 +0000 UTC k8s.io /tasks/delete {"container_id":"4cd9e1cf4fbd39fdb4801b92902043765d0e7761a3b213b1c3322d79411c721e","pid":767959,"exit_status":137,"exited_at":{"seconds":1783977693,"nanos":551743106}}
+2026-07-13 21:21:33.900022443 +0000 UTC k8s.io /snapshot/remove {"key":"106fd752a6d000db6a848bffbf84cab1184010e917ce70b75dd97e299504d1ab","snapshotter":"overlayfs"}
+2026-07-13 21:21:33.900439429 +0000 UTC k8s.io /containers/delete {"id":"106fd752a6d000db6a848bffbf84cab1184010e917ce70b75dd97e299504d1ab"}
+2026-07-13 21:21:33.942803719 +0000 UTC k8s.io /snapshot/prepare {"key":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:21:33.944043592 +0000 UTC k8s.io /containers/create {"id":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:21:33.947292273 +0000 UTC k8s.io /containers/update {"id":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-2h5vp","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"0f442a4d-5640-4ced-8fb8-5ccddfe11270","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8"}
+2026-07-13 21:21:33.998271675 +0000 UTC k8s.io /containers/update {"id":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-2h5vp","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"0f442a4d-5640-4ced-8fb8-5ccddfe11270","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8"}
+2026-07-13 21:21:34.134757302 +0000 UTC k8s.io /tasks/create {"container_id":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6660/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6660/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":773202}
+2026-07-13 21:21:34.150934079 +0000 UTC k8s.io /tasks/start {"container_id":"c76cca19615cecb18cdc925b2783fcdba53dd5eaaee7bb217c233aa4b0f328e8","pid":773202}
+2026-07-13 21:21:42.030851366 +0000 UTC k8s.io /tasks/exit {"container_id":"65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","id":"65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","pid":769778,"exit_status":1,"exited_at":{"seconds":1783977702,"nanos":30687906}}
+2026-07-13 21:21:42.093373669 +0000 UTC k8s.io /tasks/delete {"container_id":"65ea32f81b9c8f15c00ce0eed314705488a18cfd6872492a498af781132d0fd7","pid":769778,"exit_status":1,"exited_at":{"seconds":1783977702,"nanos":30687906}}
+2026-07-13 21:21:42.925993006 +0000 UTC k8s.io /snapshot/remove {"key":"79ea8af07e6e2a94e63633dd52beb7cc3459cc88d2241d6582b862caa3912b73","snapshotter":"overlayfs"}
+2026-07-13 21:21:42.926529455 +0000 UTC k8s.io /containers/delete {"id":"79ea8af07e6e2a94e63633dd52beb7cc3459cc88d2241d6582b862caa3912b73"}
+2026-07-13 21:21:56.390956642 +0000 UTC k8s.io /snapshot/remove {"key":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750","snapshotter":"overlayfs"}
+2026-07-13 21:21:56.391367582 +0000 UTC k8s.io /containers/delete {"id":"b8b9f0e424972e5ce7eee32ed65ba68fac0d774e79c43b61b0dbafcdb9f80750"}
+2026-07-13 21:21:56.395215477 +0000 UTC k8s.io /snapshot/remove {"key":"60942afa852d653e321c698cbc427d0c4336251b666960f2688830d36b10d4e7","snapshotter":"overlayfs"}
+2026-07-13 21:21:56.395655729 +0000 UTC k8s.io /containers/delete {"id":"60942afa852d653e321c698cbc427d0c4336251b666960f2688830d36b10d4e7"}
+2026-07-13 21:21:56.440328801 +0000 UTC k8s.io /snapshot/remove {"key":"c453d502a9616d17f59bb45fcf632a62d6e1dc52ea92dcc04d0b9d98507c6a23","snapshotter":"overlayfs"}
+2026-07-13 21:21:56.440827476 +0000 UTC k8s.io /containers/delete {"id":"c453d502a9616d17f59bb45fcf632a62d6e1dc52ea92dcc04d0b9d98507c6a23"}
+2026-07-13 21:22:24.402997831 +0000 UTC k8s.io /snapshot/prepare {"key":"05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c","parent":"sha256:c75dcc65fdb812b2c0d122b85e33fcc56212a36435b36bd937b6a3f8e63d4391","snapshotter":"overlayfs"}
+2026-07-13 21:22:24.407242241 +0000 UTC k8s.io /containers/create {"id":"05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c","image":"registry.k8s.io/etcd:3.5.21-0","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:22:24.558097502 +0000 UTC k8s.io /tasks/create {"container_id":"05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6661/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6661/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/46/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/45/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/44/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/43/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/42/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/41/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/40/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/39/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/38/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/37/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/36/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/35/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/34/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/33/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c/io/3386880384/05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c/io/3386880384/05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c-stderr"},"pid":773496}
+2026-07-13 21:22:24.574080966 +0000 UTC k8s.io /tasks/start {"container_id":"05cfaf5b2c72ef97f1cd91bf41cec6549ce0b4ff27778f3bd32fa6267f60696c","pid":773496}
+2026-07-13 21:22:39.460201881 +0000 UTC k8s.io /snapshot/prepare {"key":"0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","parent":"sha256:6168c11cb87376717c8d55a24379700155fe9bab1a0ff1b6dac9bbd06ce9c987","snapshotter":"overlayfs"}
+2026-07-13 21:22:39.464882348 +0000 UTC k8s.io /containers/create {"id":"0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","image":"registry.k8s.io/kube-proxy:v1.33.13","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:22:39.592799596 +0000 UTC k8s.io /tasks/create {"container_id":"0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6662/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6662/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/18/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/17/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c/io/2842643946/0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c/io/2842643946/0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c-stderr"},"pid":773609}
+2026-07-13 21:22:39.609236925 +0000 UTC k8s.io /tasks/start {"container_id":"0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","pid":773609}
+2026-07-13 21:22:41.436147588 +0000 UTC k8s.io /snapshot/prepare {"key":"de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b","parent":"sha256:af8fcc14dd4ff8570590a20b4bfc32518b5241cd2e757aceb0c8448876c93377","snapshotter":"overlayfs"}
+2026-07-13 21:22:41.439497317 +0000 UTC k8s.io /containers/create {"id":"de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b","image":"ghcr.io/flannel-io/flannel:v0.28.7","runtime":{"name":"io.containerd.runc.v2"}}
+2026-07-13 21:22:41.549569636 +0000 UTC k8s.io /tasks/create {"container_id":"de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6663/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6663/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2819/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2818/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2817/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2816/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2815/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2814/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2813/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2812/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2811/fs:/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2810/fs"]}],"io":{"stdout":"/run/containerd/io.containerd.grpc.v1.cri/containers/de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b/io/1757631868/de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b-stdout","stderr":"/run/containerd/io.containerd.grpc.v1.cri/containers/de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b/io/1757631868/de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b-stderr"},"pid":773781}
+2026-07-13 21:22:41.564740042 +0000 UTC k8s.io /tasks/start {"container_id":"de818831f371cd93f46bcf0d82d9b11c71e38b2b2f6afd8966c0f16d5423863b","pid":773781}
+2026-07-13 21:24:09.432070229 +0000 UTC k8s.io /tasks/exit {"container_id":"0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","id":"0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","pid":773609,"exit_status":2,"exited_at":{"seconds":1783977849,"nanos":431305022}}
+2026-07-13 21:24:09.481600056 +0000 UTC k8s.io /tasks/delete {"container_id":"0194784a045dc7b873e0657f90c7559c8ea1f6117c63091cdfa8391b123a631c","pid":773609,"exit_status":2,"exited_at":{"seconds":1783977849,"nanos":431305022}}
+2026-07-13 21:24:09.570922494 +0000 UTC k8s.io /tasks/exit {"container_id":"8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","id":"8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","pid":770322,"exit_status":137,"exited_at":{"seconds":1783977849,"nanos":570885735}}
+2026-07-13 21:24:09.610268656 +0000 UTC k8s.io /tasks/delete {"container_id":"8e26f7d577795ef65b32d1dffe40173d6b0eeb327cac03a76d7d9bc2846b407a","pid":770322,"exit_status":137,"exited_at":{"seconds":1783977849,"nanos":570885735}}
+2026-07-13 21:24:10.264422747 +0000 UTC k8s.io /snapshot/remove {"key":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323","snapshotter":"overlayfs"}
+2026-07-13 21:24:10.26498591 +0000 UTC k8s.io /containers/delete {"id":"3f4b2a9392538b2ba6fb26668660aaf66a0f2795b9f0056302c15a5458d51323"}
+2026-07-13 21:24:10.269780169 +0000 UTC k8s.io /snapshot/prepare {"key":"520220b205e8454d7f8aa7bd849e6693c5c511051ad618a6e4f9597882e44ab1","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:24:10.270912208 +0000 UTC k8s.io /containers/create {"id":"520220b205e8454d7f8aa7bd849e6693c5c511051ad618a6e4f9597882e44ab1","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:24:10.369524917 +0000 UTC k8s.io /tasks/create {"container_id":"520220b205e8454d7f8aa7bd849e6693c5c511051ad618a6e4f9597882e44ab1","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/520220b205e8454d7f8aa7bd849e6693c5c511051ad618a6e4f9597882e44ab1","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6664/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6664/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":774598}
+2026-07-13 21:24:10.384415702 +0000 UTC k8s.io /tasks/start {"container_id":"520220b205e8454d7f8aa7bd849e6693c5c511051ad618a6e4f9597882e44ab1","pid":774598}
+2026-07-13 21:24:15.422968124 +0000 UTC k8s.io /tasks/exit {"container_id":"64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","id":"64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","pid":772317,"exited_at":{"seconds":1783977855,"nanos":422829943}}
+2026-07-13 21:24:15.467970659 +0000 UTC k8s.io /tasks/delete {"container_id":"64197bec1d509032005a9763b7ee8ffbefb6d171f3c7c44aa1f057327fdc65ef","pid":772317,"exited_at":{"seconds":1783977855,"nanos":422829943}}
+2026-07-13 21:24:15.515011881 +0000 UTC k8s.io /tasks/exit {"container_id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","pid":772159,"exit_status":137,"exited_at":{"seconds":1783977855,"nanos":514975391}}
+2026-07-13 21:24:15.557061763 +0000 UTC k8s.io /tasks/delete {"container_id":"493441430aeefcf172303c1bc64436c0fcdf145d9bb4b365840accf59c9096e5","pid":772159,"exit_status":137,"exited_at":{"seconds":1783977855,"nanos":514975391}}
+2026-07-13 21:24:16.284214587 +0000 UTC k8s.io /snapshot/remove {"key":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96","snapshotter":"overlayfs"}
+2026-07-13 21:24:16.28465141 +0000 UTC k8s.io /containers/delete {"id":"33bd474101f30c65ceb2e8b6630d22c94e5711288bc35f41bd1706298ffe6d96"}
+2026-07-13 21:24:16.329508734 +0000 UTC k8s.io /snapshot/prepare {"key":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f","parent":"sha256:961e93cda9dd918dbe26aca24cccd6c5db05176850d2c53476d881df5d0d4816","snapshotter":"overlayfs"}
+2026-07-13 21:24:16.330472486 +0000 UTC k8s.io /containers/create {"id":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f","image":"registry.k8s.io/pause:3.8","runtime":{"name":"io.containerd.runc.v2","options":{"type_url":"containerd.runc.v1.Options"}}}
+2026-07-13 21:24:16.333998141 +0000 UTC k8s.io /containers/update {"id":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-b2w7k","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"41893e0d-7ac2-4254-b188-57c35332f176","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f"}
+2026-07-13 21:24:16.384663988 +0000 UTC k8s.io /containers/update {"id":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f","image":"registry.k8s.io/pause:3.8","labels":{"io.cri-containerd.kind":"sandbox","io.kubernetes.pod.name":"coredns-674b8bbfcf-b2w7k","io.kubernetes.pod.namespace":"kube-system","io.kubernetes.pod.uid":"41893e0d-7ac2-4254-b188-57c35332f176","k8s-app":"kube-dns","pod-template-hash":"674b8bbfcf"},"snapshot_key":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f"}
+2026-07-13 21:24:16.538235406 +0000 UTC k8s.io /tasks/create {"container_id":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f","bundle":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f","rootfs":[{"type":"overlay","source":"overlay","options":["index=off","workdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6665/work","upperdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/6665/fs","lowerdir=/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/318/fs"]}],"io":{},"pid":775143}
+2026-07-13 21:24:16.557233921 +0000 UTC k8s.io /tasks/start {"container_id":"3424d9bcc140be20b71833ec84813225e5811264998d3221da5e5062a847cb5f","pid":775143}
+
+=== CURRENT STATE ===
+etcd attempt: 57
+apiserver attempt: 64

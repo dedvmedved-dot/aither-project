@@ -9,11 +9,14 @@ import psycopg2.pool
 from security import check_security
 from security_egress import check_egress
 from vault import vault_validate_key
-from hybrid_rag import hybrid_query, wiki_ingest, wiki_status
+from hybrid_rag import hybrid_query, wiki_ingest, wiki_status, chroma_status
 from wiki_graph import get_wiki_graph
 from admin import (
     admin_queues, admin_models, admin_drain, admin_undrain,
     admin_health, admin_org_detail, admin_reaper, is_model_drained,
+    admin_users, admin_user_detail, admin_user_update_role,
+    admin_tokens_add, admin_tokens_subtract,
+    admin_tiers, admin_tier_set_limits, admin_org_set_tier,
 )
 from metrics import metrics, metrics_summary
 
@@ -203,55 +206,8 @@ def get_balance(org_id: str):
         db_pool.putconn(conn)
 
 
-CHROMA_URL = os.environ.get("CHROMA_URL", "http://chromadb:8000")
-_rag_chroma = None
-_rag_ef = None
-
-def _get_ef():
-    global _rag_ef
-    if _rag_ef is None:
-        from chromadb.utils import embedding_functions
-        _rag_ef = embedding_functions.ONNXMiniLM_L6_V2()
-    return _rag_ef
-
-def _get_chroma():
-    global _rag_chroma
-    if _rag_chroma is None:
-        import chromadb
-        _rag_chroma = chromadb.HttpClient(host=CHROMA_URL.split("://")[1].split(":")[0],
-                                          port=int(CHROMA_URL.split(":")[-1]))
-    return _rag_chroma
-
-def rag_ingest(documents: list) -> dict:
-    """Ingest documents into ChromaDB. Each doc: {id, text, metadata?}"""
-    chroma = _get_chroma()
-    ef = _get_ef()
-    coll = chroma.get_or_create_collection("documents")
-    ids, texts, metadatas = [], [], []
-    for doc in documents:
-        ids.append(doc.get("id", str(uuid.uuid4())[:8]))
-        texts.append(doc["text"])
-        metadatas.append(doc.get("metadata", {"source": "unknown"}))
-    embeddings = ef(texts)
-    coll.add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
-    return {"ingested": len(documents), "ids": ids}
-
-def rag_query(query: str, top_k: int = 5) -> list:
-    """Query ChromaDB for relevant documents."""
-    chroma = _get_chroma()
-    ef = _get_ef()
-    coll = chroma.get_or_create_collection("documents")
-    count = coll.count()
-    if count == 0:
-        return []
-    q_embedding = ef(["query: " + query])
-    results = coll.query(query_embeddings=q_embedding, n_results=min(top_k, count))
-    return [{"id": id_, "text": doc, "metadata": meta,
-             "score": round(1 - float(dist), 4) if dist is not None else 0}
-            for id_, doc, meta, dist in zip(
-                results["ids"][0], results["documents"][0],
-                results["metadatas"][0] if results["metadatas"] else [{}]*len(results["ids"][0]),
-                results.get("distances", [[1]]*len(results["ids"][0]))[0])]
+# RAG: delegated to hybrid_rag.py (chroma-proxy based, no chromadb dependency)
+from hybrid_rag import chroma_status, hybrid_query, wiki_ingest, wiki_status
 
 
 class Gateway(BaseHTTPRequestHandler):
@@ -326,15 +282,15 @@ class Gateway(BaseHTTPRequestHandler):
             # Admin API key from env
             if self.ADMIN_KEY and token == self.ADMIN_KEY:
                 return True
-            # JWT with admin role
+            # JWT with admin role (HS256 — no cryptography needed)
             try:
-                if PUBLIC_KEY:
-                    payload = pyjwt.decode(token, PUBLIC_KEY, algorithms=["RS256"],
-                                          options={"verify_exp": True, "verify_iss": False})
-                    if payload.get("role") == "admin":
-                        return True
-            except:
-                pass
+                jwt_secret = os.environ.get("JWT_SECRET", os.environ.get("ADMIN_SECRET", "aither-admin-secret"))
+                payload = pyjwt.decode(token, jwt_secret, algorithms=["HS256"],
+                                      options={"verify_exp": True, "verify_iss": False})
+                if payload.get("role") == "admin":
+                    return True
+            except Exception as e:
+                print(f"[admin] JWT decode failed: {e}", flush=True)
         self._json(403, {"error": "admin access required"})
         return False
 
@@ -351,7 +307,7 @@ class Gateway(BaseHTTPRequestHandler):
             return
         # ── Admin Management API ─────────────────────────────────
         if self.path == "/admin/queues":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 data = admin_queues(r)
                 self._json(200, data)
@@ -359,7 +315,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/models":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 from catalog import _registry
                 models = admin_models(_registry, r)
@@ -368,7 +324,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/health":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 from catalog import _registry
                 data = admin_health(db_pool, r, _registry)
@@ -377,7 +333,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/reaper":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 data = admin_reaper(r)
                 self._json(200, data)
@@ -385,7 +341,7 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path == "/admin/metrics":
-            self._check_admin()
+            if not self._check_admin(): return
             try:
                 data = metrics_summary()
                 self._json(200, data)
@@ -393,11 +349,37 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(500, {"error": str(e)})
             return
         if self.path.startswith("/admin/orgs/"):
-            self._check_admin()
+            if not self._check_admin(): return
             org_id = self.path.split("/admin/orgs/")[1].split("?")[0]
             try:
                 data = admin_org_detail(org_id, db_pool, r)
                 self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path == "/admin/users":
+            if not self._check_admin(): return
+            try:
+                data = admin_users(db_pool)
+                self._json(200, {"users": data})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path.startswith("/admin/users/"):
+            if not self._check_admin(): return
+            user_id = self.path.split("/admin/users/")[1].split("?")[0]
+            try:
+                data = admin_user_detail(user_id, db_pool)
+                code = 404 if "error" in data else 200
+                self._json(code, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path == "/admin/tiers":
+            if not self._check_admin(): return
+            try:
+                data = admin_tiers(db_pool)
+                self._json(200, {"tiers": data})
             except Exception as e:
                 self._json(500, {"error": str(e)})
             return
@@ -424,11 +406,45 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(401, {"error": str(e)})
             return
         if self.path == "/v1/models":
-            status, body, ct = self._proxy("GET", self.path)
-            self.send_response(status)
-            self.send_header("Content-Type", ct)
-            self.end_headers()
-            self.wfile.write(body)
+            # Build model list from catalog (query each backend)
+            try:
+                from catalog import _registry, _health
+                if not _registry:
+                    from catalog import load_catalog
+                    load_catalog()
+                # Query each active backend for its models
+                all_models = []
+                seen = set()
+                for name, entry in _registry.items():
+                    backend = entry.get("backend", "")
+                    if not backend:
+                        continue
+                    try:
+                        req = Request(f"{backend}/v1/models", headers={"Authorization": "Bearer noauth"})
+                        resp = urlopen(req, timeout=5)
+                        data = json.loads(resp.read().decode())
+                        for m in data.get("data", []):
+                            mid = m.get("id", "")
+                            if mid not in seen:
+                                seen.add(mid)
+                                all_models.append(m)
+                    except Exception as e:
+                        print(f"[Models] Failed to query {name} backend {backend}: {e}", flush=True)
+                if not all_models:
+                    # Fallback: proxy to default vLLM
+                    status, body, ct = self._proxy("GET", self.path)
+                    self.send_response(status)
+                    self.send_header("Content-Type", ct)
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+                resp_data = json.dumps({"object": "list", "data": all_models}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(resp_data)
+            except Exception as e:
+                self._json(500, {"error": f"models_error: {e}"})
             return
         if self.path.startswith("/v1/usage/"):
             auth = self.headers.get("Authorization", "")
@@ -506,6 +522,31 @@ class Gateway(BaseHTTPRequestHandler):
             finally:
                 db_pool.putconn(conn)
             return
+        # ── RAG status (also available via GET) ──────────────────
+        if self.path == "/v1/rag/status":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                ws = wiki_status()
+                cs = chroma_status()
+                self._json(200, {**ws, **cs, "mode": "hybrid (wiki graph + chromadb)"})
+            except Exception as e:
+                self._json(500, {"error": "status_failed", "detail": str(e)})
+            return
+        if self.path == "/v1/rag/wiki-ingest":
+            payload = self._check_jwt()
+            if payload is None:
+                self._json(401, {"error": "valid token required"})
+                return
+            try:
+                result = wiki_ingest()
+                self._json(200, result)
+            except Exception as e:
+                traceback.print_exc()
+                self._json(500, {"error": "wiki_ingest_failed", "detail": str(e)})
+            return
         self._json(404, {"error": "not found"})
 
     def _proxy(self, method, path, body=None):
@@ -543,6 +584,73 @@ class Gateway(BaseHTTPRequestHandler):
             except Exception as e:
                 self._json(500, {"error": str(e)})
             return
+        # ── Admin: token management ───────────────────────────
+        if self.path.startswith("/admin/orgs/") and self.path.endswith("/tokens/add"):
+            if not self._check_admin(): return
+            org_id = self.path.split("/admin/orgs/")[1].split("/tokens/add")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                amount = int(body.get("amount", 0))
+                data = admin_tokens_add(org_id, amount, db_pool)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        if self.path.startswith("/admin/orgs/") and self.path.endswith("/tokens/subtract"):
+            if not self._check_admin(): return
+            org_id = self.path.split("/admin/orgs/")[1].split("/tokens/subtract")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                amount = int(body.get("amount", 0))
+                data = admin_tokens_subtract(org_id, amount, db_pool)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ── Admin: tier limits ────────────────────────────────
+        if self.path.startswith("/admin/tiers/") and self.path.endswith("/limits"):
+            if not self._check_admin(): return
+            tier_id = self.path.split("/admin/tiers/")[1].split("/limits")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                rpm = int(body.get("rpm", 300))
+                tpm = int(body.get("tpm", 100000))
+                daily = int(body.get("daily", 0))
+                data = admin_tier_set_limits(tier_id, rpm, tpm, daily, db_pool)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ── Admin: org tier change ────────────────────────────
+        if self.path.startswith("/admin/orgs/") and self.path.endswith("/tier"):
+            if not self._check_admin(): return
+            org_id = self.path.split("/admin/orgs/")[1].split("/tier")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                tier = body.get("tier", "free")
+                data = admin_org_set_tier(org_id, tier, db_pool, r)
+                self._json(200, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
+        # ── Admin: user role update ───────────────────────────
+        if self.path.startswith("/admin/users/") and self.path.endswith("/role"):
+            if not self._check_admin(): return
+            user_id = self.path.split("/admin/users/")[1].split("/role")[0]
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+                role = body.get("role", "developer")
+                data = admin_user_update_role(user_id, role, db_pool)
+                code = 400 if "error" in data else 200
+                self._json(code, data)
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+            return
 
         if not self.path.startswith("/v1/"):
             self._json(404, {"error": "not found"})
@@ -562,7 +670,7 @@ class Gateway(BaseHTTPRequestHandler):
                 if not docs:
                     self._json(400, {"error": "documents array required"})
                     return
-                result = rag_ingest(docs)
+                result = {"ingested": 0, "message": "direct ChromaDB ingest disabled, use /v1/rag/wiki-ingest for wiki or re-deploy ingest script"}
                 self._json(200, result)
             except Exception as e:
                 self._json(500, {"error": "ingest_failed", "detail": str(e)})
@@ -591,8 +699,8 @@ class Gateway(BaseHTTPRequestHandler):
                     if not _limits["rag"]:
                         self._json(403, {"error": "rag_not_available", "tier": _tier})
                         return
-                results = rag_query(query, top_k)
-                self._json(200, {"query": query, "results": results})
+                result = hybrid_query(query, top_k=top_k)
+                self._json(200, result)
             except Exception as e:
                 self._json(500, {"error": "query_failed", "detail": str(e)})
             return
@@ -645,8 +753,9 @@ class Gateway(BaseHTTPRequestHandler):
                 self._json(401, {"error": "valid token required"})
                 return
             try:
-                status = wiki_status()
-                self._json(200, status)
+                ws = wiki_status()
+                cs = chroma_status()
+                self._json(200, {**ws, **cs, "mode": "hybrid (wiki graph + chromadb)"})
             except Exception as e:
                 self._json(500, {"error": "status_failed", "detail": str(e)})
             return
@@ -716,8 +825,8 @@ class Gateway(BaseHTTPRequestHandler):
             body_str = json.dumps(req_data)
             print(f"[Route] {reason} → {self.vllm_url}{req_data['model']} (chars={sum(len(m.get('content','')) for m in messages)})", flush=True)
 
-            # Tier check: model access
-            if limits["models"]:
+            # Tier check: model access (skip for legacy/unknown orgs)
+            if limits["models"] and org_id != "unknown":
                 if model_id not in limits["models"] and f"qwen2.5-{model_id}" not in [m.split("/")[-1] for m in limits["models"]]:
                     allowed_list = ", ".join(limits["models"])
                     self._json(403, {"error": "model_not_available", "tier": tier,
@@ -957,14 +1066,7 @@ def reaper_loop():
 if __name__ == "__main__":
     print(f"[Reaper] Starting (interval={REAP_INTERVAL}s, threshold={STUCK_THRESHOLD}s)", flush=True)
     threading.Thread(target=reaper_loop, daemon=True).start()
-    # Pre-load ONNX embedding model at startup (avoids blocking first RAG request)
-    print("[Init] Pre-loading ONNX embedding model...", flush=True)
-    try:
-        ef = _get_ef()
-        _ = ef(["warmup"])
-        print("[Init] ONNX embedding model ready", flush=True)
-    except Exception as e:
-        print(f"[Init] ONNX warmup failed (will retry on first request): {e}", flush=True)
+    # No ONNX warmup needed — chroma-proxy handles embeddings internally
     # Pre-load wiki graph at startup
     print("[Init] Loading wiki graph...", flush=True)
     try:
@@ -972,6 +1074,13 @@ if __name__ == "__main__":
         print(f"[Init] Wiki graph loaded: {wg.page_count} pages", flush=True)
     except Exception as e:
         print(f"[Init] Wiki graph load failed (will retry on first request): {e}", flush=True)
+    print("[Init] Loading model catalog...", flush=True)
+    try:
+        from catalog import load_catalog
+        registry = load_catalog()
+        print(f"[Init] Catalog loaded: {len(registry)} models", flush=True)
+    except Exception as e:
+        print(f"[Init] Catalog load failed: {e}", flush=True)
     port = int(os.environ.get("PORT", "8080"))
     server = HTTPServer(("0.0.0.0", port), Gateway)
     print(f"Gateway listening on :{port}", flush=True)

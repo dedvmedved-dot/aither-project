@@ -1,0 +1,138 @@
+digraph AitherPhysicalArchitecture {
+    rankdir=TB; splines=ortho; nodesep=0.6; ranksep=1.0
+    fontname="DejaVu Sans"; fontsize=12; bgcolor="white"; pad=0.5; margin=0.4; dpi=96
+    label="Физическая архитектура — Этап 5a: Требования руководства"
+    fontsize=16; fontcolor="#c62828"
+
+    // VPS LAYER
+    subgraph cluster_vps1 {
+        label="VPS1 (170.168.91.95)  |  Hermes-хост, nginx"
+        style="filled,rounded"; fillcolor="#e3f2fd"; color="#1565c0"; fontcolor="#000000"; fontsize=12; penwidth=2
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        v1_hermes [label="Hermes Agent\nуправление", width=2.8, height=1.2]
+        v1_nginx  [label="nginx :10443", width=2.4, height=0.9]
+    }
+    subgraph cluster_vps3 {
+        label="VPS3 (89.127.217.88)  |  Hermes-резерв"
+        style="filled,rounded"; fillcolor="#e3f2fd"; color="#1565c0"; fontcolor="#000000"; fontsize=12; penwidth=2
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        v3_hermes [label="Hermes Agent\nрезерв", width=2.8, height=1.2]
+    }
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90)  |  Портал + BFF"
+        style="filled,rounded"; fillcolor="#e3f2fd"; color="#1565c0"; fontcolor="#000000"; fontsize=12; penwidth=2
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        v2_nginx [label="nginx (SPA) :80", width=2.8, height=1.1]
+        v2_bff   [label="BFF (Node.js)\nFastify :3000", width=2.8, height=1.2]
+    }
+
+    // NETWORK
+    subgraph cluster_cisco {
+        label="Cisco815 (V1)  |  10.129.11.0/24"
+        style="filled,rounded"; fillcolor="#fff9c4"; color="#f9a825"; fontcolor="#000000"; fontsize=12; penwidth=2
+        cisco [shape=box, style="filled,rounded", fillcolor="#fff176", color="#f9a825", fontcolor="#000000", label="Cisco815", width=3.0, height=1.1, fontsize=12]
+    }
+    subgraph cluster_huawei {
+        label="HuaweiHP (V2)  |  10.129.13.0/24, VLAN 308"
+        style="filled,rounded"; fillcolor="#fff9c4"; color="#f9a825"; fontcolor="#000000"; fontsize=12; penwidth=2
+        huawei [shape=box, style="filled,rounded", fillcolor="#fff176", color="#f9a825", fontcolor="#000000", label="HuaweiHP", width=3.0, height=1.1, fontsize=12]
+    }
+
+    // n8 — control-plane
+    subgraph cluster_n8 {
+        label="n8-gpu (40.51)  |  control-plane\n2× RTX6000 Ada  |  28C/56T  |  754 GB RAM"
+        style="filled,rounded"; fillcolor="#e8f5e9"; color="#2e7d32"; fontcolor="#000000"; fontsize=11; penwidth=2
+        node [shape=box, style="filled,rounded", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        n8_gw    [label="Gateway\nFastAPI :30900\n🆕 DLP egress + SIEM\n🆕 Vault PKI + wiki_graph", fillcolor="#ffcdd2", color="#c62828", width=3.4, height=1.5]
+        n8_pg    [label="PostgreSQL 16\n:5432\n🆕 security_events", fillcolor="#ffcdd2", color="#c62828", width=2.6, height=1.2]
+        n8_redis [label="Redis 7\n:6379", fillcolor="#ffebee", color="#c62828", width=2.0, height=1.0]
+        n8_v14   [label="vLLM Qwen 2.5 14B\n:32293  |  TP=2", fillcolor="#f3e5f5", color="#7b1fa2", width=2.8, height=1.2]
+        n8_prom  [label="Prometheus\n:30909\n🆕 TTFT-метрики", fillcolor="#ffcdd2", color="#c62828", width=2.2, height=1.0]
+        n8_graf  [label="Grafana\n:30300", fillcolor="#e0e0e0", color="#616161", width=2.0, height=1.0]
+    }
+
+    // n7 — worker
+    subgraph cluster_n7 {
+        label="n7-gpu (40.50)  |  worker\n2× RTX6000 Ada  |  28C/56T  |  754 GB RAM"
+        style="filled,rounded"; fillcolor="#e8f5e9"; color="#2e7d32"; fontcolor="#000000"; fontsize=11; penwidth=2
+        node [shape=box, style="filled,rounded", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        n7_v32    [label="vLLM Qwen 2.5 32B\n:32294  |  TP=2", fillcolor="#f3e5f5", color="#7b1fa2", width=2.8, height=1.2]
+        n7_proxy  [label="chroma-proxy\n:9000\n🆕 гибридный RAG", fillcolor="#ffcdd2", color="#c62828", width=2.8, height=1.3]
+        n7_chroma [label="ChromaDB 0.5.23\n:8000\n🆕 39 чанков уч.", fillcolor="#ffcdd2", color="#c62828", width=2.8, height=1.2]
+    }
+
+    // 🆕 External services
+    subgraph cluster_siem {
+        label="🆕 SIEM / Syslog"
+        style="filled,rounded"; fillcolor="#ffebee"; color="#c62828"; fontcolor="#000000"; fontsize=12; penwidth=2
+        siem [shape=cylinder, style=filled, fillcolor="#ffcdd2", color="#c62828", fontcolor="#000000", label="Syslog CEF\n:514", width=2.2, height=1.1, fontsize=11]
+    }
+    subgraph cluster_vault {
+        label="🆕 HashiCorp Vault"
+        style="filled,rounded"; fillcolor="#ffebee"; color="#c62828"; fontcolor="#000000"; fontsize=12; penwidth=2
+        vault [shape=cylinder, style=filled, fillcolor="#ffcdd2", color="#c62828", fontcolor="#000000", label="Vault PKI\nAPI-ключи\n:8200", width=2.4, height=1.3, fontsize=11]
+    }
+    subgraph cluster_wiki {
+        label="🆕 LLM-Wiki"
+        style="filled,rounded"; fillcolor="#ffebee"; color="#c62828"; fontcolor="#000000"; fontsize=12; penwidth=2
+        wiki [shape=folder, style=filled, fillcolor="#ffcdd2", color="#c62828", fontcolor="#000000", label="Wiki Graph\n8 страниц\nConfigMap", width=2.4, height=1.3, fontsize=11]
+    }
+
+    // CALL OUT
+    subgraph cluster_new {
+        label="🆕  Что нового в Этапе 5a"
+        style="filled,rounded"; fillcolor="#ffebee"; color="#c62828"; fontcolor="#000000"; fontsize=13; penwidth=2
+        node [shape=plaintext, fillcolor="#ffebee", fontcolor="#000000", fontsize=10]
+        new_list [label="#34 DLP egress (ДСП-фильтр)\n#35 SIEM (syslog CEF)\n#36 Vault PKI (API-ключи)\n#37 LLM-Wiki (гибридный RAG)\n#38 Профили организаций\n#39 Gateway mgmt API\n#40 TTFT-мониторинг"]
+    }
+
+    // RANKS
+    { rank=same; v1_hermes; v2_nginx; v3_hermes }
+    { rank=same; cisco; huawei }
+    { rank=same; siem; vault; wiki; new_list }
+
+    // EDGES
+    v1_hermes -> v2_nginx [color="#2e7d32", penwidth=3.0, style=bold]
+    v1_hermes -> v3_hermes [color="#2e7d32", penwidth=3.0, style=bold]
+    v2_nginx -> v2_bff [color="#0d47a1", penwidth=2.0, style=solid]
+    v2_bff -> cisco [color="#1976d2", penwidth=2.5, style=solid]
+    v2_bff -> huawei [color="#1976d2", penwidth=2.5, style=solid]
+    cisco -> n8_gw [color="#1976d2", penwidth=2.5, style=solid]
+    cisco -> n8_v14 [color="#1976d2", penwidth=2.0, style=solid]
+    huawei -> n7_v32 [color="#1976d2", penwidth=2.5, style=solid]
+    v2_bff -> n8_gw [color="#0d47a1", penwidth=3.0, style=solid]
+    n8_gw -> n8_v14 [color="#7b1fa2", penwidth=2.5, style=solid]
+    n8_gw -> n7_v32 [color="#7b1fa2", penwidth=2.0, style=dashed]
+    n8_gw -> n8_pg [color="#e65100", penwidth=2.0, style=dashed]
+    n8_gw -> n8_redis [color="#c62828", penwidth=2.0, style=dashed]
+    n8_gw -> n7_proxy [color="#00695c", penwidth=3.0, style="bold,dashed"]
+    n7_proxy -> n7_chroma [color="#00695c", penwidth=2.5, style=solid]
+
+    // 🆕 Gateway → SIEM / Vault / Wiki
+    n8_gw -> siem [color="#c62828", penwidth=3.0, style="bold,dashed", label="  CEF"]
+    n8_gw -> vault [color="#c62828", penwidth=3.0, style="bold,dashed", label="  PKI"]
+    n8_gw -> wiki [color="#c62828", penwidth=2.5, style=dashed]
+
+    v1_hermes -> n8_gw [color="#9e9e9e", penwidth=1.5, style=dotted]
+    n8_prom -> n8_gw [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n8_v14 [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n7_v32 [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n7_proxy [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n8_pg [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_graf -> n8_prom [color="#ff8f00", penwidth=1.5, style=dashed]
+
+    // LEGEND
+    n7_chroma -> le1 [style=invis, weight=0]
+    subgraph cluster_legend {
+        label="Условные обозначения"
+        style="filled,rounded"; fillcolor="#fafafa"; color="#bdbdbd"; fontcolor="#000000"; fontsize=12
+        node [shape=plaintext, fillcolor="#fafafa", color="#fafafa", fontsize=10, fontcolor="#000000"]
+        le1 [label="━━━  API\n(синяя)"]
+        le2 [label="╌╌╌  DB/LDAP\n(пунктир)"]
+        le3 [label="🟥  🆕 Новое\n(красная заливка)"]
+        le4 [label="🔴  Новые связи\n(красные рёбра)"]
+        le5 [label="···  Metrics\n(пунктир)"]
+        le1 -> le2 -> le3 -> le4 -> le5 [style=invis]
+    }
+    { rank=same; le1; le2; le3; le4; le5 }
+}

@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: embeddings
+  labels:
+    app: embeddings
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: embeddings
+  template:
+    metadata:
+      labels:
+        app: embeddings
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu
+      initContainers:
+      - name: install-deps
+        image: python:3.11-slim
+        command: ["pip", "install", "--no-cache-dir", "--target", "/root/.local/lib/python3.11/site-packages", "fastapi", "uvicorn", "sentence-transformers"]
+        volumeMounts:
+        - name: python-packages
+          mountPath: /root/.local
+      containers:
+      - name: embeddings
+        image: python:3.11-slim
+        command: ["python", "-c"]
+        args:
+        - |
+          import sys
+          sys.path.insert(0, '/root/.local/lib/python3.11/site-packages')
+          from fastapi import FastAPI
+          from sentence_transformers import SentenceTransformer
+          import uvicorn
+
+          app = FastAPI(title="Embeddings Service")
+          model = None
+
+          @app.get("/health")
+          def health():
+              return {"status": "ok", "model": "multilingual-e5-large", "loaded": model is not None}
+
+          print("Embeddings service starting (model loads lazily on first request)")
+          uvicorn.run(app, host="0.0.0.0", port=8001)
+        env:
+        - name: HF_HUB_DISABLE_PROGRESS_BARS
+          value: "1"
+        - name: TRANSFORMERS_CACHE
+          value: /cache
+        ports:
+        - containerPort: 8001
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+        volumeMounts:
+        - name: python-packages
+          mountPath: /root/.local
+        - name: model-cache
+          mountPath: /cache
+      volumes:
+      - name: python-packages
+        emptyDir: {}
+      - name: model-cache
+        emptyDir:
+          sizeLimit: 5Gi

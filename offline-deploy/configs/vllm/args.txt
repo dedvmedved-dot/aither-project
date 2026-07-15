@@ -1,18 +1,27 @@
 # args.txt — аргументы запуска vLLM
-# Для 14B модели:
+# Версия: 1.1.0 (синхронизировано с живым деплойментом 2026-07-07)
+
+# 14B — Qwen 2.5 14B Instruct с LoRA
 --model /models/Qwen2.5-14B-Instruct
 --dtype half
 --max-model-len 4096
 --gpu-memory-utilization 0.90
+--tensor-parallel-size 2
+--enable-lora
+--lora-modules astra-14b=/models/lora-qwen14b-astra/
+--max-lora-rank 8
 
-# Для 32B модели (GPTQ):
-# --model /models/Qwen2.5-32B-Instruct-GPTQ
-# --dtype half
+# 32B — Qwen 2.5 32B Instruct GPTQ (4-bit)
+# --model /models
+# --served-model-name qwen2.5-32b
+# --host 0.0.0.0
+# --port 8000
 # --max-model-len 8192
 # --gpu-memory-utilization 0.90
-# --quantization gptq
+# --dtype auto
+# --tensor-parallel-size 2
 
 # Опционально:
-# --tensor-parallel-size 2    # если 2 GPU
 # --enable-prefix-caching     # кэширование префиксов
 # --max-num-seqs 32           # максимум одновременных запросов
+# --enforce-eager             # НЕ ИСПОЛЬЗОВАТЬ — падение скорости в 2.5×

@@ -1,0 +1,46 @@
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  // Начальное состояние
+  subgraph cluster_t0 {
+    label="T0: Лидер жив"; bgcolor="#f1f8e9"; color="#2e7d32";
+    l [label="Лидер ●\nTerm=5", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    f1 [label="Follower\nTerm=5", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    f2 [label="Follower\nTerm=5", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Лидер упал
+  subgraph cluster_t1 {
+    label="T1: Лидер упал ✗"; bgcolor="#ffebee"; color="#c62828";
+    l_dead [label="✗ Упал", shape=box, fillcolor="#ffcdd2", color="#c62828", style="dashed"];
+    f1_timeout [label="Follower\nHeartbeat\ntimeout!", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    f2_wait [label="Follower\nждёт", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Выборы
+  subgraph cluster_t2 {
+    label="T2: Выборы"; bgcolor="#fff3e0"; color="#e65100";
+    f1_cand [label="Кандидат ▲\nTerm=6\nголосует за себя", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    f2_vote [label="Follower\nTerm=6\nголосует ✓", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Новый лидер
+  subgraph cluster_t3 {
+    label="T3: Новый лидер"; bgcolor="#f1f8e9"; color="#2e7d32";
+    new_l [label="Лидер ★\nTerm=6\n(бывший кандидат)", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+    f2_final [label="Follower\nTerm=6", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  }
+
+  // Связи между стадиями
+  l -> l_dead [label="отказ", color="#c62828", fontcolor="#c62828", style=bold];
+  f1 -> f1_timeout [label="таймаут\n~150-300ms", fontsize=8];
+  
+  f1_timeout -> f1_cand [label="становится\nкандидатом", color="#e65100", fontcolor="#e65100"];
+  f1_cand -> f2_vote [label="RequestVote", color="#e65100"];
+  f2_vote -> f1_cand [label="Granted", color="#2e7d32"];
+  
+  f1_cand -> new_l [label="кворум ✓\n(2 из 2)", color="#1b5e20", fontcolor="#1b5e20", style=bold];
+  f2_wait -> f2_vote [style=invis];
+}

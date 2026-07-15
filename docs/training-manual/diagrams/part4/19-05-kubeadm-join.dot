@@ -1,0 +1,25 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  s1 [label="1. Готовим новый узел\n- Astra Linux 1.8\n- kubectl, kubeadm, kubelet\n- сеть (VLAN 308)", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  s2 [label="2. Копируем сертификаты\nс первого CP\nscp /etc/kubernetes/pki/ca.*\n/etc/kubernetes/pki/sa.*", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+  s3 [label="3. Генерируем токен\nна первом CP\nkubeadm token create\n--print-join-command", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  s4 [label="4. Присоединяем узел\nkubeadm join ...\\\n--control-plane\\\n--certificate-key ...", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  
+  s5 [label="5. Проверяем\nkubectl get nodes\n→ Ready ✓", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+
+  pitfall [label="⚠️ Питфолл Astra Linux:\nParsec может блокировать\nсертификаты etcd.\nРешение: parsec=0 в GRUB", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+
+  s1 -> s2;
+  s2 -> s3;
+  s3 -> s4;
+  s4 -> s5;
+  s4 -> pitfall [style=dotted, color="#c62828"];
+  pitfall -> s5 [style=dotted, color="#c62828", label="фикс"];
+
+  // commands
+  cmd [label="Итоговая команда:\nkubeadm join 10.129.13.78:6443 --token ... \\\n  --discovery-token-ca-cert-hash sha256:... \\\n  --control-plane \\\n  --certificate-key ...", shape=box, fillcolor="#f3e5f5", color="#7b1fa2", fontsize=9];
+  s4 -> cmd [style=dotted, dir=none];
+}

@@ -1,9 +1,27 @@
-# ChromaDB — векторная БД для RAG
+# ChromaDB — векторная БД для RAG (v0.5.23, RWO PVC)
+# Версия: 1.2.0 — привязан к n7-gpu, образ 0.5.23
+#
+# ВАЖНО: chroma-proxy (см. chroma-proxy.yaml) обрабатывает эмбеддинги.
+# Gateway обращается ТОЛЬКО к chroma-proxy, а не к ChromaDB напрямую.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chromadb-data
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  volumeMode: Filesystem
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chromadb
-  namespace: aither
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -14,11 +32,23 @@ spec:
       labels:
         app: chromadb
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu
       containers:
       - name: chromadb
-        image: chromadb/chroma:latest
+        image: chromadb/chroma:0.5.23
         ports:
         - containerPort: 8000
+        env:
+        - name: IS_PERSISTENT
+          value: "TRUE"
+        - name: PERSIST_DIRECTORY
+          value: /chroma/chroma
+        - name: ANONYMIZED_TELEMETRY
+          value: "FALSE"
+        volumeMounts:
+        - name: chroma-data
+          mountPath: /chroma/chroma
         resources:
           requests:
             memory: "512Mi"
@@ -26,12 +56,16 @@ spec:
           limits:
             memory: "2Gi"
             cpu: "1"
+      volumes:
+      - name: chroma-data
+        persistentVolumeClaim:
+          claimName: chromadb-data
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: chromadb
-  namespace: aither
+  namespace: default
 spec:
   selector:
     app: chromadb

@@ -1,140 +1,50 @@
 """
-Hybrid RAG Engine — LLM-Wiki graph search (Karpathy-style).
+Hybrid RAG: Wiki Graph (keyword) + ChromaDB proxy (text→vector→search).
 
-Architecture:
-  1. Keyword search across wiki titles/tags/summaries/content
-  2. Wiki graph traversal (1-hop neighbors from matched pages)
-  3. Merge + deduplicate
-  4. Re-rank: keyword relevance × 0.7 + wiki connectivity × 0.3
-  5. Return top_k results with context snippets
-
-Pure wiki-graph RAG — no external vector DB dependency.
-Compile-once, query-many pattern.
+Gateway calls chroma-proxy service which handles embedding internally.
+No chromadb dependency needed in Gateway.
 """
-import os
-import hashlib
-from typing import Optional
 
-from wiki_graph import WikiGraph, WikiPage, get_wiki_graph, reload_wiki_graph, WIKI_ROOT
+import json, os
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from wiki_graph import get_wiki_graph, reload_wiki_graph
 
-
-# ── Content hashing for dedup ────────────────────────────────────────────
-
-def _content_hash(text: str) -> str:
-    return hashlib.md5(text.strip().encode()).hexdigest()[:12]
+# ── Config ────────────────────────────────────────────────────────────────
+CHROMA_PROXY_URL = os.environ.get("CHROMA_PROXY_URL", "http://chroma-proxy.default.svc.cluster.local:9000")
 
 
-# ── Wiki page matching ───────────────────────────────────────────────────
-
-def _match_wiki_pages(
-    keyword_hits: list[tuple[float, WikiPage]],
-    graph: WikiGraph,
-    max_matches: int = 5,
-) -> list[tuple[float, WikiPage]]:
-    """Deduplicate and rank keyword search results."""
-    seen: dict[str, tuple[float, WikiPage]] = {}
-    for score, page in keyword_hits:
-        slug = graph._slug(page.path)
-        if slug not in seen or score > seen[slug][0]:
-            seen[slug] = (score, page)
-    result = sorted(seen.values(), key=lambda x: x[0], reverse=True)
-    return result[:max_matches]
+def _proxy_get(path: str) -> dict:
+    """GET request to chroma-proxy."""
+    url = f"{CHROMA_PROXY_URL}/{path}"
+    try:
+        resp = urlopen(Request(url), timeout=10)
+        return json.loads(resp.read())
+    except HTTPError as e:
+        return {"error": str(e), "status": e.code}
+    except Exception as e:
+        return {"error": str(e), "status": 0}
 
 
-# ── Hybrid query ─────────────────────────────────────────────────────────
-
-def hybrid_query(
-    query: str,
-    top_k: int = 5,
-    wiki_radius: int = 1,
-    vector_weight: float = 0.7,  # Now: keyword_weight
-) -> list[dict]:
-    """Hybrid RAG: keyword search + Wiki graph traversal."""
-    graph = get_wiki_graph()
-
-    # Phase 1: Keyword search
-    hits = graph.search(query, limit=top_k * 3)
-    if not hits:
-        return []
-
-    # Assign positional scores (first = 1.0, descending)
-    n = len(hits)
-    keyword_hits = [((n - i) / n, page) for i, page in enumerate(hits)]
-
-    # Score normalization
-    max_score = max(s for s, _ in keyword_hits) if keyword_hits else 1
-    normalized = [(s / max_score, p) for s, p in keyword_hits]
-
-    # Phase 2: Match and deduplicate
-    wiki_matches = _match_wiki_pages(normalized, graph, max_matches=top_k)
-
-    # Phase 3: Wiki graph expansion
-    seen_slugs: set[str] = set()
-    merged: list[dict] = []
-
-    for vs, page in wiki_matches:
-        slug = graph._slug(page.path)
-        if slug in seen_slugs:
-            continue
-        seen_slugs.add(slug)
-
-        neighbors = graph.neighbors(slug)
-        neighbor_titles = [n.title for n in neighbors[:5]]
-
-        inlink_count = len(graph._inlinks.get(slug, set()))
-        wiki_score = min(0.3 + 0.15 * inlink_count, 1.0)
-        combined_score = vs * vector_weight + wiki_score * (1 - vector_weight)
-
-        context = page.summary
-        if neighbors:
-            context += f"\n\nСвязанные страницы: {', '.join(neighbor_titles[:3])}"
-
-        merged.append({
-            "id": f"wiki:{slug}",
-            "text": context,
-            "source": page.path,
-            "page_title": page.title,
-            "page_type": page.page_type,
-            "tags": page.tags,
-            "score": round(combined_score, 4),
-            "keyword_score": round(vs, 4),
-            "wiki_score": round(wiki_score, 4),
-            "inlinks": inlink_count,
-            "neighbors": neighbor_titles[:5],
-        })
-
-    # Phase 4: Graph-only expansion
-    if len(merged) < top_k and wiki_matches:
-        for _, page in wiki_matches:
-            slug = graph._slug(page.path)
-            for n in graph.neighbors(slug):
-                ns = graph._slug(n.path)
-                if ns not in seen_slugs:
-                    if len(merged) >= top_k:
-                        break
-                    seen_slugs.add(ns)
-                    merged.append({
-                        "id": f"wiki:{ns}",
-                        "text": n.summary,
-                        "source": n.path,
-                        "page_title": n.title,
-                        "page_type": n.page_type,
-                        "tags": n.tags,
-                        "score": 0.2,
-                        "keyword_score": 0.0,
-                        "wiki_score": 0.2,
-                        "inlinks": len(graph._inlinks.get(ns, set())),
-                        "neighbors": [x.title for x in graph.neighbors(ns)[:3]],
-                    })
-
-    merged.sort(key=lambda x: x["score"], reverse=True)
-    return merged[:top_k]
+def _proxy_post(path: str, body: dict) -> dict:
+    """POST request to chroma-proxy."""
+    url = f"{CHROMA_PROXY_URL}/{path}"
+    data = json.dumps(body).encode()
+    req = Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        resp = urlopen(req, timeout=30)
+        return json.loads(resp.read())
+    except HTTPError as e:
+        return {"error": str(e), "status": e.code}
+    except Exception as e:
+        return {"error": str(e), "status": 0}
 
 
-# ── Wiki ingest ──────────────────────────────────────────────────────────
+# ── Ingestion ─────────────────────────────────────────────────────────────
 
 def wiki_ingest() -> dict:
-    """Re-index wiki — reloads graph from disk. No ChromaDB needed."""
+    """Re-index wiki — reloads graph from disk."""
     graph = reload_wiki_graph()
     pages = graph.list_all()
     return {
@@ -144,14 +54,100 @@ def wiki_ingest() -> dict:
     }
 
 
-# ── Wiki status ──────────────────────────────────────────────────────────
+# ── Status ────────────────────────────────────────────────────────────────
 
 def wiki_status() -> dict:
-    """Get current wiki + RAG status."""
+    """Get wiki graph status."""
     graph = get_wiki_graph()
     return {
         "wiki_pages": graph.page_count,
-        "mode": "graph-only (Karpathy-style)",
-        "chroma_docs": 0,
-        "wiki_docs_in_chroma": 0,
+        "mode": "graph (Karpathy-style keyword search)",
+    }
+
+
+def chroma_status() -> dict:
+    """Get ChromaDB textbook collection status via proxy."""
+    result = _proxy_get("status")
+    if result.get("error"):
+        return {
+            "chroma_url": CHROMA_PROXY_URL,
+            "collection": "textbook",
+            "documents": 0,
+            "embed_dim": 384,
+            "error": result.get("error", "unknown"),
+        }
+    return {
+        "chroma_url": CHROMA_PROXY_URL,
+        "collection": result.get("collection", "textbook"),
+        "documents": result.get("documents", 0),
+        "embed_dim": result.get("embed_dim", 384),
+    }
+
+
+# ── Query ─────────────────────────────────────────────────────────────────
+
+def hybrid_query(query: str, wiki_radius: int = 1, top_k: int = 5) -> dict:
+    """
+    Hybrid search: Wiki Graph keyword + ChromaDB via proxy.
+
+    Returns: {
+        "query": str,
+        "wiki_results": [...],
+        "chroma_results": [...],
+        "combined": [...],
+    }
+    """
+    # ── 1. Wiki Graph (keyword search) ──
+    graph = get_wiki_graph()
+    wiki_pages = graph.search(query)[:top_k]
+
+    wiki_results = []
+    for page in wiki_pages:
+        wiki_results.append({
+            "page_title": page.title,
+            "slug": page.path,
+            "relevance": 1.0,
+            "source": "wiki",
+            "preview": page.content[:300] if page.content else "",
+        })
+
+    # ── 2. ChromaDB (vector search via proxy) ──
+    chroma_results = []
+    try:
+        result = _proxy_post("query", {"query": query, "top_k": top_k})
+        if not result.get("error") and result.get("results"):
+            for item in result["results"]:
+                chroma_results.append({
+                    "page_title": item.get("page_title", ""),
+                    "slug": item.get("source", ""),
+                    "relevance": item.get("relevance", 0),
+                    "source": "chroma",
+                    "preview": item.get("preview", ""),
+                })
+    except Exception as e:
+        chroma_results.append({
+            "page_title": "ChromaDB error",
+            "relevance": 0,
+            "source": "chroma",
+            "preview": str(e)[:200],
+        })
+
+    # ── 3. Combine ──
+    seen = set()
+    combined = []
+    for r in wiki_results + chroma_results:
+        key = r["page_title"][:80]
+        if key not in seen:
+            seen.add(key)
+            combined.append(r)
+
+    combined.sort(key=lambda x: x["relevance"], reverse=True)
+
+    return {
+        "query": query,
+        "wiki_results": wiki_results,
+        "chroma_results": chroma_results,
+        "combined": combined[:top_k],
+        "wiki_count": len(wiki_results),
+        "chroma_count": len(chroma_results),
     }

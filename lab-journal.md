@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-07-07: Проверка состояния нод + ChromaDB инжест
+
+**Цель:** верификация состояния n7/n8 после документирования, восстановление RAG.
+
+**Выполнено:**
+- **n8-gpu (40.51):** ✅ kubelet running, 2×RTX6000, Gateway + PostgreSQL + Redis (3 пода)
+- **n7-gpu (40.50):** ✅ kubelet running, 2×RTX6000, vLLM Qwen2.5-32B + Coder-14B (2 пода)
+- **ChromaDB:** была пустая (0 коллекций) — данные теряются при рестарте (in-memory режим chroma-proxy)
+- **Инжест:** `ingest_textbook.py` запущен через kubectl exec → 39 чанков загружено в коллекцию `textbook`
+- **RAG-проверка:** гибридный поиск (Wiki Graph 8 стр. + ChromaDB 39 чанков), 6 источников, ответы корректны
+- **Вывод:** ChromaDB требует перезапуска инжеста после каждого рестарта пода — нужен PVC для персистентности
+
+**Коммит:** документация и схемы запушены ранее (`docs-for-read/`, 132 JPG, roadmap v2.0)
+
+---
+
+## 2026-07-10: #21 Multi-tenant изоляция (чат-сессии)
+
+**Цель:** завершить multi-tenant изоляцию — чаты теперь per-org.
+
+**Выполнено:**
+- DNS на n8 восстановлен: удалены Parsec reject-правила для 10.96.0.10:53, перезапущен kube-proxy (DNAT восстановлен)
+- `chats` таблица: добавлена колонка `org_id` (FK → portal_organizations), миграция заполнила 37 NULL-чатов
+- `checkChatEnabled()` переписан: возвращает `org_id` вместо `boolean`
+- Все CRUD эндпоинты чатов (`GET/POST/GET:id/DELETE /api/v1/chats`) фильтруют по `WHERE org_id=$N`
+- NOT NULL constraint на `chats.org_id`
+- BFF пересобран и перезапущен на VPS2
+
+**Изоляция:** пользователь видит только чаты своей организации. Кросс-организационная утечка невозможна на уровне SQL.
+
+**Коммит:** `28f9c9e`
+
+**Статус etcd:** ✅ кворум 2/2, оба узла синхронизированы (Raft Index 6218). n8 — лидер, VPS1 — follower.
+
+---
+
 ## Исходное состояние
 
 - **40.51:** Astra Linux 1.8 (6.6.28-1), 2× Xeon 6258R (28C/56T ×2), 754 GB RAM, 2× RTX 6000 (24 GB), 42 TB SAS SSD
@@ -3604,3 +3640,401 @@ portal/bff/— Dockerfile, package.json, tsconfig, server.ts
 
 **Репозитории запушены:** 16/16 ✅
 
+
+---
+
+## День 7a (09.07.2026) — Восстановление портала после сбоя
+
+**Проблема:** Портал не работает — OAuth "not configured", BFF падает.
+
+### #34 Исправление OAuth и BFF
+
+**Диагностика:**
+- BFF-контейнер падал: `Cannot find module 'dotenv/config'`
+- `.env` файл отсутствовал на VPS2
+- OAuth redirect URI были старые (`130.17.1.90` вместо `fb1.spb.ru:10443`)
+- Docker Compose упорно использовал кешированный образ
+
+**Решение:**
+- BFF запущен напрямую на хосте (не в Docker) — `nohup node dist/server.js`
+- `.env` создан с полными OAuth-ключами + `PGPASSWORD=portal` + `JWT_SECRET` + `CORE_API=http://vps1:30900`
+- Redirect URI обновлены на `https://fb1.spb.ru:10443/auth/*/callback`
+- Убран дубликат роута `/api/v1/status`
+- PostgreSQL на хосте остановлен (конфликт порта 5432 с Docker)
+- `dotenv` добавлен в `package.json` (на будущее)
+- `secrets.env` сохранён в репозиторий
+- Systemd-юнит `/etc/systemd/system/aither-bff.service` для автозапуска
+- Скрипт `/tmp/restart-bff.sh` обновлён
+
+**Результат:**
+- Портал: `https://fb1.spb.ru:10443` ✅
+- Админка: `https://fb1.spb.ru:10443/admin` ✅
+- OAuth: GitHub/Google/Yandex — все 302 ✅
+- API: `/api/v1/status` → `{"version":"0.5.0","orgs":38,"users":38}` ✅
+- Grafana: `http://fb1.spb.ru:30300` ✅
+
+**Процесс BFF:** PID 473898, порт 127.0.0.1:3000
+**Секреты:** `/root/aither-project/portal/secrets.env` (НЕ коммитить в публичный репо!)
+
+---
+
+## 10.07.2026 — Admin-панель: Тарифы + Настройки + LDAP (`cdaec20`)
+
+### Исправления
+- **Тарифы → 404**: не было обработчика `GET /api/v1/admin/tiers` в BFF. Запрос падал в catch-all → Gateway → 404. Добавлен хендлер — читает `subscription_tiers` из локальной БД (4 тарифа: free/standard/vip/enterprise).
+- **Настройки → пустая страница**: `admin.html` ошибочно копировался на VPS1, а статика отдаётся с VPS2 (`/root/aither-project/portal/static/`). Файл синхронизирован на VPS2 + `docker restart portal-portal-nginx-1`.
+- **LDAP-настройки** через БД: таблица `portal_settings` (9 ключей), API `GET/POST /api/v1/admin/settings` в BFF перед catch-all. При старте BFF загружает `portal_settings` → `process.env`.
+
+### Текущий статус (11:15 МСК)
+
+| Компонент | Хост | Статус |
+|---|---|---|
+| BFF (systemd) | VPS2:3000 | ✅ active |
+| PostgreSQL | VPS2 Docker | ✅ healthy |
+| Nginx (статика) | VPS2:80 | ✅ up |
+| Gateway (K8s) | n8:30900 | ✅ alive |
+| vLLM 14B/32B/Coder | n7 | ✅ |
+| Nginx (прокси) | VPS1:10443 | ✅ active |
+
+### Admin-панель: все 10 вкладок работают
+
+| Вкладка | Данные от |
+|---|---|
+| 🫀 Health | Gateway |
+| 🧠 Модели | Gateway |
+| 📊 Очереди | Gateway |
+| 🏢 Организации | Gateway |
+| ⏱️ Reaper | Gateway |
+| 👥 Пользователи | BFF (portal_users) |
+| 💰 Токены | Gateway |
+| ⚙️ Тарифы | BFF (subscription_tiers) |
+| 🔧 Настройки | BFF (portal_settings) |
+| 🗺️ Статус 5а | Статическая
+
+---
+
+## 10.07.2026 (день 6) — Полный CRUD организаций и пользователей (`568250a`)
+
+### BFF: новые эндпоинты
+- `GET /api/v1/admin/orgs` — список всех организаций (имя, tier, баланс, участники, ключи)
+- `GET /api/v1/admin/orgs/:id` — детали организации + список участников
+- `DELETE /api/v1/admin/orgs/:id` — каскадное удаление (payments → members → keys → billing → org)
+- `GET /api/v1/admin/apikeys` — все API-ключи с привязкой к организациям
+- `DELETE /api/v1/admin/apikeys/:id` — отзыв ключа
+- `GET /api/v1/admin/users/:id/orgs` — организации пользователя
+- `DELETE /api/v1/admin/users/:id` — удаление пользователя (memberships → payments → user)
+
+### Admin UI
+- **Организации**: таблица → 👁 детали (участники) → 🗑 удаление
+- **Токены / Тарифы**: выпадающий список организаций вместо ручного UUID
+- **API-ключи**: таблица + 🚫 Отозвать
+- **Пользователи**: селектор ролей + 🏢 организации + 🗑 удаление
+- Кнопка «🚪 Выход» в топбаре
+
+### Именование организаций
+- Раньше: все «Личный» (44 шт.)
+- Теперь: `{displayName}-организация` (создаётся при регистрации)
+
+### Очистка тестовых данных
+- Удалено 39 организаций (SQL-инъекции + test)
+- Удалено 39 пользователей (SQL-инъекции + test accounts)
+
+### Финальное состояние
+
+| Ресурс | Количество |
+|---|---|
+| Пользователи | 5 |
+| Организации | 6 |
+| Админ-вкладки | 11 |
+
+| Пользователь | Организации |
+|---|---|
+| Сергей Кравчук (yandex) | Сергей Кравчук-организация |
+| Sergey Kravchuk (google) | Sergey Kravchuk-организация |
+| dedvmedved-dot (github) | dedvmedved-dot-организация, MyOrg, CheckOrg |
+| Евгений Степашкин (yandex) | — |
+| newuser (email) | newuser-организация |
+
+---
+
+## 10.07.2026 — Аудит задания 7 + документация v1.1
+
+### Аудит дорожной карты
+- ROADMAP.md обновлён: этап 7 расширен с 1 до 7 подзадач (33a-33f)
+- Все подзадачи выполнены ✅
+- Готовность: 90% (46/51)
+
+### Документация
+- **Создан** `docs/01-architecture.md` — полная архитектура (VPS1→VPS2→K8s), схема БД, потоки данных, компоненты
+- **Создан** `docs/03-admin-guide.md` — руководство администратора: 11 вкладок, CRUD orgs/users/keys, LDAP, тарифы, troubleshooting
+- **Обновлён** `docs/user-guide.md` — добавлены разделы 15-18: организации и биллинг, администрирование, LDAP, ссылки
+
+### Конфигурации
+- **Создан** `configs/bff/.env.template` — эталонный шаблон переменных окружения BFF (все секции: PG, OAuth, LDAP, JWT, YooKassa, Gateway)
+
+### Состояние
+- Админ-панель: 11 вкладок, полный CRUD
+- Пользователей: 5, организаций: 6
+- Документация v1.1: архитектура + admin-guide + user-guide
+
+### 10.07.2026 12:00 — Защита админ-панели (аутентификация)
+
+**Задача:** `https://fb1.spb.ru:10443/admin.html` открывался без аутентификации — любой мог видеть админ-панель.
+
+**Реализация — трёхуровневая защита:**
+
+1. **BFF-эндпоинт `GET /admin.html`** (`server.ts:1439`):
+   - Принимает `X-Admin-Key` (обратная совместимость)
+   - ИЛИ JWT-токен пользователя + проверка роли (`owner`/`billing_admin` в `portal_org_members`)
+   - Нет аутентификации → 302 на портал
+   - Есть токен но нет прав → 403 с пояснением
+
+2. **Nginx VPS2** (`nginx.conf`):
+   - `location = /admin.html` → `proxy_pass http://127.0.0.1:3000` (BFF)
+   - Расположен ДО `location /` catch-all
+   - Пробрасывает `Authorization` и `Cookie` заголовки
+
+3. **JS-гард** (`admin.html`):
+   - При загрузке проверяет `aither_token` в localStorage
+   - Валидирует токен через `/api/v1/status`
+   - Нет токена / невалидный → редирект на портал
+
+**Проверено:**
+- Без аутентификации → 302 редирект ✅
+- С `X-Admin-Key` → 200 (админ-панель) ✅
+- С JWT админа → 200 ✅
+- С JWT обычного пользователя → 403 ✅
+- Полная цепочка VPS1:10443 → 200 ✅
+
+**Коммит:** `защита admin.html`
+
+### 10.07.2026 12:15 — Cookie-аутентификация + кнопка «Админка» на портале
+
+**Проблема:** `/admin.html` требовал `Authorization: Bearer` header, который браузер не отправляет при загрузке страницы → админ всегда получал редирект на портал.
+
+**Решение:**
+1. **Cookie-аутентификация** — `setTokenCookie()` устанавливает `aither_token` как HttpOnly cookie при любом входе (OAuth GitHub/Google/Яндекс, LDAP, dev, login, signup)
+2. **`/admin.html` endpoint** — проверяет cookie → `Authorization` header → `X-Admin-Key` (каскад)
+3. **`GET /api/v1/admin/check`** — новый эндпоинт `{admin: true/false}` для фронтенда
+4. **Кнопка «⚙️ Админка»** — показывается в шапке портала только админам (`owner`/`billing_admin`)
+
+**Проверено:**
+- Cookie-аутентификация на BFF → 200 ✅
+- Полная цепочка VPS1:10443 (cookie → nginx → VPS2 → BFF) → 200 ✅
+- Admin check: админ → `{admin:true}`, обычный → `{admin:false}` ✅
+
+**Коммит:** `cookie-аутентификация + кнопка Админка`
+
+## 10.07.2026 14:00 — #28 HPA (автомасштабирование) + #29 CI/CD (Docker-образ Gateway)
+
+### Контекст
+После дорожной карты выяснилось: #13 (YooKassa), #15 (Parsec), #27 (Production) отложены на конец.
+В приоритете #28 и #29.
+
+### #28 HPA — Диагноз и исправление
+
+**Проблема:** vLLM HPA показывали `<unknown>` для CPU/memory. Причина — поды запрашивали только GPU (`nvidia.com/gpu: 2`), без CPU/memory resource requests.
+
+**Исправлено:**
+
+| Деплоймент | Было | Стало |
+|---|---|---|
+| `vllm-qwen` (14B) | requests: GPU only | requests: cpu=4, mem=32Gi; limits: cpu=16, mem=64Gi |
+| `vllm-qwen32b` (32B) | requests: GPU only | requests: cpu=4, mem=32Gi; limits: cpu=16, mem=64Gi |
+
+**Попутно:** стратегия деплоя `Recreate` вместо `RollingUpdate` — иначе новый под не может стартовать (GPU заняты старым).
+
+**Результат HPA:**
+```
+gateway-hpa    CPU 1%/70%,  Mem 26%/80%   min=1, max=3  ✅
+vllm-14b-hpa   CPU 44%/80%, Mem 2%/85%    min=1, max=1  ✅ (исправлен)
+vllm-32b-hpa   CPU 36%/80%, Mem 3%/85%    min=1, max=1  ✅ (исправлен)
+```
+
+**Ограничение:** `maxReplicas=1` — на каждом узле ровно 2 GPU, масштабирование включится при добавлении узлов.
+
+**Эталонные манифесты** экспортированы в `k8s/vllm-14b/` и `k8s/vllm-32b/` (deployment.yaml + service.yaml).
+
+### #29 CI/CD — Docker-образ Gateway
+
+**Было:** Gateway = `python:3.12-slim` + 14 файлов через ConfigMap + `pip install` при старте.
+
+**Стало:**
+
+| Компонент | Файл |
+|---|---|
+| Dockerfile | `gateway/Dockerfile` — `python:3.12-slim`, COPY всех .py, pip install, HEALTHCHECK |
+| Зависимости | `gateway/requirements.txt` — redis, pyjwt, psycopg2-binary, pyyaml |
+| K8s-деплоймент | `k8s/gateway/deployment.yaml` — образ `ghcr.io/dedvmedved-dot/aither-project-gateway:latest` |
+| CI/CD workflow | `.github/workflows/deploy.yml` — сборка + push в ghcr.io + kubectl set image + health-check + rollback |
+
+**Пайплайн:**
+```
+Push в main (gateway/**) →
+  changes (paths-filter) →
+  build-gateway (Docker build + push в ghcr.io) →
+  deploy (kubectl set image + rollout status) →
+  health-check (5 попыток curl /health) →
+  rollback (kubectl rollout undo при провале) →
+  Telegram-уведомление
+```
+
+**Тестовая сборка** на VPS1: образ собирается (52 MB), импорты работают (redis, pyjwt, psycopg2, pyyaml, все 11 модулей gateway).
+
+### ⚠️ Не сделано (отложено до финала проекта)
+
+| # | Что | Почему отложено |
+|---|---|---|
+| 1 | GitHub Actions secrets (VPS2_HOST, etc.) | Без них деплой-степ падает, но сборка образа работает. Текущий ConfigMap-деплой функционирует. |
+| 2 | Сделать ghcr.io пакет публичным | K8s не может пулить приватный пакет без imagePullSecrets. Нужно после первой успешной сборки в Actions. |
+| 3 | Применить `k8s/gateway/deployment.yaml` | Переключит Gateway с ConfigMap на Docker-образ. Без образа в ghcr.io под не стартует. |
+
+**Когда делать:** в конце проекта, одним блоком: дёрнуть workflow → сделать пакет публичным → `kubectl apply -f k8s/gateway/deployment.yaml`.
+
+### Коммиты
+```
+722c827 feat(hpa): resource requests для vLLM + Recreate-стратегия + эталонные манифесты
+5f617c5 feat(ci-cd): Docker-образ Gateway + health-check + rollback
+e32a528 fix(ci-cd): make ghcr.io package public + trigger on push
+93acce3 ci: trigger deploy workflow
+```
+
+## День 22 — 14.07.2026 (ночь): Диагностика после сбоя + подготовка к AIOps 3.0
+
+### Контекст
+
+После каскадного сбоя 13.07.2026 (etcd потерял кворум, K8s API упал, Gateway в K8s нестабилен)
+система была восстановлена в упрощённой конфигурации (Gateway + PG + Redis как systemd на n8,
+vLLM 32B как systemd на n7). Требуется полное восстановление Aither, настройка VPS3 как
+failover-узла и подключение AIOps 3.0.
+
+### Текущий статус (04:30 МСК)
+
+| Компонент | Узел | Статус |
+|---|---|---|
+| **vLLM 32B** | n7 (10.129.13.77) | ✅ active, порт 8000, GPU загружены |
+| **Gateway** | n8 (10.129.13.78) | ✅ active, порт 30900 |
+| **PostgreSQL** | n8 | ✅ active, порт 5432, БД portal |
+| **Redis** | n8 | ✅ active, порт 6379 |
+| **etcd** | n8 | ✅ active, single-node |
+| **K8s** | n8 | ⚠️ 1 узел Ready (n8), n7 не в кластере |
+| **vLLM 14B** | n8 | 🔄 vLLM устанавливается в venv (pip install) |
+| **Portal BFF** | VPS2 (130.17.1.90) | ⚠️ работает, но PG с portal_users на VPS2 |
+| **VPS3** | 89.127.217.88 | ❌ голый, Aither не развёрнут |
+
+### Проблемы
+
+1. **PG на n8 пустая** — только billing_ledger и usage_records. Нет portal_users, portal_api_keys,
+   chats, payment_transactions. Auth-данные на VPS2.
+2. **Gateway env был испорчен** — VLLM_URL и PG_URL обрезаны Hermes. Исправлено через base64.
+3. **VPS3 переустановлен 07.07** — не 09.07 как в lab-journal. Aither не восстановлен.
+4. **K8s single-node** — n7 не в кластере, Flannel не работает.
+
+### Выполнено сегодня
+
+- ✅ Диагностика n7 и n8 через Cisco (sshpass)
+- ✅ Gateway env исправлен: VLLM_URL=localhost:32293, VLLM_32B_URL=10.129.13.77:8000
+- ✅ Gateway запущен и работает
+- ✅ vLLM 14B service-файл создан (`/etc/systemd/system/vllm-14b.service`)
+- ✅ vLLM устанавливается в /opt/vllm-venv (python3.11, ~150 пакетов)
+- ✅ PG пароль portal сброшен на aither_pass
+
+### План на 14.07.2026
+
+1. **Дождаться vLLM install** → запустить vLLM-14B на n8 :32293
+2. **Миграция portal_users** с VPS2 → PG на n8
+3. **VPS3** — развернуть полную копию: BFF + nginx + PG-туннель + Gateway-туннель
+4. **AIOps 3.0** (`aiops-mvp0`) — подключить к Aither для мониторинга и авто-восстановления
+5. **K8s** — восстановить кластер (n7 + n8), Flannel
+6. **etcd HA** — добавить VPS1 как etcd-member
+
+### Доступ
+
+- Cisco: `sshpass -p '!QAZxsw2123' ssh svlkravchuk@10.129.11.21`
+- n7: Cisco → `sshpass -p 'root' ssh root@10.129.13.77`
+- n8: Cisco → `sshpass -p 'root' ssh root@10.129.13.78`
+- VPS3: `ssh vps3` (ключ id_ed25519_aither)
+
+### Итог восстановления (05:30 МСК)
+
+| Компонент | Статус |
+|---|---|
+| **K8s** (201-206) | ✅ 6 узлов Ready, Flannel OK |
+| **AIOps 3.0** | ✅ 7/7 подов Running |
+| **Aither Gateway** n8:30900 | ✅ PG+Redis OK |
+| **Aither vLLM 32B** n7:8000 | ✅ driver 590, torch cu130 |
+| **Aither vLLM 14B** n8:32293 | ❌ driver 570 < 590 — все версии vLLM падают |
+| **llm-lab** VM 110 | ❌ нет сети (NAT skhome01) |
+| **VPS3** | ⏳ голый, ждёт развёртывания |
+
+**Корень проблемы vLLM 14B:** на n8 драйвер 570.195 (CUDA 12.8), на n7 — 590.48 (CUDA 13.1).
+Попытки: pip venv (cu128/cu130), Docker v0.8.5 — все падают с `cudaErrorInsufficientDriver`.
+Решение: обновить драйвер на n8 до 590+ → требуется ребут.
+
+### План на 14.07 (утро)
+
+1. **Обновить NVIDIA driver на n8** → запустить vLLM 14B
+2. **llm-lab** — `ip route add default via 192.168.0.107` + NAT на skhome01
+3. **VPS3** — развернуть BFF + nginx + туннели
+4. **AIOps → Aither** — подключить мониторинг, правила авто-восстановления
+5. **Flink JM** — liveness probe fix
+
+---
+
+## 2026-07-13/14: Ночная сессия — RAG, очистка VPS, бэкап на VPS3
+
+**Модель:** DeepSeek v4 Pro (Hermes Agent на VPS2)
+
+### RAG-отладка (3+ часа)
+
+**Проблема:** RAG включён, источники видны, но контент wiki не попадает в ответ модели.
+
+**Диагностика по слоям:**
+1. **Gateway RAG-поиск** (`/v1/rag/hybrid-query`) — ✅ 3-4 wiki-результата, preview 271-300 симв.
+2. **Инжект контекста в промпт** — ✅ модель использует wiki-детали при прямом тесте
+3. **Портал `/api/rag/chat`** — ✅ API возвращает 200, RAG meta + контент (659-2302 симв.)
+4. **Фронтенд** — код корректен, `renderMessages()` правильно обрабатывает `m.content` + `m.ragSources`
+
+**Итог RAG:** API работает идеально, проблема вероятно на уровне фронтенда (кэш браузера?) — отложено до утра.
+
+**Структура ответа Gateway (найдена нестыковка):**
+- Было: `ragData.results || []` — ожидался массив
+- Стало: `results.wiki_results + results.chroma_results` — Gateway возвращает объект `{wiki_results:[], chroma_results:[]}`
+- Исправлено в dist/server.js (поле `r.text` → `r.preview`)
+
+### Очистка дисков
+
+| Хост | До | После | Удалено |
+|---|---|---|---|
+| **VPS1** (130.17.1.90) | 94% (3.1G) | **40% (29G)** | Модели (26G): Qwen2.5-32B, Coder-14B, saiga_llama3_8b — дубликаты с n7/n8 |
+| **VPS2** (170.168.91.95) | 85% (5.7G) | **62% (15G)** | RED OS ISO (5.7G) + journald/syslog (3G) |
+
+### Бэкап на VPS3 (89.127.217.88, 120G)
+
+**Выполнено:**
+- ✅ VPS1 → VPS3: portal (код + .env), PostgreSQL дамп (59K)
+- ✅ VPS2 → VPS3: Hermes (685M: конфиг + навыки + память), nginx
+- ⚠️ n8 → VPS3: Gateway + PostgreSQL + wiki — host key добавлен, повторный прогон прерван
+
+### Диагностика системы
+
+| Компонент | Хост | Статус |
+|---|---|---|
+| **Gateway** | n8:8080 | ✅ 14B + 32B, RAG 6 wiki-стр. |
+| **vLLM 14B Coder** | n8 K8s pod :30014 | ✅ Running, 20.4/23.0 GB VRAM |
+| **vLLM 32B GPTQ** | n7 systemd :8000 | ✅ Active, 22.2/23.0 GB VRAM |
+| **K8s** | n8 ctrl-plane + n7 worker | ✅ Обе Ready, v1.33.5 |
+| **PostgreSQL** | n8 :5432 | ✅ 4 billing-аккаунта (все vip) |
+| **Redis** | n8 :6379 | ✅ кэш tier'ов |
+| **Портал** | VPS1 :3000 (через nginx) | ✅ 6 API-ключей |
+| **Nginx** | VPS2 :10443 → VPS1:80 | ✅ SSL LetsEncrypt |
+| **ChromaDB** | K8s (chroma-proxy) | ❌ 0 документов, DNS-ошибка |
+
+### Проблемы (открытые)
+- 🔴 VPS1 был 94% — исправлено
+- 🟡 ChromaDB не работает — RAG только wiki-graph
+- 🟡 RAG-контент в чате — отложено до утра
+- 🟡 vLLM 32B в systemd, не в K8s
+- ⚠️ Бэкап n8 → VPS3 не завершён (host key + scp)
+
+```

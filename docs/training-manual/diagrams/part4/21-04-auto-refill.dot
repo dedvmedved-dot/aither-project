@@ -1,0 +1,36 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  start [label="Пользователь делает\nзапрос к LLM", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_gw {
+    label="Gateway: проверка баланса"; bgcolor="#fff3e0"; color="#e65100";
+    check [label="billing_op(org_id, -143)\nдостаточно токенов?", shape=diamond, fillcolor="#fff9c4", color="#f9a825"];
+    proxy [label="Проксируем\nна vLLM", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_refill {
+    label="Автопополнение"; bgcolor="#e8f5e9"; color="#43a047";
+    low [label="Баланс < порог\n(10 000 токенов)", shape=diamond, fillcolor="#ffcdd2", color="#c62828"];
+    check_limit [label="Счётчик пополнений\n< REFILL_LIMIT (10)?", shape=diamond, fillcolor="#ffcdd2", color="#c62828"];
+    refill [label="Авто-платёж\nYooKassa\nна 100K токенов\n(списание с карты)", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+    blocked [label="✗ Автопополнение\nзаблокировано\n(исчерпан лимит\nна сегодня)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    notify [label="Email-уведомление\n«Баланс пополнен\nна 100K токенов»", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    notify_low [label="Email-уведомление\n«Баланс низкий,\nпополнение заблокировано»", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+  }
+
+  start -> check;
+  check -> proxy [label="✓ хватает"];
+  check -> low [label="✗ не хватает"];
+  low -> check_limit [label="баланс\n< порог"];
+  check_limit -> refill [label="< 10 раз\nза день"];
+  check_limit -> blocked [label="≥ 10 раз\nза день"];
+  refill -> proxy [label="токены\nзачислены"];
+  refill -> notify [style=dashed];
+  blocked -> notify_low [style=dashed];
+
+  note [label="REFILL_LIMIT = 10:\nзащита от бесконечного цикла.\nЕсли за день уже 10 авто-пополнений\n→ больше не пополняем\n(что-то не так с платежом).", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  check_limit -> note [style=dotted, dir=none];
+}

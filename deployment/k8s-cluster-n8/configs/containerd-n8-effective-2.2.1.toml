@@ -1,0 +1,20 @@
+# Effective containerd config n8 after upgrade to 2.2.1.astra0
+# Note: sandbox = 'registry.k8s.io/pause:3.10' (no .1 suffix — manually set)
+# No NVIDIA runtimes configured yet (GPU not needed in K8s for now)
+
+version = 3
+imports = ['/etc/containerd/conf.d/*.toml']
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd]
+  default_runtime_name = 'runc'
+  [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
+    runtime_type = 'io.containerd.runc.v2'
+    [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
+      SystemdCgroup = true
+
+[plugins.'io.containerd.cri.v1.runtime'.cni]
+  bin_dirs = ['/opt/cni/bin']
+  conf_dir = '/etc/cni/net.d'
+
+[plugins.'io.containerd.cri.v1.images']
+  pinned_images = { sandbox = 'registry.k8s.io/pause:3.10' }

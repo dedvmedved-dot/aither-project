@@ -7,7 +7,7 @@
 
 import { Pool } from "pg";
 import crypto from "crypto";
-
+import { gatewayFetch } from "./server";
 const MODEL_MAP: Record<string, { display_name: string; vllm_path: string; description: string }> = {
   "qwen2.5-14b": {
     display_name: "Qwen 2.5 14B",
@@ -27,6 +27,7 @@ interface ApiKeyPayload {
   org_id: string;
   key_id: string;
   name: string;
+  api_key: string;
 }
 
 async function authApiKey(req: any, reply: any, pool: Pool): Promise<ApiKeyPayload | null> {
@@ -55,12 +56,12 @@ async function authApiKey(req: any, reply: any, pool: Pool): Promise<ApiKeyPaylo
   // Update last_used_at
   await pool.query("UPDATE portal_api_keys SET last_used_at=now() WHERE key_id=$1", [k.key_id]);
 
-  return { org_id: k.org_id, key_id: k.key_id, name: k.name };
+  return { org_id: k.org_id, key_id: k.key_id, name: k.name, api_key: apiKey };
 }
 
 // ── Routes ────────────────────────────────────────────────────
 
-export function registerApiGateway(app: any, pool: Pool, CORE_API: string) {
+export function registerApiGateway(app: any, pool: Pool) {
 
   // GET /api/v1/models — public model list (no auth required for discovery)
   app.get("/api/v1/models", async (_r: any, reply: any) => {
@@ -105,11 +106,12 @@ export function registerApiGateway(app: any, pool: Pool, CORE_API: string) {
     };
 
     try {
-      // Proxy to Gateway with billing headers
-      const resp = await fetch(CORE_API + "/v1/chat/completions", {
+      // Proxy to Gateway (with mTLS) — Gateway handles API key auth + billing
+      const resp = await gatewayFetch("/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": "Bearer " + key.api_key,
           "X-Org-Id": key.org_id,
           "X-Api-Key-Id": key.key_id,
         },

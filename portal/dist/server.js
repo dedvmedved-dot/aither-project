@@ -1,8 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.gatewayFetch = gatewayFetch;
+require("dotenv/config");
 const fastify_1 = __importDefault(require("fastify"));
 const cors_1 = __importDefault(require("@fastify/cors"));
 const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));
@@ -10,9 +45,41 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const pg_1 = require("pg");
 const crypto_1 = require("crypto");
 const ldap_1 = require("./ldap");
+const policies_1 = require("./policies");
+const api_gateway_1 = require("./api-gateway");
+const fs_1 = __importDefault(require("fs"));
+const https_1 = __importDefault(require("https"));
+const static_1 = __importDefault(require("@fastify/static"));
+const path_1 = __importDefault(require("path"));
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET env required"); })();
 const CORE_API = process.env.CORE_API || "http://gateway:8080";
+const CORE_API_MTLS = process.env.CORE_API_MTLS || "https://gateway:8443";
+// mTLS agent for Gateway communication
+const mtlsAgent = (() => {
+    try {
+        return new https_1.default.Agent({
+            ca: fs_1.default.readFileSync(process.env.MTLS_CA || "/etc/aither/mtls/ca.crt"),
+            cert: fs_1.default.readFileSync(process.env.MTLS_CERT || "/etc/aither/mtls/bff.crt"),
+            key: fs_1.default.readFileSync(process.env.MTLS_KEY || "/etc/aither/mtls/bff.key"),
+            rejectUnauthorized: true,
+        });
+    }
+    catch (e) {
+        console.warn("[mtls] Agent creation failed, falling back to plain HTTP:", e);
+        return null;
+    }
+})();
+// Helper: fetch from Gateway with mTLS if available
+async function gatewayFetch(path, opts = {}) {
+    const url = (mtlsAgent ? CORE_API_MTLS : CORE_API) + path;
+    const fetchOpts = { ...opts };
+    if (mtlsAgent) {
+        // @ts-ignore — Node.js fetch supports agent via dispatcher
+        fetchOpts.dispatcher = mtlsAgent;
+    }
+    return fetch(url, fetchOpts);
+}
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const PUBLIC_HOST = process.env.PUBLIC_HOST || "localhost";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || (IS_PRODUCTION ? `https://${PUBLIC_HOST}` : `http://${PUBLIC_HOST}`);
@@ -23,8 +90,14 @@ const pool = new pg_1.Pool({
     password: process.env.PGPASSWORD || "",
     database: process.env.PG_DB || "aither",
 });
-function signToken(userId) {
-    return jsonwebtoken_1.default.sign({ user_id: userId }, JWT_SECRET, { expiresIn: "24h" });
+function signToken(userId, orgId) {
+    const payload = { user_id: userId };
+    if (orgId)
+        payload.org_id = orgId;
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "24h" });
+}
+function setTokenCookie(reply, token) {
+    reply.header("Set-Cookie", `aither_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
 }
 function verifyToken(tok) {
     try {
@@ -47,6 +120,10 @@ function auth(req, reply) {
     }
     return p;
 }
+async function isSuperAdmin(userId) {
+    const r = await pool.query("SELECT 1 FROM portal_users WHERE user_id=$1 AND role='super_admin'", [userId]);
+    return r.rows.length > 0;
+}
 async function checkOrgOwner(orgId, userId) {
     const r = await pool.query("SELECT 1 FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND role='owner'", [orgId, userId]);
     return r.rows.length > 0;
@@ -55,13 +132,17 @@ const STARTER_TOKENS = 100_000; // 100K токенов новому пользо
 const REFILL_TOKENS = 100_000; // авто-пополнение при обнулении
 const REFILL_LIMIT = 10; // максимум авто-пополнений (защита от бесконечного цикла)
 /** Создаёт личный org для нового пользователя и начисляет стартовые токены */
-async function ensurePersonalOrg(userId) {
+async function ensurePersonalOrg(userId, displayName) {
+    const name = displayName || 'Пользователь';
+    const orgName = `${name}-организация`;
+    // Check for existing personal org
     const exist = await pool.query(`SELECT o.org_id FROM portal_organizations o
      JOIN portal_org_members m ON o.org_id=m.org_id
-     WHERE m.user_id=$1 AND o.name='Личный'`, [userId]);
+     WHERE m.user_id=$1 AND m.role='owner'
+     LIMIT 1`, [userId]);
     if (exist.rows.length > 0)
         return exist.rows[0].org_id;
-    const org = await pool.query("INSERT INTO portal_organizations (name) VALUES ('Личный') RETURNING org_id");
+    const org = await pool.query("INSERT INTO portal_organizations (name) VALUES ($1) RETURNING org_id", [orgName]);
     const orgId = org.rows[0].org_id;
     await pool.query("INSERT INTO portal_org_members (org_id, user_id, role) VALUES ($1,$2,'owner')", [orgId, userId]);
     await pool.query(`INSERT INTO billing_accounts (org_id, reserved, total_tokens, meta)
@@ -86,32 +167,55 @@ function verifyPassword(password, stored) {
 function safeError(e) {
     return IS_PRODUCTION ? "internal_error" : e.message || String(e);
 }
-/** Store OAuth state in cookie, return state value */
-function setOAuthState(reply, prefix) {
+function safeJsonParse(s) {
+    if (!s)
+        return null;
+    if (typeof s === "object")
+        return s;
+    try {
+        return JSON.parse(s);
+    }
+    catch {
+        return null;
+    }
+}
+/** In-memory OAuth state store — avoids cookie issues */
+const oauthStates = new Map();
+// Cleanup expired states every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of oauthStates) {
+        if (v.expires < now)
+            oauthStates.delete(k);
+    }
+}, 300_000);
+/** Store OAuth state in memory, return state value */
+function setOAuthState(_reply, prefix) {
     const state = (0, crypto_1.randomBytes)(16).toString("hex");
-    reply.header("Set-Cookie", `oauth_state=${prefix}:${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600` +
-        (IS_PRODUCTION ? "; Secure" : ""));
+    oauthStates.set(state, { prefix, expires: Date.now() + 600_000 });
     return state;
 }
-/** Validate OAuth state from cookie. Clears cookie. Returns true if valid. */
-function validateOAuthState(req, reply, prefix) {
-    const cookieState = (req.headers.cookie || "")
-        .split(";").map((c) => c.trim())
-        .find((c) => c.startsWith("oauth_state="))
-        ?.split("=")[1];
+/** Validate OAuth state from memory. Returns true if valid. */
+function validateOAuthState(req, _reply, prefix) {
     const queryState = req.query?.state || "";
-    // Clear cookie
-    reply.header("Set-Cookie", "oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" +
-        (IS_PRODUCTION ? "; Secure" : ""));
-    if (!cookieState || !queryState)
+    if (!queryState)
         return false;
-    return cookieState === `${prefix}:${queryState}`;
+    const entry = oauthStates.get(queryState);
+    if (!entry)
+        return false;
+    oauthStates.delete(queryState);
+    return entry.prefix === prefix && entry.expires > Date.now();
 }
 async function main() {
     const app = (0, fastify_1.default)({ logger: false });
     await app.register(cors_1.default, { origin: CORS_ORIGIN, credentials: true });
     // Rate limiting: 100 req/min per IP
     await app.register(rate_limit_1.default, { max: 100, timeWindow: "1 minute" });
+    // Serve static files (SPA: index.html, admin.html, etc.)
+    await app.register(static_1.default, {
+        root: path_1.default.join(__dirname, "..", "static"),
+        prefix: "/",
+    });
     // DDL
     await pool.query(`
     CREATE TABLE IF NOT EXISTS portal_users (
@@ -157,12 +261,15 @@ async function main() {
     CREATE TABLE IF NOT EXISTS chats (
       chat_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id uuid NOT NULL REFERENCES portal_users(user_id),
+      org_id uuid REFERENCES portal_organizations(org_id),
       title text NOT NULL DEFAULT 'Новый чат',
       model text NOT NULL DEFAULT 'qwen2.5-14b',
       share_token text UNIQUE,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    -- Migration: add org_id to existing chats (set to user's personal org)
+    ALTER TABLE chats ADD COLUMN IF NOT EXISTS org_id uuid REFERENCES portal_organizations(org_id);
     CREATE TABLE IF NOT EXISTS chat_messages (
       message_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       chat_id uuid NOT NULL REFERENCES chats(chat_id) ON DELETE CASCADE,
@@ -190,6 +297,7 @@ async function main() {
       total_tokens bigint NOT NULL DEFAULT 0
     );
   `);
+    await pool.query(policies_1.POLICIES_DDL);
     // ==================== AUTH ====================
     // GitHub OAuth
     const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
@@ -248,7 +356,7 @@ async function main() {
                 const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
            VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["github", oauthId, primaryEmail, displayName, avatarUrl]);
                 userId = ins.rows[0].user_id;
-                await ensurePersonalOrg(userId);
+                await ensurePersonalOrg(userId, displayName);
             }
             else {
                 userId = user.rows[0].user_id;
@@ -256,6 +364,7 @@ async function main() {
             }
             const tok = signToken(userId);
             const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            setTokenCookie(reply, tok);
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
@@ -318,7 +427,7 @@ async function main() {
                 const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
            VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["google", oauthId, email, displayName, avatarUrl]);
                 userId = ins.rows[0].user_id;
-                await ensurePersonalOrg(userId);
+                await ensurePersonalOrg(userId, displayName);
             }
             else {
                 userId = user.rows[0].user_id;
@@ -326,6 +435,7 @@ async function main() {
             }
             const tok = signToken(userId);
             const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            setTokenCookie(reply, tok);
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
@@ -386,7 +496,7 @@ async function main() {
                 const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, avatar_url, last_login_at)
            VALUES ($1,$2,$3,$4,$5,now()) RETURNING user_id`, ["yandex", oauthId, email, displayName, avatarUrl]);
                 userId = ins.rows[0].user_id;
-                await ensurePersonalOrg(userId);
+                await ensurePersonalOrg(userId, displayName);
             }
             else {
                 userId = user.rows[0].user_id;
@@ -394,6 +504,7 @@ async function main() {
             }
             const tok = signToken(userId);
             const redirectHost = process.env.PUBLIC_HOST || "localhost";
+            setTokenCookie(reply, tok);
             return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
         }
         catch (e) {
@@ -420,13 +531,14 @@ async function main() {
                 const ins = await pool.query(`INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, last_login_at)
            VALUES ($1,$2,$3,$4,now()) RETURNING user_id`, [provider, oauthId, ldapUser.email, ldapUser.displayName]);
                 userId = ins.rows[0].user_id;
-                await ensurePersonalOrg(userId);
+                await ensurePersonalOrg(userId, ldapUser.displayName);
             }
             else {
                 userId = user.rows[0].user_id;
                 await pool.query("UPDATE portal_users SET email=$1, display_name=$2, last_login_at=now() WHERE user_id=$3", [ldapUser.email, ldapUser.displayName, userId]);
             }
             const tok = signToken(userId);
+            setTokenCookie(reply, tok);
             return {
                 access_token: tok,
                 user: { user_id: userId, login: ldapUser.uid, email: ldapUser.email },
@@ -452,13 +564,14 @@ async function main() {
         if (user.rows.length === 0) {
             const ins = await pool.query("INSERT INTO portal_users (oauth_provider, oauth_id, email, display_name, last_login_at) VALUES ($1,$2,$3,$4,now()) RETURNING user_id", ["dev", oid, email, name]);
             userId = ins.rows[0].user_id;
-            await ensurePersonalOrg(userId);
+            await ensurePersonalOrg(userId, name);
         }
         else {
             userId = user.rows[0].user_id;
             await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [userId]);
         }
         const tok = signToken(userId);
+        setTokenCookie(reply, tok);
         return { access_token: tok, user: { user_id: userId, login: name, email } };
     });
     // === SaaS Signup ===
@@ -478,7 +591,7 @@ async function main() {
         const hash = hashPassword(password);
         const ins = await pool.query("INSERT INTO portal_users (oauth_provider, oauth_id, email, password_hash, display_name, last_login_at) VALUES ('email',$1,$2,$3,$4,now()) RETURNING user_id", [email, email, hash, email.split("@")[0]]);
         const userId = ins.rows[0].user_id;
-        const orgId = await ensurePersonalOrg(userId);
+        const orgId = await ensurePersonalOrg(userId, email.split("@")[0]);
         // Create named org
         const orgName = org_name || "Моя организация";
         const newOrg = await pool.query("INSERT INTO portal_organizations (name) VALUES ($1) RETURNING org_id", [orgName]);
@@ -493,6 +606,7 @@ async function main() {
         const key = "ak-" + (0, crypto_1.randomBytes)(24).toString("hex");
         await pool.query("INSERT INTO portal_api_keys (org_id, user_id, name, key_hash, api_key, api_key_prefix, status) VALUES ($1,$2,$3,$4,$5,$6,'active')", [newOrgId, userId, "default", key, key, "ak-"]);
         const tok = signToken(userId);
+        setTokenCookie(reply, tok);
         return {
             access_token: tok,
             user: { user_id: userId, email, display_name: email.split("@")[0] },
@@ -512,11 +626,14 @@ async function main() {
             return reply.status(401).send({ error: "invalid credentials" });
         await pool.query("UPDATE portal_users SET last_login_at=now() WHERE user_id=$1", [r.rows[0].user_id]);
         const tok = signToken(r.rows[0].user_id);
+        setTokenCookie(reply, tok);
         return {
             access_token: tok,
             user: { user_id: r.rows[0].user_id, email, display_name: r.rows[0].display_name },
         };
     });
+    // ── External API Gateway (API-key auth, OpenAI-compatible) ──
+    (0, api_gateway_1.registerApiGateway)(app, pool);
     app.get("/api/v1/me", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
@@ -525,12 +642,6 @@ async function main() {
         if (r.rows.length === 0)
             return reply.status(404).send({ error: "user not found" });
         return { user: r.rows[0] };
-    });
-    app.get("/api/v1/status", async () => {
-        const o = await pool.query("SELECT count(*) FROM portal_organizations");
-        const u = await pool.query("SELECT count(*) FROM portal_users");
-        const k = await pool.query("SELECT count(*) FROM portal_api_keys WHERE status='active'");
-        return { version: "0.5.0", orgs: Number(o.rows[0].count), users: Number(u.rows[0].count), active_keys: Number(k.rows[0].count) };
     });
     // Model catalog — maps short names to vLLM paths
     const MODEL_MAP = {
@@ -545,22 +656,15 @@ async function main() {
             description: "Мощная модель для сложных задач",
         },
     };
-    app.get("/api/v1/models", async (_r, reply) => {
+    app.get("/api/v1/status", async (_r, reply) => {
+        const k = await pool.query("SELECT count(*) FROM portal_api_keys WHERE status='active'");
         return reply.send({
-            object: "list",
-            data: Object.entries(MODEL_MAP).map(([id, m]) => ({
-                id,
-                object: "model",
-                display_name: m.display_name,
-                description: m.description,
-                max_tokens: id.endsWith("32b") ? 8192 : 4096,
-                tags: id.endsWith("32b") ? ["code", "analysis"] : ["chat", "code", "fast"],
-            })),
+            active_api_keys: Number(k.rows[0].count),
         });
     });
     app.get("/api/v1/core/status", async (_r, reply) => {
         try {
-            const r = await fetch(CORE_API + "/health");
+            const r = await gatewayFetch("/health");
             const text = await r.text();
             if (!text)
                 return reply.send({ status: "ok", model: "vLLM", note: "health returned empty (vLLM direct)" });
@@ -637,6 +741,58 @@ async function main() {
             return reply.status(404).send({ error: "org not found" });
         return { org: r.rows[0] };
     });
+    // ==================== ORG SECURITY POLICIES ====================
+    app.get("/api/v1/orgs/:orgId/policy", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        const { orgId } = req.params;
+        const m = await pool.query("SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [orgId, p.user_id]);
+        if (m.rows.length === 0)
+            return reply.status(403).send({ error: "not a member" });
+        try {
+            const policy = await (0, policies_1.loadPolicy)(pool, orgId);
+            return { org_id: orgId, policy };
+        }
+        catch (e) {
+            return reply.status(500).send({ error: safeError(e) });
+        }
+    });
+    app.put("/api/v1/orgs/:orgId/policy", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        const { orgId } = req.params;
+        if (!await checkOrgOwner(orgId, p.user_id))
+            return reply.status(403).send({ error: "owner only" });
+        const body = req.body || {};
+        const allowedKeys = [
+            "dlp_enabled", "jailbreak_detection", "sensitive_data_patterns",
+            "allowed_ip_cidrs", "mfa_required", "session_timeout_min",
+            "api_key_max_age_days", "api_key_rotation_required",
+            "custom_rpm", "custom_tpm", "max_concurrent_requests",
+            "allowed_models", "max_tokens_per_request",
+            "chat_retention_days", "audit_log_retention_days",
+            "chat_enabled",
+        ];
+        const updates = {};
+        for (const key of allowedKeys) {
+            if (key in body)
+                updates[key] = body[key];
+        }
+        if (Object.keys(updates).length === 0)
+            return reply.status(400).send({ error: "no valid policy fields provided" });
+        const err = (0, policies_1.validatePolicy)(updates);
+        if (err)
+            return reply.status(400).send({ error: err });
+        try {
+            const policy = await (0, policies_1.savePolicy)(pool, orgId, updates);
+            return { org_id: orgId, policy };
+        }
+        catch (e) {
+            return reply.status(500).send({ error: safeError(e) });
+        }
+    });
     // ==================== API KEYS ====================
     app.get("/api/v1/orgs/:orgId/api-keys", async (req, reply) => {
         const p = auth(req, reply);
@@ -708,6 +864,24 @@ async function main() {
         return { delegation_token: delegationToken, expires_in: 300 };
     });
     // ==================== CHATS ====================
+    /** Check if chat is enabled for any org the user belongs to. Returns org_id if enabled, null otherwise. */
+    async function checkChatEnabled(userId, reply) {
+        const orgs = await pool.query(`SELECT o.org_id FROM portal_organizations o
+       JOIN portal_org_members m ON o.org_id = m.org_id
+       WHERE m.user_id = $1 AND m.status = 'active'
+       LIMIT 1`, [userId]);
+        if (orgs.rows.length === 0) {
+            reply.status(403).send({ error: "chat_disabled", detail: "no active organization" });
+            return null;
+        }
+        const orgId = orgs.rows[0].org_id;
+        const policy = await (0, policies_1.loadPolicy)(pool, orgId);
+        if (!policy.chat_enabled) {
+            reply.status(403).send({ error: "chat_disabled", detail: "чат отключён в настройках безопасности организации" });
+            return null;
+        }
+        return orgId;
+    }
     // Get org's active API key (for delegation in chat)
     async function getOrgApiKey(orgId) {
         const r = await pool.query("SELECT api_key FROM portal_api_keys WHERE org_id=$1 AND status='active' ORDER BY created_at ASC LIMIT 1", [orgId]);
@@ -729,8 +903,11 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
+            return;
         const r = await pool.query(`SELECT chat_id, title, model, share_token, created_at, updated_at
-       FROM chats WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50`, [p.user_id]);
+       FROM chats WHERE user_id=$1 AND org_id=$2 ORDER BY updated_at DESC LIMIT 50`, [p.user_id, orgId]);
         return { chats: r.rows };
     });
     // Create chat
@@ -738,9 +915,12 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
+            return;
         const { title, model } = req.body || {};
-        const r = await pool.query(`INSERT INTO chats (user_id, title, model) VALUES ($1,$2,$3)
-       RETURNING chat_id, title, model, created_at`, [p.user_id, title || "Новый чат", model || "qwen2.5-14b"]);
+        const r = await pool.query(`INSERT INTO chats (user_id, org_id, title, model) VALUES ($1,$2,$3,$4)
+       RETURNING chat_id, title, model, created_at`, [p.user_id, orgId, title || "Новый чат", model || "qwen2.5-14b"]);
         return { chat: r.rows[0] };
     });
     // Get chat with messages
@@ -748,8 +928,11 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
+            return;
         const { chatId } = req.params;
-        const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
+        const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2 AND org_id=$3", [chatId, p.user_id, orgId]);
         if (c.rows.length === 0)
             return reply.status(404).send({ error: "chat not found" });
         const msgs = await pool.query("SELECT message_id, role, content, tokens_used, created_at FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC", [chatId]);
@@ -760,8 +943,11 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
+        const orgId = await checkChatEnabled(p.user_id, reply);
+        if (!orgId)
+            return;
         const { chatId } = req.params;
-        const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 RETURNING chat_id", [chatId, p.user_id]);
+        const r = await pool.query("DELETE FROM chats WHERE chat_id=$1 AND user_id=$2 AND org_id=$3 RETURNING chat_id", [chatId, p.user_id, orgId]);
         if (r.rows.length === 0)
             return reply.status(404).send({ error: "chat not found" });
         return { deleted: true };
@@ -770,6 +956,8 @@ async function main() {
     app.post("/api/v1/chats/:chatId/share", async (req, reply) => {
         const p = auth(req, reply);
         if (!p)
+            return;
+        if (!await checkChatEnabled(p.user_id, reply))
             return;
         const { chatId } = req.params;
         const shareToken = (0, crypto_1.randomBytes)(16).toString("hex");
@@ -792,6 +980,8 @@ async function main() {
         const p = auth(req, reply);
         if (!p)
             return;
+        if (!await checkChatEnabled(p.user_id, reply))
+            return;
         const { chatId } = req.params;
         const { content, org_id } = req.body || {};
         if (!content)
@@ -803,7 +993,8 @@ async function main() {
         const chat = c.rows[0];
         // Save user message
         const userMsg = await pool.query("INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2) RETURNING message_id, created_at", [chatId, content]);
-        // Skip delegation token — direct to vLLM
+        // Create delegation token for Gateway
+        const delegationToken = DELEGATION_PRIVATE_KEY ? jsonwebtoken_1.default.sign({ org_id: org_id || "", user_id: p.user_id }, DELEGATION_PRIVATE_KEY, { algorithm: "RS256", expiresIn: "5m", issuer: "aither-portal" }) : "";
         // Build message history
         const history = await pool.query("SELECT role, content FROM chat_messages WHERE chat_id=$1 ORDER BY created_at ASC", [chatId]);
         const messages = history.rows.map((m) => ({ role: m.role, content: m.content }));
@@ -817,11 +1008,12 @@ async function main() {
             const modelInfo = MODEL_MAP[chat.model] || MODEL_MAP["qwen2.5-14b"];
             const vllmModel = modelInfo.vllm_path;
             const vllmEndpoint = CORE_API;
-            // Call vLLM with streaming
-            const vllmRes = await fetch(vllmEndpoint + "/v1/chat/completions", {
+            // Call Gateway (with mTLS) which proxies to vLLM
+            const vllmRes = await gatewayFetch("/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(delegationToken ? { "Authorization": "Bearer " + delegationToken } : {}),
                 },
                 body: JSON.stringify({
                     model: vllmModel,
@@ -843,6 +1035,7 @@ async function main() {
                 "Connection": "keep-alive",
             });
             let fullContent = "";
+            let vllmUsage = 0; // real token count from vLLM
             const reader = vllmRes.body.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
@@ -863,6 +1056,9 @@ async function main() {
                                 const parsed = JSON.parse(data);
                                 const delta = parsed.choices?.[0]?.delta?.content || "";
                                 fullContent += delta;
+                                // Capture real token usage from vLLM
+                                if (parsed.usage?.total_tokens)
+                                    vllmUsage = parsed.usage.total_tokens;
                                 // Forward to client
                                 reply.raw.write(`data: ${JSON.stringify({ delta })}\n\n`);
                             }
@@ -874,11 +1070,17 @@ async function main() {
             finally {
                 reader.releaseLock();
             }
+            // Use real vLLM token count, fall back to estimate
+            const tokensUsed = vllmUsage || Math.ceil(fullContent.length / 4);
+            // Deduct from billing account
+            if (org_id) {
+                await pool.query("UPDATE billing_accounts SET total_tokens = GREATEST(total_tokens - $1, 0) WHERE org_id=$2", [tokensUsed, org_id]);
+            }
             // Save assistant message
-            const tokensUsed = Math.ceil(fullContent.length / 4); // rough estimate
             await pool.query("INSERT INTO chat_messages (chat_id, role, content, tokens_used) VALUES ($1,'assistant',$2,$3)", [chatId, fullContent, tokensUsed]);
             await pool.query("UPDATE chats SET updated_at=now() WHERE chat_id=$1", [chatId]);
-            reply.raw.write(`data: ${JSON.stringify({ delta: "", done: true, tokens_used: tokensUsed })}\n\n`);
+            const newBalance = org_id ? (await pool.query("SELECT total_tokens FROM billing_accounts WHERE org_id=$1", [org_id])).rows[0]?.total_tokens : null;
+            reply.raw.write(`data: ${JSON.stringify({ delta: "", done: true, tokens_used: tokensUsed, balance: Number(newBalance) })}\n\n`);
             reply.raw.end();
         }
         catch (e) {
@@ -889,6 +1091,37 @@ async function main() {
             }
             reply.raw.end();
         }
+    });
+    // POST /api/v1/chats/:chatId/rag-messages — save user+assistant message pair from RAG chat
+    app.post("/api/v1/chats/:chatId/rag-messages", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        if (!await checkChatEnabled(p.user_id, reply))
+            return;
+        const { chatId } = req.params;
+        const { content, assistant_content, org_id } = req.body || {};
+        if (!content || !assistant_content)
+            return reply.status(400).send({ error: "content and assistant_content required" });
+        const c = await pool.query("SELECT * FROM chats WHERE chat_id=$1 AND user_id=$2", [chatId, p.user_id]);
+        if (c.rows.length === 0)
+            return reply.status(404).send({ error: "chat not found" });
+        // Save user message
+        await pool.query("INSERT INTO chat_messages (chat_id, role, content) VALUES ($1,'user',$2)", [chatId, content]);
+        // Save assistant message
+        const tokensUsed = Math.ceil(assistant_content.length / 4);
+        await pool.query("INSERT INTO chat_messages (chat_id, role, content, tokens_used) VALUES ($1,'assistant',$2,$3)", [chatId, assistant_content, tokensUsed]);
+        // Auto-title
+        if (c.rows[0].title === "Новый чат") {
+            const title = content.slice(0, 50).replace(/\n/g, " ");
+            await pool.query("UPDATE chats SET title=$1 WHERE chat_id=$2", [title, chatId]);
+        }
+        // Deduct tokens
+        if (org_id) {
+            await pool.query("UPDATE billing_accounts SET total_tokens = GREATEST(total_tokens - $1, 0) WHERE org_id=$2", [tokensUsed, org_id]);
+        }
+        await pool.query("UPDATE chats SET updated_at=now() WHERE chat_id=$1", [chatId]);
+        return reply.send({ ok: true, tokens_used: tokensUsed });
     });
     // ==================== BALANCE (local) ====================
     app.get("/api/v1/billing", async (req, reply) => {
@@ -1052,19 +1285,28 @@ async function main() {
                 const txnId = payment.metadata?.txn_id;
                 if (!txnId)
                     return reply.send({ ok: false, error: "no txn_id in metadata" });
-                const txn = await pool.query("SELECT txn_id, org_id, tokens, status FROM payment_transactions WHERE txn_id=$1", [txnId]);
+                const txn = await pool.query("SELECT txn_id, org_id, tokens, status, meta FROM payment_transactions WHERE txn_id=$1", [txnId]);
                 if (txn.rows.length === 0)
                     return reply.send({ ok: false, error: "txn not found" });
                 if (txn.rows[0].status === "succeeded")
                     return reply.send({ ok: true, status: "already_processed" });
+                const tier = payment.metadata?.tier;
+                const txnMeta = safeJsonParse(txn.rows[0].meta) || {};
+                const effectiveTier = tier || txnMeta.tier;
                 // Mark succeeded + credit tokens
                 await pool.query("BEGIN");
                 await pool.query("UPDATE payment_transactions SET status='succeeded', updated_at=now(), meta=$1 WHERE txn_id=$2", [JSON.stringify(payment), txnId]);
-                await pool.query(`INSERT INTO billing_accounts (org_id, reserved, total_tokens)
-           VALUES ($1, 0, $2)
-           ON CONFLICT (org_id) DO UPDATE SET total_tokens = billing_accounts.total_tokens + $2`, [txn.rows[0].org_id, txn.rows[0].tokens]);
+                if (txn.rows[0].tokens > 0) {
+                    await pool.query(`INSERT INTO billing_accounts (org_id, reserved, total_tokens)
+             VALUES ($1, 0, $2)
+             ON CONFLICT (org_id) DO UPDATE SET total_tokens = billing_accounts.total_tokens + $2`, [txn.rows[0].org_id, txn.rows[0].tokens]);
+                }
+                // If tier purchase — upgrade tier
+                if (effectiveTier) {
+                    await pool.query("UPDATE billing_accounts SET tier=$1, updated_at=now() WHERE org_id=$2", [effectiveTier, txn.rows[0].org_id]);
+                }
                 await pool.query("COMMIT");
-                return reply.send({ ok: true, status: "credited" });
+                return reply.send({ ok: true, status: effectiveTier ? "tier_upgraded" : "credited" });
             }
             return reply.send({ ok: true, status: "ignored", event });
         }
@@ -1137,6 +1379,452 @@ async function main() {
         const r = await pool.query(`SELECT b.tier, t.name, t.rpm_limit, t.tpm_limit, t.daily_request_limit, t.models, t.rag_enabled, t.priority
        FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier = t.tier_id WHERE b.org_id=$1`, [orgId]);
         return reply.send({ ok: true, tier: r.rows[0] });
+    });
+    // === Purchase tier (with payment) ===
+    app.post("/api/v1/orgs/:orgId/purchase-tier", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        const { orgId } = req.params;
+        const { tier } = req.body;
+        if (!tier)
+            return reply.status(400).send({ error: "tier required" });
+        // Check org membership
+        const m = await pool.query("SELECT role FROM portal_org_members WHERE org_id=$1 AND user_id=$2 AND status='active'", [orgId, p.user_id]);
+        if (m.rows.length === 0)
+            return reply.status(403).send({ error: "not a member" });
+        // Get tier info
+        const t = await pool.query("SELECT tier_id, name, price_rub_month FROM subscription_tiers WHERE tier_id=$1", [tier]);
+        if (t.rows.length === 0)
+            return reply.status(400).send({ error: "invalid tier" });
+        const tierInfo = t.rows[0];
+        const price = Number(tierInfo.price_rub_month) || 0;
+        // Free tier — upgrade immediately
+        if (price === 0) {
+            await pool.query("UPDATE billing_accounts SET tier=$1, updated_at=now() WHERE org_id=$2", [tier, orgId]);
+            const r = await pool.query("SELECT b.tier, t.name FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier=t.tier_id WHERE b.org_id=$1", [orgId]);
+            return reply.send({ ok: true, tier: r.rows[0], paid: false });
+        }
+        // Paid tier — create transaction
+        const txn = await pool.query(`INSERT INTO payment_transactions (org_id, user_id, provider, amount_rub, tokens, status, meta)
+       VALUES ($1,$2,'yookassa',$3,0,'pending',$4) RETURNING txn_id`, [orgId, p.user_id, price, JSON.stringify({ tier, tier_name: tierInfo.name })]);
+        const txnId = txn.rows[0].txn_id;
+        // Dev mode — auto-succeed
+        if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET) {
+            await pool.query("UPDATE billing_accounts SET tier=$1, updated_at=now() WHERE org_id=$2", [tier, orgId]);
+            await pool.query("UPDATE payment_transactions SET status='succeeded', updated_at=now(), meta=$1 WHERE txn_id=$2", [JSON.stringify({ dev_mode: true, tier }), txnId]);
+            const r = await pool.query("SELECT b.tier, t.name FROM billing_accounts b LEFT JOIN subscription_tiers t ON b.tier=t.tier_id WHERE b.org_id=$1", [orgId]);
+            return reply.send({ ok: true, tier: r.rows[0], paid: false, dev_mode: true });
+        }
+        // YooKassa payment
+        try {
+            const ykRes = await fetch("https://api.yookassa.ru/v3/payments", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Basic " + Buffer.from(YOOKASSA_SHOP_ID + ":" + YOOKASSA_SECRET).toString("base64"),
+                    "Idempotence-Key": txnId,
+                },
+                body: JSON.stringify({
+                    amount: { value: price.toFixed(2), currency: "RUB" },
+                    confirmation: { type: "redirect", return_url: `https://${process.env.PUBLIC_HOST || "localhost"}:10443/#tiers` },
+                    description: `Aither: тариф «${tierInfo.name}»`,
+                    metadata: { txn_id: txnId, org_id: orgId, tier },
+                }),
+            });
+            const ykData = await ykRes.json();
+            if (ykRes.ok && ykData.confirmation?.confirmation_url) {
+                await pool.query("UPDATE payment_transactions SET provider_payment_id=$1, meta=$2 WHERE txn_id=$3", [ykData.id, JSON.stringify(ykData), txnId]);
+                return reply.send({
+                    ok: true,
+                    txn_id: txnId,
+                    confirmation_url: ykData.confirmation.confirmation_url,
+                    status: "pending",
+                });
+            }
+            return reply.status(502).send({ error: "yookassa error", detail: ykData });
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "yookassa error: " + safeError(e) });
+        }
+    });
+    // ==================== ADMIN PROXY ====================
+    const ADMIN_KEY = process.env.ADMIN_KEY || "";
+    // ── Check if current user has admin role (for frontend UI) ──
+    app.get("/api/v1/admin/check", async (req, reply) => {
+        // Parse cookie
+        const cookieHeader = req.headers.cookie || "";
+        const cookies = {};
+        cookieHeader.split(";").forEach((c) => {
+            const idx = c.indexOf("=");
+            if (idx > 0)
+                cookies[c.substring(0, idx).trim()] = c.substring(idx + 1).trim();
+        });
+        const cookieToken = cookies["aither_token"] || "";
+        let p = cookieToken ? verifyToken(cookieToken) : null;
+        if (!p) {
+            const ah = req.headers.authorization || "";
+            if (ah.startsWith("Bearer "))
+                p = verifyToken(ah.slice(7));
+        }
+        if (!p)
+            return reply.send({ admin: false });
+        // Super admin bypass — no org check needed
+        if (await isSuperAdmin(p.user_id))
+            return reply.send({ admin: true });
+        const orgs = await pool.query("SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1", [p.user_id]);
+        return reply.send({ admin: orgs.rows.length > 0 });
+    });
+    // ── Serve admin.html — only to authenticated users with admin role ──
+    app.get("/admin.html", async (req, reply) => {
+        const adminHeader = req.headers["x-admin-key"] || "";
+        const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
+        if (!isAdminKey) {
+            // Parse cookies (set during OAuth/login)
+            const cookieHeader = req.headers.cookie || "";
+            const cookies = {};
+            cookieHeader.split(";").forEach((c) => {
+                const idx = c.indexOf("=");
+                if (idx > 0)
+                    cookies[c.substring(0, idx).trim()] = c.substring(idx + 1).trim();
+            });
+            const cookieToken = cookies["aither_token"] || "";
+            // Try cookie first, then Authorization header
+            let p = cookieToken ? verifyToken(cookieToken) : null;
+            if (!p) {
+                const ah = req.headers.authorization || "";
+                if (ah.startsWith("Bearer "))
+                    p = verifyToken(ah.slice(7));
+            }
+            if (!p) {
+                // No valid auth — redirect to portal login
+                return reply.redirect("/");
+            }
+            // Super admin bypass — no org check needed
+            const isAdmin = await isSuperAdmin(p.user_id) || (await pool.query("SELECT 1 FROM portal_org_members WHERE user_id=$1 AND role IN ('owner','billing_admin') LIMIT 1", [p.user_id])).rows.length > 0;
+            if (!isAdmin) {
+                return reply.status(403).type("text/html").send("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>403 — Aither Admin</title>" +
+                    "<style>body{font-family:system-ui;background:#0a0a0f;color:#e4e4ec;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}" +
+                    "div{text-align:center}h1{font-size:72px;margin:0;color:#f87171}p{color:#71718a;margin:8px 0 24px}a{color:#818cf8}</style></head>" +
+                    "<body><div><h1>403</h1><p>Доступ запрещён — требуются права администратора</p>" +
+                    "<a href='/'>← На портал</a></div></body></html>");
+            }
+        }
+        const fs = await Promise.resolve().then(() => __importStar(require("fs")));
+        const html = fs.readFileSync("/root/aither-project/portal/static/admin.html", "utf8");
+        return reply.type("text/html").send(html);
+    });
+    // Admin users — handled locally (portal DB, not billing DB)
+    app.get("/api/v1/admin/users", async (req, reply) => {
+        const adminHeader = req.headers["x-admin-key"] || "";
+        const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
+        if (!isAdminKey) {
+            const p = auth(req, reply);
+            if (!p)
+                return;
+            const orgs = await pool.query("SELECT role FROM portal_org_members WHERE user_id=$1 AND role='owner' AND status='active' LIMIT 1", [p.user_id]);
+            if (orgs.rows.length === 0)
+                return reply.status(403).send({ error: "admin access required" });
+        }
+        const r = await pool.query(`
+      SELECT u.user_id, u.display_name, u.email, u.oauth_provider as provider,
+             (SELECT count(*) FROM portal_org_members m WHERE m.user_id = u.user_id AND m.status = 'active') as org_count
+      FROM portal_users u ORDER BY u.created_at DESC LIMIT 50`);
+        return reply.send({ users: r.rows });
+    });
+    // User orgs
+    app.get("/api/v1/admin/users/:userId/orgs", async (req, reply) => {
+        const { userId } = req.params;
+        const r = await pool.query(`SELECT m.role, m.status, o.org_id, o.name, COALESCE(b.total_tokens,0) AS balance, COALESCE(b.tier,'none') AS tier
+       FROM portal_org_members m
+       JOIN portal_organizations o ON o.org_id = m.org_id
+       LEFT JOIN billing_accounts b ON b.org_id = o.org_id
+       WHERE m.user_id = $1`, [userId]);
+        return reply.send({ orgs: r.rows });
+    });
+    // Delete user
+    app.delete("/api/v1/admin/users/:userId", async (req, reply) => {
+        const { userId } = req.params;
+        // Remove from all orgs
+        await pool.query("DELETE FROM portal_org_members WHERE user_id = $1", [userId]);
+        // Delete payment transactions
+        await pool.query("DELETE FROM payment_transactions WHERE user_id = $1", [userId]);
+        // Delete user
+        await pool.query("DELETE FROM portal_users WHERE user_id = $1", [userId]);
+        return reply.send({ status: "deleted", user_id: userId });
+    });
+    app.post("/api/v1/admin/users/:userId/role", async (req, reply) => {
+        // Role change is not yet implemented — requires portal_users.role column
+        return reply.send({ status: "ok", note: "role change not yet implemented" });
+    });
+    // Tiers — read from local subscription_tiers table (not proxied to Gateway)
+    app.get("/api/v1/admin/tiers", async (_req, reply) => {
+        const r = await pool.query("SELECT tier_id, name, description, rpm_limit, tpm_limit, daily_request_limit AS daily_limit, " +
+            "models, rag_enabled, priority, price_rub_month AS price_rub FROM subscription_tiers ORDER BY priority");
+        return reply.send({ tiers: r.rows });
+    });
+    // Settings (LDAP) — stored in local portal_settings table, not proxied to Gateway
+    app.get("/api/v1/admin/settings", async (req, reply) => {
+        const r = await pool.query("SELECT key, value FROM portal_settings");
+        const result = {};
+        for (const row of r.rows)
+            result[row.key] = row.value;
+        return reply.send(result);
+    });
+    app.post("/api/v1/admin/settings", async (req, reply) => {
+        const entries = Object.entries(req.body || {});
+        for (const [key, value] of entries) {
+            await pool.query(`INSERT INTO portal_settings (key, value) VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`, [key, String(value)]);
+        }
+        return reply.send({ status: "ok", updated: entries.length });
+    });
+    // ── Organizations (admin CRUD) ──
+    app.get("/api/v1/admin/orgs", async (_req, reply) => {
+        const r = await pool.query(`
+      SELECT o.org_id, o.name, o.status, o.created_at,
+             COALESCE(b.total_tokens, 0) AS balance,
+             COALESCE(b.tier, 'none') AS tier,
+             (SELECT COUNT(*) FROM portal_org_members m WHERE m.org_id = o.org_id AND m.status = 'active') AS member_count,
+             (SELECT COUNT(*) FROM portal_api_keys k WHERE k.org_id = o.org_id AND k.status = 'active') AS key_count
+      FROM portal_organizations o
+      LEFT JOIN billing_accounts b ON b.org_id = o.org_id
+      ORDER BY o.created_at DESC LIMIT 100`);
+        return reply.send({ orgs: r.rows });
+    });
+    app.get("/api/v1/admin/orgs/:orgId", async (req, reply) => {
+        const { orgId } = req.params;
+        const org = await pool.query(`SELECT o.*, COALESCE(b.total_tokens,0) AS balance, COALESCE(b.reserved,0) AS reserved,
+              COALESCE(b.tier, 'none') AS tier, b.meta AS billing_meta
+       FROM portal_organizations o
+       LEFT JOIN billing_accounts b ON b.org_id = o.org_id
+       WHERE o.org_id = $1`, [orgId]);
+        if (org.rows.length === 0)
+            return reply.status(404).send({ error: "org not found" });
+        const members = await pool.query(`SELECT m.*, u.display_name, u.email, u.user_id AS uid
+       FROM portal_org_members m
+       JOIN portal_users u ON u.user_id = m.user_id
+       WHERE m.org_id = $1`, [orgId]);
+        const keys = await pool.query("SELECT key_id, api_key_prefix, name, status, created_at, last_used_at FROM portal_api_keys WHERE org_id = $1", [orgId]);
+        return reply.send({ org: org.rows[0], members: members.rows, api_keys: keys.rows });
+    });
+    app.delete("/api/v1/admin/orgs/:orgId", async (req, reply) => {
+        const { orgId } = req.params;
+        // Cascade: policies (cascades), payments, members, keys, billing, org
+        // Note: portal_org_policies has ON DELETE CASCADE — handled automatically
+        await pool.query("DELETE FROM payment_transactions WHERE org_id = $1", [orgId]);
+        await pool.query("DELETE FROM portal_org_members WHERE org_id = $1", [orgId]);
+        await pool.query("DELETE FROM portal_api_keys WHERE org_id = $1", [orgId]);
+        await pool.query("DELETE FROM billing_accounts WHERE org_id = $1", [orgId]);
+        await pool.query("DELETE FROM portal_organizations WHERE org_id = $1", [orgId]);
+        return reply.send({ status: "deleted", org_id: orgId });
+    });
+    // ── API Keys (admin) ──
+    app.get("/api/v1/admin/apikeys", async (_req, reply) => {
+        const r = await pool.query(`
+      SELECT k.key_id, k.api_key_prefix, k.name, k.status, k.created_at, k.last_used_at,
+             k.org_id, o.name AS org_name
+      FROM portal_api_keys k
+      LEFT JOIN portal_organizations o ON o.org_id = k.org_id
+      ORDER BY k.created_at DESC LIMIT 200`);
+        return reply.send({ keys: r.rows });
+    });
+    app.delete("/api/v1/admin/apikeys/:keyId", async (req, reply) => {
+        const { keyId } = req.params;
+        await pool.query("UPDATE portal_api_keys SET status = 'revoked' WHERE key_id = $1", [keyId]);
+        return reply.send({ status: "revoked", key_id: keyId });
+    });
+    // ── RAG endpoints ──────────────────────────────────────────
+    // GET /api/rag/status — hybrid RAG status (requires auth, returns tier info)
+    app.get("/api/rag/status", async (req, reply) => {
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        try {
+            const resp = await fetch(CORE_API + "/v1/rag/status", {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${signToken(p.user_id)}` },
+            });
+            const data = await resp.json();
+            return reply.status(resp.status).send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_unavailable", detail: safeError(e) });
+        }
+    });
+    // POST /api/rag/query — hybrid RAG search (keyword + wiki graph)
+    app.post("/api/rag/query", async (req, reply) => {
+        const { query, top_k, wiki_radius, org_id } = req.body || {};
+        if (!query)
+            return reply.status(400).send({ error: "query required" });
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        try {
+            const resp = await fetch(CORE_API + "/v1/rag/hybrid-query", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${signToken(p.user_id, org_id)}`,
+                },
+                body: JSON.stringify({ query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
+            });
+            const data = await resp.json();
+            return reply.status(resp.status).send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_query_failed", detail: safeError(e) });
+        }
+    });
+    // POST /api/rag/chat — enhanced chat with RAG context injection
+    app.post("/api/rag/chat", async (req, reply) => {
+        const { messages, model, rag_query, top_k, wiki_radius, temperature, org_id } = req.body || {};
+        if (!messages || !rag_query)
+            return reply.status(400).send({ error: "messages and rag_query required" });
+        const p = auth(req, reply);
+        if (!p)
+            return;
+        try {
+            // Step 1: RAG search via plain HTTP
+            const ragResp = await fetch(CORE_API + "/v1/rag/hybrid-query", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${signToken(p.user_id, org_id)}`,
+                },
+                body: JSON.stringify({ query: rag_query, top_k: top_k || 5, wiki_radius: wiki_radius || 1 }),
+            });
+            const ragData = await ragResp.json();
+            // Gateway returns {results: {wiki_results: [...], chroma_results: [...]}} — flatten into array
+            const rawResults = ragData.results || {};
+            const ragResults = [
+                ...(Array.isArray(rawResults.wiki_results) ? rawResults.wiki_results : []),
+                ...(Array.isArray(rawResults.chroma_results) ? rawResults.chroma_results : []),
+                ...(Array.isArray(rawResults) ? rawResults : []), // backward compat: if results is already an array
+            ];
+            // Step 2: Build augmented prompt with RAG context
+            let ragContext = "";
+            if (ragResults.length > 0) {
+                ragContext = "[Контекст из базы знаний Aither]\n\n";
+                for (const r of ragResults.slice(0, 5)) { // limit to 5 results to avoid context overflow
+                    ragContext += `### ${r.page_title || r.source || "источник"}\n${(r.text || r.preview || "").slice(0, 500)}\n\n`;
+                }
+                ragContext += "[/Контекст]\n\n";
+            }
+            // Step 3: Inject RAG context into system message or create one
+            const augmentedMessages = [...messages];
+            const systemIdx = augmentedMessages.findIndex((m) => m.role === "system");
+            if (systemIdx >= 0) {
+                augmentedMessages[systemIdx].content = ragContext + augmentedMessages[systemIdx].content;
+            }
+            else {
+                augmentedMessages.unshift({ role: "system", content: ragContext + "Ты — AI-ассистент платформы Aither. Отвечай на основе предоставленного контекста." });
+            }
+            // Step 4: Forward to Gateway chat completions
+            const chatResp = await fetch(CORE_API + "/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${signToken(p.user_id, org_id)}`,
+                },
+                body: JSON.stringify({
+                    model: model || "qwen2.5-14b",
+                    messages: augmentedMessages,
+                    temperature: temperature ?? 0.7,
+                    stream: false,
+                }),
+            });
+            const chatData = await chatResp.json();
+            return reply.status(chatResp.status).send({
+                ...chatData,
+                rag: { query: rag_query, results_count: ragResults.length, sources: ragResults.map((r) => r.page_title) },
+            });
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_chat_failed", detail: safeError(e) });
+        }
+    });
+    // Proxy /api/v1/admin/* → Gateway /admin/*
+    app.all("/api/v1/admin/*", async (req, reply) => {
+        // Admin key bypass: skip user auth for automated/admin-panel access
+        const adminHeader = req.headers["x-admin-key"] || "";
+        const isAdminKey = ADMIN_KEY && adminHeader === ADMIN_KEY;
+        if (!isAdminKey) {
+            // Normal flow: require authenticated user + org owner role
+            const p = auth(req, reply);
+            if (!p)
+                return;
+            const orgs = await pool.query("SELECT role FROM portal_org_members WHERE user_id=$1 AND role='owner' AND status='active' LIMIT 1", [p.user_id]);
+            if (orgs.rows.length === 0)
+                return reply.status(403).send({ error: "admin access required" });
+        }
+        const path = req.params["*"];
+        // Admin API is at Gateway root, not under /v1
+        const gwUrl = `${CORE_API.replace(/\/v1\/?$/, "")}/admin/${path}`;
+        const adminPath = `/admin/${path}`;
+        try {
+            const method = req.method;
+            const headers = { "Content-Type": "application/json" };
+            // Generate admin JWT — Gateway verifies with shared secret
+            const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "change-me";
+            const adminToken = jsonwebtoken_1.default.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, ADMIN_JWT_SECRET, { algorithm: "HS256", expiresIn: "5m" });
+            headers["Authorization"] = `Bearer ${adminToken}`;
+            let body;
+            if (method === "POST" || method === "PUT") {
+                body = JSON.stringify(req.body);
+            }
+            const resp = await fetch(gwUrl, { method, headers, body });
+            const data = await resp.json();
+            return reply.status(resp.status).send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "gateway unreachable", detail: safeError(e) });
+        }
+    });
+    // Proxy /api/v1/rag/* → Gateway /v1/rag/* (admin key bypass)
+    app.all("/api/v1/rag/*", async (req, reply) => {
+        const adminHeader = req.headers["x-admin-key"] || "";
+        if (!ADMIN_KEY || adminHeader !== ADMIN_KEY) {
+            return reply.status(403).send({ error: "admin key required" });
+        }
+        const path = req.params["*"];
+        const gwUrl = `${CORE_API}/v1/rag/${path}`;
+        try {
+            const resp = await fetch(gwUrl, {
+                method: req.method,
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jsonwebtoken_1.default.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, process.env.ADMIN_JWT_SECRET || "change-me", { algorithm: "HS256", expiresIn: "5m" })}` },
+                body: req.method === "POST" ? JSON.stringify(req.body || {}) : undefined,
+            });
+            const data = await resp.json();
+            return reply.status(resp.status).send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_gateway_unreachable", detail: safeError(e) });
+        }
+    });
+    // Proxy /api/v1/admin/rag/* → Gateway /v1/rag/* (admin panel, admin key bypass)
+    app.all("/api/v1/admin/rag/*", async (req, reply) => {
+        const adminHeader = req.headers["x-admin-key"] || "";
+        if (!ADMIN_KEY || adminHeader !== ADMIN_KEY) {
+            return reply.status(403).send({ error: "admin key required" });
+        }
+        const path = req.params["*"];
+        const gwUrl = `${CORE_API}/v1/rag/${path}`;
+        try {
+            const body = (req.method === "POST" || req.method === "PUT")
+                ? JSON.stringify(req.body || {})
+                : undefined;
+            const resp = await fetch(gwUrl, {
+                method: req.method,
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jsonwebtoken_1.default.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, process.env.ADMIN_JWT_SECRET || "change-me", { algorithm: "HS256", expiresIn: "5m" })}` },
+                body,
+            });
+            const data = await resp.json();
+            return reply.status(resp.status).send(data);
+        }
+        catch (e) {
+            return reply.status(502).send({ error: "rag_gateway_unreachable", detail: safeError(e) });
+        }
     });
     // При production: слушаем только localhost (nginx проксирует)
     const listenHost = IS_PRODUCTION ? "127.0.0.1" : "0.0.0.0";

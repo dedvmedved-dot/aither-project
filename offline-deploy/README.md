@@ -1,7 +1,7 @@
 # Aither Platform — офлайн-пакет развёртывания
 
-**Версия:** 1.0.0  
-**Дата:** 11.07.2026  
+**Версия:** 1.2.0  
+**Дата:** 10.07.2026  
 **Назначение:** Развёртывание платформы Aither в изолированном контуре без доступа в Интернет
 
 ---
@@ -43,18 +43,20 @@ offline-deploy/
 │   ├── 04-storage.yml          ← хранилище
 │   ├── 05-vllm-deploy.yml      ← vLLM с моделями
 │   ├── 06-gateway-deploy.yml   ← Gateway + Redis + PostgreSQL
-│   ├── 07-portal-deploy.yml    ← Портал + ChromaDB
+│   ├── 07-portal-deploy.yml    ← Портал + ChromaDB + chroma-proxy
 │   ├── 08-monitoring-deploy.yml ← Prometheus + Grafana
 │   └── 09-post-deploy.yml      ← проверки, seed-данные
 │
 ├── k8s/                        ← Kubernetes-манифесты
 │   ├── namespace.yaml
-│   ├── gateway/                ← deployment, service, configmap
+│   ├── gateway/                ← deployment, service, configmap (13 модулей)
 │   ├── vllm-14b/               ← deployment, service
 │   ├── vllm-32b/               ← deployment, service
 │   ├── postgres/               ← deployment, service, init-schema
 │   ├── redis/                  ← deployment, service
-│   ├── chromadb/               ← deployment, service
+│   ├── chromadb/               ← ★ deployment (0.5.23, PVC, n7) + chroma-proxy
+│   │   ├── deployment.yaml     ← ChromaDB + PVC chromadb-data
+│   │   └── chroma-proxy.yaml   ← Proxy (ConfigMap + Deployment + Service :9000)
 │   └── monitoring/             ← prometheus, grafana, dashboards
 │
 ├── offline/                    ← офлайн-зависимости
@@ -115,7 +117,17 @@ make offline-load    # загружает Docker-образы, pip-пакеты,
 make deploy    # ansible-playbook site.yml
 ```
 
-### 5. Проверка
+### 5. Инициализация RAG
+
+```bash
+# После деплоя — инжест учебника в ChromaDB
+kubectl exec deploy/chroma-proxy -- python3 /chroma/ingest_textbook.py
+
+# Проверка
+curl http://chroma-proxy.default.svc.cluster.local:9000/status
+```
+
+### 6. Проверка
 
 ```bash
 make test      # приёмо-сдаточные тесты
@@ -152,6 +164,7 @@ make test      # приёмо-сдаточные тесты
 | Qwen 2.5 14B Instruct | ~28 GB | 1× RTX 6000 | Чат, код, простые задачи |
 | Qwen 2.5 32B Instruct GPTQ | ~20 GB | 1× RTX 6000 | Анализ, сложные задачи |
 | nomic-embed-text | ~274 MB | CPU | Эмбеддинги для RAG |
+| all-MiniLM-L6-v2 | ~90 MB | CPU | Эмбеддинги в chroma-proxy |
 
 ### Сервисы
 
@@ -159,14 +172,27 @@ make test      # приёмо-сдаточные тесты
 |---|---|---|
 | Портал (SPA) | 80 | Веб-интерфейс |
 | BFF (Node.js) | 3000 | API, авторизация |
-| Gateway (Python) | 30900 | Rate Limit, биллинг, безопасность |
+| Gateway (Python) | 30900 | Rate Limit, биллинг, безопасность, RAG |
 | vLLM 14B | 32293 | Инференс 14B |
 | vLLM 32B | 32294 | Инференс 32B |
 | PostgreSQL | 31113 | Биллинг, пользователи |
 | Redis | 6379 | Rate Limiter |
-| ChromaDB | 8000 | Векторная БД |
+| **chroma-proxy** | 9000 | Текстовый прокси → эмбеддинги → ChromaDB |
+| ChromaDB | 8000 | Векторная БД (v0.5.23, PVC RWO) |
 | Grafana | 30300 | Дашборды |
 | Prometheus | 30909 | Метрики |
+
+## RAG: Гибридный поиск
+
+```
+Gateway (hybrid_rag.py)
+  ├─ Wiki Graph (8 страниц, keyword search)
+  └─ chroma-proxy :9000 → all-MiniLM-L6-v2 → ChromaDB :8000
+                             ↓
+                    Комбинирование → dedup → sort → top-K
+```
+
+Gateway НЕ содержит chromadb/sentence-transformers — зависимости только в прокси.
 
 ## Лицензия и ограничения
 

@@ -1,0 +1,46 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_bff {
+    label="BFF: эндпоинты чатов"; bgcolor="#fff9c4"; color="#f9a825";
+    
+    check [label="checkChatEnabled(user_id)\n→ org_id (из БД)", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_queries {
+    label="SQL: фильтрация по org_id"; bgcolor="#e3f2fd"; color="#1565c0";
+    
+    list [label="GET /chats\nSELECT ... FROM chats\nWHERE user_id=$1\n  AND org_id=$2 ★", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    
+    create [label="POST /chats\nINSERT INTO chats\n  (user_id, org_id ★,\n   title, model)\nVALUES ($1,$2,$3,$4)", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    
+    get [label="GET /chats/:id\nSELECT ... FROM chats\nWHERE chat_id=$1\n  AND user_id=$2\n  AND org_id=$3 ★", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    
+    del [label="DELETE /chats/:id\nDELETE FROM chats\nWHERE chat_id=$1\n  AND user_id=$2\n  AND org_id=$3 ★", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_isolation {
+    label="Результат: изоляция"; bgcolor="#f1f8e9"; color="#2e7d32";
+    
+    org_a [label="Org Alpha\n→ видит свои чаты\n✓ chat-1, chat-2", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    org_b [label="Org Beta\n→ видит свои чаты\n✓ chat-3\n→ НЕ видит чужие\n✗ chat-1 (org mismatch)", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_migration {
+    label="Миграция (было → стало)"; bgcolor="#eceff1"; color="#607d8b";
+    old [label="Было:\nchats\n  user_id\n  title\n  (без org_id)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    new [label="Стало:\nchats\n  user_id\n  org_id ★ NOT NULL\n  title\nALTER TABLE + UPDATE\nзаполнил 37 чатов", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    old -> new [label="Миграция\nALTER TABLE\nADD COLUMN\n+ UPDATE\nbackfill", color="#2e7d32", fontcolor="#2e7d32"];
+  }
+
+  check -> list;
+  check -> create;
+  check -> get;
+  check -> del;
+  
+  list -> org_a;
+  create -> org_a;
+  get -> org_b [style=dashed, color="#c62828", label="✗ 404\nchat not found"];
+}

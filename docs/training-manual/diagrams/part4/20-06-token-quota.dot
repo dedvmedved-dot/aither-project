@@ -1,0 +1,39 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_track {
+    label="Gateway: учёт после запроса"; bgcolor="#e8f5e9"; color="#43a047";
+    
+    vllm_resp [label="vLLM SSE-ответ\nusage.total_tokens = 143", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    parse [label="Парсинг\nизвлекаем N токенов", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_redis_tok {
+    label="Redis: токен-счётчики"; bgcolor="#fff3e0"; color="#e65100";
+    
+    daily_tok [label="tok:ORG_A:daily:20260710\nINCRBY 143\nTTL 86400", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    monthly_tok [label="tok:ORG_A:monthly:202607\nINCRBY 143\nTTL 2592000", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+  }
+
+  subgraph cluster_db_track {
+    label="PostgreSQL: персистентный учёт"; bgcolor="#e3f2fd"; color="#1565c0";
+    
+    billing [label="billing_accounts\nUPDATE balance =\n  balance - 143\nWHERE org_id = $1", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    ledger [label="billing_ledger\nINSERT (org_id, type='settle',\n  tokens=143, ...)", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  vllm_resp -> parse;
+  parse -> daily_tok [label="1. Fast-path"];
+  parse -> monthly_tok [label="1. Fast-path"];
+  parse -> billing [label="2. Асинхронно"];
+  billing -> ledger [label="3. Аудит"];
+
+  check_next [label="Следующий запрос:\nпроверка квот (daily/monthly)\nперед проксированием", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  daily_tok -> check_next [style=dashed, dir=both, color="#e65100"];
+  monthly_tok -> check_next [style=dashed, dir=both, color="#e65100"];
+
+  note [label="⚠️ Двойной учёт:\n1. Redis (быстро, для enforce)\n2. PostgreSQL (медленно, для аудита)\nRedis — кэш, PostgreSQL — источник истины", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  billing -> note [style=dotted, dir=none];
+}

@@ -1,0 +1,42 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_ca {
+    label="Certificate Authority (CA)"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    ca [label="Aither Internal CA\nca.crt + ca.key\n(создаётся один раз)", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  subgraph cluster_gateway {
+    label="Gateway (сервер)"; bgcolor="#e8f5e9"; color="#43a047";
+    gw_cert [label="gateway.crt\nCN=gateway.aither.svc\nподписан CA", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    gw_check [label="Проверяет клиентский\nсертификат:\nssl.CERT_REQUIRED\nзагружает CA\n→ только подписанные\nCA клиенты", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  subgraph cluster_bff {
+    label="BFF (клиент)"; bgcolor="#e3f2fd"; color="#1565c0";
+    bff_cert [label="bff.crt + bff.key\nCN=bff.aither.portal\nподписан CA", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    bff_agent [label="https.Agent({ca, cert, key})\ngatewayFetch() helper\n→ dispatcher: mtlsAgent", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_flow {
+    label="TLS Handshake (mTLS)"; bgcolor="#fff3e0"; color="#e65100";
+    h1 [label="1. ClientHello\n→ Gateway", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    h2 [label="2. ServerHello\n+ gateway.crt\n→ BFF", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    h3 [label="3. CertificateRequest\n→ BFF (требует\nклиентский серт)", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    h4 [label="4. BFF предъявляет\nbff.crt\n→ Gateway проверяет\nпо CA", shape=box, fillcolor="#ffe0b2", color="#e65100"];
+    h5 [label="5. Обе стороны\nаутентифицированы\n✓ шифрованный канал", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+  }
+
+  ca -> gw_cert [label="подписывает"];
+  ca -> bff_cert [label="подписывает"];
+  gw_cert -> gw_check;
+  bff_cert -> bff_agent;
+  bff_agent -> h1 [label="HTTPS"];
+  h1 -> h2 -> h3 -> h4 -> h5;
+  gw_check -> h4 [style=dashed, dir=both];
+
+  no [label="Без сертификата:\n✗ Connection refused\n→ Gateway не отвечает\nдаже на TCP", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  h1 -> no [style=dotted, dir=none, color="#c62828"];
+}

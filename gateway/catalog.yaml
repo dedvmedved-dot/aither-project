@@ -14,8 +14,8 @@ models:
 
   - name: qwen2.5-32b
     display_name: "Qwen 2.5 32B"
-    backend: "http://vllm-32b:8000"
-    model_path: "/models/Qwen2.5-32B-Instruct-GPTQ"
+    backend: "http://vllm-qwen32b:8000"
+    model_path: "qwen2.5-32b"
     max_tokens: 8192
     description: "Мощная модель — сложный код, аналитика, длинные тексты"
     tokens_per_ruble: 30

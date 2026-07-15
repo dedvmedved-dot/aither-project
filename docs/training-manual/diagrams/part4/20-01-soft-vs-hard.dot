@@ -1,0 +1,38 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_soft {
+    label="Soft Multi-tenancy (выбор Aither)"; style=filled; color="#2e7d32"; bgcolor="#f1f8e9";
+    
+    db [label="Общая БД\n( PostgreSQL )", shape=cylinder, fillcolor="#c8e6c9", color="#2e7d32"];
+    app [label="Общий Gateway/BFF", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    
+    org_a [label="Org Alpha", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    org_b [label="Org Beta", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    
+    org_a -> app [label="API key A"];
+    org_b -> app [label="API key B"];
+    app -> db [label="WHERE org_id=$N\n(фильтр на уровне SQL)"];
+
+    pros [label="✅ Плюсы:\n• Одна БД — проще бэкап\n• Дешёвле (1 инстанс БД)\n• Быстрее развёртывание\n\n⚠️ Минусы:\n• Риск утечки при ошибке в WHERE\n• Noisy neighbour (один клиент\n  может нагрузить БД)", shape=note, fillcolor="#e8f5e9", color="#43a047", fontsize=9];
+  }
+
+  subgraph cluster_hard {
+    label="Hard Multi-tenancy"; style=filled; color="#c62828"; bgcolor="#ffebee";
+    
+    db_a [label="БД Org Alpha", shape=cylinder, fillcolor="#ffcdd2", color="#c62828"];
+    db_b [label="БД Org Beta", shape=cylinder, fillcolor="#ffcdd2", color="#c62828"];
+    gw_a [label="Gateway\nOrg Alpha", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    gw_b [label="Gateway\nOrg Beta", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    
+    org_a2 [label="Org Alpha", shape=box, fillcolor="#e3f2fd", color="#1565c0"];
+    org_b2 [label="Org Beta", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+
+    org_a2 -> gw_a -> db_a;
+    org_b2 -> gw_b -> db_b;
+
+    cons [label="✅ Плюсы:\n• Полная изоляция\n• Нет риска утечки\n\n⚠️ Минусы:\n• N× дороже\n• Сложнее управление\n• Медленнее развёртывание", shape=note, fillcolor="#ffebee", color="#c62828", fontsize=9];
+  }
+}

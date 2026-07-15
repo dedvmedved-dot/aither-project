@@ -1,0 +1,28 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_test {
+    label="TEST-режим"; bgcolor="#f1f8e9"; color="#43a047";
+    t1 [label="1. Регистрация\nв YooKassa\nhttps://yookassa.ru", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    t2 [label="2. Получить\nshopId + секретный ключ\n(тестовый магазин)", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    t3 [label="3. secrets.env\nYOOKASSA_SHOP_ID=test_...\nYOOKASSA_SECRET=test_...", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    t4 [label="4. Тестовый платёж\nкарта: 5555 5555 5555 4444\nсрок: 12/30, CVC: 123\n→ payment.succeeded ✓", shape=box, fillcolor="#a5d6a7", color="#1b5e20"];
+  }
+
+  subgraph cluster_live {
+    label="LIVE-режим"; bgcolor="#ffebee"; color="#c62828";
+    l1 [label="5. Заявка на\nбоевой магазин\n(договор с YooKassa)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    l2 [label="6. Получить\nlive shopId + ключ\n(после проверки)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    l3 [label="7. secrets.env\nобновить на live-ключи\nперезапустить BFF", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    l4 [label="8. Боевой платёж\nреальная карта\nреальные деньги\n→ проверка webhook", shape=box, fillcolor="#ef9a9a", color="#b71c1c"];
+
+    checklist [label="Чек-лист перед live:\n✓ Webhook принимается\n✓ SSL-сертификат валиден\n✓ Баланс зачисляется\n✓ Повторный webhook\n   не дублирует платёж\n✓ Email-уведомления\n   отправляются", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  }
+
+  t1 -> t2 -> t3 -> t4;
+  t4 -> l1 [label="✓ test пройден", color="#c62828", fontcolor="#c62828"];
+  l1 -> l2 -> l3 -> l4;
+  l4 -> checklist [style=dotted, dir=none];
+}

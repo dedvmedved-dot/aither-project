@@ -1,0 +1,30 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=11, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_k8s {
+    label="Kubernetes Cluster (один узел)"; style=dashed; color="#7b8ca0"; bgcolor="#f5f7fa";
+    
+    cp [label="Control-Plane\n(n8)\napiserver + etcd\ncontroller-manager\nscheduler", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    
+    subgraph cluster_workers {
+      label="Workers"; style=dashed; color="#90a4ae"; bgcolor="#ffffff";
+      w1 [label="Worker\n(n7)\nvLLM + Gateway", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    }
+  }
+
+  users [label="Пользователи", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+  vps2 [label="VPS2\nBFF + Portal", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  
+  users -> vps2 [label="HTTPS"];
+  vps2 -> cp [label="kubectl\n:6443", color="#c62828", fontcolor="#c62828"];
+  cp -> w1 [label="управление", style=dashed];
+
+  // SPOF annotations
+  spof1 [label="⚠️ SPOF\nОдин etcd\nНет кворума", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=10];
+  spof2 [label="⚠️ SPOF\nОдин\napiserver", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=10];
+  
+  spof1 -> cp [style=dotted, color="#c62828"];
+  spof2 -> cp [style=dotted, color="#c62828"];
+}

@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       component:
-        description: 'Component to deploy (gateway/vllm/portal/all)'
+        description: 'Component to deploy'
         required: true
         default: 'all'
         type: choice
@@ -23,14 +23,134 @@ on:
           - portal
           - config
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-gateway
+
 jobs:
-  deploy-k8s:
+  # ── Always: detect if gateway code changed ──
+  changes:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip-deploy]'))
+    outputs:
+      gateway: ${{ steps.filter.outputs.gateway }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            gateway:
+              - 'gateway/**'
+              - 'gateway/Dockerfile'
+              - 'gateway/requirements.txt'
+
+  # ── Build + push Docker image ──
+  build-gateway:
+    needs: changes
+    if: |
+      needs.changes.outputs.gateway == 'true' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.component == 'all' || github.event.inputs.component == 'gateway'))
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to VPS2
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: gateway/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Make package public
+        run: |
+          # Make ghcr.io package publicly accessible so K8s can pull without auth
+          curl -s -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/packages/container/${{ github.event.repository.name }}-gateway/visibility" \
+            -d '{"visibility":"public"}' || echo "Visibility already set or API not available"
+
+  # ── Deploy to K8s ──
+  deploy:
+    needs: [changes, build-gateway]
+    if: |
+      !cancelled() &&
+      !contains(github.event.head_commit.message, '[skip-deploy]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Gateway (Docker image)
+        if: |
+          needs.build-gateway.result == 'success' &&
+          (github.event.inputs.component == 'all' || github.event.inputs.component == 'gateway' || github.event_name == 'push')
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          script: |
+            set -e
+            IMAGE="ghcr.io/${{ github.repository }}-gateway:sha-$(echo ${{ github.sha }} | cut -c1-7)"
+            echo "🚀 Deploying Gateway: $IMAGE"
+
+            kubectl set image deployment/gateway gateway="$IMAGE" -n default
+
+            if kubectl rollout status deployment/gateway -n default --timeout=120s; then
+              echo "✅ Gateway deployed"
+            else
+              echo "❌ Rollout failed — rolling back"
+              kubectl rollout undo deployment/gateway -n default
+              exit 1
+            fi
+
+      - name: Health check
+        if: success()
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          script: |
+            for i in 1 2 3 4 5; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "✅ Health check OK (attempt $i)"
+                exit 0
+              fi
+              echo "⏳ Attempt $i: HTTP $STATUS, retrying in 5s..."
+              sleep 5
+            done
+            echo "❌ Health check FAILED — rolling back"
+            kubectl rollout undo deployment/gateway -n default
+            exit 1
+
+      - name: Deploy other components
+        if: |
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.component != 'gateway'
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.VPS2_HOST }}
@@ -39,7 +159,7 @@ jobs:
           script: |
             cd /root/aither-project
             git pull origin main
-            bash scripts/deploy.sh ${{ github.event.inputs.component || 'all' }}
+            bash scripts/deploy.sh ${{ github.event.inputs.component }}
 
       - name: Notify Telegram
         if: always()

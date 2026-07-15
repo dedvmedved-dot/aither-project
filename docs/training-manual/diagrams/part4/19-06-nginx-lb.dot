@@ -1,0 +1,28 @@
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_lb {
+    label="nginx LB (VPS1:6443)"; bgcolor="#f1f8e9"; color="#2e7d32";
+    
+    nginx [label="nginx\nstream {\n  upstream k8s-api {\n    server 10.129.13.78:6443;\n    server 10.129.13.77:6443;\n  }\n  server {\n    listen 6443 ssl;\n    proxy_pass k8s-api;\n  }\n}", shape=box, fillcolor="#c8e6c9", color="#2e7d32", width=3];
+  }
+
+  subgraph cluster_upstream {
+    label="Upstream (kube-apiserver)"; bgcolor="#e3f2fd"; color="#1565c0";
+    
+    apiserver_n8 [label="apiserver\nn8 (40.51)\n:6443", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+    apiserver_n7 [label="apiserver\nn7 (40.50)\n:6443", shape=box, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  client [label="kubectl\nBFF\nпользователи", shape=cylinder, fillcolor="#f3e5f5", color="#7b1fa2"];
+
+  client -> nginx [label="TLS\n:6443", color="#2e7d32"];
+  nginx -> apiserver_n8 [label="health ✓\nактивный", color="#2e7d32", fontcolor="#2e7d32"];
+  nginx -> apiserver_n7 [label="health ✓\nактивный", color="#2e7d32", fontcolor="#2e7d32"];
+  
+  // health checks
+  hc [label="Health-check:\nproxy_pass + health_check\nесли узел упал →\nисключается из upstream", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+  nginx -> hc [style=dotted, dir=none];
+}

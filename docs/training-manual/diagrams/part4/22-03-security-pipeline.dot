@@ -1,0 +1,41 @@
+digraph G {
+  rankdir=TB; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  ingress [label="ВХОДЯЩИЙ запрос\n(пользователь → LLM)", shape=cylinder, fillcolor="#e3f2fd", color="#1565c0"];
+
+  subgraph cluster_ingress {
+    label="Ingress Filter (security.py)"; bgcolor="#ffebee"; color="#c62828";
+    inj [label="Prompt Injection\nDetector\n35 regex-паттернов\n(EN + RU)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    dlp_in [label="DLP Ingress\nНе пытается ли\nпользователь вытащить\nсистемный промпт?", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    
+    reject [label="✗ 403 Forbidden\nSecurity violation:\n+ причина\n+ залогировано", shape=box, fillcolor="#ef9a9a", color="#b71c1c"];
+  }
+
+  vllm [label="vLLM\n(инференс)", shape=box, fillcolor="#f3e5f5", color="#7b1fa2"];
+
+  subgraph cluster_egress {
+    label="Egress Filter (security_egress.py)"; bgcolor="#ffebee"; color="#c62828";
+    dsp [label="DSP Filter\nПроверка грифа\nсекретности\n(ДСП/Секретно)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    pii [label="PII Leak Detection\n12 паттернов:\nпаспорт, СНИЛС,\nкарты, телефон,\nemail, API-ключи", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    toxic [label="Toxic Content\nCheck\n(опционально)", shape=box, fillcolor="#ffcdd2", color="#c62828"];
+    
+    mask [label="✓ Пройдено\n→ ответ клиенту\n+ аудит-лог\n+ SIEM (CEF/syslog)", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    block [label="✗ Заблокировано\n→ generic ответ\n+ SIEM alert\n+ security.log", shape=box, fillcolor="#ef9a9a", color="#b71c1c"];
+  }
+
+  siem [label="SIEM (syslog CEF)\nsecurity.log\n/var/log/aither/", shape=cylinder, fillcolor="#eceff1", color="#607d8b"];
+
+  ingress -> inj -> dlp_in;
+  dlp_in -> reject [label="атака"];
+  dlp_in -> vllm [label="чисто"];
+  vllm -> dsp -> pii -> toxic;
+  toxic -> mask [label="чисто"];
+  toxic -> block [label="нарушение"];
+  mask -> siem [style=dashed, label="аудит"];
+  reject -> siem [style=dashed, label="SIEM alert"];
+  block -> siem [style=dashed, label="SIEM alert"];
+
+  note [label="Gateway проверяет ДО vLLM:\n• Prompt injection\n• DLP ingress\n\nGateway проверяет ПОСЛЕ vLLM:\n• DSP markers\n• PII leak\n• Toxic content\n\nОбе проверки — per-org\n(через org_id из JWT)", shape=note, fillcolor="#fff9c4", color="#f9a825", fontsize=9];
+}

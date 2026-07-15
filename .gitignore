@@ -3,3 +3,6 @@ portal/node_modules/
 portal/.env
 portal/.env.production
 __pycache__/
+portal/secrets.env
+portal/.env
+certs/

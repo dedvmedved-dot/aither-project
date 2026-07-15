@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-billing
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "billing"
+data:
+  billing.json: |
+    {
+      "title": "Aither Gateway",
+      "uid": "aither-billing",
+      "panels": [
+        {
+          "title": "Active Requests",
+          "type": "stat",
+          "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+          "targets": [{
+            "expr": "gateway_active_requests",
+            "legendFormat": "Active"
+          }]
+        },
+        {
+          "title": "Gateway Uptime",
+          "type": "stat",
+          "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0},
+          "targets": [{
+            "expr": "gateway_uptime_seconds / 3600",
+            "legendFormat": "Hours"
+          }],
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 1}}
+        },
+        {
+          "title": "KV Cache Usage (14B)",
+          "type": "gauge",
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+          "targets": [{
+            "expr": "vllm:kv_cache_usage_perc{model_name=~\".*14B.*\"}",
+            "legendFormat": "14B"
+          }],
+          "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}}
+        },
+        {
+          "title": "KV Cache Usage (32B)",
+          "type": "gauge",
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+          "targets": [{
+            "expr": "vllm:kv_cache_usage_perc{model=\"qwen-32b\"}",
+            "legendFormat": "32B"
+          }],
+          "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}}
+        },
+        {
+          "title": "Prompt Tokens / min",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+          "targets": [{
+            "expr": "rate(vllm:prompt_tokens_total[1m]) * 60",
+            "legendFormat": "{{model}}"
+          }]
+        },
+        {
+          "title": "Generation Tokens / min",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+          "targets": [{
+            "expr": "rate(vllm:generation_tokens_total[1m]) * 60",
+            "legendFormat": "{{model}}"
+          }]
+        },
+        {
+          "title": "E2E Request Latency p50/p95 (ms)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+          "targets": [{
+            "expr": "histogram_quantile(0.5, rate(vllm:e2e_request_latency_seconds_bucket[5m])) * 1000",
+            "legendFormat": "{{model}} p50"
+          }, {
+            "expr": "histogram_quantile(0.95, rate(vllm:e2e_request_latency_seconds_bucket[5m])) * 1000",
+            "legendFormat": "{{model}} p95"
+          }],
+          "fieldConfig": {"defaults": {"unit": "ms"}}
+        },
+        {
+          "title": "GPU Power Total (W)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+          "targets": [{
+            "expr": "sum(DCGM_FI_DEV_POWER_USAGE) by (Hostname)",
+            "legendFormat": "{{Hostname}}"
+          }],
+          "fieldConfig": {"defaults": {"unit": "watt"}}
+        }
+      ],
+      "refresh": "30s"
+    }

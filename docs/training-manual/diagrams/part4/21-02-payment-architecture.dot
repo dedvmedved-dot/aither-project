@@ -1,0 +1,40 @@
+digraph G {
+  rankdir=LR; bgcolor="#ffffff"; fontname="Arial";
+  node [fontname="Arial", fontsize=10, style=filled];
+  edge [fontname="Arial", fontsize=9];
+
+  subgraph cluster_user {
+    label="Пользователь"; bgcolor="#e3f2fd"; color="#1565c0";
+    browser [label="Браузер\n(портал Aither)", shape=cylinder, fillcolor="#bbdefb", color="#1565c0"];
+  }
+
+  subgraph cluster_bff {
+    label="BFF (VPS2)"; bgcolor="#fff9c4"; color="#f9a825";
+    create [label="POST /api/v1/payments\n{amount_rub: 500}\n→ payment_id", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+    webhook [label="POST /api/v1/payments/webhook\nобработка уведомления\nот YooKassa", shape=box, fillcolor="#fff9c4", color="#f9a825"];
+  }
+
+  subgraph cluster_yookassa {
+    label="YooKassa API"; bgcolor="#f3e5f5"; color="#7b1fa2";
+    yk_api [label="POST /v3/payments\n{amount, currency,\n confirmation, ...}\n→ payment_token", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    yk_page [label="Платёжная страница\nYooKassa\n(банковская карта,\nСБП, кошелёк)", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+    yk_webhook [label="Webhook:\nnotification\n→ payment.succeeded", shape=box, fillcolor="#e1bee7", color="#7b1fa2"];
+  }
+
+  subgraph cluster_db {
+    label="PostgreSQL"; bgcolor="#e8f5e9"; color="#43a047";
+    txn [label="payment_transactions\nINSERT {org_id,\n  amount_rub, status='pending'}", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+    settle [label="billing_accounts\nUPDATE balance += tokens\nbilling_ledger\nINSERT purchase", shape=box, fillcolor="#c8e6c9", color="#2e7d32"];
+  }
+
+  browser -> create [label="1. Пополнить\nна 500₽"];
+  create -> txn [label="2. Сохранить\npending"];
+  txn -> yk_api [label="3. Создать\nплатёж"];
+  yk_api -> yk_page [label="4. Редирект\nна оплату"];
+  yk_page -> yk_webhook [label="5. Платёж\nвыполнен"];
+  yk_webhook -> webhook [label="6. Уведомление"];
+  webhook -> settle [label="7. Зачислить\nтокены"];
+
+  note [label="Идемпотентность:\nYooKassa может прислать\nwebhook повторно.\nПроверяем txn.status —\nесли 'completed',\nигнорируем.", shape=note, fillcolor="#ffebee", color="#c62828", fontcolor="#c62828", fontsize=9];
+  webhook -> note [style=dotted, dir=none];
+}

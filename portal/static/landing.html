@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIOps — Дашборды</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:monospace;background:#0d1117;color:#c9d1d9;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:30px}
+h1{color:#58a6ff;font-size:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:900px;width:100%;padding:0 20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:25px;text-align:center;transition:border-color .2s}
+.card:hover{border-color:#58a6ff}
+.card h2{color:#58a6ff;font-size:18px;margin-bottom:8px}
+.card p{color:#8b949e;font-size:12px;margin-bottom:15px}
+.card a{display:inline-block;background:#1f6feb;color:white;text-decoration:none;padding:10px 24px;border-radius:4px;font-size:14px}
+.card a:hover{background:#388bfd}
+.badge{display:inline-block;padding:3px 8px;border-radius:3px;font-size:10px;margin-left:8px;vertical-align:middle}
+.ok{background:#1a3a1a;color:#3fb950}
+.new{background:#1a2a3a;color:#58a6ff}
+.footer{color:#484f58;font-size:11px;margin-top:40px}
+</style>
+</head>
+<body>
+<h1>⚙ AIOps — Дашборды</h1>
+<div class="grid">
+<div class="card">
+<h2>⚙ Operator<span class="badge ok">:8080</span></h2>
+<p>Сводка по трём системам: Aither, ПК СВ Брест, AIOps — без детализации. Работает/Отказ, критичные анализы, ML-аномалии</p>
+<a href="http://170.168.91.95:8080" target="_blank">Открыть →</a>
+</div>
+<div class="card">
+<h2>📊 SRE Инженер<span class="badge ok">:8081</span></h2>
+<p>7 вкладок: Overview, Templates, Autopilot, Audit, Workflows, Approvals, RAG</p>
+<a href="http://170.168.91.95:8081" target="_blank">Открыть →</a>
+</div>
+<div class="card">
+<h2>🧠 Aither<span class="badge ok">:8083</span></h2>
+<p>Gateway, Rate Limiter, Nginx, PG, Redis, Usage Collector, Reaper, K8s API, vLLM 32B/14B</p>
+<a href="http://170.168.91.95:8083" target="_blank">Открыть →</a>
+</div>
+<div class="card">
+<h2>🩺 AIOps<span class="badge ok">:8082</span></h2>
+<p>Самодиагностика: cron, systemd, VPN, Data Plane, K8s, ML Pipeline, инфраструктура</p>
+<a href="http://170.168.91.95:8082" target="_blank">Открыть →</a>
+</div>
+<div class="card">
+<h2>🛡 ПК СВ Брест<span class="badge new">:8084</span></h2>
+<p>Ceph, PostgreSQL, FreeIPA, OpenNebula, Web, SSH, Zabbix, Chrony — 83 метрики</p>
+<a href="http://170.168.91.95:8084" target="_blank">Открыть →</a>
+</div>
+<div class="card">
+<h2>🧪 ПМИ Ход испытаний<span class="badge new">:8085</span></h2>
+<p>Живой статус испытаний: K1-K9, покрытие 7 ML-методов, runbook-логи</p>
+<a href="http://170.168.91.95:8085" target="_blank">Открыть →</a>
+</div>
+</div>
+<p class="footer">AIOps · VPS2: 170.168.91.95 · VPS3: 89.127.217.88</p>
+</body>
+</html>

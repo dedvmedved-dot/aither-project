@@ -1,0 +1,138 @@
+digraph AitherPhysicalArchitecture {
+    rankdir=TB; splines=ortho; nodesep=0.6; ranksep=1.0
+    fontname="DejaVu Sans"; fontsize=12; bgcolor="white"; pad=0.5; margin=0.4; dpi=96
+    label="Физическая архитектура — Этап 7: Пакет для закрытого контура"
+    fontsize=16; fontcolor="#2e7d32"
+
+    // VPS LAYER
+    subgraph cluster_vps1 {
+        label="VPS1 (170.168.91.95)  |  Hermes-хост, nginx"
+        style="filled,rounded"; fillcolor="#e3f2fd"; color="#1565c0"; fontcolor="#000000"; fontsize=12; penwidth=2
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        v1_hermes [label="Hermes Agent\nуправление", width=2.8, height=1.2]
+        v1_nginx  [label="nginx :10443", width=2.4, height=0.9]
+    }
+    subgraph cluster_vps3 {
+        label="VPS3 (89.127.217.88)  |  Hermes-резерв"
+        style="filled,rounded"; fillcolor="#e3f2fd"; color="#1565c0"; fontcolor="#000000"; fontsize=12; penwidth=2
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        v3_hermes [label="Hermes Agent\nрезерв", width=2.8, height=1.2]
+    }
+    subgraph cluster_vps2 {
+        label="VPS2 (130.17.1.90)  |  Портал + BFF"
+        style="filled,rounded"; fillcolor="#e3f2fd"; color="#1565c0"; fontcolor="#000000"; fontsize=12; penwidth=2
+        node [shape=box, style="filled,rounded", fillcolor="#bbdefb", color="#1976d2", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        v2_nginx [label="nginx (SPA) :80", width=2.8, height=1.1]
+        v2_bff   [label="BFF (Node.js)\nFastify :3000\n🆕 11 вкладок админки", fillcolor="#c8e6c9", color="#2e7d32", width=3.2, height=1.3]
+    }
+
+    // NETWORK
+    subgraph cluster_cisco {
+        label="Cisco815 (V1)  |  10.129.11.0/24"
+        style="filled,rounded"; fillcolor="#fff9c4"; color="#f9a825"; fontcolor="#000000"; fontsize=12; penwidth=2
+        cisco [shape=box, style="filled,rounded", fillcolor="#fff176", color="#f9a825", fontcolor="#000000", label="Cisco815", width=3.0, height=1.1, fontsize=12]
+    }
+    subgraph cluster_huawei {
+        label="HuaweiHP (V2)  |  10.129.13.0/24, VLAN 308"
+        style="filled,rounded"; fillcolor="#fff9c4"; color="#f9a825"; fontcolor="#000000"; fontsize=12; penwidth=2
+        huawei [shape=box, style="filled,rounded", fillcolor="#fff176", color="#f9a825", fontcolor="#000000", label="HuaweiHP", width=3.0, height=1.1, fontsize=12]
+    }
+
+    // n8
+    subgraph cluster_n8 {
+        label="n8-gpu (40.51)  |  control-plane\n2× RTX6000 Ada  |  28C/56T  |  754 GB RAM"
+        style="filled,rounded"; fillcolor="#e8f5e9"; color="#2e7d32"; fontcolor="#000000"; fontsize=11; penwidth=2
+        node [shape=box, style="filled,rounded", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        n8_gw    [label="Gateway\nFastAPI :30900", fillcolor="#c8e6c9", color="#2e7d32", width=2.8, height=1.2]
+        n8_pg    [label="PostgreSQL 16\n:5432\n🆕 эталонный дамп", fillcolor="#c8e6c9", color="#2e7d32", width=2.4, height=1.1]
+        n8_redis [label="Redis 7\n:6379", fillcolor="#ffebee", color="#c62828", width=2.0, height=1.0]
+        n8_v14   [label="vLLM Qwen 2.5 14B\n:32293  |  TP=2", fillcolor="#f3e5f5", color="#7b1fa2", width=2.8, height=1.2]
+        n8_prom  [label="Prometheus\n:30909", fillcolor="#e0e0e0", color="#616161", width=2.0, height=1.0]
+        n8_graf  [label="Grafana\n:30300", fillcolor="#e0e0e0", color="#616161", width=2.0, height=1.0]
+    }
+
+    // n7
+    subgraph cluster_n7 {
+        label="n7-gpu (40.50)  |  worker\n2× RTX6000 Ada  |  28C/56T  |  754 GB RAM"
+        style="filled,rounded"; fillcolor="#e8f5e9"; color="#2e7d32"; fontcolor="#000000"; fontsize=11; penwidth=2
+        node [shape=box, style="filled,rounded", fontcolor="#000000", fontsize=11, penwidth=1.5]
+        n7_v32    [label="vLLM Qwen 2.5 32B\n:32294  |  TP=2", fillcolor="#f3e5f5", color="#7b1fa2", width=2.8, height=1.2]
+        n7_proxy  [label="chroma-proxy\n:9000", fillcolor="#e0f2f1", color="#00695c", width=2.4, height=1.1]
+        n7_chroma [label="ChromaDB 0.5.23\n:8000", fillcolor="#fff3e0", color="#e65100", width=2.4, height=1.0]
+    }
+
+    // 🆕 Offline package + Ansible
+    subgraph cluster_offline {
+        label="🆕 offline-deploy/ v1.2.0"
+        style="filled,rounded"; fillcolor="#e8f5e9"; color="#2e7d32"; fontcolor="#000000"; fontsize=13; penwidth=3
+        node [shape=box, style="filled,rounded", fillcolor="#c8e6c9", color="#2e7d32", fontcolor="#000000", fontsize=11]
+        offline [label="Офлайн-пакет\n8 документов\n10 playbooks\n7 скриптов\n4 теста\nDocker + pip + npm", width=3.2, height=1.8]
+        ansible [label="🆕 Ansible\nsite.yml\nОС → GPU → K8s\n→ vLLM → Портал", width=3.0, height=1.8]
+    }
+    subgraph cluster_target {
+        label="🆕 Целевая машина (Astra Linux, закрытый контур)"
+        style="filled,rounded"; fillcolor="#e8f5e9"; color="#2e7d32"; fontcolor="#000000"; fontsize=12; penwidth=3
+        node [shape=box, style="filled,rounded", fillcolor="#a5d6a7", color="#2e7d32", fontcolor="#000000", fontsize=11]
+        target [label="Aither Platform\n(полная копия)\n🚫 без интернета", width=3.2, height=1.5]
+    }
+
+    // CALL OUT
+    subgraph cluster_new {
+        label="🆕  Что нового в Этапе 7"
+        style="filled,rounded"; fillcolor="#e8f5e9"; color="#2e7d32"; fontcolor="#000000"; fontsize=13; penwidth=2
+        node [shape=plaintext, fillcolor="#e8f5e9", fontcolor="#000000", fontsize=10]
+        new_list [label="#33 offline-deploy kit (v1.2.0)\n#33a-f Админ-панель (CRUD orgs/users/keys)\n  Документация v1.1 (архитектура + admin-guide)\n  make deploy / make test / make bundle\n  Ansible playbooks (10 шт.)\n  Приёмо-сдаточные тесты (smoke/API/security)"]
+    }
+
+    // RANKS
+    { rank=same; v1_hermes; v2_nginx; v3_hermes }
+    { rank=same; cisco; huawei }
+    { rank=same; offline; ansible; new_list }
+
+    // EDGES
+    v1_hermes -> v2_nginx [color="#2e7d32", penwidth=3.0, style=bold]
+    v1_hermes -> v3_hermes [color="#2e7d32", penwidth=3.0, style=bold]
+    v2_nginx -> v2_bff [color="#0d47a1", penwidth=2.0, style=solid]
+    v2_bff -> cisco [color="#1976d2", penwidth=2.5, style=solid]
+    v2_bff -> huawei [color="#1976d2", penwidth=2.5, style=solid]
+    cisco -> n8_gw [color="#1976d2", penwidth=2.5, style=solid]
+    cisco -> n8_v14 [color="#1976d2", penwidth=2.0, style=solid]
+    huawei -> n7_v32 [color="#1976d2", penwidth=2.5, style=solid]
+    v2_bff -> n8_gw [color="#0d47a1", penwidth=3.0, style=solid]
+    n8_gw -> n8_v14 [color="#7b1fa2", penwidth=2.5, style=solid]
+    n8_gw -> n7_v32 [color="#7b1fa2", penwidth=2.0, style=dashed]
+    n8_gw -> n8_pg [color="#e65100", penwidth=2.0, style=dashed]
+    n8_gw -> n8_redis [color="#c62828", penwidth=2.0, style=dashed]
+    n8_gw -> n7_proxy [color="#00695c", penwidth=3.0, style="bold,dashed"]
+    n7_proxy -> n7_chroma [color="#00695c", penwidth=2.5, style=solid]
+
+    // 🆕 Offline deploy flow
+    offline -> ansible [color="#2e7d32", penwidth=3.0, style=bold, label="  make deploy"]
+    ansible -> target [color="#2e7d32", penwidth=4.0, style=bold, label="  Ansible\n  ~1 час"]
+
+    // 🆕 Admin panel
+    v2_bff -> target [color="#2e7d32", penwidth=2.0, style=dashed, label="  эталонный\n  .env + конфиги"]
+
+    v1_hermes -> n8_gw [color="#9e9e9e", penwidth=1.5, style=dotted]
+    n8_prom -> n8_gw [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n8_v14 [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n7_v32 [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n7_proxy [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_prom -> n8_pg [color="#ff8f00", penwidth=1.0, style=dotted, arrowhead=none]
+    n8_graf -> n8_prom [color="#ff8f00", penwidth=1.5, style=dashed]
+
+    // LEGEND
+    target -> le1 [style=invis, weight=0]
+    subgraph cluster_legend {
+        label="Условные обозначения"
+        style="filled,rounded"; fillcolor="#fafafa"; color="#bdbdbd"; fontcolor="#000000"; fontsize=12
+        node [shape=plaintext, fillcolor="#fafafa", color="#fafafa", fontsize=10, fontcolor="#000000"]
+        le1 [label="━━━  Ansible\n(жирная зелёная)"]
+        le2 [label="━━━  WireGuard\n(жирная зелёная)"]
+        le3 [label="🟩  🆕 Новое\n(зелёная заливка)"]
+        le4 [label="📦  Офлайн-пакет\n(автономный)"]
+        le5 [label="···  API/DB\n(пунктир)"]
+        le1 -> le2 -> le3 -> le4 -> le5 [style=invis]
+    }
+    { rank=same; le1; le2; le3; le4; le5 }
+}
