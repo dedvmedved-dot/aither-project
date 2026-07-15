@@ -742,26 +742,7 @@ code, .mono {
   transition: all 0.15s;
 }
 .chat-input-btn:hover { color: var(--text); border-color: var(--border-focus); }
-.rag-toggle.rag-on { background: rgba(147,197,253,0.2); border-color: var(--accent); color: var(--accent); }
-.rag-toggle.rag-on:hover { background: rgba(147,197,253,0.3); }
-.rag-sources {
-  margin-top: 6px;
-  padding: 6px 10px;
-  background: rgba(147,197,253,0.08);
-  border-radius: 6px;
-  font-size: 0.8em;
-  color: var(--text-dim);
-  border-left: 3px solid var(--accent);
-}
-.rag-source-tag {
-  display: inline-block;
-  background: var(--accent);
-  color: #fff;
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-size: 0.85em;
-  margin: 2px 3px;
-}
+
 /* ===== SHARE MODAL ===== */
 .share-url {
   background: var(--bg-input);
@@ -825,7 +806,6 @@ const state = {
   chatStreaming: false,
   chatOrgId: localStorage.getItem('aither_chat_org') || '',
   chatModel: localStorage.getItem('aither_chat_model') || 'qwen2.5-14b',
-  ragEnabled: localStorage.getItem('aither_rag') === '1',
   availableModels: [],
 };
 
@@ -911,8 +891,17 @@ async function render() {
     case 'chats': await renderChats(); break;
     case 'shared': await renderShared(); break;
     case 'tiers': await renderTiers(); break;
-    case 'dashboard': await renderDashboard(); break;
+    case 'pmi': await renderPMI(); break;
   }
+}
+
+// ===== PMI DASHBOARD =====
+function renderPMI() {
+  $('#main').innerHTML = `
+    <iframe src="http://170.168.91.95:8085/" 
+      style="width:100%;height:calc(100vh - 80px);border:none;border-radius:8px;"
+      title="ПМИ — Ход испытаний">
+    </iframe>`;
 }
 
 // ===== LOGIN PAGE =====
@@ -1026,9 +1015,14 @@ function renderApp() {
     { id:'dashboard', label:'Дашборд' },
     { id:'orgs', label:'Организации' },
     { id:'tiers', label:'Тарифы' },
+    { id:'pmi', label:'🧪 ПМИ' },
   ];
   if (state.selectedOrg && state.page==='org-detail') {
     pages.push({ id:'org-detail', label: state.selectedOrg.name });
+  }
+  // Admin: secret page for admin users
+  if (state.user && (state.user.role === 'admin' || state.user.is_superadmin)) {
+    pages.push({ id:'admin', label:'⚙️ Админ' });
   }
   const navHtml = pages.map(p =>
     `<button class="nav-btn${state.page===p.id?' active':''}" onclick="navigate('${p.id}')">${p.label}</button>`
@@ -1636,7 +1630,6 @@ async function renderChats() {
           <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()">▶</button>
         </div>
         <div class="chat-input-actions">
-          <button class="chat-input-btn rag-toggle" id="rag-toggle-btn" onclick="toggleRAG()">📚 RAG: Выкл</button>
           <button class="chat-input-btn" onclick="shareChat()">🔗 Поделиться</button>
         </div>
       </div>
@@ -1644,15 +1637,6 @@ async function renderChats() {
   </div>`;
 
   $('#main-content').innerHTML = mainHtml;
-
-  // Restore RAG toggle button state
-  setTimeout(() => {
-    const btn = $('#rag-toggle-btn');
-    if (btn) {
-      btn.textContent = state.ragEnabled ? '📚 RAG: Вкл' : '📚 RAG: Выкл';
-      btn.className = state.ragEnabled ? 'chat-input-btn rag-toggle rag-on' : 'chat-input-btn rag-toggle';
-    }
-  }, 0);
 
   await loadChatList();
   loadBalance();
@@ -1776,7 +1760,6 @@ function renderMessages() {
         <div class="chat-msg-avatar ${m.role}">${m.role==='user'?'👤':'🤖'}</div>
         <div>
           <div class="chat-msg-content">${simpleMd(m.content)}</div>
-          ${m.ragSources ? `<div class="rag-sources"><span>📚 База знаний:</span> ${m.ragSources.map(s => `<span class="rag-source-tag">${esc(s)}</span>`).join(' ')}</div>` : ''}
           ${m.tokens_used ? `<div class="chat-msg-meta">~${m.tokens_used} токенов</div>` : ''}
         </div>
       </div>`;
@@ -1841,117 +1824,63 @@ async function sendChat() {
   scrollToBottom();
 
   try {
-    // RAG mode: use /api/rag/chat with context injection
-    if (state.ragEnabled) {
-      const ragResponse = await fetch('/api/rag/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + state.token,
-        },
-        body: JSON.stringify({
-          messages: state.chatMessages.filter(m => m.role !== 'placeholder').map(m => ({ role: m.role, content: m.content })),
-          model: state.chatModel,
-          rag_query: content,
-          top_k: 5,
-          wiki_radius: 1,
-          org_id: state.chatOrgId,
-        }),
-      });
+    const response = await fetch(`/api/v1/chats/${state.chatId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + state.token,
+      },
+      body: JSON.stringify({ content, org_id: state.chatOrgId }),
+    });
 
-      if (!ragResponse.ok) {
-        const err = await ragResponse.json();
-        state.chatMessages.pop();
-        state.chatMessages.pop();
-        renderMessages();
-        toast(err.error || 'RAG ошибка', 'error');
-        return;
-      }
-
-      const ragData = await ragResponse.json();
-      // Replace placeholder with assistant response
-      const last = state.chatMessages[state.chatMessages.length - 1];
-      if (last && last.role === 'assistant') {
-        const choice = ragData.choices?.[0];
-        last.content = choice?.message?.content || '[нет ответа]';
-        // Show RAG sources
-        if (ragData.rag?.sources?.length) {
-          last.ragSources = ragData.rag.sources;
-          last.ragQuery = ragData.rag.query;
-        }
-      }
+    if (!response.ok) {
+      const err = await response.json();
+      state.chatMessages.pop(); // remove placeholder
+      state.chatMessages.pop(); // remove user msg (will be fixed on reload)
       renderMessages();
-      scrollToBottom();
+      toast(err.error || 'Ошибка', 'error');
+      return;
+    }
 
-      // Save both messages to server (RAG-specific endpoint)
-      await api(`/api/v1/chats/${state.chatId}/rag-messages`, {
-        method: 'POST',
-        body: JSON.stringify({
-          content,
-          assistant_content: last.content,
-          org_id: state.chatOrgId
-        }),
-      });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-      // Refresh billing
-      loadBalance();
-    } else {
-      // Standard chat (streaming)
-      const response = await fetch(`/api/v1/chats/${state.chatId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + state.token,
-        },
-        body: JSON.stringify({ content, org_id: state.chatOrgId }),
-      });
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-      if (!response.ok) {
-        const err = await response.json();
-        state.chatMessages.pop();
-        state.chatMessages.pop();
-        renderMessages();
-        toast(err.error || 'Ошибка', 'error');
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.done) {
-              if (parsed.tokens_used) {
-                toast(`Списано ${formatNumber(parsed.tokens_used)} токенов`, 'info');
-                if (parsed.balance != null) {
-                  const bal = $('#chat-balance');
-                  if (bal) bal.innerHTML = `Баланс: <span class="chat-balance-val">${formatNumber(parsed.balance)}</span> токенов`;
-                }
-              }
-              await loadChatMessages(state.chatId);
-              break;
-            }
-            if (parsed.delta) {
-              const last = state.chatMessages[state.chatMessages.length - 1];
-              if (last && last.role === 'assistant') {
-                last.content += parsed.delta;
-                renderMessages();
-                scrollToBottom();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.done) {
+            // Show token deduction
+            if (parsed.tokens_used) {
+              toast(`Списано ${formatNumber(parsed.tokens_used)} токенов`, 'info');
+              // Update balance counter immediately
+              if (parsed.balance != null) {
+                const bal = $('#chat-balance');
+                if (bal) bal.innerHTML = `Баланс: <span class="chat-balance-val">${formatNumber(parsed.balance)}</span> токенов`;
               }
             }
-          } catch(e) {}
-        }
+            // Reload chat to get server-saved messages
+            await loadChatMessages(state.chatId);
+            break;
+          }
+          if (parsed.delta) {
+            const last = state.chatMessages[state.chatMessages.length - 1];
+            if (last && last.role === 'assistant') {
+              last.content += parsed.delta;
+              renderMessages();
+              scrollToBottom();
+            }
+          }
+        } catch(e) {}
       }
     }
   } catch(e) {
@@ -1973,17 +1902,6 @@ function onChatKey(e) {
     e.preventDefault();
     sendChat();
   }
-}
-
-function toggleRAG() {
-  state.ragEnabled = !state.ragEnabled;
-  localStorage.setItem('aither_rag', state.ragEnabled ? '1' : '0');
-  const btn = $('#rag-toggle-btn');
-  if (btn) {
-    btn.textContent = state.ragEnabled ? '📚 RAG: Вкл' : '📚 RAG: Выкл';
-    btn.className = state.ragEnabled ? 'chat-input-btn rag-toggle rag-on' : 'chat-input-btn rag-toggle';
-  }
-  toast(state.ragEnabled ? 'RAG включён — ответы с учётом базы знаний' : 'RAG выключен', 'info');
 }
 
 function focusInput() {
