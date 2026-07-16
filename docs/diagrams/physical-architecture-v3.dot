@@ -1,154 +1,108 @@
-digraph AitherArchitecture {
+digraph Aither {
     rankdir=TB
     splines=ortho
-    nodesep=0.3
-    ranksep=0.6
+    nodesep=0.4
+    ranksep=0.7
     fontname="DejaVu Sans"
-    fontsize=12
     bgcolor="white"
-    pad=0.4
-    margin=0.3
+    pad=0.5
+    margin=0.4
     dpi=72
 
-    // ═══════════════════════════════════════════════
-    // VPS2
-    // ═══════════════════════════════════════════════
-    subgraph cluster_vps2 {
+    // ═══ VPS2 ═══
+    subgraph cluster_VPS2 {
         label="VPS2 · 130.17.1.90 · Ubuntu 24.04"
         style="filled,rounded"
         fillcolor="#ede7f6"
-        color="#5e35b1"
-        fontcolor="#000000"
-        fontsize=11
+        color="#4527a0"
+        fontcolor="#1a1a2e"
+        fontsize=12
         penwidth=2.5
 
-        v2_nginx [shape=box, style="filled,rounded", fillcolor="#d1c4e9", color="#5e35b1", fontcolor="#000000",
-                  label="nginx (SPA)\nDocker :80\nСтатика портала", width=2.2, height=1.0, fontsize=9]
-        v2_pg [shape=box, style="filled,rounded", fillcolor="#d1c4e9", color="#5e35b1", fontcolor="#000000",
-               label="PostgreSQL 16\nDocker :5432\nportal_users, orgs, чаты", width=2.2, height=1.0, fontsize=9]
-        v2_bff [shape=box, style="filled,rounded", fillcolor="#b39ddb", color="#4527a0", fontcolor="#ffffff",
-                label="BFF (Node.js)\nsystemd :3000\nAuth, API, Chat", width=2.2, height=1.0, fontsize=9]
-        v2_vpn [shape=box, style="filled,rounded", fillcolor="#ffcc80", color="#e65100", fontcolor="#000000",
-                label="vpn-cisco815\nDocker · tun1\nOpenConnect → Cisco", width=2.2, height=1.0, fontsize=9]
+        node [shape=box,style="filled,rounded",fontsize=9,penwidth=1.5,fontcolor="#1a1a2e"]
+        V2_nginx  [label="nginx (SPA)\nDocker :80\nСтатика портала",        fillcolor="#d1c4e9",color="#5e35b1",width=2.3,height=0.9]
+        V2_pg     [label="PostgreSQL 16\nDocker :5432\nportal_users, orgs, чаты",fillcolor="#d1c4e9",color="#5e35b1",width=2.3,height=0.9]
+        V2_bff    [label="BFF (Node.js)\nsystemd :3000\nAuth · API · Chat",  fillcolor="#b39ddb",color="#4527a0",width=2.3,height=0.9]
+        V2_vpn    [label="vpn-cisco815\nDocker · tun1\nOpenConnect → Cisco",fillcolor="#ffcc80",color="#e65100",width=2.3,height=0.9]
     }
 
-    // ═══════════════════════════════════════════════
-    // VPS3
-    // ═══════════════════════════════════════════════
-    subgraph cluster_vps3 {
+    // ═══ VPS3 ═══
+    subgraph cluster_VPS3 {
         label="VPS3 · 89.127.217.88 · Ubuntu 24.04"
         style="filled,rounded"
         fillcolor="#fff3e0"
-        color="#e65100"
-        fontcolor="#000000"
-        fontsize=11
+        color="#bf360c"
+        fontcolor="#1a1a2e"
+        fontsize=12
         penwidth=2.5
 
-        v3_nginx [shape=box, style="filled,rounded", fillcolor="#ffe0b2", color="#e65100", fontcolor="#000000",
-                  label="nginx\nsystemd :80\nПрокси портала → VPS2", width=2.2, height=1.0, fontsize=9]
-        v3_vpn [shape=box, style="filled,rounded", fillcolor="#ffcc80", color="#bf360c", fontcolor="#000000",
-                label="vpn-cisco815\nDocker · tun0\nOpenConnect → Cisco", width=2.2, height=1.0, fontsize=9]
+        node [shape=box,style="filled,rounded",fontsize=9,penwidth=1.5,fontcolor="#1a1a2e"]
+        V3_nginx  [label="nginx\nsystemd :80\nПрокси портала → VPS2",fillcolor="#ffe0b2",color="#e65100",width=2.3,height=0.9]
+        V3_vpn    [label="vpn-cisco815\nDocker · tun0\nOpenConnect → Cisco",fillcolor="#ffcc80",color="#bf360c",width=2.3,height=0.9]
     }
 
-    // ═══════════════════════════════════════════════
-    // Cisco 815
-    // ═══════════════════════════════════════════════
-    subgraph cluster_cisco {
+    // ═══ Cisco 815 ═══
+    subgraph cluster_Cisco {
         label="Cisco 815 · 95.137.2.98 · Тестовая зона"
         style="filled,rounded"
         fillcolor="#fff9c4"
-        color="#f9a825"
-        fontcolor="#000000"
-        fontsize=11
+        color="#f57f17"
+        fontcolor="#1a1a2e"
+        fontsize=12
         penwidth=2.5
 
-        cisco [shape=box, style="filled,rounded", fillcolor="#fff176", color="#f9a825", fontcolor="#000000",
-               label="OpenConnect VPN\n:443\nМаршрутизация 10.129.0.0/16", width=2.5, height=1.0, fontsize=9]
+        node [shape=box,style="filled,rounded",fontsize=9,penwidth=1.5,fontcolor="#1a1a2e"]
+        Cisco [label="OpenConnect VPN\n:443\n10.129.0.0/16",fillcolor="#fff176",color="#f9a825",width=2.5,height=0.9]
     }
 
-    // ═══════════════════════════════════════════════
-    // n8
-    // ═══════════════════════════════════════════════
+    // ═══ n8 ═══
     subgraph cluster_n8 {
-        label="n8 · 10.129.13.78 · Astra Linux · K8s control-plane · 2× RTX 6000"
+        label="n8 · 10.129.13.78 · Astra Linux\nK8s control-plane · 2× Quadro RTX 6000 (23 GB)"
         style="filled,rounded"
         fillcolor="#e8f5e9"
-        color="#2e7d32"
-        fontcolor="#000000"
+        color="#1b5e20"
+        fontcolor="#1a1a2e"
         fontsize=10
         penwidth=2.5
 
-        n8_gw [shape=box, style="filled,rounded", fillcolor="#c8e6c9", color="#2e7d32", fontcolor="#000000",
-               label="Aither Gateway\nsystemd :8080\nРоутинг, биллинг, RAG", width=2.2, height=1.0, fontsize=9]
-        n8_pg [shape=box, style="filled,rounded", fillcolor="#ffe0b2", color="#e65100", fontcolor="#000000",
-               label="PostgreSQL 16\nsystemd :5432\nБД биллинга, тарифов", width=2.2, height=1.0, fontsize=9]
-        n8_redis [shape=box, style="filled,rounded", fillcolor="#ffcdd2", color="#c62828", fontcolor="#000000",
-                  label="Redis 7\nsystemd :6379\nRate limit, очереди", width=2.0, height=1.0, fontsize=9]
-        n8_v14 [shape=box, style="filled,rounded", fillcolor="#f3e5f5", color="#7b1fa2", fontcolor="#000000",
-                label="vLLM\nQwen Coder 14B\nK8s pod · :30014 · TP=2", width=2.2, height=1.0, fontsize=9]
+        node [shape=box,style="filled,rounded",fontsize=9,penwidth=1.5,fontcolor="#1a1a2e"]
+        N8_gw     [label="Aither Gateway\nsystemd :8080\nРоутинг · биллинг · RAG",   fillcolor="#c8e6c9",color="#2e7d32",width=2.3,height=0.9]
+        N8_pg     [label="PostgreSQL 16\nsystemd :5432\nБД биллинга, тарифов",         fillcolor="#ffe0b2",color="#e65100",width=2.3,height=0.9]
+        N8_redis  [label="Redis 7\nsystemd :6379\nRate limit · очереди",               fillcolor="#ffcdd2",color="#c62828",width=2.2,height=0.9]
+        N8_vllm   [label="vLLM Qwen Coder 14B\nK8s pod :30014\nTP=2",                  fillcolor="#f3e5f5",color="#7b1fa2",width=2.3,height=0.9]
     }
 
-    // ═══════════════════════════════════════════════
-    // n7
-    // ═══════════════════════════════════════════════
+    // ═══ n7 ═══
     subgraph cluster_n7 {
-        label="n7 · 10.129.13.77 · Astra Linux · K8s worker · 2× RTX 6000"
+        label="n7 · 10.129.13.77 · Astra Linux\nK8s worker · 2× Quadro RTX 6000 (23 GB)"
         style="filled,rounded"
         fillcolor="#e8f5e9"
-        color="#2e7d32"
-        fontcolor="#000000"
+        color="#1b5e20"
+        fontcolor="#1a1a2e"
         fontsize=10
         penwidth=2.5
 
-        n7_v32 [shape=box, style="filled,rounded", fillcolor="#f3e5f5", color="#7b1fa2", fontcolor="#000000",
-                label="vLLM\nQwen 2.5 32B GPTQ\nПроцесс :8000 · TP=2", width=2.2, height=1.0, fontsize=9]
-        n7_dummy [shape=point, style=invis, width=0, height=0]
+        N7_vllm  [shape=box,style="filled,rounded",fontsize=9,penwidth=1.5,fontcolor="#1a1a2e",
+                  label="vLLM Qwen 2.5 32B GPTQ\nПроцесс :8000\nTP=2 · Прямой запуск",fillcolor="#f3e5f5",color="#7b1fa2",width=2.3,height=0.9]
+        N7_dummy [shape=point,style=invis,width=0,height=0]
     }
 
-    // ═══════════════════════════════════════════════
-    // RANK
-    // ═══════════════════════════════════════════════
-    { rank=same; v2_nginx; v3_nginx }
-    { rank=same; v2_vpn; v3_vpn; cisco }
-    { rank=same; n8_v14; n7_v32 }
+    // ═══ RANK ═══
+    { rank=same; V2_nginx; V3_nginx }
+    { rank=same; V2_vpn; V3_vpn; Cisco }
+    { rank=same; N8_vllm; N7_vllm }
 
-    // ═══════════════════════════════════════════════
-    // EDGES — порт отправителя → порт получателя
-    // ═══════════════════════════════════════════════
-
-    // VPS3 nginx → VPS2 BFF
-    v3_nginx -> v2_bff [color="#e65100", penwidth=2.5, style=bold, xlabel=":80 → :3000"]
-
-    // VPS2 nginx → VPS2 BFF
-    v2_nginx -> v2_bff [color="#5e35b1", penwidth=2.0, style=solid, xlabel=":80 → :3000"]
-
-    // VPS2 BFF → VPS2 PG
-    v2_bff -> v2_pg [color="#5e35b1", penwidth=1.5, style=dashed, xlabel=":5432"]
-
-    // VPS2 VPN → Cisco
-    v2_vpn -> cisco [color="#e65100", penwidth=2.5, style=bold, xlabel="tun1 · :443"]
-
-    // VPS3 VPN → Cisco
-    v3_vpn -> cisco [color="#e65100", penwidth=2.5, style=bold, xlabel="tun0 · :443"]
-
-    // Cisco → n8
-    cisco -> n8_gw [color="#1565c0", penwidth=2.0, style=solid, xlabel="10.129.0.0/16"]
-
-    // Cisco → n7
-    cisco -> n7_v32 [color="#1565c0", penwidth=2.0, style=solid, xlabel="10.129.0.0/16"]
-
-    // BFF → Gateway
-    v2_bff -> n8_gw [color="#0d47a1", penwidth=3.0, style=bold, xlabel=":3000 → :8080\nJWT"]
-
-    // Gateway → n8 vLLM 14B
-    n8_gw -> n8_v14 [color="#7b1fa2", penwidth=2.0, style=solid, xlabel=":8080 → :30014"]
-
-    // Gateway → n7 vLLM 32B
-    n8_gw -> n7_v32 [color="#7b1fa2", penwidth=2.0, style=dashed, xlabel=":8080 → :8000"]
-
-    // Gateway → PG
-    n8_gw -> n8_pg [color="#e65100", penwidth=1.5, style=dashed, xlabel=":5432"]
-
-    // Gateway → Redis
-    n8_gw -> n8_redis [color="#c62828", penwidth=1.5, style=dashed, xlabel=":6379"]
+    // ═══ EDGES ═══
+    V3_nginx -> V2_bff    [color="#e65100",penwidth=2.5,style=bold,               xlabel=":80 → :3000"]
+    V2_nginx -> V2_bff    [color="#5e35b1",penwidth=2.0,style=solid,              xlabel=":80 → :3000"]
+    V2_bff   -> V2_pg     [color="#5e35b1",penwidth=1.5,style=dashed,             xlabel=":5432"]
+    V2_vpn   -> Cisco     [color="#e65100",penwidth=2.5,style=bold,               xlabel="tun1 :443"]
+    V3_vpn   -> Cisco     [color="#e65100",penwidth=2.5,style=bold,               xlabel="tun0 :443"]
+    Cisco    -> N8_gw     [color="#1565c0",penwidth=2.0,style=solid,              xlabel="10.129.0.0/16"]
+    Cisco    -> N7_vllm   [color="#1565c0",penwidth=2.0,style=solid,              xlabel="10.129.0.0/16"]
+    V2_bff   -> N8_gw     [color="#0d47a1",penwidth=3.0,style=bold,               xlabel=":3000 → :8080  JWT"]
+    N8_gw    -> N8_vllm   [color="#7b1fa2",penwidth=2.0,style=solid,              xlabel=":30014"]
+    N8_gw    -> N7_vllm   [color="#7b1fa2",penwidth=2.0,style=dashed,             xlabel=":8000"]
+    N8_gw    -> N8_pg     [color="#e65100",penwidth=1.5,style=dashed,             xlabel=":5432"]
+    N8_gw    -> N8_redis  [color="#c62828",penwidth=1.5,style=dashed,             xlabel=":6379"]
 }
