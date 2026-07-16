@@ -115,6 +115,7 @@ digraph AitherPhysicalArchitecture {
         penwidth=2
         n7_v32 [shape=box, style="filled,rounded", fillcolor="#f3e5f5", color="#7b1fa2", fontcolor="#000000",
                 label="vLLM\nQwen 2.5 32B GPTQ\n:8000 (прямой запуск)\nTP=2", width=2.4, height=1.2, fontsize=9]
+        n7_dummy [shape=point, style=invis, width=0, height=0]
     }
 
     // ══════════════════════════════════════════════════════════
