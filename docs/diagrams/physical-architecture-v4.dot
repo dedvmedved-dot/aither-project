@@ -1,0 +1,109 @@
+digraph Aither {
+    rankdir=LR
+    splines=ortho
+    nodesep=0.5
+    ranksep=0.8
+    fontname="DejaVu Sans"
+    bgcolor="white"
+    pad=0.5
+    margin=0.4
+    dpi=72
+
+    // ═══ VPS2 ═══
+    subgraph cluster_VPS2 {
+        label="VPS2  130.17.1.90  Ubuntu 24.04"
+        style="filled,rounded"
+        fillcolor="#e8eaf6"
+        color="#283593"
+        fontcolor="#111111"
+        fontsize=13
+        penwidth=3
+
+        V2_nginx [shape=box,style="filled,rounded",fillcolor="#c5cae9",color="#3949ab",fontsize=10,fontcolor="#111111",
+                  label="nginx (SPA)\nDocker :80\nСтатика портала",width=2.2,height=1.1]
+        V2_pg    [shape=box,style="filled,rounded",fillcolor="#c5cae9",color="#3949ab",fontsize=10,fontcolor="#111111",
+                  label="PostgreSQL 16\nDocker :5432\nБД portal_users",width=2.2,height=1.1]
+        V2_bff   [shape=box,style="filled,rounded",fillcolor="#7986cb",color="#1a237e",fontsize=10,fontcolor="#ffffff",
+                  label="BFF (Node.js)\nsystemd :3000\nAuth · API · Chat",width=2.3,height=1.1]
+        V2_vpn   [shape=box,style="filled,rounded",fillcolor="#ffe0b2",color="#e65100",fontsize=10,fontcolor="#111111",
+                  label="vpn-cisco815\nDocker\nOpenConnect tun1",width=2.2,height=1.1]
+    }
+
+    // ═══ VPS3 ═══
+    subgraph cluster_VPS3 {
+        label="VPS3  89.127.217.88  Ubuntu 24.04"
+        style="filled,rounded"
+        fillcolor="#fff3e0"
+        color="#bf360c"
+        fontcolor="#111111"
+        fontsize=13
+        penwidth=3
+
+        V3_nginx [shape=box,style="filled,rounded",fillcolor="#ffe0b2",color="#e65100",fontsize=10,fontcolor="#111111",
+                  label="nginx\nsystemd :80\nПрокси → VPS2 BFF",width=2.2,height=1.1]
+        V3_vpn   [shape=box,style="filled,rounded",fillcolor="#ffcc80",color="#bf360c",fontsize=10,fontcolor="#111111",
+                  label="vpn-cisco815\nDocker\nOpenConnect tun0",width=2.2,height=1.1]
+    }
+
+    // ═══ Cisco ═══
+    subgraph cluster_Cisco {
+        label="Cisco 815  95.137.2.98  Тестовая зона"
+        style="filled,rounded"
+        fillcolor="#fff9c4"
+        color="#f57f17"
+        fontcolor="#111111"
+        fontsize=13
+        penwidth=3
+
+        Cisco [shape=box,style="filled,rounded",fillcolor="#fff176",color="#f9a825",fontsize=10,fontcolor="#111111",
+               label="OpenConnect VPN\n:443\n10.129.0.0/16",width=2.5,height=1.1]
+    }
+
+    // ═══ n8 ═══
+    subgraph cluster_n8 {
+        label="n8  10.129.13.78  Astra Linux  K8s control-plane\n2× Quadro RTX 6000  23 GB"
+        style="filled,rounded"
+        fillcolor="#e8f5e9"
+        color="#1b5e20"
+        fontcolor="#111111"
+        fontsize=11
+        penwidth=3
+
+        N8_gw    [shape=box,style="filled,rounded",fillcolor="#a5d6a7",color="#2e7d32",fontsize=10,fontcolor="#111111",
+                  label="Aither Gateway\nsystemd :8080\nРоутинг · биллинг · RAG",width=2.3,height=1.1]
+        N8_pg    [shape=box,style="filled,rounded",fillcolor="#ffe0b2",color="#e65100",fontsize=10,fontcolor="#111111",
+                  label="PostgreSQL 16\nsystemd :5432\nБД aither",width=2.3,height=1.1]
+        N8_redis [shape=box,style="filled,rounded",fillcolor="#ffcdd2",color="#c62828",fontsize=10,fontcolor="#111111",
+                  label="Redis 7\nsystemd :6379\nRate limit",width=2.2,height=1.1]
+        N8_vllm  [shape=box,style="filled,rounded",fillcolor="#e1bee7",color="#7b1fa2",fontsize=10,fontcolor="#111111",
+                  label="vLLM\nQwen Coder 14B\nK8s pod :30014",width=2.3,height=1.1]
+    }
+
+    // ═══ n7 ═══
+    subgraph cluster_n7 {
+        label="n7  10.129.13.77  Astra Linux  K8s worker\n2× Quadro RTX 6000  23 GB"
+        style="filled,rounded"
+        fillcolor="#e8f5e9"
+        color="#1b5e20"
+        fontcolor="#111111"
+        fontsize=11
+        penwidth=3
+
+        N7_vllm  [shape=box,style="filled,rounded",fillcolor="#e1bee7",color="#7b1fa2",fontsize=10,fontcolor="#111111",
+                  label="vLLM\nQwen 2.5 32B GPTQ\nПроцесс :8000  TP=2",width=2.3,height=1.1]
+    }
+
+    // ═══ EDGES ═══
+    V3_nginx -> V2_bff    [color="#e65100",penwidth=3,style=bold,               fontsize=10,fontcolor="#e65100",xlabel=":80 → :3000"]
+    V2_nginx -> V2_bff    [color="#283593",penwidth=2,style=solid,              fontsize=9,fontcolor="#283593",xlabel=":80 → :3000"]
+    V2_bff   -> V2_pg     [color="#283593",penwidth=2,style=dashed,             fontsize=9,fontcolor="#283593",xlabel=":5432"]
+    V2_vpn   -> Cisco     [color="#e65100",penwidth=3,style=bold,               fontsize=10,fontcolor="#e65100",xlabel="tun1 :443"]
+    V3_vpn   -> Cisco     [color="#e65100",penwidth=3,style=bold,               fontsize=10,fontcolor="#e65100",xlabel="tun0 :443"]
+    Cisco    -> N8_gw     [color="#1565c0",penwidth=2,style=solid,              fontsize=9,fontcolor="#1565c0",xlabel="10.129.0.0/16"]
+    Cisco    -> N7_vllm   [color="#1565c0",penwidth=2,style=solid,              fontsize=9,fontcolor="#1565c0",xlabel="10.129.0.0/16"]
+    V2_bff   -> N8_gw     [color="#0d47a1",penwidth=3,style=bold,               fontsize=10,fontcolor="#0d47a1",xlabel=":3000 → :8080  JWT"]
+    N8_gw    -> N8_vllm   [color="#7b1fa2",penwidth=2,style=solid,              fontsize=9,fontcolor="#7b1fa2",xlabel=":30014"]
+    N8_gw    -> N7_vllm   [color="#7b1fa2",penwidth=2,style=dashed,             fontsize=9,fontcolor="#7b1fa2",xlabel=":8000"]
+    N8_gw    -> N8_pg     [color="#e65100",penwidth=2,style=dashed,             fontsize=9,fontcolor="#e65100",xlabel=":5432"]
+    N8_gw    -> N8_redis  [color="#c62828",penwidth=2,style=dashed,             fontsize=9,fontcolor="#c62828",xlabel=":6379"]
+}

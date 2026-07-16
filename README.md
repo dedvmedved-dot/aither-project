@@ -4,7 +4,7 @@
 
 ## Физическая схема
 
-![Физическая схема Aither](docs/diagrams/physical-architecture-v3.svg)
+![Физическая схема Aither](docs/diagrams/physical-architecture-v4.svg)
 
 ## Статус — 🟡 90% (46/51 задач)
 
