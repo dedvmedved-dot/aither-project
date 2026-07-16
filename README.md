@@ -67,11 +67,19 @@ VPS3 nginx :80 → VPS2 BFF :3000 (прокси портала)
 ## Быстрый старт
 
 ```bash
-# Портал: http://89.127.217.88 (VPS3 nginx :80 → VPS2 BFF :3000)
-# Админка: admin@aither.local / Admin123!@# (JWT + cookie)
-# Gateway: http://10.129.13.78:8080/health
-# vLLM 14B: http://10.129.13.78:30014/v1/models
-# vLLM 32B: http://10.129.13.77:8000/v1/models
+# Портал: https://fb1.spb.ru:10443 (VPS1 nginx → VPS3/VPS2)
+# Админка: https://fb1.spb.ru:10443/admin.html (JWT + cookie)
+# API: https://fb1.spb.ru:10443/v1/chat/completions
+# RAG: https://fb1.spb.ru:10443/api/v1/rag/status (JWT)
+# Grafana: https://fb1.spb.ru:10443/grafana/
+# Аутентификация: Google, Yandex, GitHub, LDAP
+#
+# Внутренний доступ (без OAuth, для отладки с VPS3/VPN):
+#   VPS3:    http://89.127.217.88 (nginx :80 → BFF :3000)
+#   Gateway: http://10.129.13.78:8080/health
+#   vLLM 14B: http://10.129.13.78:30014/v1/models
+#   vLLM 32B: http://10.129.13.77:8000/v1/models
+#   Админка: admin@aither.local / Admin123!@#
 ```
 
 ## Исправлено (16 июля 2026)
