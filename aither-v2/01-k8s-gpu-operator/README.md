@@ -125,7 +125,7 @@ kubectl describe node bootsman-k8s-clnt01-n8-gpu | grep -A4 Capacity
 | **K8s API Server** | ✅ Running | v1.33.5, etcd 2/2 |
 | **K8s Nodes** | ✅ Ready | 1 узел (n8) |
 | **containerd** | ✅ Running | версия: 2.2.1 |
-| **GPU Operator** | ⚠️ Частично | GPU в Capacity есть, но namespace `gpu-operator` пуст (поды не найдены) |
+| **GPU Operator** | ✅ Running | 11 подов: device-plugin, dcgm-exporter, feature-discovery, container-toolkit, validator |
 | **NVIDIA driver** | ✅ | 570.195.03, CUDA 12.8 |
 | **GPU доступность** | ✅ | Обе RTX 6000 видны, каждая ~20.3/23 GB занято под vLLM |
 | **Flannel** | ✅ | v0.25.7, pod network работает |
@@ -133,7 +133,7 @@ kubectl describe node bootsman-k8s-clnt01-n8-gpu | grep -A4 Capacity
 
 ### Проблемы
 
-1. **GPU Operator pods не найдены** — возможно, удалены или namespace пересоздан. GPU при этом работают через containerd-nvidia напрямую
+1. **GPU Operator был удалён** — восстановлен 18.07.2026. 11 подов Running
 2. **CoreDNS/Flannel имеют рестарты** (455 на kube-controller-manager) — не критично, но указывает на нестабильность
 3. **Много рестартов системных подов** — при перезагрузке containerd/K8s без graceful shutdown
 4. **Parsec Смоленск(2) блокирует** — решено через `parsec=0` в GRUB
