@@ -12,21 +12,7 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
-      name: openai-api
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: vllm-api-headless
-  namespace: aither-inference
-  labels:
-    app: vllm
-spec:
-  type: ClusterIP
-  clusterIP: None
-  selector:
-    app: vllm
-  ports:
-    - port: 8000
-      targetPort: 8000
-      name: openai-api
+      name: openai-api-14b
+    - port: 8001
+      targetPort: 8001
+      name: openai-api-32b
