@@ -12,8 +12,8 @@ digraph G {
     subgraph cluster_legend {
         label="Легенда";
         color=lightgrey;
-        n8 [label="n8: Worker (без GPU)", shape=box, style=filled, fillcolor=lightgreen];
-        n7 [label="n7: Worker + GPU (2×RTX6000)", shape=box, style=filled, fillcolor=lightsalmon];
+        n8 [label="n8: Worker + 2×RTX6000", shape=box, style=filled, fillcolor=lightgreen];
+        n7 [label="n7: Worker + 2×RTX6000", shape=box, style=filled, fillcolor=lightsalmon];
     }
 
     subgraph cluster_k8s {
@@ -27,7 +27,13 @@ digraph G {
         label="Узел n8 (10.129.13.78)";
         containerd_n8 [label="containerd 2.2.x ✔", shape=box, style=filled, fillcolor=green, fontcolor=white];
         ctr_n8 [label="runtime: runc", shape=box, style=filled, fillcolor=lightgreen];
-        ctr_note [label="GPU нет — runc достаточно", shape=note, fillcolor=lightyellow];
+        nvidia_ctk_n8 [label="NVIDIA CTK ❌\nне установлен", shape=box, style=filled, fillcolor=red, fontcolor=white];
+        gpu_hw_n8 [label="2× RTX 6000 23GB", shape=box, style=filled, fillcolor=lightgrey];
+        no_gpu_k8s_n8 [label="GPU в Capacity: ❌ 0/2", shape=box, style=filled, fillcolor=red, fontcolor=white];
+
+        containerd_n8 -> nvidia_ctk_n8 [label="ждёт toolkit"];
+        nvidia_ctk_n8 -> no_gpu_k8s_n8 [label="нет runtime → нет GPU"];
+        gpu_hw_n8 -> no_gpu_k8s_n8 [label="GPU не видны K8s", style=dashed, color=orange];
     }
 
     subgraph cluster_n7 {

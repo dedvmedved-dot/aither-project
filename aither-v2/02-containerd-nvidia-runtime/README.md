@@ -39,8 +39,8 @@
 
 | Хост | IP | Роль | GPU |
 |------|-----|------|-----|
-| **n8** | `10.129.13.78` | Worker (K8s) | 0 |
-| **n7** | `10.129.13.77` | Worker (K8s) | 2× RTX 6000 23GB |
+| **n8** | `10.129.13.78` | Worker (K8s) | 2× Quadro RTX 6000 23GB |
+| **n7** | `10.129.13.77` | Worker (K8s) | 2× Quadro RTX 6000 23GB |
 | **core3** | `10.129.13.3` | Bastion / ProxyJump | — |
 
 ### 2.1 containerd — установка через apt
@@ -156,8 +156,8 @@ kubectl apply -f manifests/runtimeclass-nvidia.yaml
 
 | Узел | Статус | Пояснение |
 |------|--------|-----------|
-| **n8** | ❌ Не установлен | На n8 нет GPU — установка не требуется |
-| **n7** | ❌ Не установлен | На n7 есть 2× RTX 6000 — требуется установка |
+| **n8** | ❌ Не установлен | Есть 2× RTX 6000 — требуется установка |
+| **n7** | ❌ Не установлен | Есть 2× RTX 6000 — требуется установка |
 
 ### RuntimeClass
 
@@ -216,13 +216,14 @@ NVIDIA container runtime прописан в конфиге (от GPU Operator'�
 
 ### Сводка
 
-| Компонент | n8 (worker) | n7 (worker + GPU) |
-|-----------|-------------|-------------------|
+| Компонент | n8 (worker) | n7 (worker) |
+|-----------|-------------|-------------|
+| GPU | ✅ 2× Quadro RTX 6000 | ✅ 2× Quadro RTX 6000 |
 | containerd | ✅ 2.2.x | ✅ 2.2.1 |
-| NVIDIA Container Toolkit | ❌ (не нужен) | ❌ требуется установка |
+| NVIDIA Container Toolkit | ❌ требуется установка | ❌ требуется установка |
 | RuntimeClass nvidia | ✅ создан | ✅ создан |
 | nvidia-runtime в config.toml | N/A | ⚠️ прописан (от GPU Operator), но бинарник отсутствует |
-| GPU в Capacity | — | ❌ 0/2 |
+| GPU в Capacity | ❌ 0/2 | ❌ 0/2 |
 | GPU Operator DaemonSet | ✅ Running | ❌ GPU недоступны |
 
 ---
@@ -242,8 +243,8 @@ digraph G {
     subgraph cluster_legend {
         label="Легенда";
         color=lightgrey;
-        n8 [label="n8: Worker (без GPU)", shape=box, style=filled, fillcolor=lightgreen];
-        n7 [label="n7: Worker + GPU (2×RTX6000)", shape=box, style=filled, fillcolor=lightsalmon];
+        n8 [label="n8: Worker + 2×RTX6000", shape=box, style=filled, fillcolor=lightgreen];
+        n7 [label="n7: Worker + 2×RTX6000", shape=box, style=filled, fillcolor=lightsalmon];
     }
 
     subgraph cluster_k8s {
@@ -257,7 +258,13 @@ digraph G {
         label="Узел n8 (10.129.13.78)";
         containerd_n8 [label="containerd 2.2.x ✔", shape=box, style=filled, fillcolor=green, fontcolor=white];
         ctr_n8 [label="runtime: runc", shape=box, style=filled, fillcolor=lightgreen];
-        ctr_note [label="GPU нет — runc достаточно", shape=note, fillcolor=lightyellow];
+        nvidia_ctk_n8 [label="NVIDIA CTK ❌\nне установлен", shape=box, style=filled, fillcolor=red, fontcolor=white];
+        gpu_hw_n8 [label="2× RTX 6000 23GB", shape=box, style=filled, fillcolor=lightgrey];
+        no_gpu_k8s_n8 [label="GPU в Capacity: ❌ 0/2", shape=box, style=filled, fillcolor=red, fontcolor=white];
+
+        containerd_n8 -> nvidia_ctk_n8 [label="ждёт toolkit"];
+        nvidia_ctk_n8 -> no_gpu_k8s_n8 [label="нет runtime → нет GPU"];
+        gpu_hw_n8 -> no_gpu_k8s_n8 [label="GPU не видны K8s", style=dashed, color=orange];
     }
 
     subgraph cluster_n7 {
