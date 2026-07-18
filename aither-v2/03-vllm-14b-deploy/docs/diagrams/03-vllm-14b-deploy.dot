@@ -40,15 +40,13 @@ digraph G {
 
         subgraph cluster_n7 {
             label="Узел n7 — 2× RTX 6000 23GB (CC 7.5)";
-            color=orange;
+            color=green;
 
             n7_models [label="/data/models/\n32B-GPTQ ✅\n14B-Instruct ⚠️", shape=folder, style=filled, fillcolor=lightgrey];
 
-            n7_32b [label="Deployment: vllm-32b-gptq\nQwen2.5-32B-GPTQ\nTP=1, GPU 0\nport 8001\n~10GB VRAM", shape=box, style=filled, fillcolor=orange, fontcolor=white, style=dashed];
-            n7_14b [label="Deployment: vllm-14b-instruct\nQwen2.5-14B-Instruct\nTP=1, GPU 0, CPU offload 4GB\nport 8000\n~21GB VRAM", shape=box, style=filled, fillcolor=orange, style=dashed];
+            n7_32b [label="Deployment: vllm-32b-gptq\nQwen2.5-32B-GPTQ\nTP=1, GPU 0\nport 8001\n~10GB VRAM\n✅ Running", shape=box, style=filled, fillcolor=green, fontcolor=white];
 
             n7_models -> n7_32b [label="загружает веса", style=dashed, color=gray];
-            n7_models -> n7_14b [label="загружает веса", style=dashed, color=gray];
         }
     }
 

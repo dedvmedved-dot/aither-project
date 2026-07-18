@@ -36,8 +36,8 @@
 
 | Узел | Роль | GPU | Модели на диске |
 |------|------|-----|-----------------|
-| **n8** (`10.129.13.78`) | Worker + control-plane | 2× RTX 6000 23GB | `Qwen2.5-Coder-14B-Instruct` (работает) `Qwen2.5-14B-Instruct` `Qwen2.5-32B-GPTQ` |
-| **n7** (`10.129.13.77`) | Worker | 2× RTX 6000 23GB | `Qwen2.5-32B-GPTQ` (готов к запуску) `Qwen2.5-14B-Instruct` (частично) |
+| **n8** (`10.129.13.78`) | Worker + control-plane | 2× RTX 6000 23GB | `Qwen2.5-Coder-14B-Instruct` ✅ Running, `Qwen2.5-14B-Instruct`, `Qwen2.5-32B-GPTQ` |
+| **n7** (`10.129.13.77`) | Worker | 2× RTX 6000 23GB | `Qwen2.5-32B-GPTQ` ✅ Running (порт 8001), `Qwen2.5-14B-Instruct` (частично) |
 
 > **Важно:** RTX 6000 (Turing, CC 7.5) **не поддерживает bfloat16**. Все модели запускать с `--dtype half` (float16).
 
@@ -61,7 +61,7 @@
                                │
                     ┌──────────▼───────────┐
                     │  Service: vllm-api   │
-                    │  ClusterIP :8000     │
+                    │  ClusterIP :8000/8001│
                     └──────────┬───────────┘
                                │
           ┌────────────────────┴────────────────────┐
@@ -71,7 +71,8 @@
 │ Coder-14B-Instruct │                 │ 32B-GPTQ             │
 │ TP=2, port 8000    │                 │ TP=1, port 8001      │
 │ ──────────────     │                 │ ──────────────       │
-│ ✅ Работает        │                 │ ❌ Ждёт развёртывания │
+│ ✅ Running         │                 │ ✅ Running           │
+│ (default NS)       │                 │ (aither-inference)   │
 └────────────────────┘                 └──────────────────────┘
 ```
 
@@ -83,13 +84,13 @@
 |-----------|--------|------------|
 | **Namespace** aither-inference | ✅ Создан | — |
 | **ServiceAccount** vllm-sa | ✅ Создан | С правами на pods/log |
-| **Service** vllm-api | ✅ ClusterIP :8000 | Порт 8001 добавлен для 32B |
-| **PV / PVC** | ❌ Не используется | Используется `hostPath: /data/models` на каждой ноде |
+| **Service** vllm-api | ✅ ClusterIP :8000/8001 | Порт 8001 для 32B |
+| **PV / PVC** | ❌ Не используется | `hostPath: /data/models` на каждой ноде |
 | **Deployment: Coder-14B** (n8) | ✅ **Running** | TP=2, оба GPU, default namespace |
-| **Deployment: 14B-Instruct** (n7) | ❌ CrashLoopBackOff | OOM — 14B fp16 не влезает в 23GB |
-| **Deployment: 32B-GPTQ** (n7) | ❌ Не развёрнут | Модель на диске ✅, ждёт запуска |
+| **Deployment: 32B-GPTQ** (n7) | ✅ **Running** | TP=1, GPU 0, порт 8001, модель `qwen-32b` |
+| **Deployment: 14B-Instruct** (n7) | ❌ Удалён | OOM — 14B fp16 не влезает в 23GB RTX 6000 |
 | GPU в Capacity | ✅ 2/2 на n8, 2/2 на n7 | — |
-| NVIDIA RuntimeClass | ✅ nvidia | — |
+| NVIDIA RuntimeClass | ✅ nvidia | Создан |
 
 ### Почему 14B не работает на 1× RTX 6000
 
