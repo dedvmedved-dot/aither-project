@@ -55,18 +55,18 @@ spec:
             - --port
             - "8000"
             - --gpu-memory-utilization
-            - "0.90"
+            - "0.85"
             - --max-model-len
-            - "4096"
+            - "2048"
             - --dtype
             - half
             - --max-num-seqs
             - "1"
             - --enforce-eager
             - --cpu-offload-gb
-            - "4"
+            - "10"
             - --swap-space
-            - "8"
+            - "4"
             - --generation-config
             - vllm
             - --served-model-name
