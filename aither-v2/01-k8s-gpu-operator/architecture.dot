@@ -1,0 +1,119 @@
+digraph K8sGPUOperator {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    fontname="Inter";
+    splines=ortho;
+    node [shape=box, style=filled, fontname="Inter", fontsize=11];
+
+    subgraph cluster_hardware {
+        label="Сервер n8 (YADRO VEGMAN S320)";
+        style=filled;
+        bgcolor="#f0f4ff";
+        color="#6366f1";
+        fontcolor="#6366f1";
+        fontsize=13;
+
+        cpu [label="CPU: 2× Xeon Gold 6258R\n28C/56T @ 4.0 GHz" fillcolor="#e0e7ff"];
+        ram [label="RAM: 768 GB DDR4-2934\n12× Samsung 64GB ECC" fillcolor="#e0e7ff"];
+        gpu0 [label="GPU 0: Quadro RTX 6000\n24 GB GDDR6" fillcolor="#c7d2fe"];
+        gpu1 [label="GPU 1: Quadro RTX 6000\n24 GB GDDR6" fillcolor="#c7d2fe"];
+        nvlink [label="NVLink Bridge\nGPU↔GPU" fillcolor="#a5b4fc"];
+
+        gpu0 -> nvlink [dir=none];
+        nvlink -> gpu1 [dir=none];
+    }
+
+    subgraph cluster_os {
+        label="ОС";
+        style=filled;
+        bgcolor="#fef3c7";
+        color="#f59e0b";
+        fontcolor="#f59e0b";
+        fontsize=13;
+
+        astra [label="Astra Linux 1.8.1\nядро 6.6.28-1-generic" fillcolor="#fde68a"];
+        nvidia [label="NVIDIA Driver 570.195.03\nCUDA 12.8" fillcolor="#fef3c7"];
+        containerd [label="containerd 2.2.1\nnvidia-runtime" fillcolor="#fef3c7"];
+        flannel [label="Flannel CNI v0.25.7\n10.244.0.0/16" fillcolor="#fef3c7"];
+
+        astra -> nvidia;
+        astra -> containerd;
+        astra -> flannel;
+    }
+
+    subgraph cluster_k8s {
+        label="Kubernetes v1.33.5 (kubeadm)";
+        style=filled;
+        bgcolor="#ecfdf5";
+        color="#10b981";
+        fontcolor="#10b981";
+        fontsize=13;
+
+        apiserver [label="API Server\n10.129.13.78:6443" fillcolor="#d1fae5"];
+        etcd [label="etcd" fillcolor="#d1fae5"];
+        scheduler [label="Scheduler" fillcolor="#d1fae5"];
+        controller [label="Controller Manager" fillcolor="#d1fae5"];
+        coredns [label="CoreDNS" fillcolor="#d1fae5"];
+        kubelet [label="Kubelet\ncontainerd://2.2.1" fillcolor="#d1fae5"];
+        metrics [label="metrics-server" fillcolor="#d1fae5"];
+
+        apiserver -> etcd;
+        apiserver -> scheduler;
+        apiserver -> controller;
+        apiserver -> coredns;
+        apiserver -> kubelet;
+        apiserver -> metrics;
+    }
+
+    subgraph cluster_gpu {
+        label="GPU Operator (Helm)";
+        style=filled;
+        bgcolor="#fce7f3";
+        color="#ec4899";
+        fontcolor="#ec4899";
+        fontsize=13;
+
+        device_plugin [label="NVIDIA Device Plugin\nnvidia.com/gpu: 2" fillcolor="#fbcfe8"];
+        dcgm [label="DCGM Exporter\nGPU метрики" fillcolor="#fbcfe8"];
+        gpu_feature [label="Feature Discovery\nGPU topology" fillcolor="#fbcfe8"];
+        validator [label="Validator\nGPU readiness" fillcolor="#fbcfe8"];
+
+        device_plugin -> dcgm;
+        device_plugin -> gpu_feature;
+    }
+
+    subgraph cluster_vllm {
+        label="vLLM под (default ns)";
+        style=filled;
+        bgcolor="#ede9fe";
+        color="#8b5cf6";
+        fontcolor="#8b5cf6";
+        fontsize=13;
+
+        vllm_pod [label="vllm-coder-14b\n1/1 Running\nTP=2 (2 GPU)\nQwen2.5-Coder-14B" fillcolor="#ddd6fe"];
+    }
+
+    kubelet -> containerd [style=dashed];
+    kubelet -> device_plugin [style=dashed];
+    kubelet -> vllm_pod [style=dashed];
+
+    nvidia -> containerd [style=dashed];
+    containerd -> device_plugin [style=dashed];
+
+    gpu0 -> vllm_pod [style=dashed, color="#8b5cf6"];
+    gpu1 -> vllm_pod [style=dashed, color="#8b5cf6"];
+
+    gpu0 -> device_plugin [style=dotted];
+    gpu1 -> device_plugin [style=dotted];
+
+    legend [shape=none, fontsize=10, label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="2">
+        <TR><TD COLSPAN="3" ALIGN="left"><B>Легенда:</B></TD></TR>
+        <TR><TD BGCOLOR="#d1fae5" WIDTH="12" HEIGHT="12"></TD><TD>— K8s компонент</TD></TR>
+        <TR><TD BGCOLOR="#c7d2fe" WIDTH="12" HEIGHT="12"></TD><TD>— GPU / Аппаратное обеспечение</TD></TR>
+        <TR><TD BGCOLOR="#fde68a" WIDTH="12" HEIGHT="12"></TD><TD>— Системное ПО</TD></TR>
+        <TR><TD BGCOLOR="#fbcfe8" WIDTH="12" HEIGHT="12"></TD><TD>— GPU Operator</TD></TR>
+        <TR><TD BGCOLOR="#ddd6fe" WIDTH="12" HEIGHT="12"></TD><TD>— Пользовательский под</TD></TR>
+        </TABLE>
+    >];
+}
