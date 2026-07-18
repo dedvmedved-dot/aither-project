@@ -154,10 +154,70 @@ kubectl apply -f manifests/runtimeclass-nvidia.yaml
 
 ### NVIDIA Container Toolkit
 
-| Узел | Статус | Пояснение |
-|------|--------|-----------|
-| **n8** | ❌ Не установлен | Есть 2× RTX 6000 — требуется установка |
-| **n7** | ❌ Не установлен | Есть 2× RTX 6000 — требуется установка |
+| Узел | Статус | Версия |
+|------|--------|---------|
+| **n8** | ✅ Установлен | 1.19.1 |
+| **n7** | ✅ Установлен | 1.19.1 |
+
+### nvidia-runtime в containerd
+
+| Узел | Статус | Файл конфига |
+|------|--------|-------------|
+| **n8** | ✅ **BinaryName** = `/usr/bin/nvidia-container-runtime` | `/etc/containerd/conf.d/99-nvidia.toml` |
+| **n7** | ✅ **BinaryName** = `/usr/bin/nvidia-container-runtime` | `/etc/containerd/conf.d/99-nvidia.toml` |
+
+### RuntimeClass
+
+```bash
+$ kubectl get runtimeclass
+NAME     HANDLER   AGE
+nvidia   nvidia    7d
+```
+
+✅ RuntimeClass `nvidia` существует и работает на обеих нодах.
+
+### GPU в Capacity
+
+```bash
+$ kubectl get nodes -o custom-columns=NAME:.metadata.name,GPU:.status.capacity.nvidia\\.com/gpu
+NAME                             GPU
+bootsmam-k8s-clnt01-n7-gpu       2
+bootsman-k8s-clnt01-n8-gpu       2
+```
+
+✅ **nvidia.com/gpu = 2** на каждой ноде.
+
+### GPU Operator
+
+```bash
+$ kubectl get pods -n gpu-operator -o wide
+
+NAME                                                         READY   NODE                         GPU
+gpu-feature-discovery-697qs                                  1/1     bootsmam-k8s-clnt01-n7-gpu   ✅
+gpu-feature-discovery-sr2qp                                  1/1     bootsman-k8s-clnt01-n8-gpu   ✅
+gpu-operator-7d9956bc88-lthll                                1/1     bootsman-k8s-clnt01-n8-gpu   —
+nvidia-container-toolkit-daemonset-8cmp8                     1/1     bootsmam-k8s-clnt01-n7-gpu   ✅
+nvidia-container-toolkit-daemonset-qwr9x                     1/1     bootsman-k8s-clnt01-n8-gpu   ✅
+nvidia-dcgm-exporter-gxwgn                                   1/1     bootsmam-k8s-clnt01-n7-gpu   ✅
+nvidia-dcgm-exporter-xxx                                     1/1     bootsman-k8s-clnt01-n8-gpu   ✅
+nvidia-device-plugin-daemonset-ssqkm                         1/1     bootsmam-k8s-clnt01-n7-gpu   ✅
+nvidia-device-plugin-daemonset-xxx                           1/1     bootsman-k8s-clnt01-n8-gpu   ✅
+nvidia-operator-validator-57c46                              1/1     bootsmam-k8s-clnt01-n7-gpu   —
+```
+
+✅ GPU Operator **полностью работает** на обеих нодах.
+
+### Сводка
+
+| Компонент | n8 (worker) | n7 (worker) |
+|-----------|-------------|-------------|
+| GPU | ✅ 2× Quadro RTX 6000 | ✅ 2× Quadro RTX 6000 |
+| containerd | ✅ 2.2.x | ✅ 2.2.1 |
+| NVIDIA Container Toolkit | ✅ 1.19.1 | ✅ 1.19.1 |
+| RuntimeClass nvidia | ✅ создан | ✅ создан |
+| nvidia-runtime в config.toml | ✅ `/usr/bin/nvidia-container-runtime` | ✅ `/usr/bin/nvidia-container-runtime` |
+| GPU в Capacity | ✅ 2/2 | ✅ 2/2 |
+| GPU Operator DaemonSet | ✅ Все Running | ✅ Все Running |
 
 ### RuntimeClass
 
