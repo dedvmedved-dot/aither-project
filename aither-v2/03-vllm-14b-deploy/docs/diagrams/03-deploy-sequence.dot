@@ -70,10 +70,10 @@ digraph G {
         check_logs -> check_api;
     }
 
-    // ========== СТРЕЛКИ ==========
-    check_api -> final_ok [label="✅ API отвечает", style=bold, color=green];
-    check_api -> final_fail [label="❌ Ошибка", style=bold, color=red];
-}
+    // ========== ФИНАЛ ==========
+    check_api -> success [label="✅ API отвечает", style=bold, color=green];
+    check_api -> fail [label="❌ Ошибка", style=bold, color=red];
 
-final_ok [label="Успех ✅\n→ Gateway (Этап 5) / TP (Этап 4)", shape=box, style=filled, fillcolor=green, fontcolor=white];
-final_fail [label="Диагностика:\n• проверить GPU: nvidia-smi\n• проверить модель: ls /data/models/\n• проверить GPU cleanup в логах\n• уменьшить max-model-len\n• увеличить cpu-offload", shape=box, style=filled, fillcolor=red, fontcolor=white];
+    success [label="Успех ✅\n→ Gateway (Этап 5) / TP (Этап 4)", shape=box, style=filled, fillcolor=green, fontcolor=white];
+    fail [label="Диагностика:\n• проверить GPU: nvidia-smi\n• проверить модель: ls /data/models/\n• проверить GPU cleanup в логах\n• уменьшить max-model-len\n• увеличить cpu-offload", shape=box, style=filled, fillcolor=red, fontcolor=white];
+}

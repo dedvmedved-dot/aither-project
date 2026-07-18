@@ -179,24 +179,100 @@ curl -X POST http://localhost:8001/v1/chat/completions \
 
 ## Схемы
 
-```bash
-# Установить graphviz
-apt-get install -y graphviz
+### Архитектура компонентов (текстовая)
 
-# Архитектура компонентов
+```
+                                        ┌──────────────────────┐
+                                        │     Пользователь     │
+                                        │  curl /v1/completions │
+                                        └──────────┬───────────┘
+                                                   │
+                                        ┌──────────▼───────────┐
+                                        │  Service: vllm-api   │
+                                        │  ClusterIP :8000/8001│
+                                        └──────────┬───────────┘
+                                                   │
+      ┌────────────────────────────────────────────┴────────────┐
+      │                                                         │
+┌─────▼──────────────────┐            ┌────────────────────────▼─────┐
+│  n8 (2× RTX 6000)     │            │  n7 (2× RTX 6000)           │
+│                        │            │                              │
+│  ┌──────────────────┐  │            │  ┌──────────────────────┐   │
+│  │ Coder-14B-Instruct│  │            │  │ 32B-GPTQ (не развёрнут)│   │
+│  │ TP=2, порт 8000  │  │            │  │ TP=1, GPU 0, порт 8001│   │
+│  │ ✅ Running       │  │            │  │ ~10GB VRAM            │   │
+│  └──────────────────┘  │            │  └──────────────────────┘   │
+│                        │            │                              │
+│ /data/models/          │            │ /data/models/                │
+│ ├ Coder-14B ✅         │            │ ├ 32B-GPTQ ✅ (19GB на диске) │
+│ ├ 14B-Instruct ✅      │            │ └ 14B-Instruct ⚠️ (частично) │
+│ └ 32B-GPTQ ✅          │            │                              │
+└────────────────────────┘            └──────────────────────────────┘
+```
+
+### Последовательность развёртывания (текстовая)
+
+```
+    ┌──────────────────────┐
+    │    1. ПОДГОТОВКА      │
+    │ namespace + SA + RBAC │
+    │ проверить модели      │
+    │ hostPath: /data/models│
+    └──────────┬───────────┘
+               │
+    ┌──────────▼───────────┐
+    │    2. ВЫБОР МОДЕЛИ    │
+    │ ┌─── 32B-GPTQ ◄──────┼─── РЕКОМЕНДУЕТСЯ
+    │ │  (1 GPU, ~10GB)     │
+    │ └─── 14B-Instruct     │
+    │      (CPU offload 4GB)│
+    └──────────┬───────────┘
+               │
+    ┌──────────▼───────────┐
+    │    3. РАЗВЁРТЫВАНИЕ   │
+    │ kubectl apply -f      │
+    │ Deployment + Service  │
+    └──────────┬───────────┘
+               │
+    ┌──────────▼───────────┐
+    │    4. ПРОВЕРКА        │
+    │ Pod Running 1/1       │
+    │ Log: startup complete │
+    │ curl /health → ok     │
+    └──────────┬───────────┘
+               │
+    ┌──────────┴───────────┐
+    ▼                      ▼
+ Успех → Gateway      Ошибка → диагностика:
+ (Этап 5)                    nvidia-smi, логи,
+                              cleanup GPU, offload
+```
+
+### Визуализация DOT → PNG
+
+Исходные диаграммы в формате DOT (Graphviz) лежат в `docs/diagrams/`.
+Чтобы сгенерировать PNG, выполните:
+
+```bash
+apt-get install -y graphviz
 dot -Tpng docs/diagrams/03-vllm-14b-deploy.dot \
   -o docs/diagrams/03-vllm-14b-deploy.png
-
-# Последовательность развёртывания
 dot -Tpng docs/diagrams/03-deploy-sequence.dot \
   -o docs/diagrams/03-deploy-sequence.png
 ```
 
-### Архитектура компонентов
-![03-vllm-14b-deploy.png](docs/diagrams/03-vllm-14b-deploy.png)
+Готовые PNG (если сгенерированы):
 
-### Последовательность развёртывания
-![03-deploy-sequence.png](docs/diagrams/03-deploy-sequence.png)
+![Архитектура компонентов](docs/diagrams/03-vllm-14b-deploy.png)
+
+![Последовательность развёртывания](docs/diagrams/03-deploy-sequence.png)
+
+Файлы DOT для редактирования:
+
+| Файл | Описание |
+|------|----------|
+| [`docs/diagrams/03-vllm-14b-deploy.dot`](docs/diagrams/03-vllm-14b-deploy.dot) | Компонентная архитектура: ноды, модели, сервисы |
+| [`docs/diagrams/03-deploy-sequence.dot`](docs/diagrams/03-deploy-sequence.dot) | Последовательность развёртывания: подготовка → выбор → деплой → проверка |
 
 ---
 
