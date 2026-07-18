@@ -1,6 +1,6 @@
 # Документация развёртывания vLLM
 
-**Актуальный отчёт:** [`honest-final-report.md`](./honest-final-report.md)
+**Актуальный статус:** [`current-status.md`](./current-status.md)
 
 ---
 

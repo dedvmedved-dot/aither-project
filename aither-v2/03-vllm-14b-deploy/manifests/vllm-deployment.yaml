@@ -199,6 +199,8 @@ spec:
           args:
             - --model
             - /model
+            - --quantization
+            - gptq
             - --dtype
             - half
             - --tensor-parallel-size
