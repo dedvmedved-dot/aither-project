@@ -30,6 +30,15 @@ spec:
       nodeSelector:
         aither.io/qwen14b-instruct: "true"
       affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: aither.io/inference-primary
+                    operator: In
+                    values:
+                      - "true"
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
@@ -163,6 +172,15 @@ spec:
       nodeSelector:
         aither.io/qwen32b-gptq: "true"
       affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: aither.io/inference-primary
+                    operator: In
+                    values:
+                      - "true"
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
@@ -181,8 +199,8 @@ spec:
           args:
             - --model
             - /model
-            - --quantization
-            - gptq
+            - --dtype
+            - half
             - --tensor-parallel-size
             - "1"
             - --host
@@ -195,13 +213,11 @@ spec:
             - "4096"
             - --max-num-seqs
             - "1"
-            - --dtype
-            - half
             - --enforce-eager
             - --generation-config
             - vllm
             - --served-model-name
-            - qwen-32b
+            - qwen-32b-base
             - --disable-log-requests
             - --disable-fastapi-docs
           env:
