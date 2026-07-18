@@ -1,0 +1,45 @@
+// Последовательность развёртывания Этапа 2
+// Сохранено: docs/diagrams/02-deploy-sequence.dot
+// Визуализация: dot -Tpng docs/diagrams/02-deploy-sequence.dot -o docs/diagrams/02-deploy-sequence.png
+
+digraph deploy_seq {
+    rankdir=TB;
+    splines=ortho;
+    node [shape=box, style=rounded];
+    ranksep=0.7;
+    fontname="Helvetica";
+
+    start [label="2.1 Проверить containerd\nctr version", shape=box, style=filled, fillcolor=lightblue];
+
+    subgraph cluster_n7_setup {
+        label="На узле n7 (через SSH)";
+        style=filled;
+        fillcolor=lightyellow;
+
+        install_ctr [label="2.1b Если нет →\napt install containerd.io", shape=box, style=filled, fillcolor=lightgreen];
+        add_repo [label="2.2a Добавить репозиторий NVIDIA\ncurl -fsSL nvidia.github.io/...", shape=box, style=filled, fillcolor=lightblue];
+        install_ctk [label="2.2b apt install\nnvidia-container-toolkit", shape=box, style=filled, fillcolor=lightgreen];
+        ctk_cfg [label="2.3 nvidia-ctk runtime configure\n--runtime=containerd", shape=box, style=filled, fillcolor=lightblue];
+        restart_ctr [label="2.4 systemctl restart containerd", shape=box, style=filled, fillcolor=lightblue];
+        verify_ctk [label="Проверка nvidia в config.toml", shape=diamond, style=filled, fillcolor=lightyellow];
+    }
+
+    verify_runtime [label="2.5 Проверка RuntimeClass:\nkubectl get runtimeclass", shape=box, style=filled, fillcolor=lightgreen];
+    verify_gpu_k8s [label="2.6 Проверка GPU в K8s:\nkubectl describe node n7 | grep gpu", shape=diamond, style=filled, fillcolor=lightyellow];
+
+    finish [label="✅ Этап 2 завершён\ncontainerd + nvidia-runtime\nGPU 2/2 в Capacity", shape=box, style=filled, fillcolor=green, fontcolor=white];
+    fail_gpu_op [label="⚠️ GPU = 0\n→ GPU Operator не видит n7\n→ возврат к Этапу 1", shape=box, style=filled, fillcolor=red, fontcolor=white];
+
+    start -> install_ctr [label="нет containerd"];
+    start -> add_repo [label="containerd есть"];
+    install_ctr -> add_repo;
+    add_repo -> install_ctk;
+    install_ctk -> ctk_cfg;
+    ctk_cfg -> restart_ctr;
+    restart_ctr -> verify_ctk;
+    verify_ctk -> verify_runtime [label="✅ nvidia runtime в config"];
+    verify_ctk -> ctk_cfg [label="❌ нет nvidia секции"];
+    verify_runtime -> verify_gpu_k8s;
+    verify_gpu_k8s -> finish [label="nvidia.com/gpu: 2"];
+    verify_gpu_k8s -> fail_gpu_op [label="nvidia.com/gpu: 0"];
+}

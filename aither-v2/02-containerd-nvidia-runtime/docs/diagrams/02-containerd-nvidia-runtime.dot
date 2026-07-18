@@ -1,0 +1,54 @@
+// Этап 2: Containerd + NVIDIA Runtime — компоненты и связи
+// Сохранено: docs/diagrams/02-containerd-nvidia-runtime.dot
+// Визуализация: dot -Tpng docs/diagrams/02-containerd-nvidia-runtime.dot -o docs/diagrams/02-containerd-nvidia-runtime.png
+
+digraph G {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded];
+    ranksep=1.2;
+    fontname="Helvetica";
+
+    subgraph cluster_legend {
+        label="Легенда";
+        color=lightgrey;
+        n8 [label="n8: Worker (без GPU)", shape=box, style=filled, fillcolor=lightgreen];
+        n7 [label="n7: Worker + GPU (2×RTX6000)", shape=box, style=filled, fillcolor=lightsalmon];
+    }
+
+    subgraph cluster_k8s {
+        label="Kubernetes";
+        runtimeclass [label="RuntimeClass: nvidia", shape=cylinder, style=filled, fillcolor=lightblue];
+        gpu_op [label="GPU Operator (Helm)", shape=box3d, style=filled, fillcolor=lightyellow];
+        pod_gpu [label="Pod: nvidia.com/gpu=1", shape=box, style=filled, fillcolor=lightcyan];
+    }
+
+    subgraph cluster_n8 {
+        label="Узел n8 (10.129.13.78)";
+        containerd_n8 [label="containerd 2.2.x ✔", shape=box, style=filled, fillcolor=green, fontcolor=white];
+        ctr_n8 [label="runtime: runc", shape=box, style=filled, fillcolor=lightgreen];
+        ctr_note [label="GPU нет — runc достаточно", shape=note, fillcolor=lightyellow];
+    }
+
+    subgraph cluster_n7 {
+        label="Узел n7 (10.129.13.77)";
+        containerd_n7 [label="containerd 2.2.1 ✔", shape=box, style=filled, fillcolor=green, fontcolor=white];
+        nvidia_ctk_missing [label="NVIDIA CTK ❌\nне установлен", shape=box, style=filled, fillcolor=red, fontcolor=white];
+        nvidia_runtime [label="nvidia-config в config.toml ⚠️\n(прописан GPU Operator'ом)\nно бинарник отсутствует", shape=box, style=filled, fillcolor=orange];
+        gpu_hw [label="2× RTX 6000 23GB\n┌─────────────────┐\n│ GPU0: свободна  │\n│ GPU1: свободна  │\n└─────────────────┘", shape=box, style=filled, fillcolor=lightgrey];
+        no_gpu_k8s [label="GPU в Capacity: ❌ 0/2", shape=box, style=filled, fillcolor=red, fontcolor=white];
+
+        containerd_n7 -> nvidia_ctk_missing [label="ждёт toolkit"];
+        nvidia_ctk_missing -> nvidia_runtime [label="блокирует"];
+        nvidia_runtime -> no_gpu_k8s [label="нет runtime → нет GPU"];
+        gpu_hw -> no_gpu_k8s [label="GPU не видны K8s", style=dashed, color=orange];
+    }
+
+    // Связи кластера
+    gpu_op -> runtimeclass [label="создаёт"];
+    gpu_op -> containerd_n8 [label="DaemonSet запущен"];
+    gpu_op -> nvidia_ctk_missing [label="DaemonSet не может\nзарегистрировать GPU", style=dashed, color=red, fontcolor=red];
+    runtimeclass -> nvidia_runtime [label="handler = nvidia"];
+    pod_gpu -> containerd_n7 [label="запрос GPU", style=dashed, color=red];
+    pod_gpu -> containerd_n8 [label="запрос CPU", style=dashed];
+}
