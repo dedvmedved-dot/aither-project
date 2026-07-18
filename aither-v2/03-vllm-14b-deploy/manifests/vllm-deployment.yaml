@@ -18,39 +18,41 @@ spec:
         app: vllm
         model: qwen-14b-instruct
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 120
+      automountServiceAccountToken: false
       serviceAccountName: vllm-sa
       runtimeClassName: nvidia
-      nodeName: bootsmam-k8s-clnt01-n7-gpu
-      hostPID: true
+      nodeSelector:
+        aither.io/qwen14b-instruct: "true"
       containers:
         - name: vllm
           image: vllm/vllm-openai:v0.8.5
           command:
-            - sh
-            - -c
-            - |
-              echo "=== Kill stale GPU processes ==="
-              nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader | grep VLLM | cut -d, -f1 | while read pid; do
-                echo "Killing PID $pid..."
-                kill -9 "$pid" 2>/dev/null || true
-              done
-              sleep 3
-              echo "=== GPU after cleanup ==="
-              nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
-              echo "=== Start vLLM ==="
-              exec python3 -m vllm.entrypoints.openai.api_server \
-                --model /models/Qwen2.5-14B-Instruct \
-                --tensor-parallel-size 1 \
-                --host 0.0.0.0 --port 8000 \
-                --gpu-memory-utilization 0.90 \
-                --max-model-len 4096 \
-                --trust-remote-code \
-                --dtype half \
-                --enforce-eager \
-                --cpu-offload-gb 4 \
-                --swap-space 8 \
-                --max-num-seqs 4
+            - python3
+            - -m
+            - vllm.entrypoints.openai.api_server
+          args:
+            - --model
+            - /models/Qwen2.5-14B-Instruct
+            - --tensor-parallel-size
+            - "1"
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+            - --gpu-memory-utilization
+            - "0.90"
+            - --max-model-len
+            - "4096"
+            - --dtype
+            - half
+            - --max-num-seqs
+            - "4"
+            - --enforce-eager
+            - --cpu-offload-gb
+            - "4"
+            - --swap-space
+            - "8"
           env:
             - name: CUDA_VISIBLE_DEVICES
               value: "0"
@@ -59,6 +61,7 @@ spec:
           ports:
             - containerPort: 8000
               name: http
+              protocol: TCP
           resources:
             limits:
               nvidia.com/gpu: "1"
@@ -66,27 +69,35 @@ spec:
               cpu: "8"
             requests:
               nvidia.com/gpu: "1"
-              memory: 28Gi
-              cpu: "4"
+              memory: 36Gi
+              cpu: "8"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: dshm
               mountPath: /dev/shm
             - name: models
               mountPath: /models
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 300
-            periodSeconds: 15
-            timeoutSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 600
-            periodSeconds: 30
-            timeoutSeconds: 10
+              readOnly: true
       volumes:
         - name: dshm
           emptyDir:
@@ -117,42 +128,52 @@ spec:
         app: vllm
         model: qwen-32b-gptq
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 120
+      automountServiceAccountToken: false
       serviceAccountName: vllm-sa
       runtimeClassName: nvidia
-      nodeName: bootsmam-k8s-clnt01-n7-gpu
-      hostPID: true
+      nodeSelector:
+        aither.io/qwen32b-gptq: "true"
       containers:
         - name: vllm
           image: vllm/vllm-openai:v0.8.5
           command:
-            - sh
-            - -c
-            - |
-              echo "=== Kill stale GPU processes ==="
-              nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader | grep VLLM | cut -d, -f1 | while read pid; do
-                echo "Killing PID $pid..."
-                kill -9 "$pid" 2>/dev/null || true
-              done
-              sleep 3
-              echo "=== GPU after cleanup ==="
-              nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
-              echo "=== Start vLLM 32B-GPTQ ==="
-              exec python3 -m vllm.entrypoints.openai.api_server \
-                --model /models/Qwen2.5-32B-GPTQ \
-                --tensor-parallel-size 1 \
-                --host 0.0.0.0 --port 8001 \
-                --gpu-memory-utilization 0.90 \
-                --max-model-len 8192 \
-                --trust-remote-code \
-                --dtype half \
-                --enforce-eager
+            - python3
+            - -m
+            - vllm.entrypoints.openai.api_server
+          args:
+            - --model
+            - /models/Qwen2.5-32B-GPTQ
+            - --quantization
+            - gptq
+            - --tensor-parallel-size
+            - "1"
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+            - --gpu-memory-utilization
+            - "0.95"
+            - --max-model-len
+            - "4096"
+            - --max-num-seqs
+            - "1"
+            - --dtype
+            - half
+            - --enforce-eager
+            - --generation-config
+            - vllm
+            - --served-model-name
+            - qwen-32b
           env:
             - name: CUDA_VISIBLE_DEVICES
               value: "0"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
           ports:
-            - containerPort: 8001
+            - containerPort: 8000
               name: http
+              protocol: TCP
           resources:
             limits:
               nvidia.com/gpu: "1"
@@ -160,27 +181,35 @@ spec:
               cpu: "8"
             requests:
               nvidia.com/gpu: "1"
-              memory: 28Gi
-              cpu: "4"
+              memory: 36Gi
+              cpu: "8"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: dshm
               mountPath: /dev/shm
             - name: models
               mountPath: /models
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8001
-            initialDelaySeconds: 120
-            periodSeconds: 15
-            timeoutSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8001
-            initialDelaySeconds: 300
-            periodSeconds: 30
-            timeoutSeconds: 10
+              readOnly: true
       volumes:
         - name: dshm
           emptyDir:

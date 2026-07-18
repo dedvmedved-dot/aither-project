@@ -1,18 +1,38 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: vllm-api
+  name: vllm-14b-instruct
   namespace: aither-inference
   labels:
     app: vllm
+    model: qwen-14b-instruct
 spec:
   type: ClusterIP
   selector:
     app: vllm
+    model: qwen-14b-instruct
   ports:
-    - port: 8000
-      targetPort: 8000
-      name: openai-api-14b
-    - port: 8001
-      targetPort: 8001
-      name: openai-api-32b
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-32b-gptq
+  namespace: aither-inference
+  labels:
+    app: vllm
+    model: qwen-32b-gptq
+spec:
+  type: ClusterIP
+  selector:
+    app: vllm
+    model: qwen-32b-gptq
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP
