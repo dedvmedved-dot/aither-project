@@ -8,6 +8,11 @@ metadata:
     model: qwen-14b-instruct
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: vllm
@@ -24,6 +29,15 @@ spec:
       runtimeClassName: nvidia
       nodeSelector:
         aither.io/qwen14b-instruct: "true"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: vllm
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: vllm
           image: vllm/vllm-openai:v0.8.5
@@ -33,7 +47,7 @@ spec:
             - vllm.entrypoints.openai.api_server
           args:
             - --model
-            - /models/Qwen2.5-14B-Instruct
+            - /model
             - --tensor-parallel-size
             - "1"
             - --host
@@ -53,11 +67,18 @@ spec:
             - "4"
             - --swap-space
             - "8"
+            - --served-model-name
+            - qwen-14b
+            - --disable-log-requests
+            - --disable-fastapi-docs
           env:
-            - name: CUDA_VISIBLE_DEVICES
-              value: "0"
             - name: PYTORCH_CUDA_ALLOC_CONF
               value: "expandable_segments:True"
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
           ports:
             - containerPort: 8000
               name: http
@@ -65,11 +86,11 @@ spec:
           resources:
             limits:
               nvidia.com/gpu: "1"
-              memory: 36Gi
+              memory: 64Gi
               cpu: "8"
             requests:
               nvidia.com/gpu: "1"
-              memory: 36Gi
+              memory: 64Gi
               cpu: "8"
           startupProbe:
             httpGet:
@@ -95,17 +116,17 @@ spec:
           volumeMounts:
             - name: dshm
               mountPath: /dev/shm
-            - name: models
-              mountPath: /models
+            - name: model
+              mountPath: /model
               readOnly: true
       volumes:
         - name: dshm
           emptyDir:
             medium: Memory
-            sizeLimit: "32Gi"
-        - name: models
+            sizeLimit: "8Gi"
+        - name: model
           hostPath:
-            path: /data/models
+            path: /data/models/Qwen2.5-14B-Instruct
             type: Directory
 ---
 apiVersion: apps/v1
@@ -118,6 +139,11 @@ metadata:
     model: qwen-32b-gptq
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: vllm
@@ -134,6 +160,15 @@ spec:
       runtimeClassName: nvidia
       nodeSelector:
         aither.io/qwen32b-gptq: "true"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: vllm
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: vllm
           image: vllm/vllm-openai:v0.8.5
@@ -143,7 +178,7 @@ spec:
             - vllm.entrypoints.openai.api_server
           args:
             - --model
-            - /models/Qwen2.5-32B-GPTQ
+            - /model
             - --quantization
             - gptq
             - --tensor-parallel-size
@@ -165,11 +200,16 @@ spec:
             - vllm
             - --served-model-name
             - qwen-32b
+            - --disable-log-requests
+            - --disable-fastapi-docs
           env:
-            - name: CUDA_VISIBLE_DEVICES
-              value: "0"
             - name: PYTORCH_CUDA_ALLOC_CONF
               value: "expandable_segments:True"
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
           ports:
             - containerPort: 8000
               name: http
@@ -177,11 +217,11 @@ spec:
           resources:
             limits:
               nvidia.com/gpu: "1"
-              memory: 36Gi
+              memory: 48Gi
               cpu: "8"
             requests:
               nvidia.com/gpu: "1"
-              memory: 36Gi
+              memory: 48Gi
               cpu: "8"
           startupProbe:
             httpGet:
@@ -207,15 +247,15 @@ spec:
           volumeMounts:
             - name: dshm
               mountPath: /dev/shm
-            - name: models
-              mountPath: /models
+            - name: model
+              mountPath: /model
               readOnly: true
       volumes:
         - name: dshm
           emptyDir:
             medium: Memory
-            sizeLimit: "32Gi"
-        - name: models
+            sizeLimit: "8Gi"
+        - name: model
           hostPath:
-            path: /data/models
+            path: /data/models/Qwen2.5-32B-GPTQ
             type: Directory
