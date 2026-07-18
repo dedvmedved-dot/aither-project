@@ -179,100 +179,114 @@ curl -X POST http://localhost:8001/v1/chat/completions \
 
 ## Схемы
 
-### Архитектура компонентов (текстовая)
+### Архитектура компонентов (DOT)
 
-```
-                                        ┌──────────────────────┐
-                                        │     Пользователь     │
-                                        │  curl /v1/completions │
-                                        └──────────┬───────────┘
-                                                   │
-                                        ┌──────────▼───────────┐
-                                        │  Service: vllm-api   │
-                                        │  ClusterIP :8000/8001│
-                                        └──────────┬───────────┘
-                                                   │
-      ┌────────────────────────────────────────────┴────────────┐
-      │                                                         │
-┌─────▼──────────────────┐            ┌────────────────────────▼─────┐
-│  n8 (2× RTX 6000)     │            │  n7 (2× RTX 6000)           │
-│                        │            │                              │
-│  ┌──────────────────┐  │            │  ┌──────────────────────┐   │
-│  │ Coder-14B-Instruct│  │            │  │ 32B-GPTQ (не развёрнут)│   │
-│  │ TP=2, порт 8000  │  │            │  │ TP=1, GPU 0, порт 8001│   │
-│  │ ✅ Running       │  │            │  │ ~10GB VRAM            │   │
-│  └──────────────────┘  │            │  └──────────────────────┘   │
-│                        │            │                              │
-│ /data/models/          │            │ /data/models/                │
-│ ├ Coder-14B ✅         │            │ ├ 32B-GPTQ ✅ (19GB на диске) │
-│ ├ 14B-Instruct ✅      │            │ └ 14B-Instruct ⚠️ (частично) │
-│ └ 32B-GPTQ ✅          │            │                              │
-└────────────────────────┘            └──────────────────────────────┘
-```
+```dot
+digraph G {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded];
+    ranksep=1.2;
+    fontname="Helvetica";
 
-### Последовательность развёртывания (текстовая)
+    subgraph cluster_center {
+        label="Kubernetes — aither-inference + default";
+        color=lightgrey;
 
-```
-    ┌──────────────────────┐
-    │    1. ПОДГОТОВКА      │
-    │ namespace + SA + RBAC │
-    │ проверить модели      │
-    │ hostPath: /data/models│
-    └──────────┬───────────┘
-               │
-    ┌──────────▼───────────┐
-    │    2. ВЫБОР МОДЕЛИ    │
-    │ ┌─── 32B-GPTQ ◄──────┼─── РЕКОМЕНДУЕТСЯ
-    │ │  (1 GPU, ~10GB)     │
-    │ └─── 14B-Instruct     │
-    │      (CPU offload 4GB)│
-    └──────────┬───────────┘
-               │
-    ┌──────────▼───────────┐
-    │    3. РАЗВЁРТЫВАНИЕ   │
-    │ kubectl apply -f      │
-    │ Deployment + Service  │
-    └──────────┬───────────┘
-               │
-    ┌──────────▼───────────┐
-    │    4. ПРОВЕРКА        │
-    │ Pod Running 1/1       │
-    │ Log: startup complete │
-    │ curl /health → ok     │
-    └──────────┬───────────┘
-               │
-    ┌──────────┴───────────┐
-    ▼                      ▼
- Успех → Gateway      Ошибка → диагностика:
- (Этап 5)                    nvidia-smi, логи,
-                              cleanup GPU, offload
+        svc [label="Service: vllm-api\nClusterIP :8000/8001", shape=box3d, style=filled, fillcolor=lightblue];
+
+        subgraph cluster_n8 {
+            label="n8 — 2× RTX 6000";
+            color=green;
+            n8_coder [label="vllm-coder-14b (default NS)\nQwen2.5-Coder-14B-Instruct\nTP=2, GPU 0+1, port 8000\n✅ Running", shape=box, style=filled, fillcolor=green, fontcolor=white];
+            n8_models [label="/data/models/\nCoder-14B ✅\n14B-Instruct ✅\n32B-GPTQ ✅", shape=folder, style=filled, fillcolor=lightgrey];
+            n8_models -> n8_coder [style=dashed, label="загружает"];
+        }
+
+        subgraph cluster_n7 {
+            label="n7 — 2× RTX 6000";
+            color=orange;
+            n7_32b [label="Deployment: vllm-32b-gptq\nQwen2.5-32B-GPTQ\nTP=1, GPU 0, port 8001\n❌ Не развёрнут", shape=box, style=filled, fillcolor=orange, style=dashed];
+            n7_14b [label="Deployment: vllm-14b-instruct\nQwen2.5-14B-Instruct\nTP=1, CPU offload 4GB\n❌ CrashLoopBackOff", shape=box, style=filled, fillcolor=red, fontcolor=white, style=dashed];
+            n7_models [label="/data/models/\n32B-GPTQ ✅ (19GB)\n14B-Instruct ⚠️", shape=folder, style=filled, fillcolor=lightgrey];
+            n7_models -> n7_32b [style=dashed, color=gray];
+            n7_models -> n7_14b [style=dashed, color=gray];
+        }
+
+        svc -> n8_coder [label=":8000", style=dashed];
+        svc -> n7_14b [label=":8000", style=dashed, color=gray];
+        svc -> n7_32b [label=":8001", style=dashed, color=gray];
+    }
+}
 ```
 
-### Визуализация DOT → PNG
+### Последовательность развёртывания (DOT)
 
-Исходные диаграммы в формате DOT (Graphviz) лежат в `docs/diagrams/`.
-Чтобы сгенерировать PNG, выполните:
+```dot
+digraph G {
+    rankdir=TB;
+    splines=ortho;
+    node [shape=box, style=rounded, fontname="Helvetica"];
+    ranksep=0.8;
+    nodesep=1.0;
+
+    subgraph cluster_prepare {
+        label="1. Подготовка";  style=filled;  fillcolor=lightyellow;
+        prepare_ns [label="Namespace: aither-inference\nSA + RBAC (vllm-sa)", shape=cylinder, style=filled, fillcolor=lightyellow];
+        prepare_models [label="Проверить модели:\nssh n8/n7 — ls /data/models/", shape=box, style=component, style=filled, fillcolor=lightyellow];
+        prepare_host [label="hostPath: /data/models\nна каждой ноде", shape=folder, style=filled, fillcolor=lightyellow];
+        prepare_ns -> prepare_models -> prepare_host;
+    }
+
+    subgraph cluster_choose {
+        label="2. Выбор модели";  style=filled;  fillcolor=lightcyan;
+        choice [label="Какая модель?", shape=diamond, style=filled, fillcolor=lightcyan];
+        choice_32b [label="32B-GPTQ\n1 GPU ~10GB\n✅ Рекомендуется", shape=box, style=filled, fillcolor=green, fontcolor=white];
+        choice_14b [label="14B-Instruct fp16\nCPU offload 4GB\n⚠️ Fallback", shape=box, style=filled, fillcolor=orange];
+        choice -> choice_32b [label="лучшее качество"];
+        choice -> choice_14b [label="если нужна 14B"];
+    }
+
+    subgraph cluster_deploy {
+        label="3. Развёртывание";  style=filled;  fillcolor=lightgrey;
+        deploy_svc [label="Service: vllm-api\nClusterIP :8000, :8001", shape=box3d, style=filled, fillcolor=lightgrey];
+        deploy_32b [label="Deployment: vllm-32b-gptq\nnode=n7, GPU 0\nTP=1, port 8001", shape=box, style=filled, fillcolor=lightgrey];
+        deploy_14b [label="Deployment: vllm-14b-instruct\nnode=n7, GPU 0\nCPU offload, port 8000", shape=box, style=filled, fillcolor=lightgrey, style=dashed];
+        choice_32b -> deploy_32b;  choice_14b -> deploy_14b;
+        deploy_svc -> deploy_32b;  deploy_svc -> deploy_14b [style=dashed];
+    }
+
+    subgraph cluster_check {
+        label="4. Проверка";  style=filled;  fillcolor=honeydew;
+        check_pod [label="kubectl get pods -n aither-inference\nОжидание: Running 1/1", shape=box, style=filled, fillcolor=honeydew];
+        check_logs [label="Логи: Application startup complete\nВремя загрузки: 1-2 мин", shape=note, style=filled, fillcolor=honeydew];
+        check_api [label="curl /health → {\"status\":\"ok\"}\ncurl /v1/chat/completions → ответ", shape=box, style=filled, fillcolor=honeydew];
+        deploy_32b -> check_pod;  deploy_14b -> check_pod;
+        check_pod -> check_logs -> check_api;
+    }
+
+    check_api -> success [label="✅ API отвечает", style=bold, color=green];
+    check_api -> fail [label="❌ Ошибка", style=bold, color=red];
+
+    success [label="Успех ✅\n→ Gateway (Этап 5) / TP (Этап 4)", shape=box, style=filled, fillcolor=green, fontcolor=white];
+    fail [label="Диагностика:\n• nvidia-smi\n• логи Pod\n• cleanup GPU\n• offload", shape=box, style=filled, fillcolor=red, fontcolor=white];
+}
+```
+
+### DOT → PNG
 
 ```bash
 apt-get install -y graphviz
-dot -Tpng docs/diagrams/03-vllm-14b-deploy.dot \
-  -o docs/diagrams/03-vllm-14b-deploy.png
-dot -Tpng docs/diagrams/03-deploy-sequence.dot \
-  -o docs/diagrams/03-deploy-sequence.png
+dot -Tpng docs/diagrams/03-vllm-14b-deploy.dot -o docs/diagrams/03-vllm-14b-deploy.png
+dot -Tpng docs/diagrams/03-deploy-sequence.dot -o docs/diagrams/03-deploy-sequence.png
 ```
-
-Готовые PNG (если сгенерированы):
-
-![Архитектура компонентов](docs/diagrams/03-vllm-14b-deploy.png)
-
-![Последовательность развёртывания](docs/diagrams/03-deploy-sequence.png)
 
 Файлы DOT для редактирования:
 
 | Файл | Описание |
 |------|----------|
-| [`docs/diagrams/03-vllm-14b-deploy.dot`](docs/diagrams/03-vllm-14b-deploy.dot) | Компонентная архитектура: ноды, модели, сервисы |
-| [`docs/diagrams/03-deploy-sequence.dot`](docs/diagrams/03-deploy-sequence.dot) | Последовательность развёртывания: подготовка → выбор → деплой → проверка |
+| [`docs/diagrams/03-vllm-14b-deploy.dot`](docs/diagrams/03-vllm-14b-deploy.dot) | Компонентная архитектура |
+| [`docs/diagrams/03-deploy-sequence.dot`](docs/diagrams/03-deploy-sequence.dot) | Последовательность развёртывания |
 
 ---
 
