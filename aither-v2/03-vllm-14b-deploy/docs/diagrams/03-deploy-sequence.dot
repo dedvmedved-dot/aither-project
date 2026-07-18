@@ -1,4 +1,4 @@
-// Этап 3: vLLM 14B — последовательность развёртывания
+// Этап 3: vLLM — последовательность развёртывания
 // Сохранено: docs/diagrams/03-deploy-sequence.dot
 // Визуализация: dot -Tpng docs/diagrams/03-deploy-sequence.dot -o docs/diagrams/03-deploy-sequence.png
 
@@ -15,54 +15,65 @@ digraph G {
         style=filled;
         fillcolor=lightyellow;
 
-        prepare_storage [label="Создать PVC model-storage\n100Gi RWX", shape=box, style=filled, fillcolor=lightyellow, fontcolor=black];
-        prepare_model [label="Загрузить модель\nHuggingFace → /models/\nQwen2.5-14B-Instruct (~28GB)", shape=box, style=component, style=filled, fillcolor=lightyellow];
-        prepare_ns [label="Создать namespace\naither-inference", shape=cylinder, style=filled, fillcolor=lightyellow];
+        prepare_ns [label="Namespace: aither-inference\nSA + RBAC (vllm-sa)", shape=cylinder, style=filled, fillcolor=lightyellow];
+        prepare_models [label="Проверить модели на нодах:\nssh n8 — ls /data/models/\nssh n7 — ls /data/models/", shape=box, style=component, style=filled, fillcolor=lightyellow];
+        prepare_host [label="hostPath: /data/models\nна каждой ноде", shape=folder, style=filled, fillcolor=lightyellow];
 
-        prepare_storage -> prepare_model [label="PV готов"];
-        prepare_ns -> prepare_model [label="изоляция"];
+        prepare_ns -> prepare_models;
+        prepare_models -> prepare_host;
     }
 
     // ========== СТРОКА 2 ==========
-    subgraph cluster_deploy {
-        label="2. Развёртывание";
+    subgraph cluster_choose {
+        label="2. Выбор модели";
         style=filled;
         fillcolor=lightcyan;
 
-        deploy_sa [label="ServiceAccount + RBAC\nvllm-sa (get pods/log)", shape=component, style=filled, fillcolor=lightcyan];
-        deploy_svc [label="Service: vllm-api\nClusterIP :8000", shape=box3d, style=filled, fillcolor=lightcyan];
-        deploy_vllm [label="Deployment: vllm-14b\nvllm/vllm-openai:latest\nreplicas=2", shape=box, style=filled, fillcolor=lightcyan];
+        choice [label="Какая модель?", shape=diamond, style=filled, fillcolor=lightcyan];
 
-        deploy_sa -> deploy_vllm;
-        deploy_svc -> deploy_vllm;
+        choice_32b [label="32B-GPTQ\n1 GPU, ~10GB\nРекомендуется ✅", shape=box, style=filled, fillcolor=green, fontcolor=white];
+        choice_14b [label="14B-Instruct fp16\n1 GPU + CPU offload 4GB\nНе рекомендуется ⚠️", shape=box, style=filled, fillcolor=orange];
+
+        choice -> choice_32b [label="лучшее качество"];
+        choice -> choice_14b [label="если нужна именно 14B"];
     }
 
     // ========== СТРОКА 3 ==========
-    subgraph cluster_running {
-        label="3. Запуск";
+    subgraph cluster_deploy {
+        label="3. Развёртывание";
         style=filled;
         fillcolor=lightgrey;
 
-        check_pod [label="kubectl get pods -n aither-inference\nОжидание: Running 2/2", shape=box, style=filled, fillcolor=lightgrey];
-        check_logs [label="Проверка логов\nmodel loaded, GPU memory\nTokens/s", shape=note, style=filled, fillcolor=lightgrey];
-        check_api [label="Тест API:\ncurl /v1/completions\n{\"model\":\"qwen\",\"choices\":[...]}", shape=box, style=filled, fillcolor=lightgrey];
+        deploy_svc [label="Service: vllm-api\nClusterIP :8000, :8001", shape=box3d, style=filled, fillcolor=lightgrey];
+        deploy_32b [label="Deployment: vllm-32b-gptq\nnode=n7, GPU 0\nTP=1, port 8001", shape=box, style=filled, fillcolor=lightgrey];
+        deploy_14b [label="Deployment: vllm-14b-instruct\nnode=n7, GPU 0\nCPU offload, port 8000", shape=box, style=filled, fillcolor=lightgrey, style=dashed];
 
+        choice_32b -> deploy_32b;
+        choice_14b -> deploy_14b;
+        deploy_svc -> deploy_32b [label="связка"];
+        deploy_svc -> deploy_14b [label="связка", style=dashed];
+    }
+
+    // ========== СТРОКА 4 ==========
+    subgraph cluster_running {
+        label="4. Запуск и проверка";
+        style=filled;
+        fillcolor=honeydew;
+
+        check_pod [label="kubectl get pods -n aither-inference\nОжидание: Running 1/1", shape=box, style=filled, fillcolor=honeydew];
+        check_logs [label="Логи: Application startup complete\nВремя загрузки: 1-2 мин", shape=note, style=filled, fillcolor=honeydew];
+        check_api [label="curl /health → {\"status\":\"ok\"}\ncurl /v1/chat/completions → ответ", shape=box, style=filled, fillcolor=honeydew];
+
+        deploy_32b -> check_pod;
+        deploy_14b -> check_pod;
         check_pod -> check_logs;
         check_logs -> check_api;
     }
 
     // ========== СТРЕЛКИ ==========
-    prepare_model -> deploy_vllm [label="модель загружена\nна PV"];
-    deploy_vllm -> check_pod [label="kubectl apply -f"];
-    check_api -> validate [label="✅ API отвечает"];
+    check_api -> final_ok [label="✅ API отвечает", style=bold, color=green];
+    check_api -> final_fail [label="❌ Ошибка", style=bold, color=red];
 }
 
-// ========== БЛОК ПРОВЕРКИ ==========
-validate [label="Проверка: модель загрузилась?\nGPU Memory: ~28GB из 48GB", shape=diamond, style=filled, fillcolor=lightgreen];
-
-// ========== ВЕТКИ ==========
-validate -> ok [label="✅ всё зелено", style=bold, color=green];
-validate -> fail [label="❌ GPU OOM / модель не грузится", style=bold, color=red];
-
-ok [label="Успех ✅\n→ Tensor Parallelism (Этап 4)", shape=box, style=filled, fillcolor=green, fontcolor=white];
-fail [label="Ошибка ❌\n→ проверить GPU Memory\n→ уменьшить max-model-len\n→ включить swap или CPU offload", shape=box, style=filled, fillcolor=red, fontcolor=white];
+final_ok [label="Успех ✅\n→ Gateway (Этап 5) / TP (Этап 4)", shape=box, style=filled, fillcolor=green, fontcolor=white];
+final_fail [label="Диагностика:\n• проверить GPU: nvidia-smi\n• проверить модель: ls /data/models/\n• проверить GPU cleanup в логах\n• уменьшить max-model-len\n• увеличить cpu-offload", shape=box, style=filled, fillcolor=red, fontcolor=white];

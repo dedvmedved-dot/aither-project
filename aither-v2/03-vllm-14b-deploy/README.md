@@ -1,9 +1,8 @@
-# Этап 3: vLLM 14B — загрузка и запуск инференса
+# Этап 3: vLLM — запуск инференса Qwen
 
 ## Роль в дорожной карте
 
-Этап 3 — первый real-workload этап: vLLM с 14B моделью в Kubernetes с GPU-ускорением.
-После настройки containerd + NVIDIA Runtime (Этап 2) кластер готов запускать инференс.
+Этап 3 — первый real-workload: vLLM с Qwen моделями в Kubernetes на GPU-кластере из 2× RTX 6000 на каждой ноде.
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -20,7 +19,7 @@
 │        Tensor Parallelism (2× RTX 6000)           │
 ├──────────────────────────────────────────────────┤
 │      ┌──────────────┴──────────────┐              │
-│      │   ЭТАП 3 (vLLM 14B)        │  ← ВЫ ЗДЕСЬ │
+│      │   ЭТАП 3 (vLLM)            │  ← ВЫ ЗДЕСЬ │
 │      └──────────────┬──────────────┘              │
 ├──────────────────────────────────────────────────┤
 │                    Этап 2                         │
@@ -33,166 +32,155 @@
 
 ---
 
-## Конфигурация
+## Конфигурация кластера
 
-### Кластер
+| Узел | Роль | GPU | Модели на диске |
+|------|------|-----|-----------------|
+| **n8** (`10.129.13.78`) | Worker + control-plane | 2× RTX 6000 23GB | `Qwen2.5-Coder-14B-Instruct` (работает) `Qwen2.5-14B-Instruct` `Qwen2.5-32B-GPTQ` |
+| **n7** (`10.129.13.77`) | Worker | 2× RTX 6000 23GB | `Qwen2.5-32B-GPTQ` (готов к запуску) `Qwen2.5-14B-Instruct` (частично) |
 
-| Узел  | Роль      | GPU              | CPU | RAM  |
-|-------|-----------|------------------|-----|------|
-| **n8** | Worker    | 2× RTX 6000 23GB | —   | —    |
-| **n7** | Worker    | 2× RTX 6000 23GB | —   | —    |
-| **core3** | Bastion | —                | —   | —    |
+> **Важно:** RTX 6000 (Turing, CC 7.5) **не поддерживает bfloat16**. Все модели запускать с `--dtype half` (float16).
 
-**Доступная GPU-память по узлам:** 2 × 23GB = 46GB HBM2 на узел
+### Доступные модели
 
-### Модель
-
-| Параметр             | Значение                          |
-|----------------------|-----------------------------------|
-| Модель               | **Qwen2.5-14B-Instruct** (14B)    |
-| Тип                  | Decoder-only Transformer          |
-| Размер весов (BF16)  | ~28 GB                            |
-| Макс. context length | 32 768 токенов                    |
-| KV Cache            | ~2.4 GB / 16K токенов             |
-| Tensor Parallelism   | 1 (‍один GPU на реплику)          |
-
-> **Почему TP=1, а не 2?** 14B модель в BF16 занимает ~28GB — помещается на один RTX 6000 (23GB + Cache). На втором GPU будет вторая реплика для увеличения throughput (горизонтальное масштабирование). **Этап 4** добавит Tensor Parallelism = 2 для одной реплики, работающей на обоих GPU узла.
-
-### Параметры vLLM
-
-| Параметр              | Значение | Пояснение                                     |
-|-----------------------|----------|-----------------------------------------------|
-| `--tensor-parallel-size` | 1      | Один GPU на реплику                           |
-| `--pipeline-parallel-size` | 1    | Нет pipeline parallelism                      |
-| `--gpu-memory-utilization` | 0.90 | 90% GPU памяти (~41GB на узел)               |
-| `--max-model-len`     | 16384    | Половина от полного контекста модели           |
-| `--trust-remote-code` | ✅       | HuggingFace safetensors                       |
-| `--enforce-eager`     | ✅       | Без CUDA graph (стабильность, меньше памяти)   |
-| `--dtype`             | auto     | Автоопределение: BF16 (при поддержке)          |
+| Модель | Размер | Формат | RAM на диске | GPU RAM (загрузка) | Влезает в 1× RTX 6000? |
+|--------|--------|--------|-------------|-------------------|------------------------|
+| **Qwen2.5-Coder-14B-Instruct** | 14B | fp16 | 28GB | 21.6GB + KV Cache | ❌ Только TP=2 (2 GPU) |
+| **Qwen2.5-14B-Instruct** | 14B | fp16 | 28GB | 21.6GB + KV Cache | ❌ Требует CPU offload |
+| **Qwen2.5-32B-GPTQ** | 32B | GPTQ 4-bit | 19GB | ~10GB | ✅ С запасом |
 
 ---
 
-## Последовательность развёртывания
+## Архитектура развёртывания (текущая)
 
-### 1. Создать namespace и ServiceAccount
-
-```bash
-kubectl apply -f manifests/vllm-namespace.yaml
-kubectl apply -f manifests/vllm-sa.yaml
 ```
-
-### 2. Создать PVC для хранения модели
-
-```bash
-kubectl apply -f manifests/model-pvc.yaml
-```
-
-Проверить, что PV привязался:
-```bash
-kubectl get pvc -n aither-inference
-# NAME            STATUS   VOLUME   CAPACITY
-# model-storage   Bound    pvc-xxx  100Gi
-```
-
-### 3. Загрузить модель на PVC
-
-Варианты:
-
-**A. Вручную через временный Pod:**
-```bash
-kubectl run -n aither-inference model-loader \
-  --image=python:3.11 \
-  --command -- sleep 3600
-
-kubectl exec -n aither-inference model-loader -- \
-  pip install huggingface-hub && \
-  huggingface-cli download Qwen/Qwen2.5-14B-Instruct \
-    --local-dir /models/Qwen/Qwen2.5-14B-Instruct
-```
-
-**B. InitContainer в Deployment** (автоматически):
-```yaml
-initContainers:
-  - name: download-model
-    image: python:3.11-slim
-    command:
-      - sh
-      - -c
-      - |
-        pip install -q huggingface-hub
-        huggingface-cli download Qwen/Qwen2.5-14B-Instruct \
-          --local-dir /models/Qwen/Qwen2.5-14B-Instruct
-    volumeMounts:
-      - name: models
-        mountPath: /models
-```
-
-### 4. Развернуть vLLM
-
-```bash
-kubectl apply -f manifests/vllm-deployment.yaml
-kubectl apply -f manifests/vllm-service.yaml
-```
-
-### 5. Проверить состояние
-
-```bash
-kubectl get pods -n aither-inference -w
-# NAME                         READY   STATUS    RESTARTS   AGE
-# vllm-14b-5d47f8b6f4-abc12   1/1     Running   0          2m
-# vllm-14b-5d47f8b6f4-def34   1/1     Running   0          2m
-
-kubectl logs -n aither-inference -l app=vllm --tail=50
-# INFO:     Started server process [1]
-# INFO:     Waiting for model to load...
-# INFO:     Loaded model Qwen2.5-14B-Instruct, memory used: 28.4GB
-# INFO:     Application startup complete.
-```
-
-### 6. Проверить API
-
-```bash
-# Прямой доступ к Pod (диагностика)
-kubectl port-forward -n aither-inference svc/vllm-api 8000:8000 &
-
-curl http://localhost:8000/health
-# {"status": "ok"}
-
-curl -X POST http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "Qwen/Qwen2.5-14B-Instruct",
-    "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is Kubernetes?"}
-    ],
-    "max_tokens": 128,
-    "temperature": 0.7
-  }'
+                    ┌──────────────────────┐
+                    │   Пользователь        │
+                    │   curl / v1/completions│
+                    └──────────┬───────────┘
+                               │
+                    ┌──────────▼───────────┐
+                    │  Service: vllm-api   │
+                    │  ClusterIP :8000     │
+                    └──────────┬───────────┘
+                               │
+          ┌────────────────────┴────────────────────┐
+          │                                         │
+┌─────────▼──────────┐                 ┌────────────▼─────────┐
+│   n8 (GPU 0,1)     │                 │   n7 (GPU 0)         │
+│ Coder-14B-Instruct │                 │ 32B-GPTQ             │
+│ TP=2, port 8000    │                 │ TP=1, port 8001      │
+│ ──────────────     │                 │ ──────────────       │
+│ ✅ Работает        │                 │ ❌ Ждёт развёртывания │
+└────────────────────┘                 └──────────────────────┘
 ```
 
 ---
 
 ## Текущее состояние
 
-| Компонент                     | Статус               | Примечание                          |
-|-------------------------------|----------------------|-------------------------------------|
-| **Namespace** aither-inference | ❌ Не создан         | —                                   |
-| **PVC** model-storage         | ❌ Не создан         | —                                   |
-| **Модель** на PVC             | ❌ Не загружена      | ~28GB download                      |
-| **Deployment** vllm-14b       | ❌ Не развёрнут      | —                                   |
-| **Service** vllm-api          | ❌ Не создан         | —                                   |
-| GPU в Capacity                | ✅ 2/2 на n8, 2/2 n7 | Этап 2 завершён                     |
-| NVIDIA RuntimeClass           | ✅ nvidia            | Создан                              |
+| Компонент | Статус | Примечание |
+|-----------|--------|------------|
+| **Namespace** aither-inference | ✅ Создан | — |
+| **ServiceAccount** vllm-sa | ✅ Создан | С правами на pods/log |
+| **Service** vllm-api | ✅ ClusterIP :8000 | Порт 8001 добавлен для 32B |
+| **PV / PVC** | ❌ Не используется | Используется `hostPath: /data/models` на каждой ноде |
+| **Deployment: Coder-14B** (n8) | ✅ **Running** | TP=2, оба GPU, default namespace |
+| **Deployment: 14B-Instruct** (n7) | ❌ CrashLoopBackOff | OOM — 14B fp16 не влезает в 23GB |
+| **Deployment: 32B-GPTQ** (n7) | ❌ Не развёрнут | Модель на диске ✅, ждёт запуска |
+| GPU в Capacity | ✅ 2/2 на n8, 2/2 на n7 | — |
+| NVIDIA RuntimeClass | ✅ nvidia | — |
+
+### Почему 14B не работает на 1× RTX 6000
+
+14B параметров в float16 = 28GB весов. PyTorch аллоцирует ~21.6GB на загрузку,
+плюс KV Cache (~1-4GB). RTX 6000 имеет 23GB HBM2 — не хватает даже на минимальный контекст.
+
+**Решение:** `--cpu-offload-gb 4` + `--max-model-len 1024` частично решает,
+но для production используем **32B-GPTQ** (4-bit, ~10GB в GPU).
+
+---
+
+## Последовательность развёртывания
+
+### Prerequisites
+
+```bash
+# Модели должны быть на каждой ноде локально в /data/models/
+ssh n8 "ls /data/models/Qwen2.5-32B-GPTQ/model-00001-of-00005.safetensors"
+ssh n7 "ls /data/models/Qwen2.5-32B-GPTQ/model-00005-of-00005.safetensors"
+
+# Если модели нет на n7 — скопировать с n8:
+# Через bastion:
+ssh n7 "rsync -avP 10.129.13.78:/data/models/Qwen2.5-32B-GPTQ/ /data/models/Qwen2.5-32B-GPTQ/"
+```
+
+### 1. Создать namespace, SA, Service
+
+```bash
+kubectl apply -f manifests/vllm-namespace.yaml
+kubectl apply -f manifests/vllm-sa.yaml
+kubectl apply -f manifests/vllm-service.yaml
+```
+
+### 2. Развернуть vLLM с выбранной моделью
+
+> **Рекомендуется:** `vllm-deployment.yaml` содержит два Deployment — 14B-Instruct (CPU offload) и 32B-GPTQ.
+> Выберите один и примените.
+
+**Вариант A: 32B-GPTQ (рекомендуется)**
+```yaml
+# manifests/vllm-deployment.yaml — секция vllm-32b-gptq
+# --tensor-parallel-size 1
+# --model /models/Qwen2.5-32B-GPTQ
+kubectl delete deployment -n aither-inference vllm-14b-instruct 2>/dev/null; \
+kubectl apply -f manifests/vllm-deployment.yaml
+```
+
+**Вариант B: 14B-Instruct с CPU offload**
+```yaml
+# manifests/vllm-deployment.yaml — секция vllm-14b-instruct
+# --cpu-offload-gb 4, --max-model-len 4096
+kubectl delete deployment -n aither-inference vllm-32b-gptq 2>/dev/null; \
+kubectl apply -f manifests/vllm-deployment.yaml
+```
+
+### 3. Проверить состояние
+
+```bash
+kubectl get pods -n aither-inference -w
+# NAME                                 READY   STATUS    RESTARTS   AGE
+# vllm-32b-gptq-xxxxxxxxx-xxxxx        1/1     Running   0          2m
+
+kubectl logs -n aither-inference -l app=vllm --tail=5
+# INFO:     Application startup complete.
+```
+
+### 4. Проверить API
+
+```bash
+# Прямой тест через port-forward
+kubectl port-forward -n aither-inference svc/vllm-api 8000:8000 &
+
+# 32B-GPTQ
+curl http://localhost:8001/health
+# {"status": "ok"}
+
+curl -X POST http://localhost:8001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "Qwen2.5-32B-GPTQ",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "max_tokens": 64
+  }'
+```
 
 ---
 
 ## Схемы
 
-Диаграммы в формате DOT для визуализации через Graphviz:
-
 ```bash
-# Установить graphviz при необходимости
+# Установить graphviz
 apt-get install -y graphviz
 
 # Архитектура компонентов
@@ -212,31 +200,29 @@ dot -Tpng docs/diagrams/03-deploy-sequence.dot \
 
 ---
 
-## Метрики производительности (ожидаемые)
+## Особенности RTX 6000 (Turing TU102)
 
-После запуска, для модели Qwen2.5-14B-Instruct (14B, BF16):
-
-| Конфигурация | GPU | Memory usage | Throughput (tok/s) | Latency p50 |
-|--------------|-----|--------------|--------------------|-------------|
-| TP=1, BS=1   | 1× RTX 6000 | ~28 GB | ~25 tok/s  | ~200ms |
-| TP=1, BS=8   | 1× RTX 6000 | ~32 GB | ~80 tok/s  | ~500ms |
-| TP=2 (Et.4)  | 2× RTX 6000 | ~30 GB | ~45 tok/s  | ~150ms |
-| TP=2, BS=8   | 2× RTX 6000 | ~34 GB | ~140 tok/s | ~350ms |
-
-> **BS** = batch size. RTX 6000 (TU102) — 23GB HBM2, ~460 GB/s bandwidth.
-> BF16 throughput — ~25-30 tok/s на GPU. TP=2 даёт почти линейный прирост.
+| Параметр | Значение |
+|----------|----------|
+| GPU Architecture | Turing (CC 7.5) |
+| VRAM | 23GB HBM2 |
+| Memory bandwidth | ~460 GB/s |
+| bfloat16 support | ❌ Не поддерживается |
+| FlashAttention-2 | ❌ Не поддерживается |
+| vLLM engine | V0 (V1 несовместим с CC < 8.0) |
+| Attention backend | XFormers |
+| Рекомендуемый dtype | `half` (float16) |
+| Рекомендуемая квантизация | GPTQ 4-bit |
 
 ---
 
-## Устранение неисправностей
+## Метрики производительности (ожидаемые)
 
-| Симптом | Причина | Решение |
-|---------|---------|---------|
-| `OutOfMemory` / Pod в CrashLoop | 14B модель не влезает | Уменьшить `max-model-len` до 8192, `gpu-memory-utilization` до 0.80 |
-| Pod в `Pending` (0/1) | GPU занят другим Pod | Проверить `kubectl describe pod`, убавить реплики до 1 |
-| `/health` не отвечает | Модель загружается | Подождать 2-5 минут, проверить логи |
-| `CUDA driver version insufficient` | Несовместимость драйвера | `nvidia-smi`, переустановить драйвер |
-| `huggingface_hub` timeout | Нет доступа к HF | Использовать зеркало HF_MIRROR или предзагруженный кеш |
+| Модель | Параметры | GPU | Memory | t/s (BS=1) | t/s (BS=8) |
+|--------|-----------|-----|--------|-----------|-----------|
+| Coder-14B (работает) | TP=2, 2 GPU | 2× RTX 6000 | ~21GB×2 | ~45 | ~140 |
+| 14B-Instruct | TP=1, CPU offload | 1× RTX 6000 | ~20GB | ~15 | ~40 |
+| **32B-GPTQ** | **TP=1** | **1× RTX 6000** | **~10GB** | **~30** | **~80** |
 
 ---
 
@@ -245,13 +231,11 @@ dot -Tpng docs/diagrams/03-deploy-sequence.dot \
 ```
 03-vllm-14b-deploy/
 ├── README.md                                    ← этот файл
-├── .gitkeep
 ├── manifests/
 │   ├── vllm-namespace.yaml                      ← namespace aither-inference
 │   ├── vllm-sa.yaml                             ← ServiceAccount + RBAC
-│   ├── model-pvc.yaml                           ← PVC 100Gi RWX
-│   ├── vllm-deployment.yaml                     ← 2 реплики vLLM
-│   └── vllm-service.yaml                        ← ClusterIP :8000
+│   ├── vllm-deployment.yaml                     ← 2 Deployment: 14B + 32B
+│   └── vllm-service.yaml                        ← ClusterIP :8000, :8001
 └── docs/diagrams/
     ├── 03-vllm-14b-deploy.dot                   ← архитектура компонентов
     └── 03-deploy-sequence.dot                   ← последовательность развёртывания
