@@ -103,7 +103,7 @@ kubectl get daemonset -A | grep -Ei 'calico|cilium|antrea'
 | 3 | CNI + NetworkPolicy | 🟡 | Файл готов, не применён |
 | 4 | Метки на ноды | ✅ | Обе ноды помечены для обеих моделей |
 | 5 | Проверка taints | ✅ | Taints нет ни на одной ноде |
-| 6 | Проверка моделей на нодах | 🔴 | Не выполнена (нет SSH на n7/n8 для проверки файлов) |
+| 6 | Проверка моделей на нодах | ✅ | **Выполнено.** Обе модели присутствуют на n7 и n8: 14B=28GB (8 safetensors), 32B-GPTQ=19GB (5 safetensors), config.json OK |
 | 7 | Создание Secret | ✅ | Idempotent, ключ сохранён локально |
 | 8 | Rollout strategy | ✅ | maxSurge:0, maxUnavailable:1 |
 | 9 | Guaranteed QoS | ✅ | requests = limits |
