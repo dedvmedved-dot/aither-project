@@ -61,12 +61,14 @@ spec:
             - --dtype
             - half
             - --max-num-seqs
-            - "4"
+            - "1"
             - --enforce-eager
             - --cpu-offload-gb
             - "4"
             - --swap-space
             - "8"
+            - --generation-config
+            - vllm
             - --served-model-name
             - qwen-14b
             - --disable-log-requests
