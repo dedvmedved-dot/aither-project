@@ -100,7 +100,7 @@ kubectl get daemonset -A | grep -Ei 'calico|cilium|antrea'
 |---|---|---|---|
 | 1 | Kubeconfig | ✅ | Получен с n8, сохранён локально |
 | 2 | ClusterDNS | ✅ | CoreDNS 2/2, ClusterIP 10.96.0.10 |
-| 3 | CNI + NetworkPolicy | 🟡 | Файл готов, не применён |
+| 3 | CNI + NetworkPolicy | 🟡 | **Flannel** — **не поддерживает NetworkPolicy.** Объект создан, но трафик не фильтруется. Для реальной изоляции нужен Calico/Cilium |
 | 4 | Метки на ноды | ✅ | Обе ноды помечены для обеих моделей |
 | 5 | Проверка taints | ✅ | Taints нет ни на одной ноде |
 | 6 | Проверка моделей на нодах | ✅ | **Выполнено.** Обе модели присутствуют на n7 и n8: 14B=28GB (8 safetensors), 32B-GPTQ=19GB (5 safetensors), config.json OK |
