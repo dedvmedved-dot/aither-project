@@ -1,0 +1,2148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aither — Token‑as‑a‑Service</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg-card: #13131a;
+  --bg-card-hover: #1a1a24;
+  --bg-input: #0d0d14;
+  --border: #1f1f2e;
+  --border-focus: #4f46e5;
+  --text: #e4e4ec;
+  --text-muted: #71718a;
+  --text-dim: #4a4a5e;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-glow: rgba(99,102,241,0.15);
+  --green: #34d399;
+  --green-bg: rgba(52,211,153,0.1);
+  --red: #f87171;
+  --red-bg: rgba(248,113,113,0.1);
+  --yellow: #fbbf24;
+  --yellow-bg: rgba(251,191,36,0.1);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Top accent glow */
+body::after {
+  content: '';
+  position: fixed;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== LAYOUT ===== */
+#app { position:relative; z-index:1; }
+
+/* ===== HEADER ===== */
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10,10,15,0.8);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-left { display:flex; align-items:center; gap:32px; }
+.logo {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.3px;
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header-subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  opacity: 0.7;
+  line-height: 1.3;
+  max-width: 380px;
+}
+@media (max-width: 900px) { .header-subtitle { display: none; } }
+.nav { display:flex; gap:4px; }
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nav-btn:hover { color: var(--text); background: var(--bg-card); }
+.nav-btn.active { color: var(--text); background: var(--bg-card); }
+.header-right { display:flex; align-items:center; gap:12px; }
+.user-name { font-size:14px; color:var(--text-muted); }
+.btn-logout {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-logout:hover { color: var(--red); border-color: var(--red); }
+
+/* ===== MAIN ===== */
+.main { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
+.main.chat-main-wrap { max-width: none; padding: 0; overflow: hidden; }
+
+/* ===== LOGIN ===== */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+.login-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 48px 40px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: var(--shadow);
+}
+.login-card h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 8px;
+}
+.login-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+.login-card input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.login-card input:focus { border-color: var(--border-focus); }
+.login-card button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 11px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.login-card button:hover { background: var(--accent-hover); box-shadow: 0 0 20px var(--accent-glow); }
+.login-error { color: var(--red); font-size: 13px; margin-top: 12px; display: none; }
+.login-divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.login-divider::before, .login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.login-divider span { margin: 0 12px; }
+.btn-github {
+  background: #24292e;
+  border: 1px solid #444d56;
+}
+.btn-github:hover { background: #2f363d; border-color: #6366f1; }
+.btn-oauth {
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  color: #e4e4ec;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.btn-google {
+  background: #fff;
+  color: #333;
+  border: 1px solid #ddd;
+}
+.btn-google:hover { border-color: #6366f1; }
+.btn-google b { color: #4285f4; font-size: 18px; }
+.btn-yandex {
+  background: #fc3f1d;
+  border: 1px solid #e03414;
+  color: #fff;
+}
+.btn-yandex:hover { background: #e03414; }
+.btn-yandex b { color: #fff; font-size: 16px; }
+
+/* ===== PAGE HEADER ===== */
+.page-header {
+  margin-bottom: 32px;
+}
+.page-header h2 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.page-header p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+
+/* ===== STATS GRID ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  transition: border-color 0.15s;
+}
+.stat-card:hover { border-color: var(--border-focus); }
+.stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.stat-value { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
+.stat-value.green { color: var(--green); }
+.stat-value.accent { background: linear-gradient(135deg, #6366f1, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.stat-sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+.card-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-header h3 { font-size: 16px; font-weight: 600; }
+.card-body { padding: 24px; }
+
+/* ===== TABLE ===== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg-card-hover); }
+
+/* ===== BADGES ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+.badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+.badge-accent { background: var(--accent-glow); color: var(--accent-hover); }
+
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 0 16px var(--accent-glow); }
+.btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--border-focus); }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid transparent; }
+.btn-danger:hover { border-color: var(--red); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ===== FORMS ===== */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+.form-input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--border-focus); }
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--text-dim);
+}
+.empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state h4 { color: var(--text-muted); font-size: 15px; margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+/* ===== KEY REVEAL ===== */
+.key-reveal {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--green);
+  word-break: break-all;
+  margin-top: 8px;
+  display: none;
+}
+.key-reveal-label { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+
+/* ===== TOAST ===== */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 20px;
+  font-size: 14px;
+  box-shadow: var(--shadow);
+  animation: slideIn 0.2s ease-out;
+  max-width: 400px;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error { border-left: 3px solid var(--red); }
+@keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 480px;
+  max-width: 90vw;
+  box-shadow: var(--shadow);
+}
+.modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; }
+
+/* ===== LOADING ===== */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ===== MONOSPACE CODE ===== */
+code, .mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-hover);
+}
+
+/* ===== CHART CONTAINER ===== */
+.chart-container {
+  position: relative;
+  height: 280px;
+  margin: 0 -8px;
+}
+
+/* ===== CHAT LAYOUT ===== */
+.chat-container {
+  display: flex;
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+.chat-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.chat-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.chat-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  min-height: 0;
+}
+.chat-sidebar-item {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 2px;
+  transition: background 0.15s;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-sidebar-item:hover { background: var(--bg-card-hover); }
+.chat-sidebar-item.active { background: var(--accent-glow); }
+.chat-sidebar-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.chat-sidebar-item-date { font-size: 11px; color: var(--text-dim); margin-left: 8px; flex-shrink: 0; }
+.chat-sidebar-item-del {
+  color: var(--text-dim);
+  margin-left: 6px;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.chat-sidebar-item:hover .chat-sidebar-item-del { opacity: 1; }
+.chat-sidebar-item-del:hover { color: var(--red); }
+
+.chat-sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.chat-balance {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.chat-balance-val { color: var(--green); font-weight: 600; }
+.chat-org-select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.chat-model-select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  min-height: 0;
+}
+.chat-messages-inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.chat-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: 16px;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-empty-icon { font-size: 48px; }
+
+.chat-msg {
+  margin-bottom: 24px;
+  display: flex;
+  gap: 12px;
+}
+.chat-msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.chat-msg-avatar.user { background: var(--accent-glow); }
+.chat-msg-avatar.assistant { background: linear-gradient(135deg, #6366f1, #a78bfa); }
+.chat-msg-content {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.7;
+  min-width: 0;
+}
+.chat-msg-content code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-hover);
+}
+.chat-msg-content pre {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  margin: 8px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+}
+.chat-msg-content pre code { background: none; padding: 0; white-space: pre-wrap; word-break: break-word; }
+/* Built-in syntax highlighting */
+.hljs-keyword { color: #c678dd; }
+.hljs-string { color: #98c379; }
+.hljs-comment { color: #5c6370; font-style: italic; }
+.hljs-number { color: #d19a66; }
+.hljs-built_in { color: #e5c07b; }
+.hljs-function { color: #61afef; }
+.hljs-title { color: #61afef; }
+.hljs-params { color: #abb2bf; }
+.hljs-literal { color: #56b6c2; }
+.hljs-type { color: #e5c07b; }
+.hljs-meta { color: #c678dd; }
+.hljs-attr { color: #d19a66; }
+.hljs-variable { color: #e06c75; }
+.hljs-symbol { color: #56b6c2; }
+.hljs-regexp { color: #56b6c2; }
+.chat-msg-content p { margin: 0 0 8px 0; }
+.chat-msg-content p:last-child { margin-bottom: 0; }
+.chat-msg-content ul, .chat-msg-content ol { margin: 8px 0; padding-left: 20px; }
+.chat-msg-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.chat-msg-streaming .chat-msg-content::after {
+  content: '▊';
+  animation: blink 1s infinite;
+  color: var(--accent-hover);
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.chat-input-area {
+  padding: 16px 32px;
+  border-top: 1px solid var(--border);
+  max-width: 40%;
+  margin: 0 auto;
+  width: 100%;
+  flex-shrink: 0;
+}
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: center;
+}
+.chat-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  min-height: 44px;
+  max-height: 200px;
+  transition: border-color 0.15s;
+}
+.chat-input:focus { border-color: var(--border-focus); }
+.chat-send-btn {
+  padding: 10px 18px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: white;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  height: 44px;
+}
+.chat-send-btn:hover { background: var(--accent-hover); }
+.chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.chat-input-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.chat-input-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.chat-input-btn:hover { color: var(--text); border-color: var(--border-focus); }
+
+/* ===== SHARE MODAL ===== */
+.share-url {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--green);
+  word-break: break-all;
+  margin: 12px 0;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .header { padding: 0 16px; }
+  .main { padding: 24px 16px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .stat-value { font-size: 24px; }
+}
+
+/* Auth tabs */
+.auth-tabs { display:flex; gap:4px; margin-bottom:16px; background:var(--bg-input); border-radius:var(--radius); padding:3px; }
+.auth-tab { flex:1; padding:8px 16px; border:none; background:transparent; color:var(--text-muted); cursor:pointer; border-radius:var(--radius-sm); font-size:13px; font-weight:500; transition:all .2s; }
+.auth-tab.active { background:var(--accent); color:#fff; }
+.auth-tab:hover:not(.active) { color:var(--text); }
+#auth-login input, #auth-signup input { width:100%; padding:10px 12px; margin-bottom:8px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:13px; }
+#auth-login input:focus, #auth-signup input:focus { border-color:var(--accent); outline:none; }
+
+/* Dashboard stats */
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.stat-card { background:var(--bg-card); border-radius:var(--radius); padding:16px; text-align:center; }
+.stat-val { font-size:24px; font-weight:700; color:var(--accent); }
+.stat-label { font-size:11px; color:var(--text-muted); margin-top:4px; }
+.chart-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.chart-box { background:var(--bg-card); border-radius:var(--radius); padding:16px; }
+.chart-box canvas { max-height:280px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ===== STATE =====
+const state = {
+  token: localStorage.getItem('aither_token'),
+  user: null,
+  page: 'dashboard',
+  orgs: [],
+  selectedOrg: null,
+  apiKeys: [],
+  usage: null,
+  usageHistory: [],
+  coreStatus: null,
+  // Chat state
+  chats: [],
+  chatId: localStorage.getItem('aither_chat_id') || null,
+  chatMessages: [],
+  chatStreaming: false,
+  chatOrgId: localStorage.getItem('aither_chat_org') || '',
+  chatModel: localStorage.getItem('aither_chat_model') || 'qwen2.5-14b',
+  availableModels: [],
+};
+
+// ===== HELPERS =====
+const $ = (sel, ctx=document) => ctx.querySelector(sel);
+const $$ = (sel, ctx=document) => ctx.querySelectorAll(sel);
+
+function api(path, opts={}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  return fetch(path, { headers, ...opts }).then(r => r.json().then(d => ({ ok: r.ok, status: r.status, data: d })));
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  $('#toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; setTimeout(() => el.remove(), 200); }, 3500);
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function formatNumber(n) {
+  if (n == null) return '0';
+  return n.toLocaleString('ru-RU');
+}
+
+function safeParse(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch(e) {} }
+  return [];
+}
+
+// ===== AUTH =====
+async function checkAuth() {
+  if (!state.token) return false;
+  const { ok, data } = await api('/api/v1/me');
+  if (ok && data.user) {
+    state.user = data.user;
+    return true;
+  }
+  state.token = null;
+  localStorage.removeItem('aither_token');
+  return false;
+}
+
+function logout() {
+  state.token = null;
+  state.user = null;
+  localStorage.removeItem('aither_token');
+  render();
+}
+
+// ===== RENDER =====
+async function render() {
+  if (!state.token || !(await checkAuth())) {
+    renderLogin();
+    return;
+  }
+  // Load models BEFORE rendering (needed for chat dropdown)
+  if (state.availableModels.length === 0) {
+    const { ok, data } = await api('/api/v1/models?_=' + Date.now());
+    console.log('Models loaded:', ok, data?.data?.length, data?.data?.map(m=>m.id));
+    if (ok && data?.data) state.availableModels = data.data;
+  }
+  renderApp();
+  switch (state.page) {
+    case 'dashboard': await renderDashboard(); break;
+    case 'orgs': await renderOrgs(); break;
+    case 'org-detail': await renderOrgDetail(); break;
+    case 'chats': await renderChats(); break;
+    case 'shared': await renderShared(); break;
+    case 'tiers': await renderTiers(); break;
+    case 'dashboard': await renderDashboard(); break;
+  }
+}
+
+// ===== LOGIN PAGE =====
+function renderLogin() {
+  $('#app').innerHTML = `
+    <div class="login-page">
+      <div class="login-card">
+        <h1>Aither</h1>
+        <p>Token‑as‑a‑Service — платформа для инференса LLM</p>
+        <p style="font-size:11px;color:var(--text-dim);margin-bottom:20px;line-height:1.4;">Пилотный проект Управления виртуализации и облачных сервисов<br>(Группа разработки AI-систем), АО «Гринатом»</p>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="switchAuthTab('login')" id="tab-login">Вход</button>
+          <button class="auth-tab" onclick="switchAuthTab('signup')" id="tab-signup">Регистрация</button>
+        </div>
+
+        <!-- Login form -->
+        <div id="auth-login">
+          <input type="email" id="login-email" placeholder="Email">
+          <input type="password" id="login-password" placeholder="Пароль">
+          <button onclick="doLogin()" style="margin-top:12px;width:100%;">Войти</button>
+          <div style="margin:12px 0;text-align:center;color:var(--text-muted);font-size:12px">или через соцсети</div>
+        </div>
+
+        <!-- Signup form (hidden by default) -->
+        <div id="auth-signup" style="display:none">
+          <input type="email" id="signup-email" placeholder="Email">
+          <input type="password" id="signup-password" placeholder="Пароль (мин. 6 символов)">
+          <input type="text" id="signup-org" placeholder="Название организации">
+          <button onclick="doSignup()" style="margin-top:12px;width:100%;">Зарегистрироваться</button>
+        </div>
+
+        <button class="btn-oauth btn-github" onclick="loginWith('github')">🐙 GitHub</button>
+        <button class="btn-oauth btn-google" onclick="loginWith('google')"><b>G</b> Google</button>
+        <button class="btn-oauth btn-yandex" onclick="loginWith('yandex')"><b>Я</b> Яндекс</button>
+
+        <div style="margin-top:8px;text-align:center">
+          <button onclick="doDevLogin()" style="font-size:10px;color:var(--text-dim);background:none;border:none;cursor:pointer;text-decoration:underline;">Dev-вход (по имени)</button>
+        </div>
+
+        <div class="login-error" id="login-error"></div>
+      </div>
+    </div>`;
+  $$('#login-email,#login-password,#signup-email,#signup-password,#signup-org').forEach(el =>
+    el.addEventListener('keydown', e => { if (e.key==='Enter') { const id=el.id; id.startsWith('signup')?doSignup():doLogin(); }}));
+}
+
+function switchAuthTab(mode) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+mode).classList.add('active');
+  document.getElementById('auth-login').style.display = mode==='login'?'block':'none';
+  document.getElementById('auth-signup').style.display = mode==='signup'?'block':'none';
+  document.getElementById('login-error').style.display = 'none';
+}
+
+async function doLogin() {
+  const email = $('#login-email')?.value?.trim();
+  const password = $('#login-password')?.value?.trim();
+  if (!email || !password) { showLoginError('Введите email и пароль'); return; }
+  const { ok, data } = await api('/auth/login', { method:'POST', body: JSON.stringify({email, password}) });
+  if (ok && data.access_token) {
+    state.token = data.access_token;
+    localStorage.setItem('aither_token', state.token);
+    render();
+  } else {
+    showLoginError((data||{}).error || 'Неверный email или пароль');
+  }
+}
+
+async function doSignup() {
+  const email = $('#signup-email')?.value?.trim();
+  const password = $('#signup-password')?.value?.trim();
+  const org_name = $('#signup-org')?.value?.trim();
+  if (!email || !password) { showLoginError('Введите email и пароль'); return; }
+  if (password.length < 6) { showLoginError('Пароль должен быть не менее 6 символов'); return; }
+  const { ok, data } = await api('/auth/signup', { method:'POST', body: JSON.stringify({email, password, org_name: org_name||undefined}) });
+  if (ok && data.access_token) {
+    state.token = data.access_token;
+    localStorage.setItem('aither_token', state.token);
+    alert('Регистрация успешна! Ваш API-ключ: ' + data.api_key + '\n\nСохраните его — он больше не будет показан.');
+    render();
+  } else {
+    showLoginError((data||{}).error || 'Ошибка регистрации');
+  }
+}
+
+function showLoginError(msg) {
+  const el = $('#login-error');
+  if (el) { el.style.display = 'block'; el.textContent = msg; }
+}
+
+async function doDevLogin() {
+  const name = prompt('Введите имя для dev-входа:');
+  if (!name) return;
+  const { ok, data } = await api('/auth/dev/login', { method:'POST', body: JSON.stringify({name}) });
+  if (ok && data.access_token) {
+    state.token = data.access_token;
+    localStorage.setItem('aither_token', state.token);
+    render();
+  }
+}
+
+function loginWith(provider) {
+  window.location.href = '/auth/' + provider;
+}
+
+// ===== APP SHELL =====
+function renderApp() {
+  const pages = [
+    { id:'chats', label:'Чаты' },
+    { id:'dashboard', label:'Дашборд' },
+    { id:'orgs', label:'Организации' },
+    { id:'tiers', label:'Тарифы' },
+  ];
+  if (state.selectedOrg && state.page==='org-detail') {
+    pages.push({ id:'org-detail', label: state.selectedOrg.name });
+  }
+  const navHtml = pages.map(p =>
+    `<button class="nav-btn${state.page===p.id?' active':''}" onclick="navigate('${p.id}')">${p.label}</button>`
+  ).join('');
+
+  $('#app').innerHTML = `
+    <div class="header">
+      <div class="header-left">
+        <span class="logo">Aither</span>
+        <span class="header-subtitle">Пилотный проект Управления виртуализации и облачных сервисов (Группа разработки AI-систем), АО «Гринатом»</span>
+        <nav class="nav">${navHtml}</nav>
+      </div>
+      <div class="header-right">
+        <span class="user-name">${state.user ? state.user.display_name : ''}</span>
+        <button class="btn-logout" onclick="logout()">Выйти</button>
+      </div>
+    </div>
+    <div class="main ${state.page==='chats'?'chat-main-wrap':''}" id="main-content"></div>`;
+}
+
+function navigate(page) {
+  if (page === 'org-detail' && !state.selectedOrg) return;
+  state.page = page;
+  render();
+}
+
+// ===== DASHBOARD =====
+async function renderDashboard() {
+  const main = $('#main-content');
+  main.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  const [statusR, coreR] = await Promise.all([
+    api('/api/v1/status'),
+    api('/api/v1/core/status'),
+  ]);
+  state.coreStatus = coreR.ok ? coreR.data : null;
+
+  const status = statusR.ok ? statusR.data : { orgs:0, users:0, active_keys:0 };
+
+  main.innerHTML = `
+    <div class="page-header">
+      <h2>Дашборд</h2>
+      <p>Обзор платформы Aither — Token‑as‑a‑Service</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Организации</div>
+        <div class="stat-value accent">${formatNumber(status.orgs)}</div>
+        <div class="stat-sub">активных</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Пользователи</div>
+        <div class="stat-value">${formatNumber(status.users)}</div>
+        <div class="stat-sub">зарегистрировано</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">API‑ключи</div>
+        <div class="stat-value">${formatNumber(status.active_keys)}</div>
+        <div class="stat-sub">активных</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ядро (vLLM)</div>
+        <div class="stat-value ${state.coreStatus ? 'green' : ''}">${state.coreStatus ? 'Online' : '—'}</div>
+        <div class="stat-sub">${state.coreStatus ? state.coreStatus.model || 'GPU инференс' : 'недоступно'}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Архитектура платформы</h3></div>
+      <div class="card-body" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;justify-content:center;padding:32px;">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;font-size:13px;">
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;">
+            <div style="color:var(--accent-hover);font-weight:600;margin-bottom:4px;">🌐 Портал</div>
+            <div style="color:var(--text-dim);">VPS2</div>
+            <div style="color:var(--text-dim);">Fastify + nginx</div>
+          </div>
+          <div style="color:var(--text-dim);font-size:20px;">→</div>
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;">
+            <div style="color:var(--accent-hover);font-weight:600;margin-bottom:4px;">🔑 Gateway</div>
+            <div style="color:var(--text-dim);">40.51 · K8s</div>
+            <div style="color:var(--text-dim);">JWT RS256</div>
+          </div>
+          <div style="color:var(--text-dim);font-size:20px;">→</div>
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;">
+            <div style="color:var(--accent-hover);font-weight:600;margin-bottom:4px;">🧠 vLLM</div>
+            <div style="color:var(--text-dim);">40.51 · GPU</div>
+            <div style="color:var(--text-dim);">Qwen2.5‑14B</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Возможности</h3>
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+          ${[
+            {icon:'👤',title:'Dev-аутентификация',desc:'Вход по имени, JWT-токены на 24 часа'},
+            {icon:'🏢',title:'Организации',desc:'Создание организаций, управление участниками и ролями'},
+            {icon:'🔑',title:'API-ключи',desc:'Формат ak-..., отзыв ключей, аудит использования'},
+            {icon:'🔐',title:'Делегирование',desc:'JWT RS256 на 5 минут — безопасный доступ к GPU'},
+            {icon:'💰',title:'Биллинг',desc:'Double-entry: reserve → settle → refund, 1M токенов при создании'},
+            {icon:'📊',title:'Аналитика',desc:'Подсчёт токенов, дневная статистика, история списаний'},
+          ].map(f => `
+            <div style="padding:16px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border);">
+              <div style="font-size:20px;margin-bottom:8px;">${f.icon}</div>
+              <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${f.title}</div>
+              <div style="font-size:13px;color:var(--text-dim);">${f.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ===== ORGS =====
+async function renderOrgs() {
+  const main = $('#main-content');
+  main.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  const { ok, data } = await api('/api/v1/orgs');
+  state.orgs = ok ? (data.orgs||[]) : [];
+
+  main.innerHTML = `
+    <div class="page-header">
+      <h2>Организации</h2>
+      <p>Управление организациями и доступом к API</p>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <button class="btn btn-primary" onclick="showCreateOrg()">+ Новая организация</button>
+    </div>
+
+    ${state.orgs.length === 0 ? `
+      <div class="card">
+        <div class="card-body">
+          <div class="empty-state">
+            <div class="empty-state-icon">🏢</div>
+            <h4>Нет организаций</h4>
+            <p>Создайте первую организацию чтобы начать работу с API</p>
+          </div>
+        </div>
+      </div>
+    ` : `
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Название</th><th>Роль</th><th>Статус</th><th>Создана</th><th></th></tr></thead>
+            <tbody>
+              ${state.orgs.map(o => `
+                <tr>
+                  <td><strong>${esc(o.name)}</strong></td>
+                  <td><span class="badge badge-accent">${esc(o.role)}</span></td>
+                  <td><span class="badge badge-green">${esc(o.status)}</span></td>
+                  <td style="color:var(--text-dim);font-size:13px;">${formatDate(o.created_at)}</td>
+                  <td><button class="btn btn-secondary btn-sm" onclick="openOrg('${o.org_id}')">Открыть</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `}
+
+    ${renderCreateOrgModal()}`;
+}
+
+function esc(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+function renderCreateOrgModal() {
+  return `
+    <div class="modal-overlay" id="create-org-modal">
+      <div class="modal">
+        <h3>Новая организация</h3>
+        <div class="form-group">
+          <label class="form-label">Название</label>
+          <input class="form-input" id="new-org-name" placeholder="Например: NebulaCorp" autofocus>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeModal('create-org-modal')">Отмена</button>
+          <button class="btn btn-primary" onclick="createOrg()">Создать</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showCreateOrg() {
+  const modal = $('#create-org-modal');
+  if (!modal) { renderOrgs(); setTimeout(() => showCreateOrg(), 50); return; }
+  modal.classList.add('active');
+  setTimeout(() => $('#new-org-name')?.focus(), 100);
+}
+
+function closeModal(id) { $('#'+id)?.classList.remove('active'); }
+
+async function createOrg() {
+  const name = $('#new-org-name').value.trim();
+  if (!name) return;
+  const { ok, data } = await api('/api/v1/orgs', { method:'POST', body: JSON.stringify({name}) });
+  if (ok) {
+    closeModal('create-org-modal');
+    toast(`Организация «${name}» создана`);
+    renderOrgs();
+  } else {
+    toast((data||{}).error || 'Ошибка', 'error');
+  }
+}
+
+function openOrg(orgId) {
+  const org = state.orgs.find(o => o.org_id === orgId);
+  if (org) {
+    state.selectedOrg = org;
+    state.page = 'org-detail';
+    render();
+  }
+}
+
+// ===== ORG DETAIL =====
+async function renderOrgDetail() {
+  const main = $('#main-content');
+  main.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  const org = state.selectedOrg;
+  if (!org) { navigate('orgs'); return; }
+
+  const [keysR, detailR] = await Promise.all([
+    api(`/api/v1/orgs/${org.org_id}/api-keys`),
+    api(`/api/v1/orgs/${org.org_id}`),
+  ]);
+
+  state.apiKeys = keysR.ok ? (keysR.data.keys||[]) : [];
+  if (detailR.ok && detailR.data.org) state.selectedOrg = detailR.data.org;
+
+  // Load usage from Gateway
+  let delegationToken = null;
+  try {
+    const activeKey = state.apiKeys.find(k => k.status==='active');
+    if (activeKey) {
+      // We don't have full key, but we'll try to show billing info
+    }
+  } catch(e) {}
+
+  main.innerHTML = `
+    <div class="page-header">
+      <h2>${esc(state.selectedOrg.name)}</h2>
+      <p>org_id: <code>${esc(state.selectedOrg.org_id)}</code> · роль: <span class="badge badge-accent">${esc(state.selectedOrg.role)}</span></p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">API‑ключи</div>
+        <div class="stat-value accent">${state.apiKeys.filter(k=>k.status!=='revoked').length}</div>
+        <div class="stat-sub">активных</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Создана</div>
+        <div class="stat-value" style="font-size:20px;">${formatDate(state.selectedOrg.created_at)}</div>
+      </div>
+    </div>
+
+    <!-- Top-up -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <h3>💰 Пополнение баланса</h3>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <input type="number" id="topup-amount" class="form-input" style="width:180px;" placeholder="Сумма в ₽" min="1" value="1000">
+          <button class="btn btn-primary" onclick="doTopup()">Пополнить</button>
+          <span style="font-size:13px;color:var(--text-dim);">1 ₽ = 1 000 токенов</span>
+        </div>
+        <div id="topup-result" style="margin-top:12px;font-size:14px;"></div>
+      </div>
+    </div>
+
+    <!-- API Keys -->
+    <div class="card">
+      <div class="card-header">
+        <h3>API‑ключи</h3>
+        <button class="btn btn-primary btn-sm" onclick="showCreateKey()">+ Новый ключ</button>
+      </div>
+      <div class="card-body" id="keys-body">
+        <div id="keys-list">
+        ${state.apiKeys.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔑</div>
+            <h4>Нет ключей</h4>
+            <p>Создайте API-ключ для доступа к инференсу</p>
+          </div>
+        ` : `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Название</th><th>Префикс</th><th>Статус</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead>
+              <tbody>
+                ${state.apiKeys.map(k => `
+                  <tr>
+                    <td><strong>${esc(k.name)}</strong></td>
+                    <td><code>${esc(k.api_key_prefix)}</code></td>
+                    <td><span class="badge ${k.status==='active'?'badge-green':'badge-red'}">${esc(k.status)}</span></td>
+                    <td style="color:var(--text-dim);font-size:13px;">${formatDate(k.created_at)}</td>
+                    <td style="color:var(--text-dim);font-size:13px;">${formatDate(k.last_used_at)}</td>
+                    <td>${k.status==='active' ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${k.key_id}')">Отозвать</button>` : ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+        </div>
+        <div class="key-reveal" id="key-reveal">
+          <div class="key-reveal-label">⚠️ Новый ключ — скопируйте сейчас. Больше не будет показан:</div>
+          <div id="key-reveal-value"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delegation -->
+    <div class="card">
+      <div class="card-header"><h3>Делегирование (Delegation Token)</h3></div>
+      <div class="card-body">
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;">
+          Delegation Token — короткоживущий JWT RS256 для прямого доступа к Gateway на 40.51.
+          Срок действия: <strong>5 минут</strong>.
+        </p>
+        <div class="form-group">
+          <label class="form-label">API-ключ</label>
+          <div style="display:flex;gap:8px;">
+            <input class="form-input" id="delegate-api-key" placeholder="ak-..." style="font-family:'JetBrains Mono',monospace;font-size:13px;">
+            <button class="btn btn-primary" onclick="getDelegationToken()">Получить токен</button>
+          </div>
+        </div>
+        <div id="delegate-result" style="display:none;margin-top:16px;">
+          <label class="form-label">Delegation Token (JWT RS256)</label>
+          <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all;color:var(--green);" id="delegate-token-value"></div>
+          <p style="color:var(--text-dim);font-size:12px;margin-top:4px;">Используйте: <code>Authorization: Bearer &lt;to...ode> → <code>https://YOUR_HOST/v1/chat/completions</code></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Usage & Billing -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Использование</h3>
+        <span style="font-size:12px;color:var(--text-dim);">данные с Gateway (40.51)</span>
+      </div>
+      <div class="card-body" id="usage-body">
+        <div style="color:var(--text-dim);font-size:14px;text-align:center;padding:20px;">
+          Для просмотра статистики используйте Delegation Token ⬆
+        </div>
+      </div>
+    </div>
+
+    ${renderCreateKeyModal()}`;
+}
+
+async function getDelegationToken() {
+  const apiKey = $('#delegate-api-key').value.trim();
+  if (!apiKey) { toast('Введите API-ключ', 'error'); return; }
+  const { ok, data } = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/delegate`, {
+    method: 'POST',
+    body: JSON.stringify({api_key: apiKey})
+  });
+  if (ok && data.delegation_token) {
+    $('#delegate-result').style.display = 'block';
+    $('#delegate-token-value').textContent = data.delegation_token;
+    // Try to fetch usage
+    await loadUsage(data.delegation_token);
+  } else {
+    toast((data||{}).error || 'Ошибка делегирования', 'error');
+  }
+}
+
+async function loadUsage(delegationToken) {
+  const GATEWAY = window.location.origin;
+  try {
+    const [usageR, billingR, historyR] = await Promise.all([
+      fetch(`${GATEWAY}/v1/usage/`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
+      fetch(`${GATEWAY}/v1/billing/`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
+      fetch(`${GATEWAY}/v1/usage/history?limit=20`, { headers: { 'Authorization': 'Bearer ' + delegationToken } }).then(r => r.json()),
+    ]);
+
+    $('#usage-body').innerHTML = `
+      <div class="stats-grid" style="margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-label">Баланс</div>
+          <div class="stat-value accent">${formatNumber(billingR.balance || 0)}</div>
+          <div class="stat-sub">токенов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Зарезервировано</div>
+          <div class="stat-value">${formatNumber(billingR.reserved || 0)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Потрачено всего</div>
+          <div class="stat-value accent">${formatNumber(usageR.total_tokens || 0)}</div>
+          <div class="stat-sub">токенов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Запросов сегодня</div>
+          <div class="stat-value">${formatNumber(usageR.requests_today || 0)}</div>
+        </div>
+      </div>
+
+      ${(historyR.ledger||[]).length > 0 ? `
+        <h4 style="margin-bottom:12px;font-size:14px;color:var(--text-muted);">История операций</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Операция</th><th>Токены</th><th>Баланс после</th><th>Reference</th><th>Время</th></tr></thead>
+            <tbody>
+              ${historyR.ledger.map(l => `
+                <tr>
+                  <td><span class="badge ${l.operation==='settle'?'badge-green':l.operation==='reserve'?'badge-yellow':'badge-red'}">${esc(l.operation)}</span></td>
+                  <td><strong>${l.amount > 0 ? '+' : ''}${formatNumber(l.amount)}</strong></td>
+                  <td>${formatNumber(l.balance_after)}</td>
+                  <td><code style="font-size:11px;">${esc((l.reference||'').slice(0,8))}…</code></td>
+                  <td style="color:var(--text-dim);font-size:13px;">${formatDate(l.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : '<div style="color:var(--text-dim);font-size:13px;">Нет операций</div>'}
+    `;
+  } catch(e) {
+    $('#usage-body').innerHTML = `<div style="color:var(--red);font-size:13px;">Ошибка загрузки: Gateway недоступен</div>`;
+  }
+}
+
+function renderCreateKeyModal() {
+  return `
+    <div class="modal-overlay" id="create-key-modal">
+      <div class="modal">
+        <h3>Новый API-ключ</h3>
+        <div class="form-group">
+          <label class="form-label">Название (опционально)</label>
+          <input class="form-input" id="new-key-name" placeholder="default" autofocus>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeModal('create-key-modal')">Отмена</button>
+          <button class="btn btn-primary" onclick="createKey()">Создать</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showCreateKey() { $('#create-key-modal').classList.add('active'); setTimeout(() => $('#new-key-name')?.focus(), 100); }
+
+async function createKey() {
+  const name = $('#new-key-name').value.trim() || 'default';
+  const { ok, data } = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/api-keys`, {
+    method: 'POST',
+    body: JSON.stringify({name})
+  });
+  if (ok && data.key) {
+    closeModal('create-key-modal');
+    $('#key-reveal').style.display = 'block';
+    $('#key-reveal-value').textContent = data.key.api_key;
+    toast('API-ключ создан');
+    // Refresh keys list without losing the reveal
+    const keysR = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/api-keys`);
+    if (keysR.ok) {
+      state.apiKeys = keysR.data.keys || [];
+      renderKeysTable();
+    }
+  } else {
+    toast((data||{}).error || 'Ошибка', 'error');
+  }
+}
+
+function renderKeysTable() {
+  const el = document.getElementById('keys-list');
+  if (!el) return;
+  const rows = state.apiKeys.map(k => 
+    '<tr>' +
+      '<td><strong>' + esc(k.name) + '</strong></td>' +
+      '<td><code>' + esc(k.api_key_prefix) + '</code></td>' +
+      '<td><span class="badge ' + (k.status==='active'?'badge-green':'badge-red') + '">' + esc(k.status) + '</span></td>' +
+      '<td style="color:var(--text-dim);font-size:13px;">' + formatDate(k.created_at) + '</td>' +
+      '<td style="color:var(--text-dim);font-size:13px;">' + formatDate(k.last_used_at) + '</td>' +
+      '<td>' + (k.status==='active' ? '<button class="btn btn-danger btn-sm" onclick="revokeKey(\'' + k.key_id + '\')">Отозвать</button>' : '') + '</td>' +
+    '</tr>'
+  ).join('');
+  el.innerHTML = state.apiKeys.length === 0 ?
+    '<div class="empty-state"><div class="empty-state-icon">🔑</div><h4>Нет ключей</h4><p>Создайте API-ключ для доступа к инференсу</p></div>' :
+    '<div class="table-wrap"><table><thead><tr><th>Название</th><th>Префикс</th><th>Статус</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+async function revokeKey(keyId) {
+  if (!confirm('Отозвать ключ? Это действие необратимо.')) return;
+  const { ok, data } = await api(`/api/v1/orgs/${state.selectedOrg.org_id}/api-keys/${keyId}`, { method:'DELETE' });
+  if (ok) {
+    toast('Ключ отозван');
+    renderOrgDetail();
+  } else {
+    toast((data||{}).error || 'Ошибка', 'error');
+  }
+}
+
+// ===== TOP-UP =====
+
+async function doTopup() {
+  const amount = parseInt($('#topup-amount')?.value) || 0;
+  if (amount < 1) { toast('Введите сумму ≥ 1 ₽', 'error'); return; }
+
+  const orgId = state.selectedOrg?.org_id;
+  if (!orgId) { toast('Выберите организацию', 'error'); return; }
+
+  const el = $('#topup-result');
+  el.innerHTML = '<span style="color:var(--text-muted);">Создание платежа...</span>';
+
+  const { ok, data } = await api('/api/v1/billing/topup', {
+    method: 'POST',
+    body: JSON.stringify({ org_id: orgId, amount_rub: amount })
+  });
+
+  if (!ok) {
+    el.innerHTML = `<span style="color:var(--red);">Ошибка: ${(data||{}).error || 'неизвестная'}</span>`;
+    return;
+  }
+
+  if (data.dev_mode || data.status === 'succeeded') {
+    el.innerHTML = `<span style="color:var(--green);">✅ Зачислено ${data.tokens?.toLocaleString()} токенов!</span>`;
+    toast(`+${data.tokens?.toLocaleString()} токенов`);
+    return;
+  }
+
+  if (data.confirmation_url) {
+    el.innerHTML = `<a href="${data.confirmation_url}" target="_blank" class="btn btn-primary btn-sm">💳 Оплатить через ЮKassa</a>`;
+    window.open(data.confirmation_url, '_blank');
+  } else {
+    el.innerHTML = `<span style="color:var(--red);">Ошибка: нет ссылки на оплату</span>`;
+  }
+}
+
+// ===== CHATS =====
+
+async function renderChats() {
+  // Load orgs
+  const { ok: orgOk, data: orgData } = await api('/api/v1/orgs');
+  if (orgOk) state.orgs = orgData.orgs || [];
+
+  // Auto-create org if none
+  if (state.orgs.length === 0) {
+    const { ok: co, data: cd } = await api('/api/v1/orgs', { method:'POST', body: JSON.stringify({name:'Моя организация'}) });
+    if (co && cd.org) {
+      state.orgs = [cd.org];
+      state.chatOrgId = cd.org.org_id;
+      localStorage.setItem('aither_chat_org', state.chatOrgId);
+      // Auto-create API key for new org
+      await api('/api/v1/orgs/' + cd.org.org_id + '/api-keys', { method:'POST', body: JSON.stringify({name:'default'}) });
+    }
+  }
+
+  if (!state.chatOrgId && state.orgs.length > 0) {
+    state.chatOrgId = state.orgs[0].org_id;
+    localStorage.setItem('aither_chat_org', state.chatOrgId);
+  }
+
+  // Restore or create chat
+  if (!state.chatId) {
+    const { ok: lcOk, data: lcData } = await api('/api/v1/chats');
+    if (lcOk && lcData.chats && lcData.chats.length > 0) {
+      // Has chats — just pick the most recent one
+      state.chatId = lcData.chats[0].chat_id;
+      localStorage.setItem('aither_chat_id', state.chatId);
+    } else {
+      // No chats at all — create first one
+      const { ok: ncOk, data: ncData } = await api('/api/v1/chats', { method:'POST', body: JSON.stringify({model: state.chatModel}) });
+      if (ncOk && ncData.chat) {
+        state.chatId = ncData.chat.chat_id;
+        localStorage.setItem('aither_chat_id', state.chatId);
+        state.chatMessages = [];
+      }
+    }
+  }
+
+  let mainHtml = `
+    <div class="chat-container">
+    <div class="chat-sidebar">
+      <div class="chat-sidebar-header">
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="newChat()">+ Новый чат</button>
+        <select class="chat-model-select" id="chat-model-select" onchange="onChatModelChange(this.value)">
+          ${(state.availableModels.length > 0 ? state.availableModels : [{id:'qwen2.5-14b',display_name:'Qwen 2.5 14B'}]).map(m => 
+            `<option value="${esc(m.id)}" ${state.chatModel===m.id?'selected':''}>${esc(m.display_name || m.id)}</option>`
+          ).join('')}
+        </select>
+        <select class="chat-org-select" id="chat-org-select" onchange="onChatOrgChange(this.value)" style="margin-top:6px;">
+          ${state.orgs.map(o => `<option value="${esc(o.org_id)}" ${state.chatOrgId===o.org_id?'selected':''}>${esc(o.name)}</option>`).join('')}
+        </select>
+        <div class="chat-balance" id="chat-balance" style="margin-top:8px;">Баланс: —</div>
+      </div>
+      <div class="chat-sidebar-list" id="chat-list"></div>
+    </div>
+    <div class="chat-main">
+      <div class="chat-messages" id="chat-messages">
+        ${state.chatId ? '<div class="loading">Загрузка...</div>' : '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Создаю чат...</div></div>'}
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-input-row">
+          <textarea class="chat-input" id="chat-input" placeholder="Введите сообщение..." rows="1" onkeydown="onChatKey(event)"></textarea>
+          <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()">▶</button>
+        </div>
+        <div class="chat-input-actions">
+          <button class="chat-input-btn" onclick="shareChat()">🔗 Поделиться</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  $('#main-content').innerHTML = mainHtml;
+
+  await loadChatList();
+  loadBalance();
+
+  if (state.chatId) {
+    await loadChatMessages(state.chatId);
+  } else {
+    renderMessages();
+  }
+}
+
+async function loadChatList() {
+  const { ok, data } = await api('/api/v1/chats');
+  if (ok) {
+    state.chats = data.chats || [];
+    const list = $('#chat-list');
+    if (list) {
+      list.innerHTML = state.chats.map(c => `
+        <div class="chat-sidebar-item ${state.chatId===c.chat_id?'active':''}" onclick="selectChat('${c.chat_id}')">
+          <span class="chat-sidebar-item-title">${esc(c.title)}</span>
+          <span class="chat-sidebar-item-date">${formatDateShort(c.updated_at)}</span>
+          <span class="chat-sidebar-item-del" onclick="event.stopPropagation();deleteChat('${c.chat_id}')">×</span>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+function formatDateShort(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  const now = new Date();
+  if (dt.toDateString() === now.toDateString())
+    return dt.toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+  return dt.toLocaleDateString('ru-RU', {day:'numeric',month:'short'});
+}
+
+async function loadBalance() {
+  if (!state.chatOrgId) return;
+  const { ok, data } = await api(`/api/v1/billing?org_id=${state.chatOrgId}`);
+  const bal = $('#chat-balance');
+  if (bal && ok) {
+    bal.innerHTML = `Баланс: <span class="chat-balance-val">${formatNumber(data.balance || 0)}</span> токенов`;
+  }
+}
+
+function onChatOrgChange(val) {
+  state.chatOrgId = val;
+  localStorage.setItem('aither_chat_org', val);
+  state.chatId = null;
+  localStorage.removeItem('aither_chat_id');
+  state.chatMessages = [];
+  renderChats();
+}
+
+function onChatModelChange(val) {
+  state.chatModel = val;
+  localStorage.setItem('aither_chat_model', val);
+}
+
+async function newChat() {
+  const { ok, data } = await api('/api/v1/chats', { method:'POST', body: JSON.stringify({model: state.chatModel}) });
+  if (ok) {
+    state.chatId = data.chat.chat_id;
+    localStorage.setItem('aither_chat_id', state.chatId);
+    state.chatMessages = [];
+    await renderChats();
+    focusInput();
+  }
+}
+
+async function selectChat(id) {
+  state.chatId = id;
+  localStorage.setItem('aither_chat_id', id);
+  await renderChats();
+  focusInput();
+}
+
+async function deleteChat(id) {
+  if (!confirm('Удалить чат?')) return;
+  await api(`/api/v1/chats/${id}`, { method:'DELETE' });
+  if (state.chatId === id) { state.chatId = null; state.chatMessages = []; localStorage.removeItem('aither_chat_id'); }
+  await loadChatList();
+  if (!state.chatId) {
+    // Show empty state, don't auto-create
+    const msgEl = $('#chat-messages');
+    if (msgEl) msgEl.innerHTML = '<div class="chat-messages-inner"><div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Выберите или создайте новый чат</div></div></div>';
+    const balEl = $('#chat-balance');
+    if (balEl) balEl.innerHTML = 'Баланс: —';
+  }
+}
+
+async function loadChatMessages(chatId) {
+  const { ok, data, status } = await api(`/api/v1/chats/${chatId}`);
+  if (!ok) {
+    // Chat deleted or never existed — clear stale reference
+    if (status === 404) {
+      state.chatId = null;
+      localStorage.removeItem('aither_chat_id');
+      state.chatMessages = [];
+      renderMessages();
+    }
+    return;
+  }
+  state.chatMessages = data.messages || [];
+  renderMessages();
+  scrollToBottom();
+}
+
+function renderMessages() {
+  const el = $('#chat-messages');
+  if (!el) return;
+  if (state.chatMessages.length === 0) {
+    el.innerHTML = '<div class="chat-messages-inner"><div class="chat-empty"><div class="chat-empty-icon">💬</div><div>Начните диалог</div></div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="chat-messages-inner">' + state.chatMessages.map((m, i) => {
+    const isStreaming = state.chatStreaming && i === state.chatMessages.length - 1 && m.role === 'assistant';
+    return `
+      <div class="chat-msg ${isStreaming ? 'chat-msg-streaming' : ''}">
+        <div class="chat-msg-avatar ${m.role}">${m.role==='user'?'👤':'🤖'}</div>
+        <div>
+          <div class="chat-msg-content">${simpleMd(m.content)}</div>
+          ${m.tokens_used ? `<div class="chat-msg-meta">~${m.tokens_used} токенов</div>` : ''}
+        </div>
+      </div>`;
+  }).join('') + '</div>';
+  el.querySelectorAll('pre code').forEach(block => highlightCode(block));
+}
+
+function simpleMd(text) {
+  if (!text) return '';
+  // Escape HTML
+  let html = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Code blocks
+  html = html.replace(/```(\w*)\s*\n([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code class="language-${lang || 'plaintext'}">${code.trim()}</code></pre>`);
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Bold, italic, headers
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  // Newlines → <br>, but skip inside <pre> blocks
+  html = html.split(/(<pre[\s\S]*?<\/pre>)/g).map(part => {
+    if (part.startsWith('<pre')) return part;
+    return part.replace(/\n/g, '<br>');
+  }).join('');
+  return html;
+}
+
+async function sendChat() {
+  if (state.chatStreaming) return;
+  const input = $('#chat-input');
+  const content = input.value.trim();
+  if (!content) return;
+
+  // Auto-create chat if none
+  if (!state.chatId) {
+    const { ok, data } = await api('/api/v1/chats', { method:'POST', body: JSON.stringify({model: state.chatModel}) });
+    if (!ok) { toast('Не удалось создать чат', 'error'); return; }
+    state.chatId = data.chat.chat_id;
+    state.chatMessages = [];
+    await loadChatList();
+  }
+
+  input.value = '';
+  input.style.height = 'auto';
+  $('#chat-send-btn').disabled = true;
+  state.chatStreaming = true;
+
+  // Add user message locally
+  state.chatMessages.push({ role: 'user', content });
+  renderMessages();
+  scrollToBottom();
+
+  // Add placeholder for assistant
+  state.chatMessages.push({ role: 'assistant', content: '' });
+  renderMessages();
+  scrollToBottom();
+
+  try {
+    const response = await fetch(`/api/v1/chats/${state.chatId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + state.token,
+      },
+      body: JSON.stringify({ content, org_id: state.chatOrgId }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      state.chatMessages.pop(); // remove placeholder
+      state.chatMessages.pop(); // remove user msg (will be fixed on reload)
+      renderMessages();
+      toast(err.error || 'Ошибка', 'error');
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.done) {
+            // Reload chat to get server-saved messages
+            await loadChatMessages(state.chatId);
+            break;
+          }
+          if (parsed.delta) {
+            const last = state.chatMessages[state.chatMessages.length - 1];
+            if (last && last.role === 'assistant') {
+              last.content += parsed.delta;
+              renderMessages();
+              scrollToBottom();
+            }
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    toast('Ошибка соединения', 'error');
+    state.chatMessages.pop();
+    state.chatMessages.pop();
+    renderMessages();
+  } finally {
+    state.chatStreaming = false;
+    $('#chat-send-btn').disabled = false;
+    await loadChatList();
+    loadBalance();
+    focusInput();
+  }
+}
+
+function onChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+}
+
+function focusInput() {
+  setTimeout(() => {
+    const inp = $('#chat-input');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function scrollToBottom() {
+  setTimeout(() => {
+    const el = $('#chat-messages');
+    if (el) el.scrollTop = el.scrollHeight;
+  }, 50);
+}
+
+async function shareChat() {
+  if (!state.chatId) { toast('Сначала отправьте сообщение', 'error'); return; }
+  const { ok, data } = await api(`/api/v1/chats/${state.chatId}/share`, { method:'POST' });
+  if (!ok) { toast('Ошибка', 'error'); return; }
+  const url = window.location.origin + '/shared/' + data.share_token;
+
+  // Show modal
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay active';
+  modal.innerHTML = `
+    <div class="modal">
+      <h3>🔗 Ссылка на чат</h3>
+      <p style="color:var(--text-muted);font-size:14px;">Скопируйте ссылку чтобы поделиться чатом:</p>
+      <div class="share-url">${esc(url)}</div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>this.closest('.modal-overlay').remove()); this.closest('.modal-overlay').remove()">📋 Копировать</button>
+        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Закрыть</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+// ===== SHARED VIEW =====
+async function renderShared() {
+  const token = window.location.pathname.split('/shared/')[1];
+  if (!token) { navigate('chats'); return; }
+
+  const resp = await fetch(`/api/v1/shared/${token}`);
+  const data = await resp.json();
+
+  $('#app').innerHTML = `
+    <div class="header">
+      <div class="header-left">
+        <span class="logo">Aither</span>
+        <span style="color:var(--text-dim);font-size:14px;">Общий чат</span>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-primary btn-sm" onclick="navigate('chats')">Войти в Aither</button>
+      </div>
+    </div>
+    <div class="main" style="max-width:800px;">
+      <div class="page-header">
+        <h2>${esc(data.chat?.title || 'Чат')}</h2>
+        <p>Модель: ${esc(data.chat?.model || '—')} · ${formatDate(data.chat?.created_at)}</p>
+      </div>
+      ${(data.messages||[]).map(m => `
+        <div class="chat-msg">
+          <div class="chat-msg-avatar ${m.role}">${m.role==='user'?'👤':'🤖'}</div>
+          <div>
+            <div class="chat-msg-content">${simpleMd(m.content)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+// ===== TARIFFS PAGE =====
+async function renderTiers() {
+  try {
+  // Load orgs if not cached
+  if (!state.orgs || state.orgs.length === 0) {
+    const orgsR = await api('/api/v1/orgs');
+    if (orgsR.ok && orgsR.data.orgs) state.orgs = orgsR.data.orgs;
+  }
+
+  const { ok, data } = await api('/api/v1/tiers');
+  const tiers = ok ? (data?.tiers || []).map(t => ({
+    ...t,
+    models: safeParse(t.models),
+    features: safeParse(t.features)
+  })) : [];
+
+  // If org selected but not in state.orgs, find it
+  if (!state.selectedOrg && state.orgs && state.orgs.length > 0) {
+    state.selectedOrg = state.orgs[0];
+  }
+
+  const tierEmojis = { free: '🆓', standard: '⚡', vip: '👑', enterprise: '🏢' };
+
+  let currentTier = 'free';
+  const selOrg = state.selectedOrg;
+  if (selOrg) {
+    const tResp = await api('/api/v1/org/tier?org_id=' + selOrg.org_id);
+    if (tResp.ok) currentTier = tResp.data?.tier || 'free';
+  }
+
+  // Build nav
+  const pages = [
+    { id:'chats', label:'Чаты' },
+    { id:'dashboard', label:'Дашборд' },
+    { id:'orgs', label:'Организации' },
+    { id:'tiers', label:'Тарифы' },
+  ];
+  const navHtml = pages.map(p =>
+    `<button class="nav-btn${p.id==='tiers'?' active':''}" onclick="navigate('${p.id}')">${p.label}</button>`
+  ).join('');
+
+  // Build org selector
+  const orgs = state.orgs || [];
+  const orgOpts = orgs.map(o =>
+    `<option value="${o.org_id}" ${selOrg&&selOrg.org_id===o.org_id?'selected':''}>${esc(o.name)} (${esc(o.org_id).slice(0,8)}…)</option>`
+  ).join('');
+
+  $('#app').innerHTML = `
+    <div class="header">
+      <div class="header-left">
+        <span class="logo">Aither</span>
+        <span class="header-subtitle">Пилотный проект Управления виртуализации и облачных сервисов (Группа разработки AI-систем), АО «Гринатом»</span>
+        <nav class="nav">${navHtml}</nav>
+      </div>
+      <div class="header-right">
+        <span class="user-name">${state.user ? state.user.display_name : ''}</span>
+        <button class="btn-logout" onclick="logout()">Выйти</button>
+      </div>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <h2>📦 Тарифные планы</h2>
+        <p>Выберите тариф под свои задачи. Текущий тариф выделен рамкой.</p>
+      </div>
+
+      <!-- Org selector -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header"><h3>🏢 Организация</h3></div>
+        <div class="card-body">
+          <div style="display:flex;gap:12px;align-items:center;">
+            <select class="form-input" id="tiers-org-select" onchange="onTierOrgSelect(this.value)" style="max-width:400px;">
+              ${orgOpts || '<option value="">— нет организаций —</option>'}
+            </select>
+            ${selOrg ? `<span style="color:var(--text-dim);font-size:13px;">Текущий тариф: <strong style="color:var(--accent);">${currentTier.toUpperCase()}</strong></span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Tariff cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
+        ${tiers.map(t => `
+          <div style="background:var(--bg-input);border:2px solid ${t.tier_id===currentTier?'var(--accent)':'var(--border)'};border-radius:var(--radius);padding:24px;${t.tier_id===currentTier?'box-shadow:0 0 12px var(--accent-alpha);':''}">
+            <div style="font-size:32px;margin-bottom:4px;">${tierEmojis[t.tier_id]||'📌'}</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(t.name)}</div>
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">${esc(t.description)}</div>
+            <div style="font-size:32px;font-weight:800;margin-bottom:4px;">
+              ${t.price_rub_month ? Number(t.price_rub_month).toLocaleString()+' ₽' : 'Бесплатно'}
+              ${t.price_rub_month ? '<span style="font-size:14px;color:var(--text-dim);"> /мес</span>' : ''}
+            </div>
+            <hr style="border-color:var(--border);margin:16px 0;">
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Лимиты:</div>
+            <div style="font-size:13px;line-height:1.8;">
+              📊 <b>${t.rpm_limit}</b> запросов/мин<br>
+              🔤 <b>${Number(t.tpm_limit).toLocaleString()}</b> токенов/мин<br>
+              ${t.daily_request_limit ? '📅 <b>'+Number(t.daily_request_limit).toLocaleString()+'</b> запросов/день<br>' : '📅 Безлимит<br>'}
+              🧠 Модели: <b>${(t.models||[]).join(', ')}</b><br>
+              ${t.rag_enabled ? '📚 RAG: <b style="color:var(--success)">✅ Доступен</b><br>' : '📚 RAG: <b style="color:var(--text-dim)">❌</b><br>'}
+            </div>
+            <hr style="border-color:var(--border);margin:16px 0;">
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">Возможности:</div>
+            <ul style="font-size:13px;line-height:1.8;padding-left:20px;margin:0;">
+              ${(t.features||[]).map(f => `<li>${esc(f)}</li>`).join('')}
+            </ul>
+            ${t.tier_id===currentTier
+              ? '<div style="margin-top:16px;text-align:center;padding:8px;background:var(--accent-alpha);border-radius:var(--radius-sm);font-weight:600;font-size:13px;">✅ Ваш текущий тариф</div>'
+              : `<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="upgradeTier('${selOrg ? selOrg.org_id : ''}','${t.tier_id}')">Перейти</button>`}
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  } catch(e) {
+    $('#app').innerHTML = '<div class="header"><div class="header-left"><span class="logo">Aither</span></div></div><div class="main"><div class="page-header"><h2>📦 Тарифные планы</h2><p style="color:var(--red);">Ошибка загрузки: ' + esc(e.message) + '</p></div></div>';
+  }
+}
+
+function onTierOrgSelect(orgId) {
+  const org = (state.orgs||[]).find(o => o.org_id === orgId);
+  if (org) {
+    state.selectedOrg = org;
+    renderTiers();
+  }
+}
+
+// ===== INIT =====
+if (window.location.pathname.startsWith('/shared/')) {
+  state.page = 'shared';
+}
+// OAuth callback — handle token from URL
+const urlParams = new URLSearchParams(window.location.search);
+const oauthToken = urlParams.get('aither_token');
+if (oauthToken) {
+  state.token = oauthToken;
+  localStorage.setItem('aither_token', oauthToken);
+  // Clean URL
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+render();
+
+// === INLINE SYNTAX HIGHLIGHTER ===
+function highlightCode(el) {
+  // Skip if already highlighted
+  if (el.querySelector('.hljs-keyword,.hljs-string,.hljs-comment')) return;
+
+  const lang = (el.className.match(/language-(\w+)/) || [])[1] || '';
+  let code = el.textContent;
+
+  // Auto-comment Russian plain-text lines with #
+  const isCyrillic = /[а-яё]/i;
+  const isCode = /[=(){}$;|\[\]<>]|^\s*(if|then|else|fi|for|while|do|done|echo|export|function|return|exit|def|class|import|from|print|let|const|var|function|SELECT|INSERT|UPDATE|DELETE)\b/m;
+  code = code.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (trimmed && isCyrillic.test(trimmed) && !isCode.test(trimmed) && !trimmed.startsWith('#') && !trimmed.startsWith('//')) {
+      return line.replace(trimmed, '# ' + trimmed);
+    }
+    return line;
+  }).join('\n');
+
+  const KW = {
+    python: 'and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|True|False|None|self',
+    bash: 'if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|exit|export|local|source|echo|read|shift|declare|unset',
+    js: 'async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|let|new|of|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|true|false|null|undefined',
+    sql: 'SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|TABLE|ALTER|DROP|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|NULL|AS|INTO|VALUES|SET|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|UNION|EXISTS|CASE|WHEN|THEN|ELSE|END|DISTINCT|COUNT|SUM|AVG|MAX|MIN|PRIMARY|KEY|FOREIGN|REFERENCES|INT|VARCHAR|TEXT|BOOLEAN|SERIAL|BIGINT',
+  };
+
+  // Match language keywords
+  const keywords = KW[lang];
+  if (keywords) {
+    const re = new RegExp('\\b(' + keywords + ')\\b', 'g');
+    code = code.replace(re, '<span class="hljs-keyword">$1</span>');
+  }
+
+  // Strings: single, double, backtick
+  code = code.replace(/(["'`])(?:(?!\1|\\).|\\.)*\1/g, '<span class="hljs-string">$&</span>');
+
+  // Python triple-quoted strings
+  code = code.replace(/('''[\s\S]*?'''|"""[\s\S]*?""")/g, '<span class="hljs-string">$1</span>');
+
+  // Comments: # and //
+  code = code.replace(/(^|\s)(#.*$)/gm, '$1<span class="hljs-comment">$2</span>');
+  code = code.replace(/(^|\s)(\/\/.*$)/gm, '$1<span class="hljs-comment">$2</span>');
+
+  // Numbers
+  code = code.replace(/\b(\d+\.?\d*)\b/g, '<span class="hljs-number">$1</span>');
+
+  // Built-ins (Python)
+  if (lang === 'python') {
+    code = code.replace(/\b(print|len|range|int|str|float|list|dict|set|tuple|bool|type|open|input|enumerate|zip|map|filter|sorted|reversed|sum|min|max|abs|round|isinstance|hasattr|getattr|setattr|super|Exception|ValueError|TypeError|KeyError|ImportError|RuntimeError|FileNotFoundError)\b/g, '<span class="hljs-built_in">$1</span>');
+    code = code.replace(/@(\w+)/g, '<span class="hljs-meta">@$1</span>');
+  }
+
+  // Bash variables
+  if (lang === 'bash') {
+    code = code.replace(/(\$\{?\w+\}?)/g, '<span class="hljs-variable">$1</span>');
+    code = code.replace(/\b(awk|sed|grep|cat|curl|wget|ssh|scp|rsync|tar|gzip|chmod|chown|mkdir|rm|cp|mv|ls|cd|pwd|df|du|ps|kill|systemctl|docker|kubectl|git|python|node|npm|pip)\b/g, '<span class="hljs-built_in">$1</span>');
+  }
+
+  // Functions
+  code = code.replace(/\b(\w+)(?=\s*\()/g, '<span class="hljs-function">$1</span>');
+
+  el.innerHTML = code;
+}
+
+async function upgradeTier(orgId,tier){if(!orgId){navigate('orgs');toast('Сначала выберите организацию','error');return;}
+  if(!confirm("Перейти на тариф "+tier.toUpperCase()+"?"))return;
+  const{ok,data}=await api("/api/v1/orgs/"+orgId+"/purchase-tier",{method:"POST",body:JSON.stringify({tier})});
+  if(ok){
+    if(data.confirmation_url){
+      // Paid tier — redirect to YooKassa
+      window.open(data.confirmation_url,'_blank');
+      toast('Открыта страница оплаты. После оплаты обновите страницу.','success');
+    } else {
+      // Free or dev mode — upgraded immediately
+      alert("Тариф обновлён!");
+      render();
+    }
+  }else{
+    alert("Ошибка: "+((data||{}).error||"неизвестно"));
+  }
+}
+</script>
+</body>
+</html>

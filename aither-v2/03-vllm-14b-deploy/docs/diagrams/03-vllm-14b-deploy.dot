@@ -1,0 +1,82 @@
+// Этап 3: vLLM 14B — компоненты и связи
+// Сохранено: docs/diagrams/03-vllm-14b-deploy.dot
+// Визуализация: dot -Tpng docs/diagrams/03-vllm-14b-deploy.dot -o docs/diagrams/03-vllm-14b-deploy.png
+
+digraph G {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded];
+    ranksep=1.2;
+    fontname="Helvetica";
+
+    subgraph cluster_legend {
+        label="Легенда";
+        color=lightgrey;
+        planned [label="— запланировано", shape=box, style=dashed];
+        active [label="— активный компонент", shape=box, style=filled, fillcolor=lightcyan];
+    }
+
+    subgraph cluster_cluster {
+        label="Kubernetes — aither-inference";
+
+        ns [label="Namespace: aither-inference", shape=component, style=filled, fillcolor=lightyellow];
+
+        subgraph cluster_models {
+            label="Model Storage";
+            pvc [label="PVC: model-storage\n100Gi ReadWriteMany", shape=cylinder, style=filled, fillcolor=lightgrey];
+            model_dir [label="/models/Qwen/Qwen2.5-14B-Instruct\n(~28GB Peak)", shape=folder, style=filled, fillcolor=lightyellow];
+            pvc -> model_dir;
+        }
+
+        svc [label="Service: vllm-api\nClusterIP :8000", shape=box3d, style=filled, fillcolor=lightblue];
+        svc_headless [label="Service: vllm-api-headless\nClusterIP: None", shape=box3d, style=filled, fillcolor=lightblue, style=dashed];
+
+        subgraph cluster_n8 {
+            label="Узел n8 (worker) — 2× RTX 6000";
+
+            deploy_n8 [label="Deployment: vllm-14b\nreplicas=2", shape=component, style=filled, fillcolor=lightcyan];
+            pod_n8 [label="Pod: vllm-14b-xxx\nnode=n8", shape=box, style=filled, fillcolor=lightgreen];
+            vllm_n8 [label="vLLM server\nQwen2.5-14B-Instruct\nTP=1, PP=1\nport :8000", shape=box, style=filled, fillcolor=darkolivegreen1];
+            gpu1_n8 [label="GPU 1/2: nvidia.com/gpu=1", shape=box, style=filled, fillcolor=green, fontcolor=white];
+            probe_n8 [label="Readiness: /health\nLiveness: /health", shape=note, style=filled, fillcolor=lightyellow];
+
+            deploy_n8 -> pod_n8;
+            pod_n8 -> vllm_n8;
+            vllm_n8 -> gpu1_n8 [label="запрашивает 1 GPU"];
+            vllm_n8 -> model_dir [label="загружает веса", style=dashed, color=blue];
+            probe_n8 -> vllm_n8 [label="мониторинг", style=dotted];
+        }
+
+        subgraph cluster_n7 {
+            label="Узел n7 (worker) — 2× RTX 6000";
+
+            deploy_n7 [label="Deployment: vllm-14b-n7\nreplicas=1", shape=component, style=filled, fillcolor=lightcyan];
+            pod_n7 [label="Pod: vllm-14b-n7-xxx\nnode=n7", shape=box, style=filled, fillcolor=lightgreen];
+            vllm_n7 [label="vLLM server\nQwen2.5-14B-Instruct\nTP=1, PP=1\nport :8000", shape=box, style=filled, fillcolor=darkolivegreen1];
+            gpu1_n7 [label="GPU 1/2: nvidia.com/gpu=1", shape=box, style=filled, fillcolor=green, fontcolor=white];
+            probe_n7 [label="Readiness: /health\nLiveness: /health", shape=note, style=filled, fillcolor=lightyellow];
+
+            deploy_n7 -> pod_n7;
+            pod_n7 -> vllm_n7;
+            vllm_n7 -> gpu1_n7 [label="запрашивает 1 GPU"];
+            vllm_n7 -> model_dir [label="загружает веса", style=dashed, color=blue];
+            probe_n7 -> vllm_n7 [label="мониторинг", style=dotted];
+        }
+    }
+
+    // Внешние связи
+    subgraph cluster_upstream {
+        label="Следующие этапы";
+        gateway [label="Этап 5: Gateway + Redis", shape=box, style=filled, fillcolor=lightgrey, fontcolor=gray];
+        tp [label="Этап 4: Tensor Parallelism\nTP=2 (межсерверный)", shape=box, style=dashed, fillcolor=lightgrey, fontcolor=gray];
+    }
+
+    ns -> deploy_n8 [label="содержит", style=dashed];
+    ns -> deploy_n7 [label="содержит", style=dashed];
+    svc -> pod_n8 [label="балансировка", style=dashed];
+    svc -> pod_n7 [label="балансировка", style=dashed];
+    gateway -> vllm_n8 [label="прокси /v1/completions", style=dotted, color=blue];
+    gateway -> vllm_n7 [label="прокси /v1/completions", style=dotted, color=blue];
+    tp -> vllm_n8 [label="будущее: TP=2", style=dotted, color=gray];
+    tp -> vllm_n7 [label="будущее: TP=2", style=dotted, color=gray];
+}

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-api
+  namespace: aither-inference
+  labels:
+    app: vllm
+spec:
+  type: ClusterIP
+  selector:
+    app: vllm
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: openai-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-api-headless
+  namespace: aither-inference
+  labels:
+    app: vllm
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: vllm
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: openai-api

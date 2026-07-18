@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-storage
+  namespace: aither-inference
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  # Используйте подходящий StorageClass для вашего кластера
+  # storageClassName: nfs-client

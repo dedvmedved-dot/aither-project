@@ -1,0 +1,68 @@
+// Этап 3: vLLM 14B — последовательность развёртывания
+// Сохранено: docs/diagrams/03-deploy-sequence.dot
+// Визуализация: dot -Tpng docs/diagrams/03-deploy-sequence.dot -o docs/diagrams/03-deploy-sequence.png
+
+digraph G {
+    rankdir=TB;
+    splines=ortho;
+    node [shape=box, style=rounded, fontname="Helvetica"];
+    ranksep=0.8;
+    nodesep=1.0;
+
+    // ========== СТРОКА 1 ==========
+    subgraph cluster_prepare {
+        label="1. Подготовка";
+        style=filled;
+        fillcolor=lightyellow;
+
+        prepare_storage [label="Создать PVC model-storage\n100Gi RWX", shape=box, style=filled, fillcolor=lightyellow, fontcolor=black];
+        prepare_model [label="Загрузить модель\nHuggingFace → /models/\nQwen2.5-14B-Instruct (~28GB)", shape=box, style=component, style=filled, fillcolor=lightyellow];
+        prepare_ns [label="Создать namespace\naither-inference", shape=cylinder, style=filled, fillcolor=lightyellow];
+
+        prepare_storage -> prepare_model [label="PV готов"];
+        prepare_ns -> prepare_model [label="изоляция"];
+    }
+
+    // ========== СТРОКА 2 ==========
+    subgraph cluster_deploy {
+        label="2. Развёртывание";
+        style=filled;
+        fillcolor=lightcyan;
+
+        deploy_sa [label="ServiceAccount + RBAC\nvllm-sa (get pods/log)", shape=component, style=filled, fillcolor=lightcyan];
+        deploy_svc [label="Service: vllm-api\nClusterIP :8000", shape=box3d, style=filled, fillcolor=lightcyan];
+        deploy_vllm [label="Deployment: vllm-14b\nvllm/vllm-openai:latest\nreplicas=2", shape=box, style=filled, fillcolor=lightcyan];
+
+        deploy_sa -> deploy_vllm;
+        deploy_svc -> deploy_vllm;
+    }
+
+    // ========== СТРОКА 3 ==========
+    subgraph cluster_running {
+        label="3. Запуск";
+        style=filled;
+        fillcolor=lightgrey;
+
+        check_pod [label="kubectl get pods -n aither-inference\nОжидание: Running 2/2", shape=box, style=filled, fillcolor=lightgrey];
+        check_logs [label="Проверка логов\nmodel loaded, GPU memory\nTokens/s", shape=note, style=filled, fillcolor=lightgrey];
+        check_api [label="Тест API:\ncurl /v1/completions\n{\"model\":\"qwen\",\"choices\":[...]}", shape=box, style=filled, fillcolor=lightgrey];
+
+        check_pod -> check_logs;
+        check_logs -> check_api;
+    }
+
+    // ========== СТРЕЛКИ ==========
+    prepare_model -> deploy_vllm [label="модель загружена\nна PV"];
+    deploy_vllm -> check_pod [label="kubectl apply -f"];
+    check_api -> validate [label="✅ API отвечает"];
+}
+
+// ========== БЛОК ПРОВЕРКИ ==========
+validate [label="Проверка: модель загрузилась?\nGPU Memory: ~28GB из 48GB", shape=diamond, style=filled, fillcolor=lightgreen];
+
+// ========== ВЕТКИ ==========
+validate -> ok [label="✅ всё зелено", style=bold, color=green];
+validate -> fail [label="❌ GPU OOM / модель не грузится", style=bold, color=red];
+
+ok [label="Успех ✅\n→ Tensor Parallelism (Этап 4)", shape=box, style=filled, fillcolor=green, fontcolor=white];
+fail [label="Ошибка ❌\n→ проверить GPU Memory\n→ уменьшить max-model-len\n→ включить swap или CPU offload", shape=box, style=filled, fillcolor=red, fontcolor=white];
