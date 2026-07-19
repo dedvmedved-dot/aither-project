@@ -1,0 +1,7 @@
+HTTP_CODE=422
+
+Source: benchmark-smoke.log
+Test: curl with valid token to gateway /v1/chat/completions
+Expected: 422
+Got: 422
+Status: PASSED

@@ -1,0 +1,23 @@
+=== 14B TTFT ===
+{"ttft": 8.2606, "total_time": 14.848, "approx_tokens": 6, "tokens_per_sec": 0.4, "text_preview": "The capital of France is Paris.", "run": 1, "target": "14b"}
+{"ttft": 6.9159, "total_time": 13.5037, "approx_tokens": 6, "tokens_per_sec": 0.44, "text_preview": "The capital of France is Paris.", "run": 2, "target": "14b"}
+{"ttft": 6.9743, "total_time": 13.5626, "approx_tokens": 6, "tokens_per_sec": 0.44, "text_preview": "The capital of France is Paris.", "run": 3, "target": "14b"}
+
+=== Summary ===
+  TTFT avg=7.3836s min=6.9159s max=8.2606s
+  Total avg=13.9714s
+  Tokens/sec avg=0.43
+
+=== 32B TTFT ===
+{"ttft": 0.115, "total_time": 2.5973, "approx_tokens": 0, "tokens_per_sec": 0.0, "text_preview": "", "run": 1, "target": "32b"}
+{"ttft": 0.1102, "total_time": 2.5929, "approx_tokens": 0, "tokens_per_sec": 0.0, "text_preview": "", "run": 2, "target": "32b"}
+{"ttft": 0.5286, "total_time": 3.0073, "approx_tokens": 0, "tokens_per_sec": 0.0, "text_preview": "", "run": 3, "target": "32b"}
+
+=== Summary ===
+  TTFT avg=0.2513s min=0.1102s max=0.5286s
+  Total avg=2.7325s
+Traceback (most recent call last):
+  File "/tmp/ttft-test.py", line 66, in <module>
+    print(f"  Tokens/sec avg={sum(tps_vals)/len(tps_vals):.2f}")
+                              ~~~~~~~~~~~~~^~~~~~~~~~~~~~
+ZeroDivisionError: division by zero

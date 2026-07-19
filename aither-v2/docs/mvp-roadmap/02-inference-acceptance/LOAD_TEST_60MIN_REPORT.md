@@ -14,8 +14,10 @@ Commit: (this commit)
 | Evidence | Path |
 |---|---|
 | Pods before | evidence/load-test-pods-before.txt |
-| Pods after | (pending — test in progress) |
-| Benchmark log | (pending — test in progress) |
+| Pods after | (pending — test running) |
+| Events before | evidence/aither-inference-events-before.txt |
+| Events after | (pending) |
+| Benchmark log | (pending — test running) |
 | GPU before | evidence/load-test-gpu-before.txt |
 | GPU after | (pending) |
 
@@ -24,6 +26,7 @@ Commit: (this commit)
 | Parameter | Value |
 |---|---|
 | Duration target | 60 minutes |
+| Actual duration | IN PROGRESS (~24 min elapsed) |
 | 14B endpoint | vllm-14b-instruct.aither-inference.svc:8000/v1/chat/completions |
 | 32B endpoint | vllm-32b-gptq.aither-inference.svc:8000/v1/completions |
 | Gateway endpoint | nginx-gateway-32b.aither-inference.svc:8000/v1/completions |
@@ -31,7 +34,7 @@ Commit: (this commit)
 
 ## 4. Results
 
-**Status: RUNNING** — Job `benchmark-load-60min` created at ~22:15 MSK. Expected completion: ~23:15 MSK.
+**Status: RUNNING** — Job `benchmark-load-60min` running since ~22:10 MSK. Expected completion: ~23:10 MSK.
 
 Results will be collected after job completion.
 

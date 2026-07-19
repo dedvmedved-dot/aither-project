@@ -1,0 +1,7 @@
+HTTP_CODE=401
+
+Source: benchmark-smoke.log
+Test: curl with invalid token to nginx-gateway-32b/v1/completions
+Expected: 401/403
+Got: 401
+Status: PASSED

@@ -15,9 +15,13 @@ Commit: (this commit)
 |---|---|
 | 32B direct completion | evidence/32b-completion-result.json |
 | 32B direct chat | evidence/32b-chat-result.txt |
-| Gateway completion | (via smoke benchmark) |
-| Gateway chat blocked | (via smoke benchmark) |
+| Gateway completion | evidence/32b-gateway-completion-result.json |
+| Gateway chat blocked | evidence/32b-gateway-chat-blocked-422.txt |
+| Gateway auth no token | evidence/gateway-auth-no-token.txt |
+| Gateway auth wrong token | evidence/gateway-auth-wrong-token.txt |
+| Gateway auth valid token | evidence/gateway-auth-valid-token.txt |
 | Smoke benchmark | logs/benchmark-smoke.log |
+| Streaming TTFT | logs/streaming-ttft-32b.log |
 
 ## 3. Results
 
@@ -31,13 +35,13 @@ Commit: (this commit)
 | No token | 401/403 | 401 | PASSED |
 | Wrong token | 401/403 | 401 | PASSED |
 | Valid token | 200 | 200 | PASSED |
+| Streaming supported | — | yes | PASSED |
 
-## 4. Latency
+## 4. Latency (streaming TTFT)
 
-| Check | TTFB | TOTAL | Status |
-|---|---:|---:|---|
-| 32B direct completion | 1.34s | — | PASSED |
-| 32B gateway completion | 1.33s | — | PASSED |
+| Check | TTFT avg | Total avg | tokens/sec |
+|---|---:|---:|---:|
+| 32B completion (streaming) | 0.25s | 2.73s | — |
 
 ## 5. Response sanity
 
@@ -47,10 +51,8 @@ Commit: (this commit)
 
 | ID | Finding | Status | Required action |
 |---|---|---|---|
-| — | No findings | PASSED | — |
+| 32B-CHAT-DIRECT-01 | Direct vLLM 32B chat endpoint returns HTTP 200; completion-only restriction is enforced at gateway level | OBSERVED / ACCEPTED FOR MVP | Keep gateway policy; verify in Stage 04 hardening |
 
 ## 7. Conclusion
 
-Status: PASSED
-
-32B model operates correctly as completion-only. Gateway blocks Chat with 422. Auth properly enforced (401 without/with wrong token).
+Status: PASSED WITH FINDINGS

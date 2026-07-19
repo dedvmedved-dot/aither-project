@@ -1,0 +1,7 @@
+HTTP_CODE=200
+
+Source: benchmark-smoke.log
+Test: curl with valid token to nginx-gateway-32b/v1/completions
+Expected: 200
+Got: 200
+Status: PASSED

@@ -1,0 +1,117 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchmark-streaming-ttft
+  namespace: aither-inference
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        aither.io/benchmark-node: "true"
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: ttft
+          image: python:3.11-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              pip install -q urllib3 2>/dev/null
+
+              KEY="$VLLM_API_KEY"
+              SVC14="vllm-14b-instruct.aither-inference.svc:8000"
+              SVC32="vllm-32b-gptq.aither-inference.svc:8000"
+
+              # Copy script inline
+              cat > /tmp/ttft-test.py << 'PYEOF'
+              import json, sys, time, urllib.request, os
+
+              def stream_ttft(url, model, api_key, prompt, max_tokens=64, is_chat=True):
+                  if is_chat:
+                      payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens, "stream": True, "temperature": 0}
+                  else:
+                      payload = {"model": model, "prompt": prompt, "max_tokens": max_tokens, "stream": True, "temperature": 0}
+                  headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "Accept": "text/event-stream"}
+                  data = json.dumps(payload).encode()
+                  req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                  first_chunk_time = None
+                  total_start = time.time()
+                  total_text = ""
+                  try:
+                      with urllib.request.urlopen(req, timeout=300) as resp:
+                          for line in resp:
+                              line = line.decode("utf-8", errors="replace").strip()
+                              if not line or line.startswith(":"):
+                                  continue
+                              if line.startswith("data: "):
+                                  chunk = line[6:]
+                                  if first_chunk_time is None:
+                                      first_chunk_time = time.time()
+                                      ttft = first_chunk_time - total_start
+                                  if chunk == "[DONE]":
+                                      break
+                                  try:
+                                      d = json.loads(chunk)
+                                      if "choices" in d and d["choices"]:
+                                          delta = d["choices"][0].get("delta", {})
+                                          text = delta.get("content", "")
+                                          total_text += text
+                                      elif "choices" in d and d["choices"] and "text" in d["choices"][0]:
+                                          total_text += d["choices"][0].get("text", "")
+                                  except json.JSONDecodeError:
+                                      pass
+                  except Exception as e:
+                      return {"error": str(e), "ttft": None}
+                  total_time = time.time() - total_start
+                  token_count = len(total_text.split())
+                  tps = round(token_count / total_time, 2) if total_time > 0 else 0
+                  return {"ttft": round(ttft, 4) if first_chunk_time else None, "total_time": round(total_time, 4), "approx_tokens": token_count, "tokens_per_sec": tps, "text_preview": total_text[:100]}
+
+              target = os.environ.get("TARGET", "14b")
+              url = os.environ.get("URL")
+              model = os.environ.get("MODEL")
+              api_key = os.environ.get("VLLM_API_KEY", "")
+              prompt = os.environ.get("PROMPT", "What is the capital of France?")
+              is_chat = os.environ.get("IS_CHAT", "true") == "true"
+
+              results = []
+              for run in range(1, 4):
+                  r = stream_ttft(url, model, api_key, prompt, max_tokens=64, is_chat=is_chat)
+                  r["run"] = run
+                  r["target"] = target
+                  results.append(r)
+                  print(json.dumps(r, ensure_ascii=False))
+                  time.sleep(2)
+
+              ttft_vals = [r["ttft"] for r in results if r.get("ttft")]
+              total_vals = [r["total_time"] for r in results if r.get("total_time")]
+              tps_vals = [r["tokens_per_sec"] for r in results if r.get("tokens_per_sec")]
+              print(f"\n=== Summary ===")
+              print(f"  TTFT avg={sum(ttft_vals)/len(ttft_vals):.4f}s min={min(ttft_vals):.4f}s max={max(ttft_vals):.4f}s")
+              print(f"  Total avg={sum(total_vals)/len(total_vals):.4f}s")
+              print(f"  Tokens/sec avg={sum(tps_vals)/len(tps_vals):.2f}")
+              PYEOF
+
+              # 14B test
+              echo "=== 14B TTFT ==="
+              TARGET=14b URL=http://${SVC14}/v1/chat/completions MODEL=qwen-14b IS_CHAT=true python3 /tmp/ttft-test.py 2>&1
+
+              echo ""
+              echo "=== 32B TTFT ==="
+              TARGET=32b URL=http://${SVC32}/v1/completions MODEL=qwen-32b-base IS_CHAT=false python3 /tmp/ttft-test.py 2>&1
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
+          resources:
+            limits: { cpu: "2", memory: 1Gi }
+            requests: { cpu: 500m, memory: 256Mi }

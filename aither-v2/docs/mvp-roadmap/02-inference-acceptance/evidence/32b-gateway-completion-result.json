@@ -1,0 +1,1 @@
+{"source":"benchmark-smoke.log","test":"curl with valid token to gateway /v1/completions","http_code":200,"expected":200,"status":"PASSED","model":"qwen-32b-base","prompt":"Paris is the capital of","response_preview":"__________.____ Germany France Italy Spain"}
