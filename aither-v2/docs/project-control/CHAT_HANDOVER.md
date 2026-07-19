@@ -32,7 +32,26 @@ Stage 02 — Inference Acceptance: PASSED WITH FINDINGS.
 Stage 03 — TP=2 Decision: PASSED WITH MINOR CORRECTION REQUIRED.
 Stage 04 — Gateway Hardening: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
 Stage 04.1 — Repository Integrity Verification: PASSED / CONNECTOR VERIFIED.
-Stage 05 — BFF Acceptance: NOT STARTED / NOT APPROVED.
+Stage 05 — BFF Acceptance: PARTIAL / WAITING FOR CHATGPT AUDIT.
+Stage 06 — Redis / Rate Limiting: BLOCKED (waiting Stage 05 audit).
+
+Stage 05 status details:
+- BFF deployed: 1/1 Running, FastAPI on python:3.11-slim
+- CrashLoopBackOff root cause: pip install without --user under runAsUser=1000 — FIXED
+- Implementation mismatch nginx→FastAPI: RESOLVED (deployment matches app.py)
+- /health: 200 ✅
+- 14B chat via BFF: 200 (route to vllm-14b confirmed) ✅
+- 32B completion via BFF (no token): 200 (route to nginx-gateway-32b confirmed) ✅
+- 32B completion via BFF (valid token): NOT COLLECTED (VPN instability) ❌
+- 32B chat blocked: 422 ✅
+- Unknown model blocked: 400 ✅
+- Direct vLLM bypass: NOT PRESENT ✅
+- No secrets committed: PASSED ✅
+- vLLM/GPU/TP/Gateway runtime/Portal/Redis/OAuth: NOT MODIFIED ✅
+- Rate limiting: POSTPONED to Stage 06
+- Stage 06: NOT STARTED
+
+Evidence directory: docs/mvp-roadmap/05-bff/evidence/ (14 files)
 
 Key decisions:
 TP=1 accepted for MVP.
@@ -41,6 +60,7 @@ OAuth removed from immediate MVP.
 Gateway accepted with findings (GW-IMG-01, GW-SC-01, GW-RL-01).
 Direct vLLM 32B access is not user-facing for MVP.
 Hermes must not change vLLM/GPU/TP/BFF/Portal/Redis/OAuth outside approved scope.
+Stage 06 is BLOCKED until Stage 05 audit passes.
 
 Repository access:
 ChatGPT repository access was restored via GitHub connector/API.

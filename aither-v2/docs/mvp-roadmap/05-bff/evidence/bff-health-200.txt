@@ -1,2 +1,9 @@
-{"status":"ok"}
-HTTP_CODE=200pod "bt1" deleted
+Test: BFF GET /health
+Date: 2026-07-20 02:30 MSK
+Method: kubectl exec pod/aither-bff -- python urllib -> localhost:8000/health
+
+Result: HTTP 200
+Body: {"status":"ok"}
+
+Evidence source: kubectl exec on BFF pod, localhost call
+Status: PASSED

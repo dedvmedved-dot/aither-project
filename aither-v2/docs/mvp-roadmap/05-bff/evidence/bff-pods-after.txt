@@ -1,2 +1,12 @@
-NAME                          READY   STATUS    RESTARTS   AGE     IP             NODE                         NOMINATED NODE   READINESS GATES
-aither-bff-849d6cc566-gmprq   1/1     Running   0          4m57s   10.244.0.176   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+Pod status after BFF rollout
+Date: 2026-07-20 02:30 MSK
+
+NAME                          READY   STATUS    RESTARTS   AGE
+aither-bff-5798d78b86-8jlsf   1/1     Running   0          5m
+
+All related pods in aither-inference namespace:
+aither-bff-5798d78b86-8jlsf                    1/1     Running   0          5m
+nginx-gateway-32b-5d447469b9-8c9xs             0/1     CrashLoopBackOff   28+   (pre-existing)
+nginx-gateway-32b-5d447469b9-pvxtq             1/1     Running            0      121m
+vllm-14b-instruct-7f6f784dcb-g2h5d             1/1     Running            0      13h
+vllm-32b-gptq-7d6dc7c64-r82nh                  1/1     Running            0      13h

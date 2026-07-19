@@ -1,0 +1,13 @@
+Test: BFF POST /api/v1/chat model=unknown (should be blocked)
+Date: 2026-07-20 02:30 MSK
+Method: kubectl exec pod/aither-bff -- python urllib -> localhost:8000/api/v1/chat
+
+Request: {"model":"unknown","messages":[{"role":"user","content":"hi"}]}
+Result: HTTP 400
+Body: {"detail":"Unknown model: unknown"}
+
+Note: BFF correctly blocks unknown model requests before upstream call.
+Returns 400 Bad Request as specified.
+
+Evidence source: kubectl exec on BFF pod, localhost call
+Status: PASSED

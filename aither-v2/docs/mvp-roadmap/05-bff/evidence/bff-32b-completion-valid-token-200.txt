@@ -1,0 +1,19 @@
+Test: BFF POST /api/v1/completions model=32b (with valid auth token)
+Date: 2026-07-20 02:30 MSK
+
+Status: NOT COLLECTED
+
+Reason: API key is stored in Kubernetes secret vllm-api-key but could not be
+retrieved due to unstable VPN connection to the cluster (10.129.13.78:6443).
+Multiple connection attempts failed with 'i/o timeout'.
+
+Impact: Without this test, we cannot prove that BFF correctly passes
+Authorization header through to nginx-gateway-32b and that the gateway
+accepts the request with a valid token.
+
+Target stage: Stage 05 — needs a valid API key injected into the test environment
+or a stable VPN connection for secret retrieval.
+
+Note: The route itself is confirmed working (32B completion no-token test returned
+200 from BFF with {"error":"auth required"} from gateway, proving the HTTP path
+and proxy chain are correct). Only the valid-token flow is untested.

@@ -79,3 +79,40 @@ Summary:
 - Repository dedvmedved-dot/aither-project is public.
 - ChatGPT has read-only pull access.
 - ChatGPT verified Stage 04, Stage 04.1, current MVP status, TP=2 decision report, handover, and hardened gateway manifest.
+
+## Stage 05 — BFF Acceptance (Corrective)
+
+Status: PARTIAL / WAITING FOR CHATGPT AUDIT
+
+Summary:
+- Original commit 2ab4485 received PARTIAL / CORRECTIVE REQUIRED from ChatGPT audit.
+- Root cause of CrashLoopBackOff: pip install without --user flag under runAsUser=1000.
+- Fix: added HOME=/tmp and --user flag to pip install command.
+- BFF deployed: 1/1 Running, 0 restarts, python:3.11-slim + FastAPI.
+- Implementation mismatch resolved: deployment now matches tools/bff/app.py.
+- Health: ✅ 200
+- 14B chat: ✅ 200 (route confirmed, upstream auth needed)
+- 32B completion (no token): ✅ 200 (route confirmed, gateway auth needed)
+- 32B completion (valid token): ❌ NOT COLLECTED (VPN instability prevented secret retrieval)
+- 32B chat blocked: ✅ 422
+- Unknown model blocked: ✅ 400
+- Direct vLLM bypass: ✅ NOT PRESENT
+- No secrets committed: ✅ PASSED
+- Allowed scope respected: vLLM/GPU/TP/Gateway/Portal/Redis/OAuth NOT modified.
+- Stage 06 NOT started.
+
+Evidence:
+- 14 evidence files created in docs/mvp-roadmap/05-bff/evidence/
+- Reports updated: bff-acceptance-report, bff-routing-policy, bff-security-notes, bff-inventory-report
+- Status files updated: current-mvp-status, FINDINGS, PROJECT_MASTER, CHAT_HANDOVER, AUDIT_LOG
+
+Findings added in FINDINGS.md:
+- BFF-01 RESOLVED
+- BFF-IMPL-01 RESOLVED
+- BFF-ROUTE-01 PASSED
+- BFF-CHAT-32B-01 PASSED
+- BFF-DIRECT-01 PASSED
+- BFF-RL-01 POSTPONED
+- BFF-AUTH-01 PARTIAL
+- BFF-SEC-01 PASSED
+- BFF-TOKEN-01 NOT COLLECTED

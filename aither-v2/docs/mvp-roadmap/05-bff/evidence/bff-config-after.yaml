@@ -1,0 +1,24 @@
+# aither-bff ConfigMap after Stage 05 corrective
+# Retrieved: 2026-07-20 02:30 MSK
+# Source: manifests/mvp-roadmap/05-bff/bff-mvp.yaml (source of truth)
+# Note: ConfigMap could not be retrieved from cluster due to VPN timeout.
+# The source manifest file is the authoritative definition.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-bff-config
+  namespace: aither-inference
+data:
+  app.py: |
+    import os, logging, uvicorn
+    from contextlib import asynccontextmanager
+    from fastapi import FastAPI, HTTPException, Request
+    from pydantic import BaseModel
+    import httpx
+
+    MODEL_14B = "qwen-14b"
+    MODEL_32B = "qwen-32b-base"
+    CHAT_14B_URL = os.environ.get("BFF_14B_BASE_URL", "http://vllm-14b-instruct.aither-inference.svc:8000")
+    GATEWAY_32B_URL = os.environ.get("BFF_32B_GATEWAY_URL", "http://nginx-gateway-32b.aither-inference.svc:8000")
+    # ... (full app.py in manifest source)

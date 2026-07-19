@@ -4,15 +4,67 @@ metadata:
   name: aither-bff-config
   namespace: aither-inference
 data:
-  default.conf: |
-    server {
-        listen 8000;
-        location /health { default_type application/json; return 200 '{"status":"ok"}'; }
-        location /api/v1/chat { proxy_pass http://vllm-14b-instruct.aither-inference.svc:8000/v1/chat/completions; proxy_set_header Authorization $http_authorization; proxy_set_header X-Real-IP $remote_addr; proxy_read_timeout 300s; }
-        location /api/v1/completions { proxy_pass http://nginx-gateway-32b.aither-inference.svc:8000/v1/completions; proxy_set_header Authorization $http_authorization; proxy_set_header X-Real-IP $remote_addr; proxy_read_timeout 300s; }
-        location /api/v1/models { default_type application/json; return 200 '{"models":[{"id":"14b","type":"chat"},{"id":"32b","type":"completion"}]}'; }
-        location / { return 404; }
-    }
+  app.py: |
+    import os, logging, uvicorn
+    from contextlib import asynccontextmanager
+    from fastapi import FastAPI, HTTPException, Request
+    from pydantic import BaseModel
+    import httpx
+
+    MODEL_14B = "qwen-14b"
+    MODEL_32B = "qwen-32b-base"
+    CHAT_14B_URL = os.environ.get("BFF_14B_BASE_URL", "http://vllm-14b-instruct.aither-inference.svc:8000")
+    GATEWAY_32B_URL = os.environ.get("BFF_32B_GATEWAY_URL", "http://nginx-gateway-32b.aither-inference.svc:8000")
+    TIMEOUT = int(os.environ.get("BFF_REQUEST_TIMEOUT_SECONDS", "300"))
+    logger = logging.getLogger("aither-bff")
+    client: httpx.AsyncClient = None
+
+    @asynccontextmanager
+    async def lifespan(app):
+        global client
+        client = httpx.AsyncClient(timeout=TIMEOUT)
+        yield
+        await client.aclose()
+
+    app = FastAPI(title="Aither BFF", version="0.2.0", lifespan=lifespan)
+
+    class CR(BaseModel): model: str; messages: list; max_tokens: int = 64; temperature: float = 0.0
+
+    async def hdrs(req): h={"Content-Type":"application/json"}; [h.update({"Authorization":req.headers[a]}) for a in ["authorization","Authorization"] if a in req.headers]; return h
+
+    @app.get("/health")
+    async def health(): return {"status":"ok"}
+
+    @app.post("/api/v1/chat")
+    async def chat(req: Request):
+        body = await req.json(); model = body.get("model",""); hd = await hdrs(req)
+        if model in ("32b", MODEL_32B):
+            raise HTTPException(status_code=422, detail=f"{MODEL_32B} does not support chat. Use /api/v1/completions.")
+        if model in ("14b", MODEL_14B):
+            body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/chat/completions"
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
+        async with client.stream("POST", url, json=body, headers=hd) as resp:
+            return await resp.aread()
+
+    @app.post("/api/v1/completions")
+    async def completions(req: Request):
+        body = await req.json(); model = body.get("model",""); hd = await hdrs(req)
+        if model in ("32b", MODEL_32B):
+            body["model"] = MODEL_32B; url = f"{GATEWAY_32B_URL}/v1/completions"
+        elif model in ("14b", MODEL_14B):
+            body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/completions"
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
+        async with client.stream("POST", url, json=body, headers=hd) as resp:
+            return await resp.aread()
+
+    @app.get("/api/v1/models")
+    async def list_models():
+        return {"models":[{"id":"14b","name":MODEL_14B,"type":"chat"},{"id":"32b","name":MODEL_32B,"type":"completion"}]}
+
+    if __name__ == "__main__":
+        uvicorn.run("app:app", host="0.0.0.0", port=8000)
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -22,6 +74,8 @@ metadata:
   labels: { app: aither-bff }
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels: { app: aither-bff }
   template:
@@ -30,32 +84,45 @@ spec:
     spec:
       containers:
         - name: bff
-          image: nginx:alpine
+          image: python:3.11-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              export HOME=/tmp && pip install -q --user fastapi uvicorn httpx pydantic 2>&1 && exec python /app/app.py 2>&1
           ports:
             - containerPort: 8000
               name: http
           volumeMounts:
-            - name: config
-              mountPath: /etc/nginx/conf.d
+            - name: app
+              mountPath: /app
               readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: { drop: ["ALL"], add: ["CHOWN","SETGID","SETUID"] }
+            capabilities: { drop: ["ALL"] }
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           resources:
-            requests: { cpu: "50m", memory: "64Mi" }
-            limits: { cpu: "200m", memory: "128Mi" }
+            requests: { cpu: "200m", memory: "256Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 30
           readinessProbe:
             httpGet: { path: /health, port: http }
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
             httpGet: { path: /health, port: http }
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 3
       volumes:
-        - name: config
+        - name: app
           configMap:
             name: aither-bff-config
 ---

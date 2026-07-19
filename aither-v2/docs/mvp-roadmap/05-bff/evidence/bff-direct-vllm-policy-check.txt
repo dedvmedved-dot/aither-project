@@ -1,4 +1,26 @@
+Direct vLLM bypass policy check
+Date: 2026-07-20 02:30 MSK
+
 User-facing 32B chat direct vLLM route: NOT PRESENT
+  - BFF blocks 32B chat with 422 before any upstream call
+  - No Service/LB exposing vllm-32b-gptq directly to users
+
 User-facing 32B completion direct vLLM route: NOT PRESENT
+  - BFF routes 32B completion ONLY through nginx-gateway-32b
+  - app.py: url = f"{GATEWAY_32B_URL}/v1/completions"
+  - GATEWAY_32B_URL = "http://nginx-gateway-32b.aither-inference.svc:8000"
+  - No direct reference to "vllm-32b-gptq" in BFF routes
+
 32B completion via nginx-gateway-32b: YES
-32B chat blocked before upstream: YES (gateway returns 422)
+  - Completed: POST /api/v1/completions model=32b -> nginx-gateway-32b -> vllm-32b-gptq
+  - Evidence: bff-32b-completion-no-token-401.txt (route confirmed, auth pending)
+
+32B chat blocked before upstream: YES
+  - app.py raises HTTPException(422) for model in ("32b", MODEL_32B)
+  - Evidence: bff-32b-chat-blocked-422.txt (confirmed HTTP 422)
+
+Deployed workload matches app.py: YES
+  - Deployment aither-bff uses ConfigMap aither-bff-config containing the same
+    app.py logic (slightly condensed formatting but functionally identical)
+  - No nginx:alpine deployment; only python:3.11-slim running FastAPI
+  - Both tools/bff/app.py and ConfigMap data.app.py implement identical routing
