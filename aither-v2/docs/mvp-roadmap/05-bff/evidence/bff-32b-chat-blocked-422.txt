@@ -1,13 +1,12 @@
 Test: BFF POST /api/v1/chat model=32b (should be blocked)
-Date: 2026-07-20 02:30 MSK
-Method: kubectl exec pod/aither-bff -- python urllib -> localhost:8000/api/v1/chat
+Date: 2026-07-20 02:56 MSK
+Method: kubectl exec pod/aither-bff -- python3 urllib -> localhost:8000/api/v1/chat
 
 Request: {"model":"32b","messages":[{"role":"user","content":"hi"}]}
 Result: HTTP 422
 Body: {"detail":"qwen-32b-base does not support chat. Use /api/v1/completions."}
 
 Note: BFF correctly blocks 32B chat requests BEFORE sending to upstream.
-Returns 422 Unprocessable Entity as specified in requirements.
+Returns 422 Unprocessable Entity.
 
-Evidence source: kubectl exec on BFF pod, localhost call
 Status: PASSED

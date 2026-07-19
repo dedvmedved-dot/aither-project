@@ -1,17 +1,13 @@
-Rollout status for aither-bff deployment
-Date: 2026-07-20 02:30 MSK
+Rollout status for aither-bff deployment (Stage 05 Corrective 2)
+Date: 2026-07-20 02:56 MSK
 
 Command: kubectl -n aither-inference rollout status deployment/aither-bff
 
 Result: deployment "aither-bff" successfully rolled out
-Pod: aither-bff-5798d78b86-8jlsf
+Pod: aither-bff-7d699fc755-vmcsl
 Status: 1/1 Running (0 restarts)
 Image: python:3.11-slim
-Command: pip install --user fastapi uvicorn httpx pydantic && exec python /app/app.py
+Change: ConfigMap updated with Response(status_code=resp.status_code) fix
 
-History:
-  Revision 1 (original): nginx:alpine (never actually deployed — was pip-based from start)
-  Revision 2 (current): python:3.11-slim with pip install (fixed HOME=/tmp, --user flag)
-
-CrashLoopBackOff root cause: pip install running as non-root (uid 1000) without --user flag
-Fix: added HOME=/tmp, pip install --user, stderr redirect to stdout (removed 2>/dev/null)
+Pre-existing issue: nginx-gateway-32b-5d447469b9-8c9xs still CrashLoopBackOff
+(this is unrelated to BFF changes)

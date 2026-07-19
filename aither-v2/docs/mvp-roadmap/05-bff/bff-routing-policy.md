@@ -19,12 +19,17 @@
 
 BFF is implemented as **FastAPI** (python:3.11-slim, deployed via ConfigMap):
 
-| Route | Method | Action | Upstream Target |
-|---|---|---|---|
-| /health | GET | Health check | Local handler |
-| /api/v1/chat | POST | Route 14B, block 32B (422), block unknown (400) | vllm-14b-instruct:8000 (14B only) |
-| /api/v1/completions | POST | Route 14B, route 32B via gateway, block unknown (400) | vllm-14b-instruct:8000 (14B), nginx-gateway-32b:8000 (32B) |
-| /api/v1/models | GET | Static model list | Local handler |
+| Route | Method | Action | Upstream Target | Status Code |
+|---|---|---|---|---|
+| /health | GET | Health check | Local handler | 200 |
+| /api/v1/chat | POST | Route 14B, block 32B (422), block unknown (400) | vllm-14b-instruct:8000 (14B only) | Upstream code propagated |
+| /api/v1/completions | POST | Route 14B, route 32B via gateway, block unknown (400) | vllm-14b-instruct:8000 (14B), nginx-gateway-32b:8000 (32B) | Upstream code propagated |
+| /api/v1/models | GET | Static model list | Local handler | 200 |
+
+**Important**: All upstream responses now use `Response(status_code=resp.status_code)` — BFF returns the real upstream HTTP status code, not a hardcoded 200. This means:
+- If upstream returns 401 (no auth), BFF returns 401
+- If upstream returns 200 (success), BFF returns 200
+- If upstream returns 500 (error), BFF returns 500
 
 ### Route verification
 

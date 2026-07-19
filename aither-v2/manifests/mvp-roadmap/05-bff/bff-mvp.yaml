@@ -7,7 +7,7 @@ data:
   app.py: |
     import os, logging, uvicorn
     from contextlib import asynccontextmanager
-    from fastapi import FastAPI, HTTPException, Request
+    from fastapi import FastAPI, HTTPException, Request, Response
     from pydantic import BaseModel
     import httpx
 
@@ -45,7 +45,7 @@ data:
         else:
             raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
         async with client.stream("POST", url, json=body, headers=hd) as resp:
-            return await resp.aread()
+            return Response(content=await resp.aread(), status_code=resp.status_code, media_type=resp.headers.get("content-type","application/json"))
 
     @app.post("/api/v1/completions")
     async def completions(req: Request):
@@ -57,7 +57,7 @@ data:
         else:
             raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
         async with client.stream("POST", url, json=body, headers=hd) as resp:
-            return await resp.aread()
+            return Response(content=await resp.aread(), status_code=resp.status_code, media_type=resp.headers.get("content-type","application/json"))
 
     @app.get("/api/v1/models")
     async def list_models():

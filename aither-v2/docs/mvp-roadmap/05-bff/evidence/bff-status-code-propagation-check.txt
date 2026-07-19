@@ -1,0 +1,20 @@
+Test: BFF upstream HTTP status code propagation
+Date: 2026-07-20 02:56 MSK
+Method: kubectl exec pod/aither-bff -- python3 urllib -> localhost:8000
+
+Check: BFF must return real upstream HTTP status code, not 200.
+
+Results:
+| Test | Expected | Actual (before fix) | Actual (after fix) | Status |
+|---|---|---|---|---|
+| 14B chat (no auth) | 401/403 | 200 (wrong) | 401 ✅ | PASSED |
+| 32B completion (no auth) | 401/403 | 200 (wrong) | 401 ✅ | PASSED |
+| 32B chat blocked | 422 | 422 | 422 | PASSED |
+| Unknown model | 400 | 400 | 400 | PASSED |
+| Health | 200 | 200 | 200 | PASSED |
+
+Fix applied: both chat and completions handlers now return
+`Response(content=..., status_code=resp.status_code, ...)` instead of
+returning the body without status code.
+
+Status: PASSED (upstream status codes are now correctly propagated)

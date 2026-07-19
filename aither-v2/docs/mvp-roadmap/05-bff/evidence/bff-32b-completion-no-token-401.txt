@@ -1,25 +1,13 @@
 Test: BFF POST /api/v1/completions model=32b (no auth token)
-Date: 2026-07-20 02:30 MSK
-Method: kubectl exec pod/aither-bff -- python urllib -> localhost:8000/api/v1/completions
+Date: 2026-07-20 02:56 MSK
+Method: kubectl exec pod/aither-bff -- python3 urllib -> localhost:8000/api/v1/completions
 
-Request: {"model":"32b","prompt":"hi","max_tokens":20}
-Result: HTTP 200
+Request: {"model":"32b","prompt":"Say hello","max_tokens":20}
+Result: HTTP 401
 Body: {"error":"auth required"}
 
-Note: BFF returns HTTP 200 because it successfully proxied the request to
-nginx-gateway-32b.aither-inference.svc:8000/v1/completions. The gateway then
-returned {"error":"auth required"} because no Authorization header was sent.
-BFF does not add its own auth — it only forwards the client's Authorization header.
-Without a client token, the upstream gateway rejects the request (as expected).
+Note: BFF now correctly propagates the upstream HTTP status code.
+nginx-gateway-32b returns 401 when no Authorization header is provided.
+Previously this returned HTTP 200 (incorrect). Now it returns 401 as expected.
 
-Expected by spec: HTTP 401 or 403.
-Observed: HTTP 200 (from BFF's perspective, the upstream call succeeded).
-The 200 from BFF indicates correct routing. The auth enforcement happens at the
-gateway layer. This is semantically correct behaviour — BFF is a proxy, not an
-auth enforcement point for the gateway's own auth.
-
-However, to match spec expectations strictly:
-Request with explicit Authorization: Bearer INVALID sent:
-Status: NOT COLLECTED (need a valid token to test 401 path properly)
-Evidence source: kubectl exec on BFF pod, localhost call
-Status: PARTIAL (BFF route confirmed, but auth header passthrough needs explicit 401 test)
+Status: PASSED (BFF correctly forwards upstream 401 status code)

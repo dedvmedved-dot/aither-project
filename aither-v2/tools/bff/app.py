@@ -2,7 +2,7 @@ import os
 import logging
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
 import httpx
 
@@ -68,7 +68,12 @@ async def chat(req: Request):
         raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
 
     async with client.stream("POST", url, json=body, headers=headers) as resp:
-        return resp.json() if resp.headers.get("content-type","").startswith("application/json") else await resp.aread()
+        content = await resp.aread()
+        return Response(
+            content=content,
+            status_code=resp.status_code,
+            media_type=resp.headers.get("content-type", "application/json"),
+        )
 
 
 @app.post("/api/v1/completions")
@@ -89,7 +94,11 @@ async def completions(req: Request):
 
     async with client.stream("POST", url, json=body, headers=headers) as resp:
         content = await resp.aread()
-        return resp.json() if resp.headers.get("content-type","").startswith("application/json") else content
+        return Response(
+            content=content,
+            status_code=resp.status_code,
+            media_type=resp.headers.get("content-type", "application/json"),
+        )
 
 
 @app.get("/api/v1/models")

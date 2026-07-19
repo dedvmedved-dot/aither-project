@@ -18,4 +18,5 @@
 | **BFF-RL-01** | **Rate limiting postponed to Stage 06** | **POSTPONED** | **Stage 06** |
 | **BFF-AUTH-01** | **BFF has no built-in auth; relies on upstream auth** | **PARTIAL** | **Stage 08** |
 | **BFF-SEC-01** | **BFF container securityContext applied (runAsNonRoot, cap drop, read-only app volume)** | **PASSED** | **Stage 05** |
+| **BFF-STATUS-01** | **BFF correctly propagates upstream HTTP status codes** | **PASSED** | **Stage 05** |
 | **BFF-TOKEN-01** | **Valid token test for 32B completion not collected (VPN instability)** | **NOT COLLECTED** | **Stage 05** |

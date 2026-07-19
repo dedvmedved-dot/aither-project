@@ -1,0 +1,13 @@
+Test: BFF POST /api/v1/chat model=14b (no auth token)
+Date: 2026-07-20 02:56 MSK
+Method: kubectl exec pod/aither-bff -- python3 urllib -> localhost:8000/api/v1/chat
+
+Request: {"model":"14b","messages":[{"role":"user","content":"Say hello in one word"}],"max_tokens":20}
+Result: HTTP 401
+Body: {"error":"Unauthorized"}
+
+Note: BFF now correctly propagates the upstream HTTP status code.
+vLLM 14B returns 401 when no Authorization header is provided.
+Previously this returned HTTP 200 (incorrect). Now it returns 401 as expected.
+
+Status: PASSED (BFF correctly forwards upstream 401 status code)

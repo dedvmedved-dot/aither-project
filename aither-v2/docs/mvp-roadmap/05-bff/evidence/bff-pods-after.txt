@@ -1,12 +1,12 @@
-Pod status after BFF rollout
-Date: 2026-07-20 02:30 MSK
+Pod status after BFF rollout (Stage 05 Corrective 2)
+Date: 2026-07-20 02:56 MSK
 
-NAME                          READY   STATUS    RESTARTS   AGE
-aither-bff-5798d78b86-8jlsf   1/1     Running   0          5m
+BFF pods:
+aither-bff-7d699fc755-vmcsl   1/1     Running   0          3m
 
 All related pods in aither-inference namespace:
-aither-bff-5798d78b86-8jlsf                    1/1     Running   0          5m
-nginx-gateway-32b-5d447469b9-8c9xs             0/1     CrashLoopBackOff   28+   (pre-existing)
-nginx-gateway-32b-5d447469b9-pvxtq             1/1     Running            0      121m
-vllm-14b-instruct-7f6f784dcb-g2h5d             1/1     Running            0      13h
-vllm-32b-gptq-7d6dc7c64-r82nh                  1/1     Running            0      13h
+aither-bff-7d699fc755-vmcsl                    1/1     Running   0          3m
+nginx-gateway-32b-5d447469b9-8c9xs             0/1     CrashLoopBackOff   (pre-existing)
+nginx-gateway-32b-5d447469b9-pvxtq             1/1     Running   0          3h
+vllm-14b-instruct-7f6f784dcb-g2h5d             1/1     Running   0          14h
+vllm-32b-gptq-7d6dc7c64-r82nh                  1/1     Running   0          14h

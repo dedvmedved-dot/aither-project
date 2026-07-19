@@ -1,6 +1,6 @@
 # BFF Inventory Report
 
-Date: 2026-07-20 (Stage 05 Corrective)
+Date: 2026-07-20 (Stage 05 Corrective 2 — status code propagation)
 Executor: hermes@vps2
 Repository branch: aither-v2
 Commit: (this corrective commit)
@@ -11,7 +11,7 @@ Commit: (this corrective commit)
 
 | File | Description |
 |---|---|
-| tools/bff/app.py | FastAPI BFF application (Python) |
+| tools/bff/app.py | FastAPI BFF application (Python) — status code propagation fix applied |
 | tools/bff/Dockerfile | Docker build for BFF image |
 | tools/bff/requirements.txt | Python dependencies |
 | tools/bff/README.md | Documentation |
@@ -20,7 +20,7 @@ Commit: (this corrective commit)
 
 | File | Description |
 |---|---|
-| bff-mvp.yaml | Deployment + ConfigMap + Service (single file) |
+| bff-mvp.yaml | Deployment + ConfigMap (with status code fix) + Service |
 
 ### docs/mvp-roadmap/05-bff/
 
@@ -28,59 +28,48 @@ Commit: (this corrective commit)
 |---|---|
 | bff-acceptance-report.md | Acceptance report with evidence |
 | bff-routing-policy.md | Routing policy document |
-| bff-security-notes.md | Security assessment |
+| bff-security-notes.md | Security assessment (with status code propagation info) |
 | bff-inventory-report.md | This inventory |
-| evidence/*.txt / *.yaml | Evidence files (14 files total) |
+| evidence/ | 15 evidence files |
 | logs/ | Runtime logs directory |
 
 ## 2. Kubernetes inventory
 
-### aither-inference namespace
-
 | Resource | Name | Detail |
 |---|---|---|
-| ConfigMap | aither-bff-config | app.py embedded as ConfigMap data |
+| ConfigMap | aither-bff-config | app.py with Response(status_code=...) fix |
 | Deployment | aither-bff | python:3.11-slim, 1 replica, ClusterIP |
-| Service | aither-bff | ClusterIP :8000, selector app=aither-bff |
-
-### Runtime state (as of 2026-07-20 02:30 MSK)
-
-| Resource | Value |
-|---|---|
-| Pod name | aither-bff-5798d78b86-8jlsf |
-| Status | 1/1 Running, 0 restarts |
-| Image | python:3.11-slim |
-| Command | pip install --user + exec python /app/app.py |
-| Service ClusterIP | 10.106.87.155:8000 |
+| Service | aither-bff | ClusterIP :8000 |
 
 ## 3. BFF routing
 
-| Route | Method | Status |
-|---|---|---|
-| /health | GET | 200 (local) |
-| /api/v1/chat model=14b | POST | 200 (→ vllm-14b-instruct) |
-| /api/v1/chat model=32b | POST | 422 (blocked) |
-| /api/v1/chat unknown | POST | 400 (blocked) |
-| /api/v1/completions model=14b | POST | 200 (→ vllm-14b-instruct) |
-| /api/v1/completions model=32b | POST | 200 (→ nginx-gateway-32b) |
-| /api/v1/completions unknown | POST | 400 (blocked) |
-| /api/v1/models | GET | 200 (static) |
+| Route | Method | Status Code | Forwarded? |
+|---|---|---|---|
+| /health | GET | 200 | — |
+| /api/v1/chat model=14b | POST | Upstream code (401 if no auth) | ✅ |
+| /api/v1/chat model=32b | POST | 422 (blocked) | — |
+| /api/v1/chat unknown | POST | 400 (blocked) | — |
+| /api/v1/completions model=14b | POST | Upstream code (401 if no auth) | ✅ |
+| /api/v1/completions model=32b | POST | Upstream code (401 if no auth) | ✅ via gateway |
+| /api/v1/completions unknown | POST | 400 (blocked) | — |
+| /api/v1/models | GET | 200 | — |
 
-## 4. Key changes from original deployment
+## 4. Status code propagation (Corrective 2)
 
-| Aspect | Previous (commit 2ab4485) | Current |
-|---|---|---|
-| Implementation | Mixed: app.py (FastAPI) + nginx:alpine deployment | FastAPI only, consistent app.py = deployment |
-| Deployment image | python:3.11-slim with pip install (existing) | python:3.11-slim with pip install **--user** |
-| Root cause of CrashLoopBackOff | pip install as runAsUser=1000 without --user flag | Fixed with HOME=/tmp + --user |
-| nginx:alpine | Referenced in outdated docs | Never was the actual deployment |
-| Evidence | Minimal | 14 evidence files with test results |
-| Routing policy | Described as "nginx reverse proxy" | Updated to FastAPI routing |
+Before fix (commit 0a2340f):
+- 14B chat no auth → **HTTP 200** {"error":"Unauthorized"} ← wrong!
+- 32B completion no auth → **HTTP 200** {"error":"auth required"} ← wrong!
+
+After fix:
+- 14B chat no auth → **HTTP 401** {"error":"Unauthorized"} ✅
+- 32B completion no auth → **HTTP 401** {"error":"auth required"} ✅
+
+Fix: changed `return await resp.aread()` to `return Response(content=..., status_code=resp.status_code, ...)`
 
 ## 5. Risks
 
-- BFF chat 14B returns 200 but upstream returns 401 (no auth token forwarded by default).
-- 32B completion valid token test not collected (VPN instability).
-- No rate limiting (postponed to Stage 06).
-- No NetworkPolicy (postponed to Stage 08).
-- BFF is MVP-level, not production-hardened.
+- BFF chat 14B returns 401 when no auth (correct behaviour, but requires client to send API key)
+- Valid token test for 32B completion not collected (VPN instability)
+- No rate limiting (postponed to Stage 06)
+- No NetworkPolicy (postponed to Stage 08)
+- BFF is MVP-level, not production-hardened

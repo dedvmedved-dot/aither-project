@@ -35,7 +35,7 @@ Working directory: aither-v2/
 | Stage 03 | TP=2 Decision | PASSED WITH MINOR CORRECTION REQUIRED |
 | Stage 04 | Gateway Hardening | PASSED WITH FINDINGS / CONNECTOR VERIFIED |
 | Stage 04.1 | Repository Integrity Verification | PASSED / CONNECTOR VERIFIED |
-| Stage 05 | BFF Acceptance | **PARTIAL / WAITING FOR CHATGPT AUDIT** |
+| Stage 05 | BFF Acceptance | **PARTIAL / WAITING FOR CHATGPT AUDIT (Corrective 2)** |
 | Stage 06 | Redis / Rate Limiting | **BLOCKED (waiting Stage 05 audit)** |
 
 ## 5. Accepted Decisions

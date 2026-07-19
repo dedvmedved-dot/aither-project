@@ -116,3 +116,34 @@ Findings added in FINDINGS.md:
 - BFF-AUTH-01 PARTIAL
 - BFF-SEC-01 PASSED
 - BFF-TOKEN-01 NOT COLLECTED
+
+## Stage 05 — BFF Acceptance (Corrective 2: status code propagation)
+
+Status: PARTIAL / WAITING FOR CHATGPT AUDIT
+
+Summary:
+- Previous commit 0a2340f received PARTIAL / CORRECTIVE REQUIRED due to:
+  BFF returning HTTP 200 for upstream 401/403 errors instead of real status codes.
+- Fix applied to app.py and ConfigMap: both /api/v1/chat and /api/v1/completions handlers
+  now return `Response(content=..., status_code=resp.status_code, ...)`.
+- Verified: 14B chat no auth → HTTP 401 (was 200)
+- Verified: 32B completion no auth → HTTP 401 (was 200)
+- Verified: 32B chat blocked → HTTP 422 (unchanged)
+- Verified: unknown model → HTTP 400 (unchanged)
+- Verified: health → HTTP 200 (unchanged)
+- Valid token test still NOT COLLECTED (VPN instability).
+- Allowed scope respected: vLLM/GPU/TP/Gateway/Portal/Redis/OAuth NOT modified.
+- Stage 06 NOT started, BLOCKED.
+
+Evidence updated:
+- bff-status-code-propagation-check.txt (new)
+- bff-14b-chat-auth-status.txt (updated, now shows 401)
+- bff-32b-completion-no-token-401.txt (updated, now shows 401)
+- bff-acceptance-report.md (updated with new results)
+- bff-routing-policy.md (updated with status code info)
+- bff-security-notes.md (updated)
+- bff-inventory-report.md (updated)
+
+Findings:
+- BFF-STATUS-01: PASSED (status code propagation)
+- BFF-TOKEN-01: NOT COLLECTED (unchanged)
