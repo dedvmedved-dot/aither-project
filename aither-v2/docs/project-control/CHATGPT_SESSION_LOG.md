@@ -61,7 +61,36 @@
 - GPU Operator: NOT MODIFIED
 - containerd / NVIDIA runtime: NOT MODIFIED
 
-### Gate
+### Gate (before audit)
 
 - Stage 05 remains: **PARTIAL / WAITING FOR CHATGPT AUDIT**
 - Stage 06: **BLOCKED** (requires Stage 05 audit pass)
+
+---
+
+### ChatGPT Audit Result
+
+**Date:** 2026-07-20
+**Commit audited:** `8219c56`
+**Method:** GitHub connector (raw link verification)
+
+**Result: Stage 05 — PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+
+**Accepted evidence:**
+1. BFF deployment aligned with FastAPI implementation.
+2. BFF routes 32B completion through nginx-gateway-32b.
+3. BFF blocks 32B chat before upstream (422).
+4. BFF blocks unknown model (400).
+5. BFF correctly propagates upstream HTTP status codes (401→401, was 200).
+6. Direct vLLM 32B user-facing bypass is not present.
+7. Secrets are not committed.
+
+**Open findings (retained):**
+- BFF-TOKEN-01: valid-token 32B completion test — NOT COLLECTED (VPN instability)
+- BFF-AUTH-01: BFF has no built-in auth — PARTIAL (relies on upstream)
+
+**Stage 05 is accepted for MVP with findings. Not production-ready.**
+
+**Gate after audit:**
+- Stage 05: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- Stage 06: **READY FOR TASK PREPARATION**

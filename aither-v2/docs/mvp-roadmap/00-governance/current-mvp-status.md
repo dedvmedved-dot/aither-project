@@ -14,7 +14,7 @@ Date: 2026-07-20 (Stage 05 Corrective — PARTIAL)
 | Benchmark | **PASSED** | docs/mvp-roadmap/02-inference-acceptance/LOAD_TEST_60MIN_REPORT.md |
 | Streaming TTFT | PASSED WITH MINOR FINDINGS | docs/mvp-roadmap/02-inference-acceptance/streaming-ttft-report.md |
 | TP=2 | POSTPONED / RISK ACCEPTED | docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md |
-| BFF | **PARTIAL / WAITING FOR CHATGPT AUDIT** | docs/mvp-roadmap/05-bff/bff-acceptance-report.md |
+| BFF | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/05-bff/bff-acceptance-report.md |
 | Redis RL | NOT STARTED | |
 | Portal | NOT STARTED | |
 | Monitoring | PARTIAL | |
@@ -28,7 +28,7 @@ Date: 2026-07-20 (Stage 05 Corrective — PARTIAL)
 3. No monitoring stack
 4. Model provenance not documented
 5. BFF valid token test not collected (VPN blocking kubectl secret retrieval)
-6. Stage 05 PARTIAL — awaiting ChatGPT audit
+6. BFF has no built-in auth (relies on upstream)
 
 ## BM-01: RESOLVED
 
@@ -36,6 +36,5 @@ Date: 2026-07-20 (Stage 05 Corrective — PARTIAL)
 
 ## Next approved stage
 
-Stage: WAITING FOR AUDIT
-Status: NOT APPROVED
-Stage 06 (Redis/Rate Limiting): **BLOCKED** until Stage 05 audit passes
+Stage: Stage 06 — Redis / Rate Limiting
+Status: READY FOR TASK PREPARATION

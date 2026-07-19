@@ -82,7 +82,7 @@ Summary:
 
 ## Stage 05 — BFF Acceptance (Corrective)
 
-Status: PARTIAL / WAITING FOR CHATGPT AUDIT
+Status: PASSED WITH FINDINGS (superseded by Corrective 2)
 
 Summary:
 - Original commit 2ab4485 received PARTIAL / CORRECTIVE REQUIRED from ChatGPT audit.
@@ -119,21 +119,23 @@ Findings added in FINDINGS.md:
 
 ## Stage 05 — BFF Acceptance (Corrective 2: status code propagation)
 
-Status: PARTIAL / WAITING FOR CHATGPT AUDIT
+Status: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 
 Summary:
-- Previous commit 0a2340f received PARTIAL / CORRECTIVE REQUIRED due to:
-  BFF returning HTTP 200 for upstream 401/403 errors instead of real status codes.
-- Fix applied to app.py and ConfigMap: both /api/v1/chat and /api/v1/completions handlers
-  now return `Response(content=..., status_code=resp.status_code, ...)`.
-- Verified: 14B chat no auth → HTTP 401 (was 200)
-- Verified: 32B completion no auth → HTTP 401 (was 200)
-- Verified: 32B chat blocked → HTTP 422 (unchanged)
-- Verified: unknown model → HTTP 400 (unchanged)
-- Verified: health → HTTP 200 (unchanged)
-- Valid token test still NOT COLLECTED (VPN instability).
+- Commit 8219c56 audited via GitHub connector.
+- ChatGPT confirmed:
+  1. BFF deployment aligned with FastAPI implementation.
+  2. BFF routes 32B completion through nginx-gateway-32b.
+  3. BFF blocks 32B chat before upstream.
+  4. BFF blocks unknown model.
+  5. BFF now correctly propagates upstream HTTP status codes.
+  6. Direct vLLM 32B user-facing bypass is not present.
+  7. Secrets are not committed.
+- Status code propagation fix confirmed: 14B chat no auth → 401 (was 200), 32B completion no auth → 401 (was 200).
+- Findings retained: BFF-TOKEN-01 (NOT COLLECTED), BFF-AUTH-01 (PARTIAL).
 - Allowed scope respected: vLLM/GPU/TP/Gateway/Portal/Redis/OAuth NOT modified.
-- Stage 06 NOT started, BLOCKED.
+- Stage 06: READY FOR TASK PREPARATION.
+- Stage 05 is accepted for MVP with findings. Not production-ready.
 
 Evidence updated:
 - bff-status-code-propagation-check.txt (new)
