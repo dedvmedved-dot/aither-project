@@ -8,21 +8,40 @@ data:
     server {
         listen 8000;
         server_name _;
+        client_max_body_size 4m;
+
+        # Rate limiting
+        limit_req_zone $binary_remote_addr zone=completions:10m rate=30r/m;
+
         location = /v1/chat/completions {
             return 422 '{"error":"qwen-32b-base does not support chat"}';
         }
         location /v1/completions {
+            limit_req zone=completions burst=5 nodelay;
             proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header Authorization $http_authorization;
             proxy_read_timeout 300s;
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
             proxy_intercept_errors on;
             error_page 401 403 = @auth_denied;
         }
         location @auth_denied { return 401 '{"error":"auth required"}'; }
-        location /health { proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/health; }
-        location /v1/models { proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/v1/models; }
+        location /health {
+            proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/health;
+            access_log off;
+        }
+        location /v1/models {
+            proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/v1/models;
+        }
+        location /nginx_status {
+            stub_status;
+            access_log off;
+            allow 127.0.0.1;
+            deny all;
+        }
         location / { return 404 '{"error":"not found"}'; }
     }
 ---
@@ -33,16 +52,24 @@ metadata:
   namespace: aither-inference
   labels: { app: nginx-gateway, model: qwen-32b-gptq }
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels: { app: nginx-gateway, model: qwen-32b-gptq }
   template:
     metadata:
       labels: { app: nginx-gateway, model: qwen-32b-gptq }
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        fsGroup: 101
       containers:
         - name: nginx
-          image: nginx:alpine
+          image: nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: false
           ports:
             - containerPort: 8000
               name: http
@@ -50,6 +77,8 @@ spec:
             - name: config
               mountPath: /etc/nginx/conf.d
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           resources:
             limits: { cpu: "1", memory: 256Mi }
             requests: { cpu: 100m, memory: 64Mi }
@@ -57,6 +86,8 @@ spec:
         - name: config
           configMap:
             name: nginx-gateway-32b
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

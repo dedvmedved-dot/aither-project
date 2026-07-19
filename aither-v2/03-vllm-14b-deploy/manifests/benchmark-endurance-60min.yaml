@@ -1,0 +1,105 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchmark-endurance-60min
+  namespace: aither-inference
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        aither.io/benchmark-node: "true"
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: endurance
+          image: curlimages/curl:8.10.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              VLLM_KEY="$VLLM_API_KEY"
+              GATEWAY="nginx-gateway-32b.aither-inference.svc:8000"
+              MODEL14="vllm-14b-instruct.aither-inference.svc:8000"
+              MODEL32="vllm-32b-gptq.aither-inference.svc:8000"
+              DATA14='{"model":"qwen-14b","messages":[{"role":"user","content":"What is capital of France?"}],"temperature":0,"max_tokens":128}'
+              DATA32='{"model":"qwen-32b-base","prompt":"The capital of France is","temperature":0,"max_tokens":128}'
+              REPORT="/tmp/endurance-report.txt"
+
+              log() { echo "$1" | tee -a "$REPORT"; }
+              log "=========================================="
+              log "= Endurance Benchmark (60 min)"
+              log "= Start: $(date -Iseconds)"
+              log "=========================================="
+
+              DURATION=3600
+              END=$(( $(date +%s) + DURATION ))
+              REQ14=0; OK14=0; FAIL14=0
+              REQ32=0; OK32=0; FAIL32=0
+              START_TS=$(date +%s)
+              LAST_PROGRESS=$START_TS
+
+              while [ $(date +%s) -lt $END ]; do
+                NOW=$(date +%s)
+                curl -sS --max-time 300 \
+                  -H "Authorization: Bearer $VLLM_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d "$DATA14" \
+                  -o /dev/null -w "%{http_code}\n" \
+                  "http://${MODEL14}/v1/chat/completions" > /tmp/res14.txt 2>&1
+                CODE=$(cat /tmp/res14.txt)
+                REQ14=$((REQ14+1))
+                [ "$CODE" = "200" ] && OK14=$((OK14+1)) || FAIL14=$((FAIL14+1))
+
+                curl -sS --max-time 300 \
+                  -H "Authorization: Bearer $VLLM_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d "$DATA32" \
+                  -o /dev/null -w "%{http_code}\n" \
+                  "http://${MODEL32}/v1/completions" > /tmp/res32.txt 2>&1
+                CODE=$(cat /tmp/res32.txt)
+                REQ32=$((REQ32+1))
+                [ "$CODE" = "200" ] && OK32=$((OK32+1)) || FAIL32=$((FAIL32+1))
+
+                # Progress every 60 requests
+                TOTAL=$((REQ14 + REQ32))
+                if [ $((TOTAL % 60)) -eq 0 ] 2>/dev/null; then
+                  ELAPSED=$(( $(date +%s) - START_TS ))
+                  log "  $(date -Iseconds): 14B=${OK14}/${REQ14} 32B=${OK32}/${REQ32} elapsed=${ELAPSED}s"
+                fi
+              done
+
+              ELAPSED=$(( $(date +%s) - START_TS ))
+              log ""
+              log "=========================================="
+              log "= RESULTS"
+              log "  Duration: ${ELAPSED}s (target 3600s)"
+              log ""
+              log "--- 14B ---"
+              log "  Requests: $REQ14"
+              log "  OK: $OK14 $([ $REQ14 -gt 0 ] && echo \"($((OK14*100/REQ14))%)\")"
+              log "  FAIL: $FAIL14"
+              log ""
+              log "--- 32B ---"
+              log "  Requests: $REQ32"
+              log "  OK: $OK32 $([ $REQ32 -gt 0 ] && echo \"($((OK32*100/REQ32))%)\")"
+              log "  FAIL: $FAIL32"
+              log ""
+              log "--- Final ---"
+              if [ $FAIL14 -eq 0 ] && [ $FAIL32 -eq 0 ]; then log "  Conclusion: PASSED"; else log "  Conclusion: FAILED"; fi
+              log "=========================================="
+              cat "$REPORT"
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
+          resources:
+            limits: { cpu: "2", memory: 512Mi }
+            requests: { cpu: 500m, memory: 256Mi }
