@@ -30,15 +30,21 @@ Current status:
 Stage 01 — Cluster/GPU Baseline: PASSED WITH FINDINGS.
 Stage 02 — Inference Acceptance: PASSED WITH FINDINGS.
 Stage 03 — TP=2 Decision: PASSED WITH MINOR CORRECTION REQUIRED.
-Stage 04 — Gateway Hardening: prepared / waiting execution / not audited.
+|Stage 04 — Gateway Hardening: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
+|Stage 04.1 — Repository Integrity Verification: PASSED / CONNECTOR VERIFIED.
+|Stage 05 — BFF Acceptance: NOT STARTED / NOT APPROVED.
 
 Key decisions:
 TP=1 accepted for MVP.
 TP=2 postponed to Post-MVP Optimization.
 OAuth removed from immediate MVP.
-Gateway remains PARTIAL until Stage 04 audit.
+Gateway accepted with findings (GW-IMG-01, GW-SC-01, GW-RL-01).
 Direct vLLM 32B access is not user-facing for MVP.
 Hermes must not change vLLM/GPU/TP/BFF/Portal/Redis/OAuth outside approved scope.
+
+Repository access:
+ChatGPT repository access was restored via GitHub connector/API.
+Use GitHub connector/API for future audits instead of relying only on raw/blob web fetch.
 
 Audit rule:
 No transition to the next stage without external ChatGPT audit.

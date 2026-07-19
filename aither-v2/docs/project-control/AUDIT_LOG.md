@@ -43,11 +43,39 @@ Minor correction:
 
 ## Stage 04 — Gateway Hardening
 
-Status: NOT AUDITED
+Status: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 
-Expected:
-- Close or formalize GW-01.
-- Verify gateway auth.
-- Verify completion endpoint.
-- Verify chat endpoint blocked.
-- Verify hardening evidence.
+Summary:
+- GW-01: RESOLVED.
+- Gateway auth: no token 401, wrong token 401, valid token 200.
+- Chat blocked: 422, Completion: 200.
+- SecurityContext: PARTIAL (runAsNonRoot/readOnlyRootFilesystem not enabled).
+- Image pinning: PARTIAL (version tag, digest failed over VPN).
+- Rate limiting: POSTPONED to Stage 06.
+- Direct 32B policy: ACCEPTED FOR MVP INTERNAL SCOPE.
+- vLLM/BFF/Portal/Redis/OAuth/TP: NOT MODIFIED.
+
+## Stage 04.1 — Repository Integrity Verification
+
+Status: PASSED / CONNECTOR VERIFIED
+
+Summary:
+- Commit 448f262 exists and is in branch aither-v2.
+- git fsck passed with dangling objects only.
+- Stage 04 files exist and are non-empty.
+- SHA256 hashes generated.
+- Hardened YAML parses as 3 documents: ConfigMap, Deployment, Service.
+- Key content present: GW-01, RESOLVED, auth checks, NCCL correction.
+
+Conclusion:
+Repository corruption was not confirmed. Previous raw/blob access issue was external fetch/cache/tool limitation.
+
+## Repository Access Restoration
+
+Status: RESTORED VIA GITHUB CONNECTOR
+
+Summary:
+- ChatGPT connected to GitHub through connector/API.
+- Repository dedvmedved-dot/aither-project is public.
+- ChatGPT has read-only pull access.
+- ChatGPT verified Stage 04, Stage 04.1, current MVP status, TP=2 decision report, handover, and hardened gateway manifest.
