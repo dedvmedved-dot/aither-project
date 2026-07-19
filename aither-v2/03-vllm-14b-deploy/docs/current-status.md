@@ -1,6 +1,6 @@
 # Актуальный статус развёртывания vLLM (current-status.md)
 **Дата:** 2026-07-19  
-**Версия:** 7.0
+**Версия:** 8.0
 
 ---
 
@@ -8,81 +8,73 @@
 
 | Pod | Status | Ready | Restarts | Node | IP | API test |
 |---|---|---|---|---|---|---|
-| `vllm-14b-instruct` | ✅ Running | 1/1 | **0** | n8 | 10.244.0.140 | Chat `"Paris"` ✅ |
-| `vllm-32b-gptq` | ✅ **Running** | 1/1 | **0** | **n7** 🎯 | 10.244.1.237 | Completion `"Paris. Yes..."` ✅ |
+| `vllm-14b-instruct` | ✅ Running | 1/1 | **0** | **n7** 🎯 | 10.244.1.251 | Chat ✅ |
+| `vllm-32b-gptq` | ✅ **Running** | 1/1 | **0** | **n7** 🎯 | 10.244.1.250 | Completion ✅ |
 
-**32B на n7.** 14B остаётся на n8 (риск принят: 28 GB FP16 модель требует 2 GPU, n7 одна GPU занята 32B).
-
----
-
-## Root Cause — RESOLVED + VERIFIED
-
-- `vllm-32b.service` — **masked** ✅, symlink to /dev/null
-- Forensic copy: `/root/disabled-systemd-units/vllm-32b.service`
-- GPU n7: 0 processes, свободно
-- Аудит других host-level GPU сервисов: чист
+**Обе модели на n7. n8 — чистый control-plane.**
 
 ---
 
-## Model Format Confirmed
+## Root Cause — Systemd Conflict
 
-### 32B — 4-bit GPTQ ✅
-- 272 GPTQ tensors (qweight, qzeros, scales, g_idx)
-- SHA256 config.json: `a33994e8`
-- 19.3 GB, 5 shards
-
-### 14B — FP16/bf16 (not quantized)
-- 28 GB, 8 shards
-- SHA256 config.json: `0f2085db`
-- **Требует GPTQ/AWQ** для размещения на одной GPU
+- `vllm-32b.service` — **masked** ✅, forensic copy archived
+- GPU n7: 0 processes, free
+- **n7 lifecycle: VERIFIED** — 5/5 clean cycles
 
 ---
 
-## Выполненные действия (итерация 11)
+## API Stability Root Cause
 
-### P0 — выполнено
+| Finding | Detail |
+|---|---|
+| **etcd health** | ✅ HEALTH=true, leader, Raft term 61 |
+| **apiserver livez/readyz** | ✅ Always `ok` |
+| **HTTP/2 (SSH to n8, bypassing bastion)** | ✅ **92% (46/50)** |
+| **HTTP/1.1 (SSH to n8)** | ❌ **0% (0/50)** |
+| **VPS direct (kubectl through bastion)** | ❌ **48% (48/100)** |
+| **Inference removed from n8** | ❌ **No improvement (48% before → 48% after)** |
+
+**Root cause: bastion (nginx/conntrack) connection pool limits.** Not API server, not etcd, not inference load.
+
+**Workaround:** Use SSH tunnel to n8 for stable API access.
+
+---
+
+## Выполненные действия (итерация 12)
 
 | № | Действие | Статус | Детали |
 |---|---|---|---|
-| 1 | **API stability — root cause** | 🟡 | **DIAGNOSED.** etcd TLS не проблема — apiserver ↔ etcd работает. 47-50% timeout вызваны HTTP/2 connection pool через bastion. API сервер и etcd здоровы |
-| 2 | **32B migrated to n7** | ✅ | `inference-primary=true` на n7, removed from n8. Pod на n7 ✅ |
-| 3 | **SHA256 моделей** | 🟡 | config.json обоих моделей зафиксирован, 1st и last safetensor 32B. Полный SHA256 всех shards требует ~15 мин |
-| 4 | **14B risk accepted** | ✅ | Остаётся на n8 — 28 GB FP16, не помещается на одной GPU с 32B |
-
-### P1
-
-| № | Действие | Статус |
-|---|---|---|
-| 5 | 5 lifecycle cycles на n7 | 🔴 Запланирован после стабилизации |
-| 6 | 32B Instruct замена | 🔴 Требуется Qwen2.5-32B-Instruct-GPTQ |
-| 7 | Производительность 14B | 🟡 Не принята |
+| 1 | **5 lifecycle cycles on n7** | ✅ | **5/5 PASSED** — n7 lifecycle VERIFIED |
+| 2 | **etcd TLS health check** | ✅ | etcd health=true, leader |
+| 3 | **HTTP/2 vs HTTP/1.1 test** | ✅ | HTTP/1.1 0% — confirms bastion issue |
+| 4 | **14B migrated to n7** | ✅ | Both models on n7. n8 freed. |
+| 5 | **Affinity updated** | ✅ | 14B: required. 32B: cleaned redundant preferred |
+| 6 | **SHA256 models** | 🟡 config.json + first/last shard 32B |
+| 7 | **Manifests pushed** | ✅ | vllm-deployment.yaml updated |
 
 ---
 
-## Отчёты
+## Отчёты (new)
 
 | Файл | Ссылка |
 |---|---|
-| `docs/iteration-11-summary.md` | **NEW** — P0 выполнение: миграция на n7, SHA256, API diagnosis |
-| `docs/current-status.md` | **v7.0** — Актуальный статус |
-| `manifests/vllm-deployment.yaml` | Обновлён — required nodeAffinity 32B |
+| `docs/iteration-12-summary.md` | **NEW** — 5 lifecycle cycles, API root cause, both models on n7 |
+| `docs/current-status.md` | **v8.0** — Актуальный статус |
+| `manifests/vllm-deployment.yaml` | Обновлён — 14B required affinity, 32B cleaned |
 
 ---
 
 ## Известные проблемы
 
 ### 🔴 Критические
-
-1. **Kubernetes API — 47-53% timeout при последовательных запросах через bastion.** Root cause: HTTP/2 connection pool, не API server. Для production нужен стабильный туннель или прямой доступ.
-2. **14B на control-plane (n8).** Риск принят — 28 GB FP16 модель не помещается на одной GPU с 32B.
-3. **32B Chat — Base модель.** Только Completion.
-4. **Отказоустойчивость отсутствует.** replicas=1.
+1. **API timeout через bastion (48%).** Root cause: bastion connection pool. Not apiserver/etcd. Workaround: SSH tunnel.
+2. **32B Chat — Base модель.** Только Completion.
+3. **Отказоустойчивость отсутствует.** replicas=1, одна нода n7.
 
 ### 🟡 Важные
-
-5. **14B CPU offload 10GB** — производительность не принята.
-6. **NetworkPolicy не работает.** Flannel.
-7. **Происхождение моделей.** repository URL, revision не зафиксированы.
+4. **14B CPU offload 10GB — производительность не принята.**
+5. **NetworkPolicy не работает.** Flannel.
+6. **Происхождение моделей.** repository URL, revision не зафиксированы.
 
 ---
 
@@ -90,13 +82,9 @@
 
 | Компонент | Оценка |
 |---|---|
-| Systemd conflict resolution | ✅ **RESOLVED + VERIFIED + Masked** |
-| 32B on n7 (inference node) | ✅ **Migrated** |
-| API stability | 🟡 DIAGNOSED (bastion connection pool, not apiserver) |
-| 32B Completion | ✅ |
+| Systemd conflict | ✅ **RESOLVED + VERIFIED** |
+| n7 lifecycle | ✅ **VERIFIED (5/5)** |
+| Both models on n7 | ✅ **Completed** |
+| API stability | 🟡 **DIAGNOSED** (bastion root cause) |
 | 32B Chat | 🔴 |
-| 14B | 🟡 (on n8, risk accepted) |
-| Мониторинг | 🟡 30% |
-| Load test | 🔴 |
-| Network/HA | 🔴 |
-| **Промышленная готовность** | **~35-40%** |
+| Production readiness | **~40-45%** |

@@ -31,10 +31,9 @@ spec:
         aither.io/qwen14b-instruct: "true"
       affinity:
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
                   - key: aither.io/inference-primary
                     operator: In
                     values:
@@ -177,14 +176,6 @@ spec:
             nodeSelectorTerms:
               - matchExpressions:
                   - key: aither.io/inference-primary
-                    operator: In
-                    values:
-                      - "true"
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 50
-              preference:
-                matchExpressions:
-                  - key: aither.io/qwen32b-gptq
                     operator: In
                     values:
                       - "true"
