@@ -1,0 +1,300 @@
+INFO:     10.244.1.1:51186 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51188 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51192 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:01:45 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:42640 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:47622 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.151:43776 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:47638 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:01:58 [metrics.py:486] Avg prompt throughput: 0.8 tokens/s, Avg generation throughput: 9.6 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:38970 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:58134 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:38976 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:02:08 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:42344 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:40480 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:42358 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:42372 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37476 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:02:19 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.1 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:47690 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37492 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50742 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:02:29 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:42374 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50744 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59890 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:02:40 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.1 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:41760 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59906 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59922 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.151:59990 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59638 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:02:52 [metrics.py:486] Avg prompt throughput: 0.8 tokens/s, Avg generation throughput: 9.7 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:59642 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:57976 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50724 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:03:03 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:50736 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:35642 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50864 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:03:13 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:50874 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50876 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:40288 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37256 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:03:23 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:37266 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:56176 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:60730 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:03:34 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:60734 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:55780 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.0.151:39414 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:49138 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:49146 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:49158 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:03:47 [metrics.py:486] Avg prompt throughput: 0.8 tokens/s, Avg generation throughput: 9.7 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:41908 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:44640 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:41910 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:03:57 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:34186 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:56478 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:34192 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:04:07 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:40702 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:51262 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:40708 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:40722 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:04:17 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:54442 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:37344 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54450 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:04:28 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.1 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:38208 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:54028 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO 07-19 13:04:33 [metrics.py:486] Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 25.0 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 1.1%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.151:37800 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:38214 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51512 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:04:41 [metrics.py:486] Avg prompt throughput: 0.6 tokens/s, Avg generation throughput: 0.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:39486 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51522 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51536 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:43016 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:04:51 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:50794 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:43018 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:41138 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:05:02 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:41142 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:58652 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:49012 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:05:12 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:49024 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:49034 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:36250 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:35320 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:05:22 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:35330 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:55226 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO 07-19 13:05:27 [metrics.py:486] Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 25.0 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 1.1%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.151:33934 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:60152 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:60168 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:05:35 [metrics.py:486] Avg prompt throughput: 0.6 tokens/s, Avg generation throughput: 0.4 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:45638 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:47418 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:47428 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:47438 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:05:46 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:46622 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58646 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58652 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:05:56 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:46876 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:47956 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:47972 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:06:06 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:51026 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:43248 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51038 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51050 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:06:17 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:48902 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:50086 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.0.151:48150 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:48914 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37676 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:06:30 [metrics.py:486] Avg prompt throughput: 0.8 tokens/s, Avg generation throughput: 9.7 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:58752 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37684 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:48900 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:06:40 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:50136 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:48906 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:48918 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51696 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:06:50 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:36624 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51712 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:53284 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:07:01 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:41162 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:53296 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:56542 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:07:11 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:42748 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:56558 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:56568 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:07:16 [metrics.py:486] Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 25.0 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 1.1%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.151:54918 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:39636 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:39650 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:07:24 [metrics.py:486] Avg prompt throughput: 0.6 tokens/s, Avg generation throughput: 0.3 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:43644 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:38870 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:38882 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:07:35 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:45300 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:43658 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:43666 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:43670 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:07:45 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:36374 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44712 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44714 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:07:55 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:45514 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:56982 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:56990 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:08:06 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:36386 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44686 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:08:11 [metrics.py:486] Avg prompt throughput: 1.0 tokens/s, Avg generation throughput: 25.0 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 1.1%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.151:51858 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44688 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44690 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:08:19 [metrics.py:486] Avg prompt throughput: 0.6 tokens/s, Avg generation throughput: 0.3 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:38412 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:39178 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:38418 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59018 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:08:29 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.1 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:49528 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59028 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:36666 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:08:39 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:40138 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:36678 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:36680 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44196 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:08:50 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:43658 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44198 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44162 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:09:00 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:42466 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44172 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.151:45370 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:34448 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:09:13 [metrics.py:486] Avg prompt throughput: 0.8 tokens/s, Avg generation throughput: 9.7 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:34456 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:34464 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:48372 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:45528 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:09:23 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 5.9 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:45534 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:52022 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:46650 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:09:34 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:46654 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.158:43806 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59336 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59346 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59350 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:09:44 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:56118 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:55024 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:55030 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:09:55 [metrics.py:486] Avg prompt throughput: 0.5 tokens/s, Avg generation throughput: 6.1 tokens/s, Running: 1 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.2%, CPU KV cache usage: 0.0%.
+INFO:     10.244.0.158:40512 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:41994 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.0.151:47020 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     10.244.1.1:41996 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59106 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:10:09 [metrics.py:486] Avg prompt throughput: 0.3 tokens/s, Avg generation throughput: 8.2 tokens/s, Running: 0 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.0%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:59116 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59124 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:33990 - "GET /health HTTP/1.1" 200 OK
+INFO 07-19 13:10:19 [metrics.py:486] Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.0%, CPU KV cache usage: 0.0%.
+INFO:     10.244.1.1:33992 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:35586 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:35590 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54226 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54230 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54238 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:55754 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:55760 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44726 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44736 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:42680 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:42684 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:42686 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54452 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54454 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37716 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37724 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44064 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44070 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:44078 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54978 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54982 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:56422 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:56434 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:60896 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:60906 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:60920 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:43310 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:43318 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59740 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:59746 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58756 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58762 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58764 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:53106 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:53114 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:52756 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:52762 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:46914 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:46926 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:46932 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:57082 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:57084 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51728 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51734 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37232 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37242 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:37254 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:48404 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:48410 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58938 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58954 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50542 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50544 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:50560 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58486 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58488 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58436 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58442 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58518 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58528 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:58534 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51988 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:51998 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:35716 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:35732 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54124 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54136 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.244.1.1:54148 - "GET /health HTTP/1.1" 200 OK

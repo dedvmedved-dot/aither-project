@@ -1,0 +1,2 @@
+NAME                   STATUS     COMPLETIONS   DURATION   AGE   CONTAINERS   IMAGES                   SELECTOR
+benchmark-load-60min   Complete   1/1           60m        65m   endurance    curlimages/curl:8.10.1   batch.kubernetes.io/controller-uid=0873eb28-f4ab-45db-9684-4141a8e527bc

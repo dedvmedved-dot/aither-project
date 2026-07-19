@@ -1,0 +1,2 @@
+NAME                         READY   STATUS      RESTARTS   AGE   IP             NODE                         NOMINATED NODE   READINESS GATES
+benchmark-load-60min-78znx   0/1     Completed   0          65m   10.244.0.158   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
