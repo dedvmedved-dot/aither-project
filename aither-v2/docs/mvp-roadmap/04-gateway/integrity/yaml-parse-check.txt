@@ -1,0 +1,4 @@
+Checking: aither-v2/manifests/mvp-roadmap/04-gateway/nginx-gateway-32b-hardened.yaml
+Documents: 3
+Types: ['dict', 'dict', 'dict']
+Status: PASSED

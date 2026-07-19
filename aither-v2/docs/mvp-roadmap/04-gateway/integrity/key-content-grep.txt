@@ -1,0 +1,63 @@
+=== GW-01 ===
+aither-v2/docs/mvp-roadmap/04-gateway/INSTRUCTIONS.md:Закрыть GW-01 и доказательно подтвердить MVP-hardening gateway:
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:Закрыть или формализовать GW-01 и подтвердить минимальный MVP-hardening gateway.
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| GW-01 | Previous ImagePullBackOff gateway pods | RESOLVED | Stage 04 |
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:    - GW-01: RESOLVED (stale RS deleted, 1 Running pod, auth functional)
+=== RESOLVED ===
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| GW-01 | Previous ImagePullBackOff gateway pods | RESOLVED | Stage 04 |
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:    - GW-01: RESOLVED (stale RS deleted, 1 Running pod, auth functional)
+=== HTTP 401 ===
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| Auth tests | evidence/no-token-401.txt, wrong-token-401.txt, valid-token-200.txt, chat-blocked-422.txt, completion-200.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| no token blocked | PASSED | evidence/no-token-401.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| wrong token blocked | PASSED | evidence/wrong-token-401.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| no token | evidence/no-token-401.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| wrong token | evidence/wrong-token-401.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| no token | 401/403 | 401 | PASSED |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| wrong token | 401/403 | 401 | PASSED |
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:    - Gateway auth: no token 401, wrong token 401, valid 200, chat 422
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/no-token-401.txt
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/wrong-token-401.txt
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/stage04-file-list.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/no-token-401.txt
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/stage04-file-list.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/wrong-token-401.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/no-token-401.txt:Description: no token -> 401
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/no-token-401.txt:Expected: 401
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-configmap-before.yaml:            error_page 401 403 = @auth_denied;
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-configmap-before.yaml:        location @auth_denied { return 401 '{"error":"auth required"}'; }
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-configmap-before.yaml:      {"apiVersion":"v1","data":{"default.conf":"server {\n    listen 8000;\n    server_name _;\n    client_max_body_size 4m;\n\n    # Rate limiting\n    limit_req_zone $binary_remote_addr zone=completions:10m rate=30r/m;\n\n    location = /v1/chat/completions {\n        return 422 '{\"error\":\"qwen-32b-base does not support chat\"}';\n    }\n    location /v1/completions {\n        limit_req zone=completions burst=5 nodelay;\n        proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header Authorization $http_authorization;\n        proxy_read_timeout 300s;\n        proxy_connect_timeout 10s;\n        proxy_send_timeout 30s;\n        proxy_intercept_errors on;\n        error_page 401 403 = @auth_denied;\n    }\n    location @auth_denied { return 401 '{\"error\":\"auth required\"}'; }\n    location /health {\n        proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/health;\n        access_log off;\n    }\n    location /v1/models {\n        proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/v1/models;\n    }\n    location /nginx_status {\n        stub_status;\n        access_log off;\n        allow 127.0.0.1;\n        deny all;\n    }\n    location / { return 404 '{\"error\":\"not found\"}'; }\n}\n"},"kind":"ConfigMap","metadata":{"name":"nginx-gateway-32b","namespace":"aither-inference"}}
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/wrong-token-401.txt:Description: wrong token -> 401
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/wrong-token-401.txt:Expected: 401
+=== HTTP 422 ===
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| Auth tests | evidence/no-token-401.txt, wrong-token-401.txt, valid-token-200.txt, chat-blocked-422.txt, completion-200.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| 32B chat blocked | PASSED | evidence/chat-blocked-422.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| chat blocked | evidence/chat-blocked-422.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| chat endpoint | 422 | 422 | PASSED |
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:    - Gateway auth: no token 401, wrong token 401, valid 200, chat 422
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/chat-blocked-422.txt
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/stage04-file-list.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/chat-blocked-422.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/chat-blocked-422.txt:Description: chat blocked -> 422
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/chat-blocked-422.txt:Expected: 422
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-configmap-before.yaml:            return 422 '{"error":"qwen-32b-base does not support chat"}';
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-configmap-before.yaml:      {"apiVersion":"v1","data":{"default.conf":"server {\n    listen 8000;\n    server_name _;\n    client_max_body_size 4m;\n\n    # Rate limiting\n    limit_req_zone $binary_remote_addr zone=completions:10m rate=30r/m;\n\n    location = /v1/chat/completions {\n        return 422 '{\"error\":\"qwen-32b-base does not support chat\"}';\n    }\n    location /v1/completions {\n        limit_req zone=completions burst=5 nodelay;\n        proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header Authorization $http_authorization;\n        proxy_read_timeout 300s;\n        proxy_connect_timeout 10s;\n        proxy_send_timeout 30s;\n        proxy_intercept_errors on;\n        error_page 401 403 = @auth_denied;\n    }\n    location @auth_denied { return 401 '{\"error\":\"auth required\"}'; }\n    location /health {\n        proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/health;\n        access_log off;\n    }\n    location /v1/models {\n        proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/v1/models;\n    }\n    location /nginx_status {\n        stub_status;\n        access_log off;\n        allow 127.0.0.1;\n        deny all;\n    }\n    location / { return 404 '{\"error\":\"not found\"}'; }\n}\n"},"kind":"ConfigMap","metadata":{"name":"nginx-gateway-32b","namespace":"aither-inference"}}
+=== HTTP 200 ===
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| Auth tests | evidence/no-token-401.txt, wrong-token-401.txt, valid-token-200.txt, chat-blocked-422.txt, completion-200.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| valid token accepted | PASSED | evidence/valid-token-200.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md:| 32B completion allowed | PASSED | evidence/completion-200.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| valid token | evidence/valid-token-200.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| completion | evidence/completion-200.txt |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| valid token completion | 200 | 200 | PASSED |
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md:| completion endpoint | 200 | 200 | PASSED |
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/stage04-file-sha256.txt:93200617f8b9614feb6f6de1a0dc3470db2d83ab7cae048f9578d5edc54f158c  aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:    - Gateway auth: no token 401, wrong token 401, valid 200, chat 422
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/completion-200.txt
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/commit-show-name-only.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/valid-token-200.txt
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/stage04-file-list.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/completion-200.txt
+aither-v2/docs/mvp-roadmap/04-gateway/integrity/stage04-file-list.txt:aither-v2/docs/mvp-roadmap/04-gateway/evidence/valid-token-200.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/valid-token-200.txt:Description: valid token -> 200
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/valid-token-200.txt:Expected: 200
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/direct-32b-access-policy.md:Direct vLLM 32B chat endpoint returns HTTP 200. Completion-only policy is enforced by gateway, not by vLLM itself.
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/completion-200.txt:Description: completion -> 200
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/completion-200.txt:Expected: 200
+=== NCCL wording ===
+(no matches)
+=== NCCL in tp2 ===
+(no matches)

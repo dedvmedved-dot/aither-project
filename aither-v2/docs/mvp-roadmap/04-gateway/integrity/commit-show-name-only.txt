@@ -1,0 +1,35 @@
+commit 448f2628d8477f2231946d64707f3010dab1bf4d
+Author: Sergey Kravchuk <sergey@kravchuk.dev>
+Date:   Mon Jul 20 00:01:07 2026 +0300
+
+    sec(mvp-roadmap): add stage 04 gateway hardening evidence
+    
+    - GW-01: RESOLVED (stale RS deleted, 1 Running pod, auth functional)
+    - Gateway auth: no token 401, wrong token 401, valid 200, chat 422
+    - Hardened manifest: securityContext, resources, capabilities, client_max_body_size
+    - Image digest: FAILED over VPN (RISK ACCEPTED, using version tag)
+    - Direct 32B access policy documented
+    - Rate limiting: POSTPONED to Stage 06
+    - Stage 03 NCCL wording corrected (not proven, not required for TP=1)
+    - vLLM/BFF/Portal/Redis/OAuth/TP not modified
+
+aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md
+aither-v2/docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md
+aither-v2/docs/mvp-roadmap/04-gateway/INSTRUCTIONS.md
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/chat-blocked-422.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/completion-200.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/direct-32b-access-policy.md
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-configmap-before.yaml
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-deploy-before.yaml
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-events-before.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-pods-before.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-rs-before.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/gateway-service-before.yaml
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/no-token-401.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/valid-token-200.txt
+aither-v2/docs/mvp-roadmap/04-gateway/evidence/wrong-token-401.txt
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md
+aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md
+aither-v2/docs/mvp-roadmap/04-gateway/logs/gateway-access.log
+aither-v2/docs/mvp-roadmap/04-gateway/logs/gateway-error.log
+aither-v2/manifests/mvp-roadmap/04-gateway/nginx-gateway-32b-hardened.yaml

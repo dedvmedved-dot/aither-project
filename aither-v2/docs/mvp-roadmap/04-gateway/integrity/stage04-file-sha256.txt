@@ -1,0 +1,5 @@
+8aece72cf062d43b9aa6f50ad45e4451356cb5b85f653d0f66db7e842bf51ade  aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md
+667e6a9de9c654e9e91910ae33ae3dc7d685ce6bf033b78eb08d070753d93627  aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md
+35fb2b1705ecad13b7014a2cc52aab9222de0047103a4dc752d8d2faed23cc82  aither-v2/manifests/mvp-roadmap/04-gateway/nginx-gateway-32b-hardened.yaml
+93200617f8b9614feb6f6de1a0dc3470db2d83ab7cae048f9578d5edc54f158c  aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md
+1fe7043292eaa24142b25853a014a913c99a412dd1ebeb25702cc94577d9f79b  aither-v2/docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md

@@ -1,0 +1,6 @@
+75 aither-v2/docs/mvp-roadmap/04-gateway/gateway-hardening-report.md
+   34 aither-v2/docs/mvp-roadmap/04-gateway/gateway-auth-report.md
+   86 aither-v2/manifests/mvp-roadmap/04-gateway/nginx-gateway-32b-hardened.yaml
+   39 aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md
+  139 aither-v2/docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md
+  373 total
