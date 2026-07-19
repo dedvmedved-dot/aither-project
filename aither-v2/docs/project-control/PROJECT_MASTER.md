@@ -32,7 +32,7 @@ Working directory: aither-v2/
 |---|---|---|
 | Stage 01 | Cluster/GPU Baseline | PASSED WITH FINDINGS |
 | Stage 02 | Inference Acceptance | PASSED WITH FINDINGS |
-|| Stage 03 | TP=2 Decision | PASSED WITH MINOR CORRECTION REQUIRED |
+| Stage 03 | TP=2 Decision | PASSED WITH MINOR CORRECTION REQUIRED |
 | Stage 04 | Gateway Hardening | PASSED WITH FINDINGS / CONNECTOR VERIFIED |
 | Stage 04.1 | Repository Integrity Verification | PASSED / CONNECTOR VERIFIED |
 | Stage 05 | BFF Acceptance | NOT STARTED / NOT APPROVED |
