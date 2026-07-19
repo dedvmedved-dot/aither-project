@@ -4,7 +4,7 @@ Date: 2026-07-19
 Executor: hermes@vps2 (VPN 10.129.100.48)
 Repository branch: aither-v2
 Evidence collected at commit: 4b45879a2c4d
-Corrective commit: (this commit)
+Corrective commit: be81b89
 
 ## 1. Objective
 
@@ -18,7 +18,7 @@ Corrective commit: (this commit)
 | RuntimeClass | evidence/runtimeclass.txt |
 | GPU test pod describe | evidence/gpu-runtime-test-describe.txt |
 | GPU test pod wide | evidence/gpu-runtime-test-pod-wide.txt |
-| nvidia-smi output | logs/gpu-runtime-test-nvidia-smi.log |
+| **nvidia-smi output** | **logs/gpu-runtime-test-nvidia-smi.log** |
 | Events | evidence/aither-inference-events-tail.txt |
 
 ## 3. GPU allocatable
@@ -37,19 +37,23 @@ Corrective commit: (this commit)
 | GPU visible inside container | PASSED | logs/gpu-runtime-test-nvidia-smi.log |
 | No scheduling errors | PASSED | evidence/gpu-runtime-test-describe.txt |
 
-### nvidia-smi output (summary)
+### nvidia-smi output (full)
+
+From `logs/gpu-runtime-test-nvidia-smi.log`:
 
 ```
 Sun Jul 19 16:49:32 2026
-NVIDIA-SMI 590.48.01           Driver Version: 590.48.01      CUDA Version: 13.1
-GPU 0: Quadro RTX 6000          Memory: 0MiB / 23040MiB       Utilization: 0%
+NVIDIA-SMI 590.48.01
+Driver Version: 590.48.01
+CUDA Version: 13.1
+GPU 0: Quadro RTX 6000 (Memory: 0MiB / 23040MiB, Utilization: 0%)
 ```
 
 ## 5. Conclusion
 
 Status: PASSED
 
-NVIDIA runtime fully operational. Container with `nvidia.com/gpu: 1` successfully executed `nvidia-smi` on n8 (control-plane). GPU Quadro RTX 6000 (driver 590.48.01, CUDA 13.1) visible and functional.
+NVIDIA runtime fully operational. Container with `nvidia.com/gpu: 1` successfully executed `nvidia-smi` on n8 (control-plane). GPU Quadro RTX 6000 with driver **590.48.01** and CUDA **13.1** is visible and functional.
 
 ## 6. Failed / Partial items
 
