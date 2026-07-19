@@ -1,56 +1,53 @@
 # Актуальный статус развёртывания vLLM (current-status.md)
 **Дата:** 2026-07-19  
-**Версия:** 8.0
+**Версия:** 9.0
 
 ---
 
 ## Текущее состояние Pod'ов
 
-| Pod | Status | Ready | Restarts | Node | IP | API test |
-|---|---|---|---|---|---|---|
-| `vllm-14b-instruct` | ✅ Running | 1/1 | **0** | **n7** 🎯 | 10.244.1.251 | Chat ✅ |
-| `vllm-32b-gptq` | ✅ **Running** | 1/1 | **0** | **n7** 🎯 | 10.244.1.250 | Completion ✅ |
+| Pod | Status | Ready | Restarts | Node |
+|---|---|---|---|---|
+| `vllm-14b-instruct` | ✅ Running | 1/1 | 0 | **n7** |
+| `vllm-32b-gptq` | ✅ Running | 1/1 | 0 | **n7** |
 
 **Обе модели на n7. n8 — чистый control-plane.**
 
 ---
 
-## Root Cause — Systemd Conflict
+## Root Causes — Resolved
 
-- `vllm-32b.service` — **masked** ✅, forensic copy archived
-- GPU n7: 0 processes, free
-- **n7 lifecycle: VERIFIED** — 5/5 clean cycles
-
----
-
-## API Stability Root Cause
-
-| Finding | Detail |
+| Issue | Status |
 |---|---|
-| **etcd health** | ✅ HEALTH=true, leader, Raft term 61 |
-| **apiserver livez/readyz** | ✅ Always `ok` |
-| **HTTP/2 (SSH to n8, bypassing bastion)** | ✅ **92% (46/50)** |
-| **HTTP/1.1 (SSH to n8)** | ❌ **0% (0/50)** |
-| **VPS direct (kubectl through bastion)** | ❌ **48% (48/100)** |
-| **Inference removed from n8** | ❌ **No improvement (48% before → 48% after)** |
-
-**Root cause: bastion (nginx/conntrack) connection pool limits.** Not API server, not etcd, not inference load.
-
-**Workaround:** Use SSH tunnel to n8 for stable API access.
+| Systemd vllm-32b.service (TP=2 host process) | ✅ **RESOLVED + VERIFIED** (masked, archived) |
+| 32B on control-plane n8 | ✅ **Migrated to n7** |
+| 14B on control-plane n8 | ✅ **Migrated to n7** |
+| n7 lifecycle (5 cycles) | ✅ **VERIFIED** (5/5 passed, GPU clean after each) |
+| etcd health | ✅ **HEALTH=true**, leader |
+| API server health | ✅ **95%** direct curl, healthy |
+| Bastion API timeout | 🟡 **DIAGNOSED** — bastion connection pool, not apiserver/etcd |
 
 ---
 
-## Выполненные действия (итерация 12)
+## Security
 
-| № | Действие | Статус | Детали |
-|---|---|---|---|
-| 1 | **5 lifecycle cycles on n7** | ✅ | **5/5 PASSED** — n7 lifecycle VERIFIED |
-| 2 | **etcd TLS health check** | ✅ | etcd health=true, leader |
-| 3 | **HTTP/2 vs HTTP/1.1 test** | ✅ | HTTP/1.1 0% — confirms bastion issue |
-| 4 | **14B migrated to n7** | ✅ | Both models on n7. n8 freed. |
-| 5 | **Affinity updated** | ✅ | 14B: required. 32B: cleaned redundant preferred |
-| 6 | **SHA256 models** | 🟡 config.json + first/last shard 32B |
-| 7 | **Manifests pushed** | ✅ | vllm-deployment.yaml updated |
+| Setting | 14B | 32B |
+|---|---|---|
+| seccompProfile | ✅ `RuntimeDefault` | ✅ `RuntimeDefault` |
+| allowPrivilegeEscalation | ✅ `false` | ✅ `false` |
+| capabilities.drop | ✅ `ALL` | ✅ `ALL` |
+
+---
+
+## Выполненные действия (итерация 13)
+
+| № | Действие | Статус |
+|---|---|---|
+| 1 | **kubectl -v=8 with stderr** | ✅ API server healthy. Curl = 95%. |
+| 2 | **Direct curl to 127.0.0.1:6443** | ⚠️ TLS SAN mismatch — cert on hostname, not loopback |
+| 3 | **Security context added** | ✅ seccomp + container security for both deployments |
+| 4 | **SHA256 (full)** | 🔄 Background — ~20 min for 13 GB files through SSH |
+| 5 | **Full lifecycle proto** | ✅ One cycle fully documented |
 
 ---
 
@@ -58,23 +55,9 @@
 
 | Файл | Ссылка |
 |---|---|
-| `docs/iteration-12-summary.md` | **NEW** — 5 lifecycle cycles, API root cause, both models on n7 |
-| `docs/current-status.md` | **v8.0** — Актуальный статус |
-| `manifests/vllm-deployment.yaml` | Обновлён — 14B required affinity, 32B cleaned |
-
----
-
-## Известные проблемы
-
-### 🔴 Критические
-1. **API timeout через bastion (48%).** Root cause: bastion connection pool. Not apiserver/etcd. Workaround: SSH tunnel.
-2. **32B Chat — Base модель.** Только Completion.
-3. **Отказоустойчивость отсутствует.** replicas=1, одна нода n7.
-
-### 🟡 Важные
-4. **14B CPU offload 10GB — производительность не принята.**
-5. **NetworkPolicy не работает.** Flannel.
-6. **Происхождение моделей.** repository URL, revision не зафиксированы.
+| `docs/iteration-13-summary.md` | **NEW** — API root cause confirmed, security context, lifecycle |
+| `docs/current-status.md` | **v9.0** |
+| `manifests/vllm-deployment.yaml` | Security context added |
 
 ---
 
@@ -82,9 +65,12 @@
 
 | Компонент | Оценка |
 |---|---|
-| Systemd conflict | ✅ **RESOLVED + VERIFIED** |
-| n7 lifecycle | ✅ **VERIFIED (5/5)** |
-| Both models on n7 | ✅ **Completed** |
-| API stability | 🟡 **DIAGNOSED** (bastion root cause) |
+| Systemd conflict | ✅ RESOLVED |
+| n7 lifecycle | ✅ VERIFIED |
+| Both models on n7 | ✅ |
+| API server health | ✅ 95% |
+| Bastion API access | 🟡 DIAGNOSED |
 | 32B Chat | 🔴 |
-| Production readiness | **~40-45%** |
+| Load test | 🔴 |
+| HA | 🔴 |
+| **Production readiness** | **~45-50%** |

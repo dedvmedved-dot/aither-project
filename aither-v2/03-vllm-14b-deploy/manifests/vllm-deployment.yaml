@@ -26,6 +26,9 @@ spec:
       terminationGracePeriodSeconds: 120
       automountServiceAccountToken: false
       serviceAccountName: vllm-sa
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       runtimeClassName: nvidia
       nodeSelector:
         aither.io/qwen14b-instruct: "true"
@@ -49,6 +52,11 @@ spec:
       containers:
         - name: vllm
           image: vllm/vllm-openai:v0.8.5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command:
             - python3
             - -m
@@ -167,6 +175,9 @@ spec:
       terminationGracePeriodSeconds: 120
       automountServiceAccountToken: false
       serviceAccountName: vllm-sa
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       runtimeClassName: nvidia
       nodeSelector:
         aither.io/qwen32b-gptq: "true"
@@ -190,6 +201,11 @@ spec:
       containers:
         - name: vllm
           image: vllm/vllm-openai:v0.8.5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command:
             - python3
             - -m
