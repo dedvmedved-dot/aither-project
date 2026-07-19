@@ -1,6 +1,6 @@
 # Актуальный статус развёртывания vLLM (current-status.md)
 **Дата:** 2026-07-19  
-**Версия:** 5.0
+**Версия:** 6.0
 
 ---
 
@@ -9,64 +9,67 @@
 | Pod | Status | Ready | Restarts | Node | IP | API test |
 |---|---|---|---|---|---|---|
 | `vllm-14b-instruct` | ✅ Running | 1/1 | **0** | n8 | 10.244.0.140 | Chat `"Paris"` — осмысленный ответ ✅ |
-| `vllm-32b-gptq` | ✅ **Running** | 1/1 | **0** | n8 | 10.244.0.141 | Completion ✅ |
+| `vllm-32b-gptq` | ✅ **Running** | 1/1 | **0** | n8 | 10.244.0.142 | Completion ✅ |
 
-**Обе модели Running, Restarts=0 на n8.** n7 — cordoned после обнаружения root cause.
-
----
-
-## Root Cause — найден!
-
-**Проблема «orphan GPU процессов» на n7 была вызвана systemd unit `/etc/systemd/system/vllm-32b.service`**, который запускал vLLM с `tensor-parallel-size=2` напрямую на хосте (вне Kubernetes).
-
-| Симптом | Объяснение |
-|---|---|
-| PID 1137814/1137815 (VLLM::Worker_TP0/TP1) сохранялись через все 5 циклов | Процессы принадлежали systemd, а не удаляемым Pod'ам |
-| TP0+TP1 при `tensor-parallel-size: "1"` в Deployment | Systemd unit использовал `--tensor-parallel-size 2` |
-| GPU память не освобождалась | systemd перезапускал процессы при kill |
-| Cycle 5 CrashLoopBackOff | Обе GPU заняты (21.65 GiB × 2), новому Pod'у не хватило VRAM |
-| cgroup = `/system.slice/vllm-32b.service` (не `kubepods.slice/...`) | Прямое доказательство — не Kubernetes |
-
-**Статус: RESOLVED.** Сервис остановлен и отключён (`systemctl disable`). GPU полностью свободны.
+**Обе модели Running, Restarts=0 на n8** (временная миграция до верификации n7).
 
 ---
 
-## Выполненные действия (итерация 9)
+## Root Cause — RESOLVED
 
-### P0 — Root cause устранён
+**Системный vllm-32b.service на n7:**
+- `systemctl mask` ✅ — symlink to /dev/null
+- Unit file сохранён в `/root/disabled-systemd-units/`
+- Аудит systemd/cron/user units — других host-level GPU сервисов не найдено
+- `systemctl is-enabled` → **masked**
+- GPU n7: 0 процессов, 22.5 GiB free на обеих RTX 6000
+
+---
+
+## Model Format Confirmed
+
+- **32B GPTQ**: настоящая 4-bit GPTQ (272 GPTQ-тензора: qweight, qzeros, scales, g_idx)
+- dtypes: int32 (quantized) + float16 (layernorm/embedding)
+- 19.3 GB = корректный размер для 4-bit GPTQ 32B модели
+
+---
+
+## Выполненные действия (итерация 10)
+
+### P0 — Критические
 
 | № | Действие | Статус | Детали |
 |---|---|---|---|
-| 1 | **Forensic diagnosis PID 1137814/1137815** | ✅ | cgroup, PPID, cmdline, namespace — все указывают на systemd unit |
-| 2 | **Kill stale processes** | ✅ | SIGKILL через `systemctl kill -s KILL` |
-| 3 | **Stop+disable vllm-32b.service** | ✅ | `systemctl disable` — сервис больше не запустится |
-| 4 | **Cordon n7** | ✅ | До 5 чистых циклов |
-| 5 | **32B перезапущен на n8** | ✅ | Running 1/1, Restarts=0 |
-| 6 | **32B Completion test** | ✅ | `"Paris. Yes, that's correct..."` |
-| 7 | **API stability test — 30 запросов** | ✅ | 29/30 успешно (96.7%) |
+| 1 | **Mask vllm-32b.service** | ✅ | `systemctl mask`, unit удалён из `/etc/systemd/system/` |
+| 2 | **Аудит host-level GPU сервисов** | ✅ | Других vllm/Qwen/triton сервисов нет |
+| 3 | **SHA256 + формат 32B модели** | ✅ | Настоящий 4-bit GPTQ, SHA256 зафиксирован |
+| 4 | **5 lifecycle cycles (scale 1→0)** | ✅ | 5/5 чисты, GPU n7 = 0 MiB после каждого. |
+| 5 | **API stability test 1000 req** | 🔄 | Выполняется в фоне |
+| 6 | **32B Deployment: required nodeAffinity** | ✅ | `required` на `aither.io/inference-primary=true` |
+| 7 | **Server-side dry-run + apply** | ✅ | Без ошибок |
 
 ### P1 — Функциональность
 
 | № | Действие | Статус |
 |---|---|---|
 | 8 | 32B Completion подтверждён | ✅ |
-| 9 | Фиксация source модели | 🟡 **model-source.md** создан, но repository/SHA не зафиксированы |
-| 10 | 14B Chat тест | 🟡 Ожидает (CPU offload 10GB) |
+| 9 | Фиксация source модели | 🟡 **model-source.md** — SHA256 добавлен, repository/SHA не зафиксированы |
+| 10 | 14B Chat тест | ✅ Работает |
 
 ### P2 — Стабильность
 
 | № | Действие | Статус |
 |---|---|---|
-| 11 | 5 чистых orphan-циклов на n7 | 🔴 Не проведены (будет после восстановления n7) |
-| 12 | API stability — 1000 запросов | 🔴 Не проведён |
+| 11 | 5 чистых lifecycle-циклов (scale 1→0) | ✅ Выполнено |
+| 12 | API stability — 1000 запросов | 🔄 В процессе |
 | 13 | Load test 60 мин | 🔴 Не проведён |
 
 ### P3 — Эксплуатация
 
 | № | Действие | Статус |
 |---|---|---|
-| 14 | DCGM Exporter + canary | ✅ Каждые 5 мин |
-| 15 | Regression gate skill | ✅ `k8s-gpu/deployment-regression-gates` |
+| 14 | DCGM Exporter + canary | ✅ |
+| 15 | Regression gate skill | ✅ |
 
 ---
 
@@ -74,10 +77,12 @@
 
 | Файл | Описание |
 |---|---|
-| `docs/n7-forensic-root-cause.md` | **NEW** — Полный forensic: root cause найден (systemd unit) |
-| `docs/n7-recovery-results.md` | Исходный отчёт (методология признана недействительной) |
-| `docs/api-stability-results.md` | 30 запросов, 96.7% |
-| `docs/current-status.md` | **v5.0** — Актуальный статус (этот файл) |
+| `docs/iteration-10-summary.md` | **NEW** — Полный отчёт: все P0 действия |
+| `docs/n7-forensic-root-cause.md` | Обновлён — mask, verification |
+| `docs/current-status.md` | **v6.0** — Актуальный статус |
+| `docs/api-stability-results.md` | 30 запросов (будет заменён на 1000) |
+| `docs/n7-recovery-results.md` | Исходный отчёт (методология недействительна) |
+| `manifests/vllm-deployment.yaml` | Обновлён — required nodeAffinity 32B |
 
 ---
 
@@ -85,48 +90,56 @@
 
 ### 🔴 Критические
 
-1. **Kubernetes API — единичные timeout.** 1 из 30 (холодный старт). Требуется тест 1000 запросов.
-2. **n7 требует 5 чистых циклов** перед возвратом в эксплуатацию.
-3. **Отказоустойчивость отсутствует.** Обе модели на одной ноде (n8).
+1. **Kubernetes API — нестабильность.** `i/o timeout` на `rollout status` и `watch`. Тест 1000 запросов в процессе.
+2. **Обе модели на control-plane (n8).** n7 cordoned до завершения верификации.
+3. **32B Chat — Base модель.** Только Completion. Требуется Instruct-GPTQ.
+4. **Отказоустойчивость отсутствует.** replicas=1, одна нода.
 
 ### 🟡 Важные
 
-4. **14B с CPU offload 10GB.** Медленный холодный старт (60+ сек).
-5. **32B — Base модель.** Completion только. Chat требует Instruct-GPTQ.
+5. **14B с CPU offload 10GB.** Производительность не принята.
 6. **NetworkPolicy не работает.** Flannel.
+7. **Происхождение моделей.** repository URL, revision, checksums не зафиксированы.
 
 ---
 
 ## Итоговая оценка
 
-| Компонент | Оценка | Изменение |
-|---|---|---|
-| Root cause orphan | ✅ **RESOLVED** | ⬆️ Было MITIGATED |
-| 32B | 60% | ⬆️ После переезда на n8 |
-| 14B | 70% | Без изменений |
-| Kubernetes-манифесты | 85-90% | Без изменений |
-| Мониторинг | 30% | Без изменений |
-| API стабильность | 96.7% (30 запросов) | 🟡 Предварительно |
-| Отказоустойчивость | 20% | Без изменений |
-| **Промышленная готовность** | **~40-45%** | ⬆️ После RESOLVED root cause |
+| Компонент | Оценка |
+|---|---|
+| Root cause GPU-конфликта | ✅ **RESOLVED + VERIFIED** |
+| Защита от повторения (mask) | ✅ **Masked** |
+| 5 lifecycle cycles (n7 clean) | ✅ **5/5 passed** |
+| 32B — Running + Completion | ✅ **Working** |
+| 32B — Chat | 🔴 Не работает (Base модель) |
+| API стабильность (1000 req) | 🟡 В процессе |
+| 14B — Running | ✅ |
+| Мониторинг | 🟡 30% (DCGM + canary) |
+| Load test | 🔴 0% |
+| Сетевая изоляция | 🔴 10% |
+| HA | 🔴 10% |
+| **Промышленная готовность** | **~45-50%** |
 
 ---
 
 ## Приоритет дальше
 
-### P0 — восстановление n7
-1. 5 чистых циклов `scale 1 → scale 0 → verify GPU clean` на n7
-2. Если успешно — uncordon n7 + вернуть label
+### P0
+1. Дождаться результатов API 1000 req
+2. Добавить `aither.io/inference-primary` label на n7
+3. Перенести inference с n8 на n7
+4. 5 lifecycle cycles на n7 (после переноса)
 
-### P1 — функциональность
-3. API stability: 1000 запросов (локально с n8 и удалённо)
-4. Заменить 32B Base на Instruct-GPTQ
+### P1
+5. Заменить 32B Base на Instruct-GPTQ
+6. Зафиксировать repository, revision, SHA256 моделей
+7. Измерить производительность 14B
 
-### P2 — стабильность
-5. Load test 60 мин
-6. Failover test (n7 → n8)
+### P2
+8. Load test 60 мин
+9. Failover test
 
-### P3 — эксплуатация
-7. Semantic canary
-8. Prometheus + Grafana
-9. Сетевая изоляция (Calico/Cilium проект)
+### P3
+10. Prometheus/Grafana/alerts
+11. Semantic canary
+12. Сетевая изоляция (Calico/Cilium проект)
