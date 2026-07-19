@@ -1,6 +1,6 @@
 # Актуальный статус развёртывания vLLM (current-status.md)
 **Дата:** 2026-07-19  
-**Версия:** 12.0
+**Версия:** 13.0
 
 ---
 
@@ -15,36 +15,56 @@
 
 ---
 
-## Выполнено (Iteration 16)
+## Auth Tests — PROVEN
 
-| № | Действие | Статус |
-|---|---|---|
-| 1 | **Benchmark Job deployed** | ✅ Runs inside cluster on n8 — no VPN needed |
-| 2 | **nginx gateway production-grade** | ✅ ConfigMap + Deployment + Service via DNS |
-| 3 | **SHA256 all files verified** | ✅ Both models ЦЕЛ (OK) |
-| 4 | **14B Chat working** | ✅ "The capital of France is Paris." TTFT=8.18s |
-| 5 | **Gateway blocks 32B Chat** | ✅ HTTP 422 on `/v1/chat/completions` |
+| Test | Result |
+|---|---|
+| No token | **401** |
+| Wrong token | **401** |
+| Valid token → completion | **200** |
+| Chat blocked (422) | **422** |
 
 ---
 
-## Отчёты
+## Gateway Tests
 
-| Файл | Ссылка |
+| Path | Status |
 |---|---|
-| `docs/iteration-16-summary.md` | **NEW** |
-| `docs/current-status.md` | **v12.0** |
-| `manifests/nginx-gateway-32b.yaml` | **NEW** |
-| `manifests/benchmark-job.yaml` | **NEW** |
+| `/v1/chat/completions` → 422 | ✅ |
+| `/v1/completions` via gateway → 200 | ✅ |
+| `/health` via gateway | ✅ |
+| Service DNS (no Pod IP) | ✅ |
 
 ---
 
-## Remaining for Production
+## SHA256
 
-| Item | Status |
+Both models verified on n7. All files OK.
+
+---
+
+## 14B Metrics
+
+| Metric | Value |
 |---|---|
-| Full 60min load test | 🔄 In progress (benchmark job) |
-| VPN stability | 🟡 DIAGNOSED (MTU 1362) |
+| Health | 4ms |
+| TTFB (cold) | ~7.8s |
+| Concurrent 1-4 | All 200 |
+| Chat response | "The capital of France is Paris." |
+
+---
+
+## Production Readiness
+
+| Component | Status |
+|---|---|
+| Models running | ✅ |
+| SHA256 | ✅ |
+| Gateway auth | ✅ **PROVEN** |
+| 32B Chat blocked | ✅ |
+| Load test (60min) | 🔄 In progress |
+| VPN | 🟡 DIAGNOSED (MTU 1362) |
 | HA | 🔴 |
 | Monitoring | 🟡 Basic (DCGM) |
 | Provenance | 🔴 |
-| **Production readiness** | **~60%** |
+| **Production readiness** | **~65%** |
