@@ -1,0 +1,44 @@
+NAMESPACE          NAME                                                         READY   STATUS             RESTARTS           AGE     IP             NODE                         NOMINATED NODE   READINESS GATES
+aiops              chromadb-848b99cbb6-dspxn                                    1/1     Running            0                  5d5h    10.244.0.116   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aiops              clickhouse-b8bc47f4c-mdt48                                   1/1     Running            0                  5d5h    10.244.0.115   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aiops              flink-jobmanager-6c8d8b6699-w42d5                            1/1     Running            0                  5d5h    10.244.0.119   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aiops              flink-taskmanager-7b8f6f6697-6bvr5                           1/1     Running            1075 (2m23s ago)   5d5h    10.244.0.118   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aiops              kafka-0                                                      1/1     Running            0                  5d5h    10.244.0.113   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aiops              minio-74c995f54f-4ct9r                                       1/1     Running            0                  5d5h    10.244.0.117   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aiops              postgres-766f449fdf-86nl2                                    1/1     Running            3 (3d23h ago)      5d5h    10.244.0.114   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-inference   benchmark-endurance-60min-8ztph                              1/1     Running            0                  54m     10.244.0.155   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-inference   benchmark-inference-c4rfg                                    0/1     Completed          0                  91m     10.244.0.150   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-inference   nginx-gateway-32b-5898c69bcb-7hm4t                           1/1     Running            0                  90m     10.244.0.151   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-inference   nginx-gateway-32b-5d8fc6d7c-psrvp                            0/1     ImagePullBackOff   0                  58m     10.244.0.153   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-inference   nginx-gateway-32b-67cbbc9494-bqvgk                           0/1     ImagePullBackOff   0                  57m     10.244.0.154   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-inference   vllm-14b-instruct-7f6f784dcb-g2h5d                           1/1     Running            0                  7h34m   10.244.1.3     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+aither-inference   vllm-32b-gptq-7d6dc7c64-r82nh                                1/1     Running            0                  7h34m   10.244.1.4     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+default            debug-toolbox                                                0/1     Completed          0                  21h     <none>         bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       gpu-feature-discovery-b7ldp                                  1/1     Running            2                  35h     10.244.0.128   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       gpu-feature-discovery-sr2qp                                  1/1     Running            0                  35h     10.244.1.200   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       gpu-operator-7d9956bc88-lthll                                1/1     Running            0                  35h     10.244.0.123   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       gpu-operator-node-feature-discovery-gc-775976dc9d-9mlcw      1/1     Running            0                  36h     10.244.1.188   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       gpu-operator-node-feature-discovery-master-c784d775d-j242p   1/1     Running            0                  36h     10.244.0.120   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       gpu-operator-node-feature-discovery-worker-fmh5z             1/1     Running            0                  36h     10.244.0.122   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       gpu-operator-node-feature-discovery-worker-rscrk             1/1     Running            0                  36h     10.244.1.189   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       nvidia-container-toolkit-daemonset-8cmp8                     1/1     Running            0                  35h     10.244.1.198   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       nvidia-container-toolkit-daemonset-jm96d                     1/1     Running            0                  35h     10.244.0.124   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       nvidia-cuda-validator-vlfnz                                  0/1     Completed          0                  36h     10.244.1.195   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       nvidia-cuda-validator-xqb5b                                  0/1     Completed          1                  35h     <none>         bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       nvidia-dcgm-exporter-lvx6h                                   1/1     Running            2                  35h     10.244.0.125   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       nvidia-dcgm-exporter-n2sn6                                   1/1     Running            0                  35h     10.244.1.199   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       nvidia-device-plugin-daemonset-ssqkm                         1/1     Running            0                  35h     10.244.1.201   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       nvidia-device-plugin-daemonset-wmnlj                         1/1     Running            2                  35h     10.244.0.127   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+gpu-operator       nvidia-operator-validator-57c46                              1/1     Running            0                  36h     10.244.1.191   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+gpu-operator       nvidia-operator-validator-sb7ml                              1/1     Running            0                  35h     10.244.0.126   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-flannel       kube-flannel-ds-t2q2q                                        1/1     Running            0                  5d20h   10.129.13.77   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+kube-flannel       kube-flannel-ds-wjkxf                                        1/1     Running            79 (5d19h ago)     6d1h    10.129.13.78   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        coredns-674b8bbfcf-2h5vp                                     1/1     Running            61 (5d19h ago)     6d1h    10.244.0.103   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        coredns-674b8bbfcf-b2w7k                                     1/1     Running            66 (5d19h ago)     6d1h    10.244.0.104   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        etcd-bootsman-k8s-clnt01-n8-gpu                              1/1     Running            0                  5d18h   10.129.13.78   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        kube-apiserver-bootsman-k8s-clnt01-n8-gpu                    1/1     Running            0                  5d18h   10.129.13.78   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        kube-controller-manager-bootsman-k8s-clnt01-n8-gpu           1/1     Running            455 (5d18h ago)    6d1h    10.129.13.78   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        kube-proxy-6kqjg                                             1/1     Running            0                  5d20h   10.129.13.77   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+kube-system        kube-proxy-hfggb                                             1/1     Running            70 (5d19h ago)     6d1h    10.129.13.78   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        kube-scheduler-bootsman-k8s-clnt01-n8-gpu                    1/1     Running            251 (5d18h ago)    6d1h    10.129.13.78   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+kube-system        metrics-server-56ff78d5b7-dtf7b                              1/1     Running            0                  5d17h   10.244.1.186   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>

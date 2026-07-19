@@ -1,0 +1,49 @@
+                    nvidia.com/cuda.driver-version.full=590.48.01
+                    nvidia.com/cuda.driver-version.major=590
+                    nvidia.com/cuda.driver-version.minor=48
+                    nvidia.com/cuda.driver-version.revision=01
+                    nvidia.com/cuda.driver.major=590
+                    nvidia.com/cuda.driver.minor=48
+                    nvidia.com/cuda.driver.rev=01
+                    nvidia.com/cuda.runtime-version.full=13.1
+                    nvidia.com/cuda.runtime-version.major=13
+                    nvidia.com/cuda.runtime-version.minor=1
+                    nvidia.com/cuda.runtime.major=13
+                    nvidia.com/cuda.runtime.minor=1
+                    nvidia.com/gfd.timestamp=1784351269
+                    nvidia.com/gpu.compute.major=7
+                    nvidia.com/gpu.compute.minor=5
+                    nvidia.com/gpu.count=2
+                    nvidia.com/gpu.deploy.container-toolkit=true
+                    nvidia.com/gpu.deploy.dcgm=true
+                    nvidia.com/gpu.deploy.dcgm-exporter=true
+                    nvidia.com/gpu.deploy.device-plugin=true
+                    nvidia.com/gpu.deploy.driver=true
+                    nvidia.com/gpu.deploy.gpu-feature-discovery=true
+                    nvidia.com/gpu.deploy.node-status-exporter=true
+                    nvidia.com/gpu.deploy.operator-validator=true
+                    nvidia.com/gpu.family=turing
+                    nvidia.com/gpu.machine=VEGMAN-S320-Server
+                    nvidia.com/gpu.memory=23040
+                    nvidia.com/gpu.mode=compute
+                    nvidia.com/gpu.present=true
+                    nvidia.com/gpu.product=Quadro-RTX-6000
+                    nvidia.com/gpu.replicas=1
+                    nvidia.com/gpu.sharing-strategy=none
+                    nvidia.com/mig.capable=false
+                    nvidia.com/mig.strategy=single
+                    nvidia.com/mps.capable=false
+                    nvidia.com/vgpu.present=false
+Capacity:
+  cpu:                112
+  memory:             791153848Ki
+  nvidia.com/gpu:     2
+Allocatable:
+  cpu:                112
+  memory:             791051448Ki
+  nvidia.com/gpu:     2
+  gpu-operator                nvidia-container-toolkit-daemonset-jm96d                      0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  gpu-operator                nvidia-dcgm-exporter-lvx6h                                    0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  gpu-operator                nvidia-device-plugin-daemonset-wmnlj                          0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  gpu-operator                nvidia-operator-validator-sb7ml                               0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  nvidia.com/gpu     0            0

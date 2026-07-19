@@ -1,0 +1,10 @@
+gpu-operator       nvidia-container-toolkit-daemonset-8cmp8                     1/1     Running            0                  35h
+gpu-operator       nvidia-container-toolkit-daemonset-jm96d                     1/1     Running            0                  35h
+gpu-operator       nvidia-cuda-validator-vlfnz                                  0/1     Completed          0                  36h
+gpu-operator       nvidia-cuda-validator-xqb5b                                  0/1     Completed          1                  35h
+gpu-operator       nvidia-dcgm-exporter-lvx6h                                   1/1     Running            2                  35h
+gpu-operator       nvidia-dcgm-exporter-n2sn6                                   1/1     Running            0                  35h
+gpu-operator       nvidia-device-plugin-daemonset-ssqkm                         1/1     Running            0                  35h
+gpu-operator       nvidia-device-plugin-daemonset-wmnlj                         1/1     Running            2                  35h
+gpu-operator       nvidia-operator-validator-57c46                              1/1     Running            0                  36h
+gpu-operator       nvidia-operator-validator-sb7ml                              1/1     Running            0                  35h

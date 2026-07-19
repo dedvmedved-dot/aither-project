@@ -1,0 +1,207 @@
+Name:               bootsman-k8s-clnt01-n8-gpu
+Roles:              control-plane
+Labels:             aither.io/benchmark-node=true
+                    aither.io/qwen14b-instruct=true
+                    aither.io/qwen32b-gptq=true
+                    beta.kubernetes.io/arch=amd64
+                    beta.kubernetes.io/os=linux
+                    feature.node.kubernetes.io/cpu-cpuid.ADX=true
+                    feature.node.kubernetes.io/cpu-cpuid.AESNI=true
+                    feature.node.kubernetes.io/cpu-cpuid.AMXFP8=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX2=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX512BW=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX512CD=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX512DQ=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX512F=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX512VL=true
+                    feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI=true
+                    feature.node.kubernetes.io/cpu-cpuid.CMPXCHG8=true
+                    feature.node.kubernetes.io/cpu-cpuid.FLUSH_L1D=true
+                    feature.node.kubernetes.io/cpu-cpuid.FMA3=true
+                    feature.node.kubernetes.io/cpu-cpuid.FXSR=true
+                    feature.node.kubernetes.io/cpu-cpuid.FXSROPT=true
+                    feature.node.kubernetes.io/cpu-cpuid.IA32_ARCH_CAP=true
+                    feature.node.kubernetes.io/cpu-cpuid.IBPB=true
+                    feature.node.kubernetes.io/cpu-cpuid.LAHF=true
+                    feature.node.kubernetes.io/cpu-cpuid.MD_CLEAR=true
+                    feature.node.kubernetes.io/cpu-cpuid.MOVBE=true
+                    feature.node.kubernetes.io/cpu-cpuid.MPX=true
+                    feature.node.kubernetes.io/cpu-cpuid.OSXSAVE=true
+                    feature.node.kubernetes.io/cpu-cpuid.PMU_FIXEDCOUNTER_CYCLES=true
+                    feature.node.kubernetes.io/cpu-cpuid.PMU_FIXEDCOUNTER_INSTRUCTIONS=true
+                    feature.node.kubernetes.io/cpu-cpuid.PMU_FIXEDCOUNTER_REFCYCLES=true
+                    feature.node.kubernetes.io/cpu-cpuid.SPEC_CTRL_SSBD=true
+                    feature.node.kubernetes.io/cpu-cpuid.STIBP=true
+                    feature.node.kubernetes.io/cpu-cpuid.SYSCALL=true
+                    feature.node.kubernetes.io/cpu-cpuid.SYSEE=true
+                    feature.node.kubernetes.io/cpu-cpuid.VMX=true
+                    feature.node.kubernetes.io/cpu-cpuid.X87=true
+                    feature.node.kubernetes.io/cpu-cpuid.XGETBV1=true
+                    feature.node.kubernetes.io/cpu-cpuid.XSAVE=true
+                    feature.node.kubernetes.io/cpu-cpuid.XSAVEC=true
+                    feature.node.kubernetes.io/cpu-cpuid.XSAVEOPT=true
+                    feature.node.kubernetes.io/cpu-cpuid.XSAVES=true
+                    feature.node.kubernetes.io/cpu-cstate.enabled=true
+                    feature.node.kubernetes.io/cpu-hardware_multithreading=true
+                    feature.node.kubernetes.io/cpu-model.family=6
+                    feature.node.kubernetes.io/cpu-model.id=85
+                    feature.node.kubernetes.io/cpu-model.vendor_id=Intel
+                    feature.node.kubernetes.io/cpu-pstate.scaling_governor=powersave
+                    feature.node.kubernetes.io/cpu-pstate.status=active
+                    feature.node.kubernetes.io/cpu-pstate.turbo=true
+                    feature.node.kubernetes.io/kernel-config.NO_HZ=true
+                    feature.node.kubernetes.io/kernel-config.NO_HZ_IDLE=true
+                    feature.node.kubernetes.io/kernel-version.full=6.6.28-1-generic
+                    feature.node.kubernetes.io/kernel-version.major=6
+                    feature.node.kubernetes.io/kernel-version.minor=6
+                    feature.node.kubernetes.io/kernel-version.revision=28
+                    feature.node.kubernetes.io/memory-numa=true
+                    feature.node.kubernetes.io/network-sriov.capable=true
+                    feature.node.kubernetes.io/pci-10de.present=true
+                    feature.node.kubernetes.io/pci-10de.sriov.capable=true
+                    feature.node.kubernetes.io/pci-1a03.present=true
+                    feature.node.kubernetes.io/pci-8086.present=true
+                    feature.node.kubernetes.io/pci-8086.sriov.capable=true
+                    feature.node.kubernetes.io/storage-nonrotationaldisk=true
+                    feature.node.kubernetes.io/system-os_release.ID=astra
+                    feature.node.kubernetes.io/system-os_release.VERSION_ID=1.8_x86-64
+                    feature.node.kubernetes.io/system-os_release.VERSION_ID.major=1
+                    kubernetes.io/arch=amd64
+                    kubernetes.io/hostname=bootsman-k8s-clnt01-n8-gpu
+                    kubernetes.io/os=linux
+                    node-role.kubernetes.io/control-plane=
+                    node.kubernetes.io/exclude-from-external-load-balancers=
+                    nvidia.com/cuda.driver-version.full=590.48.01
+                    nvidia.com/cuda.driver-version.major=590
+                    nvidia.com/cuda.driver-version.minor=48
+                    nvidia.com/cuda.driver-version.revision=01
+                    nvidia.com/cuda.driver.major=590
+                    nvidia.com/cuda.driver.minor=48
+                    nvidia.com/cuda.driver.rev=01
+                    nvidia.com/cuda.runtime-version.full=13.1
+                    nvidia.com/cuda.runtime-version.major=13
+                    nvidia.com/cuda.runtime-version.minor=1
+                    nvidia.com/cuda.runtime.major=13
+                    nvidia.com/cuda.runtime.minor=1
+                    nvidia.com/gfd.timestamp=1784351269
+                    nvidia.com/gpu.compute.major=7
+                    nvidia.com/gpu.compute.minor=5
+                    nvidia.com/gpu.count=2
+                    nvidia.com/gpu.deploy.container-toolkit=true
+                    nvidia.com/gpu.deploy.dcgm=true
+                    nvidia.com/gpu.deploy.dcgm-exporter=true
+                    nvidia.com/gpu.deploy.device-plugin=true
+                    nvidia.com/gpu.deploy.driver=true
+                    nvidia.com/gpu.deploy.gpu-feature-discovery=true
+                    nvidia.com/gpu.deploy.node-status-exporter=true
+                    nvidia.com/gpu.deploy.operator-validator=true
+                    nvidia.com/gpu.family=turing
+                    nvidia.com/gpu.machine=VEGMAN-S320-Server
+                    nvidia.com/gpu.memory=23040
+                    nvidia.com/gpu.mode=compute
+                    nvidia.com/gpu.present=true
+                    nvidia.com/gpu.product=Quadro-RTX-6000
+                    nvidia.com/gpu.replicas=1
+                    nvidia.com/gpu.sharing-strategy=none
+                    nvidia.com/mig.capable=false
+                    nvidia.com/mig.strategy=single
+                    nvidia.com/mps.capable=false
+                    nvidia.com/vgpu.present=false
+Annotations:        flannel.alpha.coreos.com/backend-data: {"VNI":1,"VtepMAC":"ee:58:88:5c:33:45"}
+                    flannel.alpha.coreos.com/backend-type: vxlan
+                    flannel.alpha.coreos.com/kube-subnet-manager: true
+                    flannel.alpha.coreos.com/public-ip: 10.129.13.78
+                    kubeadm.alpha.kubernetes.io/cri-socket: unix:///var/run/containerd/containerd.sock
+                    nfd.node.kubernetes.io/feature-labels:
+                      cpu-cpuid.ADX,cpu-cpuid.AESNI,cpu-cpuid.AMXFP8,cpu-cpuid.AVX,cpu-cpuid.AVX2,cpu-cpuid.AVX512BW,cpu-cpuid.AVX512CD,cpu-cpuid.AVX512DQ,cpu-c...
+                    node.alpha.kubernetes.io/ttl: 0
+                    volumes.kubernetes.io/controller-managed-attach-detach: true
+CreationTimestamp:  Mon, 13 Jul 2026 18:37:50 +0300
+Taints:             <none>
+Unschedulable:      false
+Lease:
+  HolderIdentity:  bootsman-k8s-clnt01-n8-gpu
+  AcquireTime:     <unset>
+  RenewTime:       Sun, 19 Jul 2026 19:48:28 +0300
+Conditions:
+  Type                 Status  LastHeartbeatTime                 LastTransitionTime                Reason                       Message
+  ----                 ------  -----------------                 ------------------                ------                       -------
+  NetworkUnavailable   False   Tue, 14 Jul 2026 00:38:32 +0300   Tue, 14 Jul 2026 00:38:32 +0300   FlannelIsUp                  Flannel is running on this node
+  MemoryPressure       False   Sun, 19 Jul 2026 19:43:31 +0300   Mon, 13 Jul 2026 18:37:49 +0300   KubeletHasSufficientMemory   kubelet has sufficient memory available
+  DiskPressure         False   Sun, 19 Jul 2026 19:43:31 +0300   Mon, 13 Jul 2026 18:37:49 +0300   KubeletHasNoDiskPressure     kubelet has no disk pressure
+  PIDPressure          False   Sun, 19 Jul 2026 19:43:31 +0300   Mon, 13 Jul 2026 18:37:49 +0300   KubeletHasSufficientPID      kubelet has sufficient PID available
+  Ready                True    Sun, 19 Jul 2026 19:43:31 +0300   Mon, 13 Jul 2026 18:37:50 +0300   KubeletReady                 kubelet is posting ready status
+Addresses:
+  InternalIP:  10.129.13.78
+  Hostname:    bootsman-k8s-clnt01-n8-gpu
+Capacity:
+  cpu:                112
+  ephemeral-storage:  458305704Ki
+  hugepages-1Gi:      0
+  hugepages-2Mi:      0
+  memory:             791153848Ki
+  nvidia.com/gpu:     2
+  pods:               110
+Allocatable:
+  cpu:                112
+  ephemeral-storage:  422374536108
+  hugepages-1Gi:      0
+  hugepages-2Mi:      0
+  memory:             791051448Ki
+  nvidia.com/gpu:     2
+  pods:               110
+System Info:
+  Machine ID:                 55586655793c42089ffe5addf7d49222
+  System UUID:                740fe35b-1d63-4b37-921f-66bf232db99e
+  Boot ID:                    eb8ff9e2-ddd1-4dd6-ac9f-41edce8867b2
+  Kernel Version:             6.6.28-1-generic
+  OS Image:                   Astra Linux
+  Operating System:           linux
+  Architecture:               amd64
+  Container Runtime Version:  containerd://2.2.1
+  Kubelet Version:            v1.33.5
+  Kube-Proxy Version:         
+PodCIDR:                      10.244.0.0/24
+PodCIDRs:                     10.244.0.0/24
+Non-terminated Pods:          (27 in total)
+  Namespace                   Name                                                          CPU Requests  CPU Limits  Memory Requests  Memory Limits  Age
+  ---------                   ----                                                          ------------  ----------  ---------------  -------------  ---
+  aiops                       chromadb-848b99cbb6-dspxn                                     100m (0%)     0 (0%)      256Mi (0%)       0 (0%)         5d5h
+  aiops                       clickhouse-b8bc47f4c-mdt48                                    200m (0%)     0 (0%)      256Mi (0%)       0 (0%)         5d5h
+  aiops                       flink-jobmanager-6c8d8b6699-w42d5                             200m (0%)     0 (0%)      512Mi (0%)       0 (0%)         5d5h
+  aiops                       flink-taskmanager-7b8f6f6697-6bvr5                            200m (0%)     0 (0%)      512Mi (0%)       0 (0%)         5d5h
+  aiops                       kafka-0                                                       200m (0%)     0 (0%)      512Mi (0%)       0 (0%)         5d5h
+  aiops                       minio-74c995f54f-4ct9r                                        100m (0%)     0 (0%)      128Mi (0%)       0 (0%)         5d5h
+  aiops                       postgres-766f449fdf-86nl2                                     100m (0%)     0 (0%)      128Mi (0%)       0 (0%)         5d5h
+  aither-inference            benchmark-endurance-60min-8ztph                               500m (0%)     2 (1%)      256Mi (0%)       512Mi (0%)     55m
+  aither-inference            nginx-gateway-32b-5898c69bcb-7hm4t                            100m (0%)     1 (0%)      64Mi (0%)        256Mi (0%)     91m
+  aither-inference            nginx-gateway-32b-5d8fc6d7c-psrvp                             100m (0%)     1 (0%)      64Mi (0%)        256Mi (0%)     59m
+  aither-inference            nginx-gateway-32b-67cbbc9494-bqvgk                            100m (0%)     1 (0%)      64Mi (0%)        256Mi (0%)     57m
+  gpu-operator                gpu-feature-discovery-b7ldp                                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  gpu-operator                gpu-operator-7d9956bc88-lthll                                 200m (0%)     500m (0%)   100Mi (0%)       350Mi (0%)     35h
+  gpu-operator                gpu-operator-node-feature-discovery-master-c784d775d-j242p    100m (0%)     0 (0%)      128Mi (0%)       4Gi (0%)       36h
+  gpu-operator                gpu-operator-node-feature-discovery-worker-fmh5z              5m (0%)       0 (0%)      64Mi (0%)        512Mi (0%)     36h
+  gpu-operator                nvidia-container-toolkit-daemonset-jm96d                      0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  gpu-operator                nvidia-dcgm-exporter-lvx6h                                    0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  gpu-operator                nvidia-device-plugin-daemonset-wmnlj                          0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  gpu-operator                nvidia-operator-validator-sb7ml                               0 (0%)        0 (0%)      0 (0%)           0 (0%)         35h
+  kube-flannel                kube-flannel-ds-wjkxf                                         100m (0%)     0 (0%)      50Mi (0%)        0 (0%)         6d1h
+  kube-system                 coredns-674b8bbfcf-2h5vp                                      100m (0%)     0 (0%)      70Mi (0%)        170Mi (0%)     6d1h
+  kube-system                 coredns-674b8bbfcf-b2w7k                                      100m (0%)     0 (0%)      70Mi (0%)        170Mi (0%)     6d1h
+  kube-system                 etcd-bootsman-k8s-clnt01-n8-gpu                               100m (0%)     0 (0%)      100Mi (0%)       0 (0%)         5d18h
+  kube-system                 kube-apiserver-bootsman-k8s-clnt01-n8-gpu                     250m (0%)     0 (0%)      0 (0%)           0 (0%)         5d18h
+  kube-system                 kube-controller-manager-bootsman-k8s-clnt01-n8-gpu            200m (0%)     0 (0%)      0 (0%)           0 (0%)         6d1h
+  kube-system                 kube-proxy-hfggb                                              0 (0%)        0 (0%)      0 (0%)           0 (0%)         6d1h
+  kube-system                 kube-scheduler-bootsman-k8s-clnt01-n8-gpu                     100m (0%)     0 (0%)      0 (0%)           0 (0%)         6d1h
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests     Limits
+  --------           --------     ------
+  cpu                3155m (2%)   5500m (4%)
+  memory             3334Mi (0%)  6578Mi (0%)
+  ephemeral-storage  0 (0%)       0 (0%)
+  hugepages-1Gi      0 (0%)       0 (0%)
+  hugepages-2Mi      0 (0%)       0 (0%)
+  nvidia.com/gpu     0            0
+Events:              <none>

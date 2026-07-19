@@ -1,0 +1,62 @@
+Name:             gpu-runtime-test
+Namespace:        aither-inference
+Priority:         0
+Service Account:  default
+Node:             bootsman-k8s-clnt01-n8-gpu/10.129.13.78
+Start Time:       Sun, 19 Jul 2026 19:49:11 +0300
+Labels:           aither.io/purpose=gpu-runtime-validation
+                  app=gpu-runtime-test
+Annotations:      <none>
+Status:           Succeeded
+IP:               10.244.0.156
+IPs:
+  IP:  10.244.0.156
+Containers:
+  cuda:
+    Container ID:  containerd://9501057c942ad76f64980c92b5f4a8db10df75fa4944a3f4cceb9f518182650b
+    Image:         nvidia/cuda:12.4.1-base-ubuntu22.04
+    Image ID:      docker.io/nvidia/cuda@sha256:0f6bfcbf267e65123bcc2287e2153dedfc0f24772fb5ce84afe16ac4b2fada95
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      nvidia-smi
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Sun, 19 Jul 2026 19:49:32 +0300
+      Finished:     Sun, 19 Jul 2026 19:49:32 +0300
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      nvidia.com/gpu:  1
+    Requests:
+      nvidia.com/gpu:  1
+    Environment:       <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-mwpnm (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  kube-api-access-mwpnm:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  42s   default-scheduler  Successfully assigned aither-inference/gpu-runtime-test to bootsman-k8s-clnt01-n8-gpu
+  Normal  Pulling    41s   kubelet            Pulling image "nvidia/cuda:12.4.1-base-ubuntu22.04"
+  Normal  Pulled     21s   kubelet            Successfully pulled image "nvidia/cuda:12.4.1-base-ubuntu22.04" in 20.094s (20.094s including waiting). Image size: 91769375 bytes.
+  Normal  Created    21s   kubelet            Created container: cuda
+  Normal  Started    21s   kubelet            Started container cuda
