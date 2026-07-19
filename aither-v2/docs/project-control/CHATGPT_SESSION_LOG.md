@@ -94,3 +94,16 @@
 **Gate after audit:**
 - Stage 05: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
 - Stage 06: **READY FOR TASK PREPARATION**
+
+---
+
+## Stage 05 Audit Result Minor Fix — CHAT_HANDOVER.md stale status codes
+
+**Date:** 2026-07-20
+**Reason:** После audit result commit `da53e47` в CHAT_HANDOVER.md остались устаревшие HTTP 200 для status code propagation.
+**Fix:** заменены строки:
+- `14B chat via BFF: 200` → `14B chat via BFF (no auth): 401`
+- `32B completion via BFF (no token): 200` → `32B completion via BFF (no token): 401`
+**Gate after fix:** Stage 06 remains READY FOR TASK PREPARATION.
+**Changed files:** CHAT_HANDOVER.md, CHATGPT_SESSION_LOG.md (эта запись).
+**vLLM/GPU/TP/Gateway/BFF/Portal/Redis/OAuth:** NOT MODIFIED.

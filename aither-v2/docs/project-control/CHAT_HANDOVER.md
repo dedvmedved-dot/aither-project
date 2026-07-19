@@ -42,8 +42,8 @@ Stage 05 status details:
 - CrashLoopBackOff root cause: pip install without --user under runAsUser=1000 — FIXED
 - Implementation mismatch nginx→FastAPI: RESOLVED (deployment matches app.py)
 - /health: 200 ✅
-- 14B chat via BFF: 200 (route to vllm-14b confirmed) ✅
-- 32B completion via BFF (no token): 200 (route to nginx-gateway-32b confirmed) ✅
+- 14B chat via BFF (no auth): 401 — upstream auth required, status code propagated correctly ✅
+- 32B completion via BFF (no token): 401 — gateway auth required, status code propagated correctly ✅
 - 32B completion via BFF (valid token): NOT COLLECTED (VPN instability) ❌
 - 32B chat blocked: 422 ✅
 - Unknown model blocked: 400 ✅
