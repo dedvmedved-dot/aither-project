@@ -4,7 +4,9 @@ Date: 2026-07-19
 Executor: hermes@vps2 (VPN 10.129.100.48)
 Repository branch: aither-v2
 Evidence collected at commit: 4b45879a2c4d
-Corrective commit: be81b89
+Corrective commit v1: be81b89
+Corrective commit v2: aefd5e6
+Corrective commit v3: (this commit)
 
 ## 1. Node list
 
