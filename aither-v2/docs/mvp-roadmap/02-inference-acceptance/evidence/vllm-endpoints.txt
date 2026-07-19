@@ -1,0 +1,5 @@
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME                ENDPOINTS           AGE
+nginx-gateway-32b   10.244.0.151:8000   6h32m
+vllm-14b-instruct   10.244.1.3:8000     25h
+vllm-32b-gptq       10.244.1.4:8000     25h

@@ -1,0 +1,2 @@
+NAME                    READY   STATUS      RESTARTS   AGE    IP             NODE                         NOMINATED NODE   READINESS GATES
+benchmark-smoke-d95w6   0/1     Completed   0          108s   10.244.0.157   bootsman-k8s-clnt01-n8-gpu   <none>           <none>

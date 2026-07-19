@@ -1,0 +1,54 @@
+=== Smoke Benchmark ===
+Date: 2026-07-19T19:07:37+00:00
+1. 14B health:
+   HTTP 200
+2. 14B chat:
+   HTTP=200 TTFB=7.781412s
+   Response: {"id":"chatcmpl-34f0ef1eda17447e89539933be24bdb3","object":"chat.completion","created":1784488057,"model":"qwen-14b","choices":[{"index":0,"message":{"role":"assistant","reasoning_content":null,"conte
+3. 32B health:
+   HTTP 200
+4. 32B completion:
+   HTTP=200 TTFB=1.342110s
+   Response: {"id":"cmpl-1a3d98284a9945af822e47dfb2146eb1","object":"text_completion","created":1784488065,"model":"qwen-32b-base","choices":[{"index":0,"text":" France and the country's largest city. It is one of
+5. 32B chat direct (vLLM may accept or reject):
+   HTTP HTTP=200 (vLLM behavior)
+
+=== Gateway Checks ===
+6. Gateway no token:
+   HTTP 401 (expect 401/403)
+7. Gateway wrong token:
+   HTTP 401 (expect 401/403)
+8. Gateway valid token:
+   HTTP=200 TTFB=1.331396s
+   Response: {"id":"cmpl-30c1c8f120eb4fd083a6e5d7cfd6999a","object":"text_completion","created":1784488068,"model":"qwen-32b-base","choices":[{"index":0,"text":" __________.____\nGermany\nFrance\nItaly\nSpain\n答
+9. Gateway chat blocked:
+   HTTP 422 (expect 422)
+
+=== Smoke Complete ===
+=== Smoke Benchmark ===
+Date: 2026-07-19T19:07:37+00:00
+1. 14B health:
+   HTTP 200
+2. 14B chat:
+   HTTP=200 TTFB=7.781412s
+   Response: {"id":"chatcmpl-34f0ef1eda17447e89539933be24bdb3","object":"chat.completion","created":1784488057,"model":"qwen-14b","choices":[{"index":0,"message":{"role":"assistant","reasoning_content":null,"conte
+3. 32B health:
+   HTTP 200
+4. 32B completion:
+   HTTP=200 TTFB=1.342110s
+   Response: {"id":"cmpl-1a3d98284a9945af822e47dfb2146eb1","object":"text_completion","created":1784488065,"model":"qwen-32b-base","choices":[{"index":0,"text":" France and the country's largest city. It is one of
+5. 32B chat direct (vLLM may accept or reject):
+   HTTP HTTP=200 (vLLM behavior)
+
+=== Gateway Checks ===
+6. Gateway no token:
+   HTTP 401 (expect 401/403)
+7. Gateway wrong token:
+   HTTP 401 (expect 401/403)
+8. Gateway valid token:
+   HTTP=200 TTFB=1.331396s
+   Response: {"id":"cmpl-30c1c8f120eb4fd083a6e5d7cfd6999a","object":"text_completion","created":1784488068,"model":"qwen-32b-base","choices":[{"index":0,"text":" __________.____\nGermany\nFrance\nItaly\nSpain\n答
+9. Gateway chat blocked:
+   HTTP 422 (expect 422)
+
+=== Smoke Complete ===

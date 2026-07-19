@@ -1,0 +1,115 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchmark-smoke
+  namespace: aither-inference
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        aither.io/benchmark-node: "true"
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: smoke
+          image: curlimages/curl:8.10.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              KEY="$VLLM_API_KEY"
+              SVC14="vllm-14b-instruct.aither-inference.svc:8000"
+              SVC32="vllm-32b-gptq.aither-inference.svc:8000"
+              GW="nginx-gateway-32b.aither-inference.svc:8000"
+              REPORT="/tmp/smoke-report.txt"
+              log() { echo "$1" | tee -a "$REPORT"; }
+
+              log "=== Smoke Benchmark ==="
+              log "Date: $(date -Iseconds)"
+
+              # 14B health
+              log "1. 14B health:"
+              CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://${SVC14}/health)
+              log "   HTTP $CODE"
+              
+              # 14B chat
+              log "2. 14B chat:"
+              RES=$(curl -sS -w "HTTP=%{http_code} TTFB=%{time_starttransfer}s" --max-time 300 \
+                -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+                -d '{"model":"qwen-14b","messages":[{"role":"user","content":"What is the capital of France?"}],"max_tokens":32}' \
+                -o /tmp/res14.txt http://${SVC14}/v1/chat/completions)
+              log "   $RES"
+              log "   Response: $(head -c 200 /tmp/res14.txt)"
+
+              # 32B health
+              log "3. 32B health:"
+              CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://${SVC32}/health)
+              log "   HTTP $CODE"
+
+              # 32B completion
+              log "4. 32B completion:"
+              RES=$(curl -sS -w "HTTP=%{http_code} TTFB=%{time_starttransfer}s" --max-time 300 \
+                -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+                -d '{"model":"qwen-32b-base","prompt":"Paris is the capital of","max_tokens":32}' \
+                -o /tmp/res32.txt http://${SVC32}/v1/completions)
+              log "   $RES"
+              log "   Response: $(head -c 200 /tmp/res32.txt)"
+
+              # 32B chat direct (expect success - vLLM handles it, gateway blocks)
+              log "5. 32B chat direct (vLLM may accept or reject):"
+              RES=$(curl -sS -w "HTTP=%{http_code}" --max-time 60 \
+                -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+                -d '{"model":"qwen-32b-base","messages":[{"role":"user","content":"Hello"}],"max_tokens":32}' \
+                -o /dev/null http://${SVC32}/v1/chat/completions)
+              log "   HTTP $RES (vLLM behavior)"
+
+              # Gateway checks
+              log ""
+              log "=== Gateway Checks ==="
+
+              # No token
+              log "6. Gateway no token:"
+              CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://${GW}/v1/completions)
+              log "   HTTP $CODE (expect 401/403)"
+
+              # Wrong token
+              log "7. Gateway wrong token:"
+              CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
+                -H "Authorization: Bearer invalid_token_here" http://${GW}/v1/completions)
+              log "   HTTP $CODE (expect 401/403)"
+
+              # Valid token completion
+              log "8. Gateway valid token:"
+              RES=$(curl -sS -w "HTTP=%{http_code} TTFB=%{time_starttransfer}s" --max-time 300 \
+                -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+                -d '{"model":"qwen-32b-base","prompt":"Paris is the capital of","max_tokens":32}' \
+                -o /tmp/gw-res.txt http://${GW}/v1/completions)
+              log "   $RES"
+              log "   Response: $(head -c 200 /tmp/gw-res.txt)"
+
+              # Gateway chat blocked
+              log "9. Gateway chat blocked:"
+              CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
+                -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+                -d '{"model":"qwen-32b-base","messages":[{"role":"user","content":"Hello"}],"max_tokens":32}' \
+                http://${GW}/v1/chat/completions)
+              log "   HTTP $CODE (expect 422)"
+
+              log ""
+              log "=== Smoke Complete ==="
+              cat "$REPORT"
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
+          resources:
+            limits: { cpu: "2", memory: 512Mi }
+            requests: { cpu: 500m, memory: 256Mi }

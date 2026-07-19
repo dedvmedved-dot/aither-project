@@ -1,0 +1,4 @@
+NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE     SELECTOR
+nginx-gateway-32b   ClusterIP   10.106.31.143   <none>        8000/TCP   6h32m   app=nginx-gateway,model=qwen-32b-gptq
+vllm-14b-instruct   ClusterIP   10.108.67.57    <none>        8000/TCP   25h     app=vllm,model=qwen-14b-instruct
+vllm-32b-gptq       ClusterIP   10.99.3.103     <none>        8000/TCP   25h     app=vllm,model=qwen-32b-gptq

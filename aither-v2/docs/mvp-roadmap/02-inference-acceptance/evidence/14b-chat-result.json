@@ -1,0 +1,5 @@
+curl: (6) Could not resolve host: vllm-14b-instruct.aither-inference.svc
+
+HTTP_CODE=000
+TTFB=0.000000
+TOTAL=0.063590
