@@ -10,7 +10,7 @@ Date: 2026-07-19
 | GPU runtime | PASSED | Stage 01 |
 | vLLM 14B | PASSED | docs/mvp-roadmap/02-inference-acceptance/vllm-service-inventory.md |
 | vLLM 32B | PASSED WITH FINDINGS | docs/mvp-roadmap/02-inference-acceptance/32b-benchmark-report.md |
-| Gateway | PARTIAL | GW-01: 2/3 replicas ImagePullBackOff (stage 04) |
+| Gateway | PASSED WITH FINDINGS | docs/mvp-roadmap/04-gateway/gateway-hardening-report.md |
 | Benchmark | **PASSED** | docs/mvp-roadmap/02-inference-acceptance/LOAD_TEST_60MIN_REPORT.md |
 | Streaming TTFT | PASSED WITH MINOR FINDINGS | docs/mvp-roadmap/02-inference-acceptance/streaming-ttft-report.md |
 | TP=2 | POSTPONED / RISK ACCEPTED | docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md |
@@ -27,8 +27,7 @@ Date: 2026-07-19
 2. No HA (single GPU node n7)
 3. No monitoring stack
 4. Model provenance not documented
-5. GW-01: Gateway 2/3 replicas ImagePullBackOff (stage 04)
-6. 32B direct chat unrestricted (gateway-only enforcement, stage 04)
+5. 32B direct chat unrestricted (gateway-only enforcement, stage 04)
 
 ## BM-01: RESOLVED
 

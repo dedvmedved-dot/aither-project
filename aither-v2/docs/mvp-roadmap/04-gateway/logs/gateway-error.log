@@ -1,0 +1,3 @@
+Found 2 pods, using pod/nginx-gateway-32b-5d447469b9-pvxtq
+Error from server (BadRequest): previous terminated container "nginx" in pod "nginx-gateway-32b-5d447469b9-pvxtq" not found
+Status: NOT AVAILABLE - no previous container logs

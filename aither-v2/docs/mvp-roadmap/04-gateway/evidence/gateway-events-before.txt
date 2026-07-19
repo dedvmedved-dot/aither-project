@@ -1,0 +1,8 @@
+LAST SEEN   TYPE      REASON              OBJECT                                   MESSAGE
+40m         Normal    Completed           job/benchmark-load-60min                 Job completed
+4m35s       Normal    BackOff             pod/nginx-gateway-32b-67cbbc9494-bqvgk   Back-off pulling image "nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1"
+4m35s       Warning   Failed              pod/nginx-gateway-32b-67cbbc9494-bqvgk   Error: ImagePullBackOff
+86s         Normal    BackOff             pod/nginx-gateway-32b-5d8fc6d7c-psrvp    Back-off pulling image "nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1"
+86s         Warning   Failed              pod/nginx-gateway-32b-5d8fc6d7c-psrvp    Error: ImagePullBackOff
+61s         Warning   MissingClusterDNS   pod/vllm-14b-instruct-7f6f784dcb-g2h5d   pod: "vllm-14b-instruct-7f6f784dcb-g2h5d_aither-inference(ef1579c8-a0ec-4ea7-9cd6-77ff2b537c05)". kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.
+58s         Warning   MissingClusterDNS   pod/vllm-32b-gptq-7d6dc7c64-r82nh        pod: "vllm-32b-gptq-7d6dc7c64-r82nh_aither-inference(bbb1e400-9e37-47c9-be9e-c48c09eca2e0)". kubelet does not have ClusterDNS IP configured and cannot create Pod using "ClusterFirst" policy. Falling back to "Default" policy.

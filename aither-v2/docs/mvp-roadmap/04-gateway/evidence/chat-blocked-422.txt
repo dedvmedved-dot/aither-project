@@ -1,0 +1,4 @@
+Source: stage 02 benchmark-smoke.log
+Description: chat blocked -> 422
+Expected: 422
+Status: PASSED

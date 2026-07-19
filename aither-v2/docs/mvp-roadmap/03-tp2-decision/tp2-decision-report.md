@@ -41,7 +41,7 @@ Commit: (this commit)
 | Node | n7 (bootsmam-k8s-clnt01-n7-gpu) | n7 |
 | GPU limit | 1 | 1 |
 | Tensor parallel size | not explicitly set, interpreted as TP=1 | `--tensor-parallel-size "1"` |
-| NCCL usage observed | yes (NCCL init in logs) | yes (NCCL init in logs) |
+| NCCL usage observed | **not proven; no explicit NCCL lines in collected grep/logs; not required for TP=1 MVP decision** | same |
 | Pod restarts | 0 | 0 |
 | OOM observed | no | no |
 | Stage 02 load passed | yes | yes |

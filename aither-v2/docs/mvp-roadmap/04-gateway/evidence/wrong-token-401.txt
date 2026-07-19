@@ -1,0 +1,4 @@
+Source: stage 02 benchmark-smoke.log
+Description: wrong token -> 401
+Expected: 401
+Status: PASSED

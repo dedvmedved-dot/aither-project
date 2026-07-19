@@ -1,0 +1,4 @@
+Source: stage 02 benchmark-smoke.log
+Description: completion -> 200
+Expected: 200
+Status: PASSED

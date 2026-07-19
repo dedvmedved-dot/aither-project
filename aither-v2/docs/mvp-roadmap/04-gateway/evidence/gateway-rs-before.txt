@@ -1,0 +1,4 @@
+nginx-gateway-32b-5898c69bcb   1         1         1       8h
+nginx-gateway-32b-5d8fc6d7c    1         1         0       5h1m
+nginx-gateway-32b-67cbbc9494   1         1         0       4h59m
+nginx-gateway-32b-6c9897b69b   0         0         0       5h35m
