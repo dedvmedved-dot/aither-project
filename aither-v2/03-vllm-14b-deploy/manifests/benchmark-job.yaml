@@ -1,0 +1,124 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchmark-inference
+  namespace: aither-inference
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: benchmark
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              VLLM_KEY=$(echo "$VLLM_API_KEY")
+              MODELS="vllm-14b-instruct vllm-32b-gptq"
+
+              echo "=========================================="
+              echo "= Inference Benchmark"
+              echo "= Date: $(date -Iseconds)"
+              echo "=========================================="
+
+              for MODEL in $MODELS; do
+                echo ""
+                echo "--- Model: $MODEL ---"
+
+                # 1. Health check
+                echo "1. Health check:"
+                time curl -sS -o /dev/null -w "HTTP %{http_code}, %{time_total}s\n" \
+                  --max-time 10 \
+                  "http://${MODEL}.aither-inference.svc:8000/health"
+
+                # 2. Single request
+                echo "2. Single request (chat/completions for 14B, completions for 32B):"
+                if [ "$MODEL" = "vllm-14b-instruct" ]; then
+                  ENDPOINT="/v1/chat/completions"
+                  DATA='{"model":"qwen-14b","messages":[{"role":"user","content":"What is capital of France?"}],"temperature":0,"max_tokens":24}'
+                else
+                  ENDPOINT="/v1/completions"
+                  DATA='{"model":"qwen-32b-base","prompt":"The capital of France is","temperature":0,"max_tokens":24}'
+                fi
+
+                time curl -sS -w "\nHTTP %{http_code}, total %{time_total}s, connect %{time_connect}s, TTFT %{time_starttransfer}s\n" \
+                  --max-time 120 \
+                  -H "Authorization: Bearer $VLLM_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d "$DATA" \
+                  "http://${MODEL}.aither-inference.svc:8000${ENDPOINT}" | tail -5
+
+                # 3. Concurrent test (4 parallel)
+                echo "3. Concurrent (4 parallel):"
+                for CONC in 1 2 4; do
+                  echo "   concurrency=$CONC:"
+                  PIDS=""
+                  for j in $(seq 1 $CONC); do
+                    (time curl -sS -o /dev/null -w "req_${j}: HTTP %{http_code}, %{time_total}s\n" \
+                      --max-time 120 \
+                      -H "Authorization: Bearer $VLLM_KEY" \
+                      -H "Content-Type: application/json" \
+                      -d "$DATA" \
+                      "http://${MODEL}.aither-inference.svc:8000${ENDPOINT}") &
+                    PIDS="$PIDS $!"
+                  done
+                  wait $PIDS
+                  echo ""
+                done
+
+                # 4. Sequential stability (10 requests)
+                echo "4. Sequential stability (10 requests):"
+                OK=0; FAIL=0; TOTAL_TIME=0
+                for j in $(seq 1 10); do
+                  T=$( { time curl -sS -o /dev/null -w "%{http_code}:%{time_total}" \
+                    --max-time 120 \
+                    -H "Authorization: Bearer $VLLM_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d "$DATA" \
+                    "http://${MODEL}.aither-inference.svc:8000${ENDPOINT}" 2>&1; } 2>&1)
+                  CODE=$(echo "$T" | cut -d: -f1)
+                  TIME=$(echo "$T" | cut -d: -f2)
+                  if [ "$CODE" = "200" ]; then
+                    OK=$((OK+1))
+                    TOTAL_TIME=$(echo "$TOTAL_TIME + $TIME" | bc 2>/dev/null || echo "0")
+                  else
+                    FAIL=$((FAIL+1))
+                  fi
+                done
+                echo "   OK=$OK FAIL=$FAIL"
+
+                # 5. Gateway test (32B only - 422 expected)
+                if [ "$MODEL" = "vllm-32b-gptq" ]; then
+                  echo "5. Gateway blocks chat (expect 422):"
+                  CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+                    --max-time 10 \
+                    -H "Content-Type: application/json" \
+                    -d '{"model":"qwen-32b-base","messages":[{"role":"user","content":"hi"}]}' \
+                    "http://nginx-gateway-32b.aither-inference.svc:8000/v1/chat/completions")
+                  echo "   HTTP $CODE (expected 422)"
+                fi
+
+                echo "--- $MODEL done ---"
+              done
+
+              echo ""
+              echo "=========================================="
+              echo "= Benchmark complete: $(date -Iseconds)"
+              echo "=========================================="
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 500m
+              memory: 256Mi

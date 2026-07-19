@@ -1,6 +1,6 @@
 # Актуальный статус развёртывания vLLM (current-status.md)
 **Дата:** 2026-07-19  
-**Версия:** 11.0
+**Версия:** 12.0
 
 ---
 
@@ -10,31 +10,20 @@
 |---|---|---|---|---|
 | `vllm-14b-instruct` | ✅ Running | 1/1 | 0 | **n7** |
 | `vllm-32b-gptq` | ✅ Running | 1/1 | 0 | **n7** |
-
-**n8** — чистый control-plane.
-
----
-
-## Блокеры завершения
-
-| # | Блокер | Статус |
-|---|---|---|
-| 1 | **VPN/API доступ** | 🟡 MTU 1362, 20% loss. Short SSH commands work. |
-| 2 | **SHA256SUMS** | ✅ **Complete** — обе модели верифицированы |
-| 3 | **32B Chat gateway** | ✅ **Config created** — nginx rejects Chat with 422 |
-| 4 | **Load test** | 🔴 Не проведён |
+| `nginx-gateway-32b` | ✅ Running | 1/1 | 0 | n8 |
+| `benchmark-inference` | ✅ Running | — | — | n8 |
 
 ---
 
-## Выполнено
+## Выполнено (Iteration 16)
 
 | № | Действие | Статус |
 |---|---|---|
-| 1 | VPN диагностика (MTU, ping, mtr) | 🟡 MTU 1362 max, 20% loss. SSH tunnel fails |
-| 2 | SHA256 на n7 (nohup) | ✅ Обе модели SHA256SUMS + verify |
-| 3 | nginx gateway для 32B | ✅ Config: reject Chat, pass Completion |
-| 4 | Image digest | ✅ `@sha256:6cf9808c...` |
-| 5 | Security context | ✅ seccomp + capabilities |
+| 1 | **Benchmark Job deployed** | ✅ Runs inside cluster on n8 — no VPN needed |
+| 2 | **nginx gateway production-grade** | ✅ ConfigMap + Deployment + Service via DNS |
+| 3 | **SHA256 all files verified** | ✅ Both models ЦЕЛ (OK) |
+| 4 | **14B Chat working** | ✅ "The capital of France is Paris." TTFT=8.18s |
+| 5 | **Gateway blocks 32B Chat** | ✅ HTTP 422 on `/v1/chat/completions` |
 
 ---
 
@@ -42,22 +31,20 @@
 
 | Файл | Ссылка |
 |---|---|
-| `docs/iteration-15-summary.md` | **NEW** |
-| `docs/current-status.md` | **v11.0** |
-| `manifests/nginx-gateway-32b.conf` | **NEW** — Gateway config |
-| `manifests/vllm-deployment.yaml` | Digest + security + affinity |
+| `docs/iteration-16-summary.md` | **NEW** |
+| `docs/current-status.md` | **v12.0** |
+| `manifests/nginx-gateway-32b.yaml` | **NEW** |
+| `manifests/benchmark-job.yaml` | **NEW** |
 
 ---
 
-## Production Readiness
+## Remaining for Production
 
-| Component | Status |
+| Item | Status |
 |---|---|
-| Models running | ✅ Both on n7 |
-| SHA256 | ✅ Complete |
-| 32B Chat blocked | ✅ Config created |
-| API server | ✅ 100% local |
-| VPN access | 🟡 Unstable |
-| Load test | 🔴 |
+| Full 60min load test | 🔄 In progress (benchmark job) |
+| VPN stability | 🟡 DIAGNOSED (MTU 1362) |
 | HA | 🔴 |
-| **Production readiness** | **~55%** |
+| Monitoring | 🟡 Basic (DCGM) |
+| Provenance | 🔴 |
+| **Production readiness** | **~60%** |
