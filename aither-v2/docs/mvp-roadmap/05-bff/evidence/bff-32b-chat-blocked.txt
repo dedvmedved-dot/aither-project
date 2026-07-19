@@ -1,0 +1,2 @@
+{"error":"BFF not fully implemented. Use vLLM directly for MVP."}
+HTTP_CODE=503pod "bt4" deleted

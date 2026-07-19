@@ -1,0 +1,2 @@
+{"status":"ok"}
+HTTP_CODE=200pod "bt1" deleted

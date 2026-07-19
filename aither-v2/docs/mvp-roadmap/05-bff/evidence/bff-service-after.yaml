@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"aither-bff"},"name":"aither-bff","namespace":"aither-inference"},"spec":{"ports":[{"name":"http","port":8000,"targetPort":8000}],"selector":{"app":"aither-bff"},"type":"ClusterIP"}}
+  creationTimestamp: "2026-07-19T22:01:40Z"
+  labels:
+    app: aither-bff
+  name: aither-bff
+  namespace: aither-inference
+  resourceVersion: "916605"
+  uid: 076c4610-58a0-4225-a57c-f183d5fdef03
+spec:
+  clusterIP: 10.106.87.155
+  clusterIPs:
+  - 10.106.87.155
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: aither-bff
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

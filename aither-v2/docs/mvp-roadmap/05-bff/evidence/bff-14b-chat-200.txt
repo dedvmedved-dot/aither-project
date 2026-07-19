@@ -1,0 +1,4 @@
+If you don't see a command prompt, try pressing enter.
+warning: couldn't attach to pod/bt2, falling back to streaming logs: Internal error occurred: unable to upgrade connection: container bt2 not found in pod bt2_aither-inference
+{"error":"BFF not fully implemented. Use vLLM directly for MVP."}
+HTTP_CODE=503pod "bt2" deleted

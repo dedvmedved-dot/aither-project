@@ -1,0 +1,4 @@
+User-facing 32B chat direct vLLM route: NOT PRESENT
+User-facing 32B completion direct vLLM route: NOT PRESENT
+32B completion via nginx-gateway-32b: YES
+32B chat blocked before upstream: YES (gateway returns 422)

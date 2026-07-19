@@ -1,0 +1,521 @@
+### git grep BFF/backend/portal/gateway
+.github/workflows/ci.yml:26:        run: ruff check gateway/ --ignore E501,F841,E722 --select E,F,W
+.github/workflows/ci.yml:29:        run: pyflakes gateway/
+.github/workflows/ci.yml:83:      - name: Verify gateway module imports
+.github/workflows/ci.yml:87:          files = ['gateway/gateway.py', 'gateway/admin.py', 'gateway/metrics.py']
+.github/workflows/deploy.yml:7:      - 'gateway/**'
+.github/workflows/deploy.yml:10:      - 'portal/**'
+.github/workflows/deploy.yml:15:        description: 'Component to deploy (gateway/vllm/portal/all)'
+.github/workflows/deploy.yml:21:          - gateway
+.github/workflows/deploy.yml:22:          - vllm
+.github/workflows/deploy.yml:23:          - portal
+.gitignore:2:portal/node_modules/
+.gitignore:3:portal/.env
+.gitignore:4:portal/.env.production
+FEATURES.md:28:## 2. AI Security Gateway
+FEATURES.md:70:| **GPU Inference** | vLLM serving | ✅ | 40.51: Qwen 14B/32B/Coder/Saiga |
+FEATURES.md:73:| **GPU Inference** | Второй узел vLLM | ⚠️ | 40.50: ставится NVIDIA |
+FEATURES.md:141:1. 🔴 **AI Security Gateway** — DLP + prompt injection (критично для госкорпорации)
+FEATURES.md:142:2. 🔴 **Второй vLLM-узел** (40.50) + каталог моделей
+README.md:11:| 2 | GPU Operator + vLLM + Qwen2.5‑14B (TP=2) | 40.51 | ✅ |
+README.md:12:| 3 | PostgreSQL 16 + Redis 7 + API Gateway | 40.51, K8s | ✅ |
+README.md:13:| 4 | Portal BFF + Portal DB + nginx | VPS2, Docker | ✅ |
+README.md:19:Клиент → http://130.17.1.90:80 (nginx) → Portal BFF :3000 → Portal DB :5432
+README.md:21:                                           10.129.13.78:30900 (gateway) → vLLM :8000
+README.md:30:│  │  nginx  │ → │ Portal BFF   │ → │ Portal DB (PostgreSQL)│  │
+README.md:40:│  │            API Gateway (Python) :30900                 │   │
+README.md:43:│  │            • Proxy → vLLM                              │   │
+README.md:47:│  │  vLLM :8000  │   │  PostgreSQL 16   │                     │
+README.md:77:**Проверка vLLM:**
+README.md:120:**Qwen2.5‑14B‑Instruct** — 28 GB, размещена на хосте 40.51 (`/data/models/`), загружается в vLLM через hostPath. Инференс: TP=2 на обеих RTX 6000.
+README.md:134:├── portal/                 ← код портала (BFF, nginx, docker-compose)
+ROADMAP.md:25:| 3 | vLLM 14B загрузка и запуск | ✅ | 2 | — |
+ROADMAP.md:27:| 5 | Gateway (FastAPI + Redis RL) | ✅ | 4 | `5185dc0` |
+ROADMAP.md:28:| 6 | Portal (SPA + BFF + SSE-streaming) | ✅ | 5 | — |
+ROADMAP.md:31:**Результат:** одноузловой K8s, одна модель, портал с OAuth-входом, Gateway с rate limiting.
+ROADMAP.md:40:| 9 | Каталог моделей (YAML → Gateway) | ✅ | 9 | `5a8b352` |
+ROADMAP.md:65:| 14 | **AI Security Gateway** (расширенный) | P1 | ✅ | 1 день |
+ROADMAP.md:67:| 16 | **Gateway в K8s** (вынос из BFF) | P1 | ✅ | 1 день |
+ROADMAP.md:74:                     → vLLM /metrics (throughput, KV cache)
+ROADMAP.md:76:                     → Gateway (latency, rate limits)
+ROADMAP.md:92:### 14. AI Security Gateway (день 13)
+ROADMAP.md:130:Gateway анализирует запрос и выбирает модель:
+ROADMAP.md:158:| 34 | <mark>**Security Gateway Egress**</mark> (ДСП-фильтр на выходе) | P0 | ✅ | 3 дня |
+ROADMAP.md:164:| 39 | **API Gateway management API** (очереди, модели, drain) | P1 | ✅ | 2 дня |
+ROADMAP.md:181:- Привязка `org → tier` с наследованием лимитов в Gateway
+ROADMAP.md:202:| 30 | **API Gateway** (внешний доступ + OpenAI API + Swagger) | P1 | ✅ |
+ROADMAP.md:244:│   ├── 05-vllm-deploy.yml             # Запуск vLLM с моделями
+ROADMAP.md:245:│   ├── 06-gateway-deploy.yml          # Gateway + Redis + PostgreSQL
+ROADMAP.md:246:│   ├── 07-portal-deploy.yml           # Портал (SPA + BFF + ChromaDB)
+ROADMAP.md:252:│   ├── gateway/
+ROADMAP.md:256:│   ├── vllm-14b/
+ROADMAP.md:259:│   ├── vllm-32b/
+ROADMAP.md:293:│   │   ├── portal-offline.tgz         # Собранный портал (npm pack)
+ROADMAP.md:314:│   ├── bff/
+ROADMAP.md:315:│   │   └── .env.template             # Шаблон переменных окружения BFF
+ROADMAP.md:316:│   ├── gateway/
+ROADMAP.md:317:│   │   └── config.yaml.template      # Шаблон конфигурации Gateway
+ROADMAP.md:318:│   └── vllm/
+ROADMAP.md:319:│       └── args.txt                   # Аргументы запуска vLLM
+ROADMAP.md:338:| **Ansible playbooks** | 10 playbooks для полного цикла развёртывания (ОС → GPU → K8s → vLLM → Gateway → Портал → Мониторинг) | 1.5 |
+ROADMAP.md:405:| 4 | **#30 API Gateway** | Внешний доступ для клиентских интеграций |
+Usage-Collector/LOG.md:13:| 12:10 | Анализ текущего Gateway (gw-minimal.py, 340 строк) | Определены точки внедрения: settle, usage endpoints |
+Usage-Collector/LOG.md:19:| 12:30 | ConfigMap обновлён, Gateway перезапущен | Под gateway-558fd8f67d-58sgc → 1/1 Ready за 55с |
+Usage-Collector/LOG.md:20:| 12:32 | Тест 1: запрос "Say OK" | vLLM: 31 prompt + 2 completion = 33 total |
+Usage-Collector/LOG.md:33:| Точность учёта токенов | Оценка (±30%) | Факт из vLLM (±0%) |
+Usage-Collector/LOG.md:38:| Строк кода Gateway | 340 | 423 (+83 строки) |
+Usage-Collector/article.md:7:Usage Collector является компонентом **Gateway Aither** и обеспечивает точный учёт токенов, потреблённых каждым запросом к языковой модели. Подсистема находится на критическом пути обработки запроса:
+Usage-Collector/article.md:10:Клиент → Портал → Gateway → [Usage Collector] → vLLM → Gateway → [Usage Collector] → Клиент
+Usage-Collector/article.md:15:Базовая версия Gateway использовала **предварительную оценку** токенов (`reserve_amount`) для биллинга. Это приводило к:
+Usage-Collector/article.md:20:Usage Collector заменяет оценочный механизм на **точный подсчёт** на основе метаданных от инференс-сервера (vLLM).
+Usage-Collector/article.md:46:Шаг 5. Отправка запроса в vLLM
+Usage-Collector/article.md:47:Шаг 6. Получение ответа от vLLM
+Usage-Collector/article.md:56:### 2.2 Извлечение метрик из ответа vLLM
+Usage-Collector/article.md:58:vLLM возвращает метрики в формате OpenAI:
+Usage-Collector/article.md:74:Gateway извлекает поля:
+Usage-Collector/article.md:76:| Поле ответа vLLM | Поле в usage_records | Назначение |
+Usage-Collector/article.md:87:| vLLM вернул ответ без `usage` | Использовать `reserve_amount` как оценку (fallback) |
+Usage-Collector/article.md:88:| vLLM вернул ошибку (status ≠ 200) | Refund резерва, запись со статусом `error` |
+Usage-Collector/article.md:90:| Прерванное соединение клиента | vLLM всё равно завершает инференс → settle по факту |
+Usage-Collector/article.md:145:    subgraph cluster_gateway {
+Usage-Collector/article.md:146:        label="Gateway Aither";
+Usage-Collector/article.md:154:        proxy [label="Proxy to vLLM\nзамер latency", fillcolor="#FFE0B2", color="#BF360C"];
+Usage-Collector/article.md:171:    subgraph cluster_vllm {
+Usage-Collector/article.md:177:        vllm [label="vLLM\nQwen2.5-14B", fillcolor="#F8BBD0", color="#880E4F"];
+Usage-Collector/article.md:180:    proxy -> vllm [label="POST /v1/chat/completions", color="#1565C0"];
+Usage-Collector/article.md:181:    vllm -> proxy [label="response\n+ usage.total_tokens", color="#2E7D32"];
+Usage-Collector/article.md:211:    proxy_state [label="PROXY\n→ vLLM", fillcolor="#FFE0B2", color="#BF360C"];
+Usage-Collector/article.md:221:    proxy_fail [label="502\nvLLM error", fillcolor="#F8BBD0", color="#C62828"];
+Usage-Collector/article.md:262:| vLLM | Источник данных | usage = reserve_amount |
+Usage-Collector/article.md:279:| Подделка usage в ответе vLLM | Низкая | Высокое | vLLM во внутренней сети |
+Usage-Collector/article.md:290:1. Отправить запрос с известным промптом через Gateway
+Usage-Collector/article.md:292:3. Сравнить `total_tokens` с ответом vLLM
+Usage-Collector/article.md:294:5. Имитировать ошибку vLLM → проверить refund и status=error
+Usage-Collector/protocol.md:4:## Компонент: Gateway Aither (подсистема учёта токенов)
+Usage-Collector/protocol.md:11:Исходное состояние Gateway: `gw-minimal.py` (340 строк, ревизия после Rate Limiter).
+Usage-Collector/protocol.md:34:Добавлен автогенератор таблицы при старте Gateway:
+Usage-Collector/protocol.md:102:# Патч gateway.py
+Usage-Collector/protocol.md:106:kubectl create configmap gateway-code \
+Usage-Collector/protocol.md:107:  --from-file=gateway.py=/tmp/gw-usage.py \
+Usage-Collector/protocol.md:111:kubectl rollout restart deploy/gateway
+Usage-Collector/protocol.md:114:Результат: под `gateway-558fd8f67d-58sgc`, 1/1 Ready, старт за 55с.
+Usage-Collector/protocol.md:122:Ответ vLLM:
+Usage-Collector/protocol.md:133:✅ Точное совпадение с метаданными vLLM.
+Usage-Collector/protocol.md:159:| Точность учёта | ±30% (оценка) | ±0% (из vLLM) |
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.dot":14:    subgraph cluster_gateway {
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.dot":15:        label="Gateway Aither";
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.dot":23:        proxy [label="Proxy to vLLM\nзамер latency", fillcolor="#FFE0B2", color="#BF360C"];
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.dot":40:    subgraph cluster_vllm {
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.dot":46:        vllm [label="vLLM\nQwen2.5-14B", fillcolor="#F8BBD0", color="#880E4F"];
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.dot":49:    proxy -> vllm [label="POST /v1/chat/completions", color="#1565C0"];
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.dot":50:    vllm -> proxy [label="response\n+ usage.total_tokens", color="#2E7D32"];
+Binary file "Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.jpg" matches
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":14:<title>cluster_gateway</title>
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":16:<text text-anchor="middle" x="78.5" y="-770.7" font-family="Helvetica,sans-Serif" font-size="16.00">Gateway Aither</text>
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":24:<title>cluster_vllm</title>
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":80:<text text-anchor="middle" x="95" y="-411.5" font-family="Helvetica,sans-Serif" font-size="10.00">Proxy to vLLM</text>
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":118:<!-- vllm -->
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":120:<title>vllm</title>
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":122:<text text-anchor="middle" x="322" y="-277.5" font-family="Helvetica,sans-Serif" font-size="10.00">vLLM</text>
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":125:<!-- proxy&#45;&gt;vllm -->
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":127:<title>proxy&#45;&gt;vllm</title>
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":166:<!-- vllm&#45;&gt;proxy -->
+"Usage-Collector/schemes/01_Usage Collector  \320\260\321\200\321\205\320\270\321\202\320\265\320\272\321\202\321\203\321\200\320\260 \320\277\320\276\321\202\320\276\320\272\320\260 \320\264\320\260\320\275\320\275\321\213\321\205.svg":168:<title>vllm&#45;&gt;proxy</title>
+"Usage-Collector/schemes/02_Usage Collector  \320\272\320\276\320\275\320\265\321\207\320\275\321\213\320\271 \320\260\320\262\321\202\320\276\320\274\320\260\321\202 \320\267\320\260\320\277\321\200\320\276\321\201\320\260.dot":18:    proxy_state [label="PROXY\n→ vLLM", fillcolor="#FFE0B2", color="#BF360C"];
+"Usage-Collector/schemes/02_Usage Collector  \320\272\320\276\320\275\320\265\321\207\320\275\321\213\320\271 \320\260\320\262\321\202\320\276\320\274\320\260\321\202 \320\267\320\260\320\277\321\200\320\276\321\201\320\260.dot":28:    proxy_fail [label="502\nvLLM error", fillcolor="#F8BBD0", color="#C62828"];
+"Usage-Collector/schemes/02_Usage Collector  \320\272\320\276\320\275\320\265\321\207\320\275\321\213\320\271 \320\260\320\262\321\202\320\276\320\274\320\260\321\202 \320\267\320\260\320\277\321\200\320\276\321\201\320\260.svg":93:<text text-anchor="middle" x="680.81" y="-270.8" font-family="Helvetica,sans-Serif" font-size="9.00">→ vLLM</text>
+"Usage-Collector/schemes/02_Usage Collector  \320\272\320\276\320\275\320\265\321\207\320\275\321\213\320\271 \320\260\320\262\321\202\320\276\320\274\320\260\321\202 \320\267\320\260\320\277\321\200\320\276\321\201\320\260.svg":135:<text text-anchor="middle" x="972.31" y="-270.8" font-family="Helvetica,sans-Serif" font-size="9.00">vLLM error</text>
+ai_platform_architecture.html:108:            <div class="arch-box"><div class="label mb-1">Контракт</div><div class="font-semibold">API Gateway</div><div class="mini mt-1">Аутентификация, квоты, тариф, приоритет, метки критичности</div></div>
+ai_platform_architecture.html:112:            <div class="arch-box" style="border-color: rgba(34,197,94,.3);"><div class="label mb-1">Обязательный слой</div><div class="font-semibold">AI Security Gateway</div><div class="mini mt-1">Input filtering, DLP, jailbreak/prompt injection checks, output moderation</div></div>
+aither-article/architecture.svg:58:<!-- portal -->
+aither-article/architecture.svg:60:<title>portal</title>
+aither-article/architecture.svg:62:<text text-anchor="middle" x="257" y="-358" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#e65100">Aither Portal</text>
+aither-article/architecture.svg:63:<text text-anchor="middle" x="257" y="-347" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#e65100">(:80, SPA + BFF)</text>
+aither-article/architecture.svg:65:<!-- hermes&#45;&gt;portal -->
+aither-article/architecture.svg:67:<title>hermes&#45;&gt;portal</title>
+aither-article/architecture.svg:79:<!-- portal&#45;&gt;postgres -->
+aither-article/architecture.svg:81:<title>portal&#45;&gt;postgres</title>
+aither-article/architecture.svg:92:<!-- portal&#45;&gt;nginx -->
+aither-article/architecture.svg:94:<title>portal&#45;&gt;nginx</title>
+aither-article/architecture.svg:99:<!-- gateway -->
+aither-article/architecture.svg:101:<title>gateway</title>
+aither-article/architecture.svg:103:<text text-anchor="middle" x="411" y="-216" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#1565c0">Gateway</text>
+aither-article/architecture.svg:106:<!-- portal&#45;&gt;gateway -->
+aither-article/architecture.svg:108:<title>portal&#45;&gt;gateway</title>
+aither-article/architecture.svg:118:<text text-anchor="middle" x="402" y="-126" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#c62828">vLLM Qwen 14B</text>
+aither-article/architecture.svg:121:<!-- gateway&#45;&gt;qwen -->
+aither-article/architecture.svg:123:<title>gateway&#45;&gt;qwen</title>
+aither-article/architecture.svg:136:<!-- gateway&#45;&gt;k8s_postgres -->
+aither-article/architecture.svg:138:<title>gateway&#45;&gt;k8s_postgres</title>
+aither-article/architecture.svg:149:<!-- gateway&#45;&gt;redis -->
+aither-article/architecture.svg:151:<title>gateway&#45;&gt;redis</title>
+aither-article/article.md:19:7. [Шаг 4: Развёртывание vLLM](#7-шаг-4-развёртывание-vllm)
+aither-article/article.md:21:9. [Шаг 6: Gateway и Portal — точка входа](#9-шаг-6-gateway-и-portal--точка-входа)
+aither-article/article.md:47:| 4 | Запустить vLLM с Tensor Parallelism | ✅ TP=2 на двух RTX 6000 |
+aither-article/article.md:48:| 5 | Настроить Gateway + Portal | ✅ Маршрутизация + веб-интерфейс |
+aither-article/article.md:64:| **VPS2** | 130.17.1.90 | Публичный шлюз: Hermes Agent, Portal (SPA + BFF), PostgreSQL, nginx | Debian 12 |
+aither-article/article.md:65:| **40.51** | 10.129.13.78 | K8s GPU-кластер: vLLM (NodePort 32293), Gateway (NodePort 30900) | Astra Linux 1.8 |
+aither-article/article.md:75:3. **Portal BFF (:3000)** — формирует делегированный запрос к Gateway
+aither-article/article.md:76:4. **Gateway (:30900, K8s NodePort)** — выбирает модель, формирует OpenAI-совместимый запрос
+aither-article/article.md:78:6. **K8s Service (vllm-qwen-nodeport:32293)** — направляет запрос в под с vLLM
+aither-article/article.md:79:7. **vLLM** — токенизирует промпт, выполняет инференс на GPU, возвращает токены
+aither-article/article.md:80:8. **Ответ** — SSE-потоком возвращается через Gateway → Portal BFF → пользователю
+aither-article/article.md:90:| Инференс | vLLM | 0.8.5 |
+aither-article/article.md:91:| API-шлюз | FastAPI (Python) | 0.115+ |
+aither-article/article.md:312:## 7. Шаг 4: Развёртывание vLLM
+aither-article/article.md:314:### 7.1. Что такое vLLM
+aither-article/article.md:316:**vLLM** (Very Large Language Model) — высокопроизводительный сервер инференса с открытым исходным кодом. Ключевые особенности:
+aither-article/article.md:325:![Схема деплоймента vLLM в K8s](deployment.svg)
+aither-article/article.md:333:  name: vllm-qwen-direct
+aither-article/article.md:338:      app: vllm-qwen-direct
+aither-article/article.md:342:        app: vllm-qwen-direct
+aither-article/article.md:346:      - name: vllm
+aither-article/article.md:347:        image: vllm/vllm-openai:v0.8.5
+aither-article/article.md:348:        command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+aither-article/article.md:366:        - name: VLLM_PORT
+aither-article/article.md:398:kubectl logs -l
+
+... [OUTPUT TRUNCATED - 465313 chars omitted out of 515313 total] ...
+
+24:| R-01 | RedOS 7.3 несовместим с актуальным NVIDIA/CUDA/vLLM стеком | Высокая | Высокое | P0 | Gate 0 Compatibility Protocol; резервный путь Ubuntu VM passthrough или Yandex Cloud | DevOps Lead |
+references/TR1-Aither-architecture.md:2726:| R-03 | Обрыв SSE до финального usage даёт бесплатные токены | Средняя | Высокое | P0 | Local token counter, partial settle, finalization job | Backend Lead |
+references/TR1-Aither-architecture.md:2740:**Контекст:** LiteLLM (прокси/библиотека для LLM API) и vLLM умеют отдавать usage, но не являются финансовыми системами.  
+references/TR1-Aither-architecture.md:2748:**Решение:** API Gateway обязан выполнить reserve до Admission Controller и vLLM.  
+references/TR1-Aither-architecture.md:2822:4. Убедиться, что Gateway fail-closed: новые платные запросы получают 503, vLLM не получает трафик.
+references/TR1-Aither-architecture.md:2848:| Compatibility | Gate 0 подписан, стек RedOS/NVIDIA/CUDA/K3s/vLLM стабилен | Блокер |
+references/TR1-Aither-architecture.md:2872:Aither можно и нужно реализовывать, но только как инженерно управляемую платформу, а не как простой proxy (прокси) к vLLM. Главный источник коммерческой ценности — не только LLM, а доверенное соединение между API, GPU, биллингом, эксплуатацией и безопасностью. Если убрать Billing Service, Usage Collector, Reaper, Reconciliation и Observability, останется демонстрационный inference API, который нельзя безопасно продавать внешним клиентам.
+references/TR1-Aither-architecture.md:2894:| ALB | балансировщик нагрузки прикладного уровня | Компонент L7, принимающий HTTPS-запросы и направляющий их в backend |
+references/TR1-Aither-architecture.md:2896:| API Gateway | шлюз API | Центральная точка входа для клиентских API-запросов |
+references/TR1-Aither-architecture.md:2969:| vLLM | среда выполнения LLM-инференса | Высокопроизводительный runtime для LLM |
+references/TR2-Portal-Aither-v6.md:9:5. **P0-5:** Portal BFF OpenAPI полностью валиден — все response schemas, все обязательные headers.
+references/TR2-Portal-Aither-v6.md:39:**Ключевая позиция:** Портал пользователя является доверенным клиентским приложением, взаимодействующим с ядром Aither через Core Management API. Авторизация Portal BFF → Core выполняется через Delegation Token (короткоживущий подписанный JWT с полным пользовательским контекстом). Портал использует собственную базу данных (Portal DB) и не имеет прямого доступа к финансовому ledger ядра.
+references/TR2-Portal-Aither-v6.md:69:| Portal BFF API OpenAPI | Часть 7.1 | ✅ Выполнено (валидный контракт) |
+references/TR2-Portal-Aither-v6.md:92:| **Backend-разработчик (BFF)** | Части 5 (bff), 6, 7, 12 |
+references/TR2-Portal-Aither-v6.md:103:| `portal_org_id` | UUID организации в Portal DB | Portal DB |
+references/TR2-Portal-Aither-v6.md:104:| `aither_org_id` | UUID организации в Core Aither | Portal DB, Core Management API |
+references/TR2-Portal-Aither-v6.md:105:| `portal_user_id` | UUID пользователя в Portal DB | Portal DB |
+references/TR2-Portal-Aither-v6.md:106:| `membership_id` | UUID членства в организации | Portal DB |
+references/TR2-Portal-Aither-v6.md:115:| **Portal BFF API** | `/api/v1/*` | JWT Access Token (в памяти SPA) | React SPA | Работа пользовательского интерфейса |
+references/TR2-Portal-Aither-v6.md:116:| **Core Management API** | `/v1/*` | Delegation Token (JWT, RS256) + mTLS | Portal BFF | Управление ключами, балансом, платежами, статистикой |
+references/TR2-Portal-Aither-v6.md:128:### ADR-002: BFF между SPA и ядром
+references/TR2-Portal-Aither-v6.md:130:**Решение:** Portal BFF для агрегации данных, кэширования, аутентификации.
+references/TR2-Portal-Aither-v6.md:132:### ADR-003: Portal DB не является финансовым Source of Truth
+references/TR2-Portal-Aither-v6.md:142:### ADR-006: Delegation Token для авторизации Portal BFF → Core
+references/TR2-Portal-Aither-v6.md:209:    portal [label="Портал пользователя Aither\n\nReact SPA + Portal BFF (Fastify)\nPortal DB (PostgreSQL)\nPortal Cache (Redis)", fillcolor="#E8DAEF", penwidth=3];
+references/TR2-Portal-Aither-v6.md:215:    user -> portal [label="HTTPS"];
+references/TR2-Portal-Aither-v6.md:216:    portal -> aither [label="Delegation Token\nmTLS"];
+references/TR2-Portal-Aither-v6.md:217:    portal -> oauth [label="OAuth 2.0 + PKCE"];
+references/TR2-Portal-Aither-v6.md:218:    portal -> email [label="SMTP"];
+references/TR2-Portal-Aither-v6.md:235:    subgraph cluster_portal {
+references/TR2-Portal-Aither-v6.md:239:        bff [label="Portal BFF\n(Fastify + TypeScript)", fillcolor="#D2B4DE"];
+references/TR2-Portal-Aither-v6.md:240:        db [label="Portal DB\n(PostgreSQL 16)", fillcolor="#D2B4DE"];
+references/TR2-Portal-Aither-v6.md:241:        cache [label="Portal Cache\n(Redis 7)", fillcolor="#D2B4DE"];
+references/TR2-Portal-Aither-v6.md:251:    spa -> bff [label="Portal BFF API\n/api/v1/*"];
+references/TR2-Portal-Aither-v6.md:252:    bff -> db [label="SQL"];
+references/TR2-Portal-Aither-v6.md:253:    bff -> cache [label="Redis"];
+references/TR2-Portal-Aither-v6.md:254:    bff -> aither_api [label="Delegation Token\nmTLS"];
+references/TR2-Portal-Aither-v6.md:272:    bff [label="Portal BFF", fillcolor="#D2B4DE"];
+references/TR2-Portal-Aither-v6.md:275:    db [label="Portal DB", fillcolor="#85C1E9"];
+references/TR2-Portal-Aither-v6.md:281:    spa -> bff [label="5. POST /auth/callback/github"];
+references/TR2-Portal-Aither-v6.md:282:    bff -> oauth [label="6. Обмен code на токен"];
+references/TR2-Portal-Aither-v6.md:283:    oauth -> bff [label="7. access_token + user_info"];
+references/TR2-Portal-Aither-v6.md:284:    bff -> db [label="8. Поиск → Не найден"];
+references/TR2-Portal-Aither-v6.md:285:    bff -> core [label="9. POST /v1/orgs"];
+references/TR2-Portal-Aither-v6.md:286:    core -> bff [label="10. org_id + initial_key"];
+references/TR2-Portal-Aither-v6.md:287:    bff -> db [label="11. INSERT пользователь, org, member"];
+references/TR2-Portal-Aither-v6.md:288:    bff -> spa [label="12. access_token + initial_key"];
+references/TR2-Portal-Aither-v6.md:304:    bff [label="Portal BFF", fillcolor="#D2B4DE"];
+references/TR2-Portal-Aither-v6.md:306:    gateway [label="Платёжный шлюз", fillcolor="#FCF3CF"];
+references/TR2-Portal-Aither-v6.md:308:    user -> bff [label="1. POST /payments {amount}"];
+references/TR2-Portal-Aither-v6.md:309:    bff -> core [label="2. POST /v1/payments"];
+references/TR2-Portal-Aither-v6.md:310:    core -> gateway [label="3. Создание платежа"];
+references/TR2-Portal-Aither-v6.md:311:    gateway -> core [label="4. confirmation_url"];
+references/TR2-Portal-Aither-v6.md:312:    core -> bff -> user [label="5. Редирект на шлюз"];
+references/TR2-Portal-Aither-v6.md:313:    user -> gateway [label="6. Оплата"];
+references/TR2-Portal-Aither-v6.md:314:    gateway -> core [label="7. Webhook: успех (HMAC+timestamp+nonce)"];
+references/TR2-Portal-Aither-v6.md:316:    user -> bff [label="9. GET /payments/{id}"];
+references/TR2-Portal-Aither-v6.md:317:    bff -> core [label="10. GET /v1/payments/{id}"];
+references/TR2-Portal-Aither-v6.md:318:    bff -> user [label="11. «Баланс пополнен на 5 000 ₽»"];
+references/TR2-Portal-Aither-v6.md:324:# Часть 3. Модель авторизации Portal BFF → Core (Delegation Token v6.0)
+references/TR2-Portal-Aither-v6.md:330:  "header": {"alg": "RS256", "typ": "JWT", "kid": "portal-key-2026-q3"},
+references/TR2-Portal-Aither-v6.md:332:    "iss": "portal.aither.example.com",
+references/TR2-Portal-Aither-v6.md:334:    "sub": "portal-service",
+references/TR2-Portal-Aither-v6.md:335:    "act_as_user": "<portal_user_id>",
+references/TR2-Portal-Aither-v6.md:338:    "portal_user_role": "owner",
+references/TR2-Portal-Aither-v6.md:352:При сетевом таймауте BFF создаёт новый Delegation Token (новый jti) и повторяет запрос. Идемпотентность бизнес-операции гарантируется через `Idempotency-Key`. Максимум 3 retry. Каждый retry логируется.
+references/TR2-Portal-Aither-v6.md:384:  name: "portal_refresh_token"
+references/TR2-Portal-Aither-v6.md:406:portal/
+references/TR2-Portal-Aither-v6.md:407:├── bff/
+references/TR2-Portal-Aither-v6.md:474:│   ├── portal-bff-api.yaml
+references/TR2-Portal-Aither-v6.md:483:│   └── portal/
+references/TR2-Portal-Aither-v6.md:503:  "name": "portal-bff",
+references/TR2-Portal-Aither-v6.md:591:  CORS_ORIGIN: z.string().default('https://portal.aither.example.com'),
+references/TR2-Portal-Aither-v6.md:594:  DELEGATION_KEY_ID: z.string().default('portal-key-2026-q3'),
+references/TR2-Portal-Aither-v6.md:605:	cd bff && npm run dev
+references/TR2-Portal-Aither-v6.md:608:	cd bff && npm run test
+references/TR2-Portal-Aither-v6.md:611:	cd bff && npm run lint
+references/TR2-Portal-Aither-v6.md:615:	cd bff && npm run build
+references/TR2-Portal-Aither-v6.md:619:	cd bff && npm run migrate
+references/TR2-Portal-Aither-v6.md:630:# Часть 6. Модель данных Portal DB и платёжное ядро Core
+references/TR2-Portal-Aither-v6.md:632:## 6.1. Полный DDL Portal DB
+references/TR2-Portal-Aither-v6.md:647:CREATE TABLE portal_organizations (
+references/TR2-Portal-Aither-v6.md:657:CREATE TABLE portal_users (
+references/TR2-Portal-Aither-v6.md:666:CREATE UNIQUE INDEX idx_portal_users_email_active ON portal_users(email) WHERE deleted_at IS NULL;
+references/TR2-Portal-Aither-v6.md:668:CREATE TABLE portal_org_members (
+references/TR2-Portal-Aither-v6.md:670:    user_id UUID NOT NULL REFERENCES portal_users(user_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:671:    org_id UUID NOT NULL REFERENCES portal_organizations(org_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:676:    invited_by UUID REFERENCES portal_users(user_id),
+references/TR2-Portal-Aither-v6.md:682:    user_id UUID NOT NULL REFERENCES portal_users(user_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:689:    encryption_key_id TEXT NOT NULL DEFAULT 'portal-oauth-key-v1',
+references/TR2-Portal-Aither-v6.md:698:    user_id UUID NOT NULL REFERENCES portal_users(user_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:708:    org_id UUID PRIMARY KEY REFERENCES portal_organizations(org_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:718:    org_id UUID NOT NULL REFERENCES portal_organizations(org_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:722:    encryption_key_id TEXT NOT NULL DEFAULT 'portal-webhook-key-v1',
+references/TR2-Portal-Aither-v6.md:746:    user_id UUID PRIMARY KEY REFERENCES portal_users(user_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:756:    org_id UUID NOT NULL REFERENCES portal_organizations(org_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:759:    invited_by UUID NOT NULL REFERENCES portal_users(user_id),
+references/TR2-Portal-Aither-v6.md:764:    accepted_by UUID REFERENCES portal_users(user_id),
+references/TR2-Portal-Aither-v6.md:770:    user_id UUID REFERENCES portal_users(user_id),
+references/TR2-Portal-Aither-v6.md:771:    org_id UUID REFERENCES portal_organizations(org_id),
+references/TR2-Portal-Aither-v6.md:783:    org_id UUID NOT NULL REFERENCES portal_organizations(org_id) ON DELETE CASCADE,
+references/TR2-Portal-Aither-v6.md:792:CREATE INDEX idx_portal_orgs_aither ON portal_organizations(aither_org_id);
+references/TR2-Portal-Aither-v6.md:793:CREATE INDEX idx_org_members_user ON portal_org_members(user_id);
+references/TR2-Portal-Aither-v6.md:794:CREATE INDEX idx_org_members_org ON portal_org_members(org_id);
+references/TR2-Portal-Aither-v6.md:811:CREATE TRIGGER trg_portal_orgs_updated_at BEFORE UPDATE ON portal_organizations
+references/TR2-Portal-Aither-v6.md:834:        IF (SELECT COUNT(*) FROM portal_org_members
+references/TR2-Portal-Aither-v6.md:848:    BEFORE DELETE OR UPDATE ON portal_org_members
+references/TR2-Portal-Aither-v6.md:862:    gateway_payment_id TEXT NOT NULL UNIQUE,
+references/TR2-Portal-Aither-v6.md:959:    gateway_refund_id TEXT,
+references/TR2-Portal-Aither-v6.md:1024:## 7.1. Portal BFF API (полный, валидный OpenAPI)
+references/TR2-Portal-Aither-v6.md:1029:  title: "Aither Portal BFF API"
+references/TR2-Portal-Aither-v6.md:1032:  - url: "https://portal.aither.example.com/api/v1"
+references/TR2-Portal-Aither-v6.md:1426:              portal_org_id: {type: string, format: uuid}
+references/TR2-Portal-Aither-v6.md:1973:| T-07 | Повышение роли | Elevation | P1 | RBAC BFF + Core |
+references/TR2-Portal-Aither-v6.md:2014:| R-01 | Core API не готов | 50% | Высокое (5) | 2.5 | P0 | Mock Core API, ранние контракты | Backend Lead |
+references/TR2-Portal-Aither-v6.md:2015:| R-02 | Смена webhook-формата | 20% | Высокое (5) | 1.0 | P1 | Адаптеры, автотесты | Backend Lead |
+references/TR2-Portal-Aither-v6.md:2018:| R-05 | Неверная оценка токенов | 40% | Среднее (3) | 1.2 | P2 | Предупреждение в UI | ML + Backend |
+references/TR2-Portal-Aither-v6.md:2021:| R-08 | Portal DB недоступна | 10% | Высокое (5) | 0.5 | P1 | Streaming replication | DBA |
+references/TR2-Portal-Aither-v6.md:2039:| Throughput BFF | 100 RPS | 500 RPS | k6: constant RPS test |
+references/TR2-Portal-Aither-v6.md:2040:| Cache Hit Ratio | > 60% | > 80% | Prometheus: `portal_cache_hit_ratio` |
+references/TR2-Portal-Aither-v6.md:2046:| Portal BFF Availability | 99.5% | 99.9% |
+references/TR2-Portal-Aither-v6.md:2057:| BFF → Core | Delegation Token (RS256) + mTLS |
+references/TR2-Portal-Aither-v6.md:2080:    bff [label="Portal BFF", fillcolor="#D2B4DE"];
+references/TR2-Portal-Aither-v6.md:2082:    gateway [label="Шлюз", fillcolor="#FCF3CF"];
+references/TR2-Portal-Aither-v6.md:2085:    user -> bff -> core -> gateway;
+references/TR2-Portal-Aither-v6.md:2086:    gateway -> core -> billing;
+references/TR2-Portal-Aither-v6.md:2087:    user -> gateway;
+references/TR2-Portal-Aither-v6.md:2088:    user -> bff -> core -> bff -> user;
+references/TR2-Portal-Aither-v6.md:2187:name: portal
+references/TR2-Portal-Aither-v6.md:2188:description: Aither Portal
+references/TR2-Portal-Aither-v6.md:2198:  bff:
+references/TR2-Portal-Aither-v6.md:2199:    repository: registry.aither.local/portal-bff
+references/TR2-Portal-Aither-v6.md:2202:    repository: registry.aither.local/portal-frontend
+references/TR2-Portal-Aither-v6.md:2206:  host: portal.aither.example.com
+references/TR2-Portal-Aither-v6.md:2209:    secretName: portal-tls
+references/TR2-Portal-Aither-v6.md:2211:  bff:
+references/TR2-Portal-Aither-v6.md:2234:├── deployment-bff.yaml
+references/TR2-Portal-Aither-v6.md:2236:├── service-bff.yaml
+references/TR2-Portal-Aither-v6.md:2253:## 12.4. deployment-bff.yaml
+references/TR2-Portal-Aither-v6.md:2259:  name: {{ .Release.Name }}-bff
+references/TR2-Portal-Aither-v6.md:2261:    app: portal-bff
+references/TR2-Portal-Aither-v6.md:2266:      app: portal-bff
+references/TR2-Portal-Aither-v6.md:2270:        app: portal-bff
+references/TR2-Portal-Aither-v6.md:2275:        - name: bff
+references/TR2-Portal-Aither-v6.md:2276:          image: "{{ .Values.image.bff.repository }}:{{ .Values.image.bff.tag }}"
+references/TR2-Portal-Aither-v6.md:2285:          resources: {{ toYaml .Values.resources.bff | nindent 12 }}
+references/TR2-Portal-Aither-v6.md:2299:  name: {{ .Release.Name }}-bff
+references/TR2-Portal-Aither-v6.md:2302:    app: portal-bff
+references/TR2-Portal-Aither-v6.md:2329:  name: portal-alerts
+references/TR2-Portal-Aither-v6.md:2332:    - name: portal-sev1
+references/TR2-Portal-Aither-v6.md:2334:        - alert: PortalCoreUnavailable
+references/TR2-Portal-Aither-v6.md:2338:        - alert: PortalDBUnavailable
+references/TR2-Portal-Aither-v6.md:2339:          expr: portal_db_connections_active == 0
+references/TR2-Portal-Aither-v6.md:2342:    - name: portal-sev2
+references/TR2-Portal-Aither-v6.md:2344:        - alert: PortalHighErrorRate
+references/TR2-Portal-Aither-v6.md:2346:            sum(rate(portal_http_requests_total{status_code=~"5.."}[5m]))
+references/TR2-Portal-Aither-v6.md:2347:            / sum(rate(portal_http_requests_total[5m])) > 0.05
+references/TR2-Portal-Aither-v6.md:2350:        - alert: PortalSLOBurnRate
+references/TR2-Portal-Aither-v6.md:2352:            (1 - sum(rate(portal_http_requests_total{status_code!~"5.."}[1h]))
+references/TR2-Portal-Aither-v6.md:2353:            / sum(rate(portal_http_requests_total[1h]))) > (14.4 * 0.001)
+references/TR2-Portal-Aither-v6.md:2403:**Симптомы:** Alert `PortalCoreUnavailable`. BFF возвращает 502.
+references/TR2-Portal-Aither-v6.md:2407:kubectl logs -n portal-prod deployment/portal-bff --tail=100 | grep "core-api"
+references/TR2-Portal-Aither-v6.md:2448:| Portal BFF | Backend | Backend Lead | Architect, Security | Product |
+references/TR2-Portal-Aither-v6.md:2450:| Core API | Core | Core Lead | Portal Team | Product |
+references/TR2-Portal-Aither-v6.md:2451:| Payment Core | Core + Finance | Finance Owner | Portal Team | Product |
+references/TR2-Portal-Aither-v6.md:2488:| **BFF** | Backend for Frontend |
+references/k3s-vs-k8s-analysis.md:52:| 7 | Развёртывание vLLM, PostgreSQL, Redis |
+references/redos-version-analysis.md:33:Драйвер 535.113 (RED OS 7.3) **совместим** с RTX 6000, но является устаревшим и не обеспечивает оптимальную производительность для современных нагрузок (vLLM, CUDA 12.x).
+references/single-node-adaptation.md:16:| Server-1 | Gateway + Billing + Redis + 2× vLLM (RTX 6000 #1, #2) + PostgreSQL (protected) |
+references/single-node-adaptation.md:17:| Server-2 | Gateway replica + 2× vLLM (RTX 6000 #3, #4) + model cache (RAID0) |
+references/single-node-adaptation.md:33:│  │  Portal BFF + Portal DB                   │  │
+references/single-node-adaptation.md:43:│  │ API Gateway │  │ Billing  │  │ Usage       │ │
+references/single-node-adaptation.md:53:│  │ vLLM GPU #0  │    │ vLLM GPU #1  │            │
+references/single-node-adaptation.md:71:| vLLM-реплик | 4 | 2 |
+references/single-node-adaptation.md:88:- ✅ Gateway + Rate Limiter + Admission Controller
+references/single-node-adaptation.md:100:| 1 GPU из 2 | Деградация: 1 vLLM вместо 2 |
+references/single-node-adaptation.md:112:├── Portal BFF (Fastify/Node.js)
+references/single-node-adaptation.md:113:├── Portal DB (PostgreSQL)
+references/single-node-adaptation.md:132:python -m vllm.entrypoints.openai.api_server --version
+references/single-node-adaptation.md:151:- Gateway + Billing + Usage Collector — как поды K8s
+references/single-node-adaptation.md:153:- vLLM — 2 реплики, по одной на GPU
+references/single-node-adaptation.md:156:- Portal BFF + Portal DB
+references/tr-gap-analysis.md:20:**ТР требует:** серверы с GPU для vLLM-инференса.
+references/tr-gap-analysis.md:26:- vLLM inference (задействует GPU, CPU — минимально)
+references/tr-gap-analysis.md:27:- Portal BFF + Portal DB (4–8 ядер)
+references/tr-gap-analysis.md:61:| PostgreSQL (Portal DB) | 200 GB | NVMe SSD |
+roadmap.md:9:**Цель:** стабильный inference-контур, биллинг, 2 узла vLLM, безопасность входа.
+roadmap.md:15:| 1 | `org_id` в делегировании (BFF → Gateway) | ✅ |
+roadmap.md:25:| 6 | **AI Security Gateway:** prompt injection + DLP (входной фильтр) |
+roadmap.md:28:| 9 | **Второй vLLM-узел** (40.50): загрузка моделей, балансировка |
+roadmap.md:31:**DoD этапа 1:** 2 узла vLLM работают, модель выбирается из каталога, биллинг корректен, Security Gateway фильтрует промпты.
+roadmap.md:93:| mTLS BFF ↔ Core | Не влияет на демо |
+scripts/deploy.sh:3:# Запуск: ./deploy.sh [all|gateway|vllm|portal|config]
+scripts/deploy.sh:18:    log "Updating Gateway ConfigMap..."
+scripts/deploy.sh:19:    kubectl delete configmap gateway-code --ignore-not-found=true
+scripts/deploy.sh:20:    kubectl create configmap gateway-code \
+scripts/deploy.sh:21:        --from-file=gateway/gateway.py \
+scripts/deploy.sh:22:        --from-file=gateway/admin.py \
+scripts/deploy.sh:23:        --from-file=gateway/metrics.py \
+scripts/deploy.sh:24:        --from-file=gateway/routing.py \
+scripts/deploy.sh:25:        --from-file=gateway/reaper.py \
+scripts/deploy.sh:26:        --from-file=gateway/catalog.py \
+scripts/deploy.sh:27:        --from-file=gateway/security.py \
+scripts/deploy.sh:28:        --from-file=gateway/security_egress.py \
+scripts/deploy.sh:29:        --from-file=gateway/vault.py \
+scripts/deploy.sh:30:        --from-file=gateway/hybrid_rag.py \
+scripts/deploy.sh:31:        --from-file=gateway/wiki_graph.py \
+scripts/deploy.sh:32:        --from-file=gateway/catalog.yaml
+scripts/deploy.sh:34:    log "Updating Gateway Catalog ConfigMap..."
+scripts/deploy.sh:35:    kubectl delete configmap gateway-catalog --ignore-not-found=true
+scripts/deploy.sh:36:    kubectl create configmap gateway-catalog --from-file=gateway/catalog.yaml
+scripts/deploy.sh:39:deploy_gateway() {
+scripts/deploy.sh:40:    log "Deploying Gateway..."
+scripts/deploy.sh:42:    kubectl rollout restart deployment/gateway -n "$NAMESPACE"
+scripts/deploy.sh:43:    kubectl rollout status deployment/gateway -n "$NAMESPACE" --timeout=120s
+scripts/deploy.sh:46:deploy_vllm() {
+scripts/deploy.sh:47:    log "Deploying vLLM..."
+scripts/deploy.sh:54:    kubectl rollout restart deployment/vllm-qwen -n "$NAMESPACE"
+scripts/deploy.sh:55:    kubectl rollout status deployment/vllm-qwen -n "$NAMESPACE" --timeout=300s
+scripts/deploy.sh:57:    kubectl rollout restart deployment/vllm-qwen32b -n "$NAMESPACE"
+scripts/deploy.sh:58:    kubectl rollout status deployment/vllm-qwen32b -n "$NAMESPACE" --timeout=300s
+scripts/deploy.sh:67:deploy_portal() {
+scripts/deploy.sh:68:    log "Deploying Portal (VPS2 + VPS3)..."
+scripts/deploy.sh:70:    docker-compose up -d --build portal
+scripts/deploy.sh:71:    log "Portal deployed on VPS2"
+scripts/deploy.sh:75:        ssh vps3 "cd /opt/aither && git pull && docker-compose up -d --build portal"
+scripts/deploy.sh:76:        log "Portal deployed on VPS3"
+scripts/deploy.sh:90:    deploy_gateway
+scripts/deploy.sh:92:    deploy_portal
+scripts/deploy.sh:102:    gateway)
+scripts/deploy.sh:103:        deploy_gateway
+scripts/deploy.sh:105:    vllm)
+scripts/deploy.sh:106:        deploy_vllm
+scripts/deploy.sh:108:    portal)
+scripts/deploy.sh:109:        deploy_portal
+scripts/deploy.sh:119:        echo "Usage: $0 [all|gateway|vllm|portal|config|hpa]"
+scripts/health-check.sh:40:[ "$HTTP_CODE" = "200" ] && pass "Gateway  :30900" || fail "Gateway  :30900 ($HTTP_CODE)"
+scripts/health-check.sh:43:[ "$HTTP_CODE" = "200" ] && pass "Portal   :3000" || warn "Portal   :3000 ($HTTP_CODE)"
+scripts/health-check.sh:46:kubectl exec deploy/postgres -- psql -U aither -d aither_billing -c "SELECT count(*) as users FROM portal_users;" 2>/dev/null && pass "PostgreSQL" || fail "PostgreSQL"
+scripts/ks-node01.cfg:10:network --bootproto=static --device=link --ip=10.129.13.171 --netmask=255.255.255.0 --gateway=10.129.13.1 --nameserver=10.129.13.65 --hostname=node01.aither.local --activate
+scripts/ks-node02.cfg:10:network --bootproto=static --device=link --ip=10.129.13.172 --netmask=255.255.255.0 --gateway=10.129.13.1 --nameserver=10.129.13.65 --hostname=node02.aither.local --activate
+scripts/portal-security-check.sh:2:# portal-security-check.sh — автоматизированная проверка безопасности портала
+scripts/portal-security-check.sh:3:# Использование: bash portal-security-check.sh http://<TARGET>/
+scripts/portal-security-check.sh:60:bold "── Direct BFF access"
+status.md:48:| 2 | **BFF** | VPS2:3000 | ✅ | `/auth/dev/login` → 200, v0.5.0, 7 орг, 10 польз., 17 ключей |
+status.md:50:| 4 | **vLLM Qwen2.5-14B** | 40.51:32293 | ✅ | `/v1/models` → модель загружена, TP=2 |
+status.md:51:| 5 | **Gateway** | 40.51:30900 | ✅ | `/health` → `{"status":"ok","billing":"enabled"}` |
+status.md:52:| 6 | **Gateway → vLLM** | внутренний | ⚠️ | `"vLLM error: 402"` — биллинг блокирует (нет токенов) |
+status.md:53:| 7 | **BFF → Gateway (JWT)** | внутренний | ✅ | Делегирование работает |
+status.md:54:| 8 | **BFF → Gateway → vLLM** | сквозной | ⚠️ | Чат создаётся (200), ответ модели — 402 (биллинг) |
+status.md:60:Вся цепочка работает: **Браузер → nginx → BFF → Gateway → vLLM**. Единственный блокер — биллинг Gateway возвращает 402 (нет выделенных токенов организации). Нужно либо пополнить баланс в БД биллинга, либо временно отключить проверку в Gateway.
+status.md:72:| 2 | GPU Operator + vLLM + Qwen2.5-14B (TP=2) | 40.51 | ✅ |
+status.md:73:| 3 | PostgreSQL 16 + Redis 7 + API Gateway + Billing | 40.51, K8s | ✅ |
+status.md:74:| 4 | Portal BFF + Portal DB + nginx | VPS2 | ✅ |
+status.md:81:| — | JWT-делегирование BFF → Gateway | VPS2 → 40.51 | ✅ |
+status.md:96:| Qwen 14B | 28 GB | — | ✅ | В vLLM, работает |
+status.md:107:| Gateway «требует доработки» | **Работает** — health ok, billing enabled |
+status.md:108:| BFF → прямой vLLM (NodePort 32293) | **BFF → Gateway** (JWT-делегирование работает) |
+status.md:118:| 1 | Gateway возвращает 402 (нет токенов биллинга) | 🔴 | Пополнить баланс org_id=1 в БД биллинга |
+status.md:129:Все 10 контрольных точек пройдены. Портал на http://130.17.1.90, чат работает, биллинг считает токены. JWT-делегирование BFF → Gateway настроено.
+status.md:145:| Развернуть все модели в vLLM (мульти-модель) | P0 | 40.51 |
+status.md:146:| Обновить Gateway + UI для выбора модели в чате | P0 | VPS2 + 40.51 |
+status.md:159:| mTLS Portal BFF ↔ Core | VPS2 ↔ 40.51 |
+status.md:180:       Portal BFF :3000 ─── Portal DB :5432 (орг, польз., ключи, чаты)
+status.md:183:    10.129.13.78:30900 (Gateway) ─── Billing DB (PostgreSQL + Redis)
+status.md:186:         vLLM :8000 (Qwen2.5-14B, TP=2)
+tr-status.md:10:| 2 | vLLM Qwen2.5-14B (TP=2) | ✅ | `/v1/models` → модель загружена |
+tr-status.md:13:| 5 | API Gateway (Python) | ✅ | `/health`, `/v1/chat/completions`, `/v1/models` на :30900 |
+tr-status.md:55:| 2 | Portal BFF (Fastify) | ✅ | VPS2:3000, v0.5.0 |
+tr-status.md:56:| 3 | Portal DB (PostgreSQL) | ✅ | 6 таблиц, 7 орг, 10 польз., 18 ключей |
+tr-status.md:62:| 9 | Делегирование BFF → Gateway | ⚠️ | JWT создаётся, но org_id не передаётся фронтендом |
+tr-status.md:84:| 17 | mTLS | BFF ↔ Core | Взаимный TLS |
+tr-status.md:85:| 18 | Rate Limiter (BFF) | На уровне BFF | Защита от перегрузки |
+wiki/SCHEMA.md:4:Платформа Aither — Token-as-a-Service: vLLM-инференс, биллинг, безопасность, мультиарендность.
+wiki/SCHEMA.md:8:- File names: lowercase, hyphens, no spaces (e.g., `vllm-inference.md`)
+wiki/SCHEMA.md:28:- architecture: gateway, vllm, kubernetes, networking, storage
+wiki/concepts/llm-wiki.md:31:├── entities/           # Сущности (AI Gateway, vLLM, ChromaDB, ...)
+wiki/concepts/llm-wiki.md:41:1. [[AI Gateway]] выполняет векторный поиск в [[ChromaDB]]
+wiki/concepts/multi-tenant-architecture.md:18:| Аутентификация | [[AI Gateway]] | API-ключи `ak-...` с привязкой к `org_id` |
+wiki/concepts/multi-tenant-architecture.md:22:| Модели | [[vLLM Inference]] | Общая очередь, приоритет по тарифу |
+wiki/entities/ai-gateway.md:2:title: AI Gateway
+wiki/entities/ai-gateway.md:6:tags: [gateway, architecture, security]
+wiki/entities/ai-gateway.md:10:# AI Gateway
+wiki/entities/ai-gateway.md:13:запросов к vLLM-моделям.
+wiki/entities/ai-gateway.md:26:Запросы поступают через [[BFF]] с VPS2/VPS3, Gateway валидирует JWT/API-key,
+wiki/entities/ai-gateway.md:28:запрос к [[vLLM Inference]], проверяет ответ через egress-фильтр,
+wiki/entities/ai-gateway.md:42:Gateway реализует трёхуровневую защиту:
+wiki/entities/chromadb.md:27:   используется [[AI Gateway]] для векторного RAG
+wiki/entities/security-egress.md:12:Модуль выходной фильтрации [[AI Gateway]]. Проверяет ответы vLLM
+wiki/entities/security-egress.md:26:- Вызывается после получения ответа от [[vLLM Inference]]
+wiki/entities/security-egress.md:32:Паттерны задаются в `gateway/security_egress.py`. Добавление новых
+wiki/entities/siem-integration.md:23:CEF:0|Aither|SecurityGateway|1.0|<event_id>|<event_name>|<severity>|
+wiki/entities/siem-integration.md:37:Вызывается из [[AI Gateway]] после каждого события через
+wiki/entities/vault-pki.md:17:- **Валидация**: Gateway проверяет ключ через Vault KV store
+wiki/entities/vault-pki.md:19:  хранятся в Vault и применяются на уровне [[AI Gateway]]
+wiki/entities/vault-pki.md:25:1. **Redis** (60s TTL) — горячий кэш в Gateway
+wiki/entities/vault-pki.md:31:BFF → Vault PKI (issue key) → PostgreSQL cache
+wiki/entities/vault-pki.md:32:Gateway → Redis (60s TTL) → Vault KV (validate) → PG fallback
+wiki/entities/vllm-inference.md:2:title: vLLM Inference
+wiki/entities/vllm-inference.md:6:tags: [vllm, inference, models, architecture]
+wiki/entities/vllm-inference.md:10:# vLLM Inference
+wiki/entities/vllm-inference.md:12:Сервис инференса LLM на базе vLLM. Развёрнут в Kubernetes на узлах
+wiki/entities/vllm-inference.md:31:vLLM получает запросы через [[AI Gateway]], который выполняет:
+wiki/index.md:8:- [[AI Gateway]] — центральный прокси-сервер, маршрутизация, безопасность
+wiki/index.md:13:- [[vLLM Inference]] — сервис инференса LLM
+wiki/log.md:11:- Created: entities/ai-gateway.md
+wiki/log.md:12:- Created: entities/vllm-inference.md
+
+### files containing bff
+./aither-v2/03-vllm-14b-deploy/docs/api-stability-100-results.md
+./aither-v2/03-vllm-14b-deploy/docs/api-stability-results.md
+./aither-v2/06-portal-spa-bff-sse
+./aither-v2/docs/mvp-roadmap/05-bff
+./aither-v2/docs/mvp-roadmap/05-bff-api
+./aither-v2/manifests/mvp-roadmap/05-bff
+./aither-v2/manifests/mvp-roadmap/05-bff-api
+./aither-v2/services/bff
+./aither-v2/tools/bff
+./configs/vps2/aither-bff.service
+./configs/vps3/aither-bff.service
+./configs/vps3/bff-wrapper.sh
+./docs/api-reference.md
+./docs/article-external-api.md
+./docs/gateway-management-api.md
+./docs/openapi.yaml
+./.git/objects/1d/5484ca8e6e160d96bff87ca346105117245dda
+./.git/objects/28/e298ed24b1c27e9a8f73ad3bffe1b9836fc8b2
+./.git/objects/57/3d25152d8659a90bfd4c1d2906900bbff6a0a8
+./.git/objects/7b/c27aceebb3c658244bffc27112eac71520bb3f
+./.git/objects/7d/df219b9e5dbfff769d2994f18f21650d5c36c0
+./.git/objects/de/e04328878bff045c0db249a88774e3a161d663
+./offline-deploy/configs/bff
+./offline-deploy/docs/07-api-reference.md
+./offline-deploy/tests/02-api.sh
+./portal/api-gateway.ts
+./portal/bff
+./portal/dist/api-gateway.js
+./portal/node_modules/backoff/tests/api.js
+./portal/node_modules/fastify/test/web-api.test.js
+./portal/node_modules/pino/docs/api.md
+./portal/node_modules/pino/test/escaping.test.js
+./portal/node_modules/undici-types/api.d.ts

@@ -1,0 +1,31 @@
+### BFF route grep
+aither-v2/tools/bff/README.md:11:Portal → BFF → nginx-gateway-32b (for 32B completion)
+aither-v2/tools/bff/README.md:12:             → vllm-14b-instruct (for 14B chat)
+aither-v2/tools/bff/README.md:20:| POST | /api/v1/chat | Chat completions (14B only; 32B blocked) |
+aither-v2/tools/bff/README.md:21:| POST | /api/v1/completions | Text completions (32B via gateway) |
+aither-v2/tools/bff/README.md:29:| BFF_32B_GATEWAY_URL | http://nginx-gateway-32b.aither-inference.svc:8000 | 32B gateway |
+aither-v2/tools/bff/app.py:10:CHAT_14B_URL = os.environ.get(
+aither-v2/tools/bff/app.py:14:GATEWAY_32B_URL = os.environ.get(
+aither-v2/tools/bff/app.py:15:    "BFF_32B_GATEWAY_URL",
+aither-v2/tools/bff/app.py:16:    "http://nginx-gateway-32b.aither-inference.svc:8000"
+aither-v2/tools/bff/app.py:37:class ChatRequest(BaseModel):
+aither-v2/tools/bff/app.py:43:class CompletionRequest(BaseModel):
+aither-v2/tools/bff/app.py:56:@app.post("/api/v1/chat")
+aither-v2/tools/bff/app.py:57:async def chat(req: ChatRequest):
+aither-v2/tools/bff/app.py:58:    if req.model == "32b":
+aither-v2/tools/bff/app.py:61:            detail="32B base model does not support chat. Use /api/v1/completions for 32B."
+aither-v2/tools/bff/app.py:64:        url = f"{CHAT_14B_URL}/v1/chat/completions"
+aither-v2/tools/bff/app.py:74:@app.post("/api/v1/completions")
+aither-v2/tools/bff/app.py:75:async def completions(req: CompletionRequest):
+aither-v2/tools/bff/app.py:76:    if req.model == "32b":
+aither-v2/tools/bff/app.py:78:        url = f"{GATEWAY_32B_URL}/v1/completions"
+aither-v2/tools/bff/app.py:80:        body["model"] = "qwen-32b-base"
+aither-v2/tools/bff/app.py:82:        url = f"{CHAT_14B_URL}/v1/completions"
+aither-v2/tools/bff/app.py:96:            {"id": "14b", "name": "Qwen 14B Instruct", "type": "chat"},
+aither-v2/tools/bff/app.py:97:            {"id": "32b", "name": "Qwen 32B Base", "type": "completion"},
+aither-v2/manifests/mvp-roadmap/05-bff/bff-mvp.yaml:11:        location /api/v1/chat { proxy_pass http://vllm-14b-instruct.aither-inference.svc:8000/v1/chat/completions; proxy_set_header Authorization $http_authorization; proxy_set_header X-Real-IP $remote_addr; proxy_read_timeout 300s; }
+aither-v2/manifests/mvp-roadmap/05-bff/bff-mvp.yaml:12:        location /api/v1/completions { proxy_pass http://nginx-gateway-32b.aither-inference.svc:8000/v1/completions; proxy_set_header Authorization $http_authorization; proxy_set_header X-Real-IP $remote_addr; proxy_read_timeout 300s; }
+aither-v2/manifests/mvp-roadmap/05-bff/bff-mvp.yaml:13:        location /api/v1/models { default_type application/json; return 200 '{"models":[{"id":"14b","type":"chat"},{"id":"32b","type":"completion"}]}'; }
+
+### Forbidden direct user-facing 32B route check
+(no direct vllm-32b-gptq references in BFF)

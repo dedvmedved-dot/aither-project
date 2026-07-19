@@ -1,0 +1,24 @@
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                     SELECTOR
+deployment.apps/nginx-gateway-32b   1/2     2            1           9h    nginx        nginx:alpine                                                                               app=nginx-gateway,model=qwen-32b-gptq
+deployment.apps/vllm-14b-instruct   1/1     1            1           28h   vllm         vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33   app=vllm,model=qwen-14b-instruct
+deployment.apps/vllm-32b-gptq       1/1     1            1           32h   vllm         vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33   app=vllm,model=qwen-32b-gptq
+
+NAME                        TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE   SELECTOR
+service/nginx-gateway-32b   ClusterIP   10.106.31.143   <none>        8000/TCP   9h    app=nginx-gateway,model=qwen-32b-gptq
+service/vllm-14b-instruct   ClusterIP   10.108.67.57    <none>        8000/TCP   28h   app=vllm,model=qwen-14b-instruct
+service/vllm-32b-gptq       ClusterIP   10.99.3.103     <none>        8000/TCP   28h   app=vllm,model=qwen-32b-gptq
+
+NAME                          DATA   AGE
+configmap/kube-root-ca.crt    1      40h
+configmap/nginx-gateway-32b   1      9h
+
+NAME                                     READY   STATUS             RESTARTS         AGE     IP             NODE                         NOMINATED NODE   READINESS GATES
+pod/benchmark-endurance-60min-8ztph      0/1     Error              0                6h6m    10.244.0.155   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+pod/benchmark-inference-c4rfg            0/1     Completed          0                6h43m   10.244.0.150   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+pod/benchmark-load-60min-78znx           0/1     Completed          0                169m    10.244.0.158   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+pod/benchmark-smoke-d95w6                0/1     Completed          0                171m    10.244.0.157   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+pod/benchmark-streaming-ttft-cgkp9       0/1     Error              0                156m    10.244.0.159   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+pod/nginx-gateway-32b-5d447469b9-8c9xs   0/1     CrashLoopBackOff   16 (3m36s ago)   60m     10.244.1.8     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+pod/nginx-gateway-32b-5d447469b9-pvxtq   1/1     Running            0                60m     10.244.0.166   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+pod/vllm-14b-instruct-7f6f784dcb-g2h5d   1/1     Running            0                12h     10.244.1.3     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+pod/vllm-32b-gptq-7d6dc7c64-r82nh        1/1     Running            0                12h     10.244.1.4     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
