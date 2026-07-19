@@ -6,11 +6,11 @@ Date: 2026-07-19
 
 | Area | Status | Evidence |
 |---|---|---|
-| Cluster/GPU | PASSED | docs/mvp-roadmap/01-cluster-gpu/cluster-topology-report.md |
+| Cluster/GPU | PASSED WITH FINDINGS | docs/mvp-roadmap/01-cluster-gpu/cluster-topology-report.md |
 | GPU runtime | PASSED | docs/mvp-roadmap/01-cluster-gpu/gpu-runtime-validation.md |
 | vLLM 14B | OBSERVED | |
 | vLLM 32B | OBSERVED | |
-| Gateway | OBSERVED | |
+| Gateway | PARTIAL | GW-01: 2/3 replicas ImagePullBackOff (stage 04) |
 | Benchmark | OBSERVED | |
 | TP=2 | HYPOTHESIZED | |
 | BFF | NOT STARTED | |
@@ -31,8 +31,9 @@ n8 = Control-plane + benchmark: kube-apiserver, etcd, scheduler, controller-mana
 2. No HA (single GPU node n7)
 3. No monitoring stack (Prometheus/Grafana)
 4. Model provenance not documented
+5. GW-01: Gateway replicas stuck in ImagePullBackOff (stage 04)
 
 ## Next approved stage
 
 Stage: 01-cluster-gpu  
-Status: PASSED
+Status: PASSED WITH FINDINGS

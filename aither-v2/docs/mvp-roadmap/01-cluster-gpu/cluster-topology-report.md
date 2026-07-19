@@ -3,7 +3,8 @@
 Date: 2026-07-19
 Executor: hermes@vps2 (VPN 10.129.100.48)
 Repository branch: aither-v2
-Commit: 4b45879a2c4d
+Evidence collected at commit: 4b45879a2c4d
+Corrective commit: (this commit)
 
 ## 1. Node list
 
@@ -15,7 +16,7 @@ Evidence:
 | Node | Observed role | Evidence |
 |---|---|---|
 | bootsmam-k8s-clnt01-n7-gpu | GPU worker — inference | evidence/kubectl-get-nodes-wide.txt |
-| bootsman-k8s-clnt01-n8-gpu | Control-plane + GPU | evidence/kubectl-get-nodes-wide.txt |
+| bootsman-k8s-clnt01-n8-gpu | Control-plane + benchmark | evidence/kubectl-get-nodes-wide.txt |
 
 ## 3. GPU visibility
 
@@ -30,7 +31,9 @@ Evidence:
 |---|---|---|---|---|---|
 | vLLM 14B | aither-inference | vllm-14b-instruct | n7 | Running 1/1 | evidence/aither-inference-pods-wide.txt |
 | vLLM 32B | aither-inference | vllm-32b-gptq | n7 | Running 1/1 | evidence/aither-inference-pods-wide.txt |
-| nginx-gateway-32b | aither-inference | nginx-gateway-32b | n8 | Running 2/2 | evidence/kubectl-get-pods-all-wide.txt |
+| nginx-gateway-32b | aither-inference | nginx-gateway-32b (pod1) | n8 | Running 1/1 | evidence/kubectl-get-pods-all-wide.txt |
+| nginx-gateway-32b | aither-inference | nginx-gateway-32b (pod2) | n8 | ImagePullBackOff | evidence/kubectl-get-pods-all-wide.txt |
+| nginx-gateway-32b | aither-inference | nginx-gateway-32b (pod3) | n8 | ImagePullBackOff | evidence/kubectl-get-pods-all-wide.txt |
 | benchmark-inference | aither-inference | benchmark-inference | n8 | Running | evidence/kubectl-get-pods-all-wide.txt |
 | NVIDIA device plugin | gpu-operator | nvidia-device-plugin | n7, n8 | Running | evidence/nvidia-pods.txt |
 
@@ -40,17 +43,28 @@ Evidence:
 2. n8 (control-plane) has 1 GPU allocatable but no inference workload — clean control-plane.
 3. Gateway and benchmark run on n8 (control-plane), sharing resources with kube-apiserver/etcd.
 
-## 6. Conclusion
+## 6. Findings
 
-Status: PASSED
+### Finding GW-01: nginx-gateway-32b replicas in ImagePullBackOff
+
+- **Observed:** 2 of 3 gateway Pods are in ImagePullBackOff.
+- **Root cause:** The hardened deployment uses `nginx:alpine@sha256:343e2...` which requires downloading a new image. VPN instability caused image pull failure.
+- **Impact:** Gateway is NOT HA. Only 1/3 replicas are Running.
+- **Owner:** Stage 04 (Gateway hardening).
+- **Risk accepted for Stage 01:** Yes — this is a workload health issue, not a GPU/cluster topology issue. Stage 01 (Cluster/GPU baseline) is PASSED. The finding is tracked for Stage 04.
+
+## 7. Conclusion
+
+Status: PASSED WITH FINDINGS
 
 Accepted topology:
 
 n7 = GPU worker (inference): 14B Instruct, 32B GPTQ  
 n8 = Control-plane: kube-apiserver, etcd, scheduler, controller-manager, nginx-gateway-32b, benchmark
 
-## 7. Failed / Partial items
+## 8. Failed / Partial items
 
 | Item | Status | Reason | Required fix |
 |---|---|---|---|
-| — | PASSED | — | — |
+| — | PASSED | Cluster/GPU baseline valid | — |
+| GW-01 | PARTIAL (Stage 04) | 2/3 gateway Pods ImagePullBackOff | Fix image digest pull; stage 04 scope |

@@ -3,7 +3,8 @@
 Date: 2026-07-19
 Executor: hermes@vps2 (VPN 10.129.100.48)
 Repository branch: aither-v2
-Commit: 4b45879a2c4d
+Evidence collected at commit: 4b45879a2c4d
+Corrective commit: (this commit)
 
 ## 1. Objective
 
@@ -39,23 +40,16 @@ Commit: 4b45879a2c4d
 ### nvidia-smi output (summary)
 
 ```
-Sun Jul 19 16:49:33 2026
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 535.183.01   Driver Version: 535.183.01   CUDA Version: 12.2    |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|===============================+======================+======================|
-|   0  Quadro RTX 6000     Off  | 00000000:17:00.0 Off |                  Off |
-| N/A   56C    P0    60W / 260W |      0MiB / 22502MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
+Sun Jul 19 16:49:32 2026
+NVIDIA-SMI 590.48.01           Driver Version: 590.48.01      CUDA Version: 13.1
+GPU 0: Quadro RTX 6000          Memory: 0MiB / 23040MiB       Utilization: 0%
 ```
 
 ## 5. Conclusion
 
 Status: PASSED
 
-NVIDIA runtime fully operational. Container with `nvidia.com/gpu: 1` successfully executed `nvidia-smi` on n8 (control-plane). GPU Quadro RTX 6000 (driver 535.183.01, CUDA 12.2) visible and functional.
+NVIDIA runtime fully operational. Container with `nvidia.com/gpu: 1` successfully executed `nvidia-smi` on n8 (control-plane). GPU Quadro RTX 6000 (driver 590.48.01, CUDA 13.1) visible and functional.
 
 ## 6. Failed / Partial items
 
