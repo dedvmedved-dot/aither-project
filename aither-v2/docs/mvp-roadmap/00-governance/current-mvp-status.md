@@ -13,7 +13,7 @@ Date: 2026-07-19
 | Gateway | PARTIAL | GW-01: 2/3 replicas ImagePullBackOff (stage 04) |
 | Benchmark | **PASSED** | docs/mvp-roadmap/02-inference-acceptance/LOAD_TEST_60MIN_REPORT.md |
 | Streaming TTFT | PASSED WITH MINOR FINDINGS | docs/mvp-roadmap/02-inference-acceptance/streaming-ttft-report.md |
-| TP=2 | HYPOTHESIZED | |
+| TP=2 | POSTPONED / RISK ACCEPTED | docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md |
 | BFF | NOT STARTED | |
 | Redis RL | NOT STARTED | |
 | Portal | NOT STARTED | |

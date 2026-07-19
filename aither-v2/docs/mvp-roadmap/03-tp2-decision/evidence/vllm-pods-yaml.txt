@@ -1,0 +1,1701 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-19T15:53:14Z"
+    generateName: benchmark-endurance-60min-
+    generation: 1
+    labels:
+      batch.kubernetes.io/controller-uid: c78a0440-e5d4-4207-945c-527e14968d97
+      batch.kubernetes.io/job-name: benchmark-endurance-60min
+      controller-uid: c78a0440-e5d4-4207-945c-527e14968d97
+      job-name: benchmark-endurance-60min
+    name: benchmark-endurance-60min-8ztph
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Job
+      name: benchmark-endurance-60min
+      uid: c78a0440-e5d4-4207-945c-527e14968d97
+    resourceVersion: "869852"
+    uid: f1661834-8571-4365-8d41-8cf6705ab13b
+  spec:
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        VLLM_KEY="$VLLM_API_KEY"
+        GATEWAY="nginx-gateway-32b.aither-inference.svc:8000"
+        MODEL14="vllm-14b-instruct.aither-inference.svc:8000"
+        MODEL32="vllm-32b-gptq.aither-inference.svc:8000"
+        DATA14='{"model":"qwen-14b","messages":[{"role":"user","content":"What is capital of France?"}],"temperature":0,"max_tokens":128}'
+        DATA32='{"model":"qwen-32b-base","prompt":"The capital of France is","temperature":0,"max_tokens":128}'
+        REPORT="/tmp/endurance-report.txt"
+
+        log() { echo "$1" | tee -a "$REPORT"; }
+        log "=========================================="
+        log "= Endurance Benchmark (60 min)"
+        log "= Start: $(date -Iseconds)"
+        log "=========================================="
+
+        DURATION=3600
+        END=$(( $(date +%s) + DURATION ))
+        REQ14=0; OK14=0; FAIL14=0
+        REQ32=0; OK32=0; FAIL32=0
+        START_TS=$(date +%s)
+        LAST_PROGRESS=$START_TS
+
+        while [ $(date +%s) -lt $END ]; do
+          NOW=$(date +%s)
+          curl -sS --max-time 300 \
+            -H "Authorization: Bearer ***" \
+            -H "Content-Type: application/json" \
+            -d "$DATA14" \
+            -o /dev/null -w "%{http_code}\n" \
+            "http://${MODEL14}/v1/chat/completions" > /tmp/res14.txt 2>&1
+          CODE=$(cat /tmp/res14.txt)
+          REQ14=$((REQ14+1))
+          [ "$CODE" = "200" ] && OK14=$((OK14+1)) || FAIL14=$((FAIL14+1))
+
+          curl -sS --max-time 300 \
+            -H "Authorization: Bearer ***" \
+            -H "Content-Type: application/json" \
+            -d "$DATA32" \
+            -o /dev/null -w "%{http_code}\n" \
+            "http://${MODEL32}/v1/completions" > /tmp/res32.txt 2>&1
+          CODE=$(cat /tmp/res32.txt)
+          REQ32=$((REQ32+1))
+          [ "$CODE" = "200" ] && OK32=$((OK32+1)) || FAIL32=$((FAIL32+1))
+
+          # Progress every 60 requests
+          TOTAL=$((REQ14 + REQ32))
+          if [ $((TOTAL % 60)) -eq 0 ] 2>/dev/null; then
+            ELAPSED=$(( $(date +%s) - START_TS ))
+            log "  $(date -Iseconds): 14B=${OK14}/${REQ14} 32B=${OK32}/${REQ32} elapsed=${ELAPSED}s"
+          fi
+        done
+
+        ELAPSED=$(( $(date +%s) - START_TS ))
+        log ""
+        log "=========================================="
+        log "= RESULTS"
+        log "  Duration: ${ELAPSED}s (target 3600s)"
+        log ""
+        log "--- 14B ---"
+        log "  Requests: $REQ14"
+        log "  OK: $OK14 $([ $REQ14 -gt 0 ] && echo \"($((OK14*100/REQ14))%)\")"
+        log "  FAIL: $FAIL14"
+        log ""
+        log "--- 32B ---"
+        log "  Requests: $REQ32"
+        log "  OK: $OK32 $([ $REQ32 -gt 0 ] && echo \"($((OK32*100/REQ32))%)\")"
+        log "  FAIL: $FAIL32"
+        log ""
+        log "--- Final ---"
+        if [ $FAIL14 -eq 0 ] && [ $FAIL32 -eq 0 ]; then log "  Conclusion: PASSED"; else log "  Conclusion: FAILED"; fi
+        log "=========================================="
+        cat "$REPORT"
+      env:
+      - name: VLLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            key: VLLM_API_KEY
+            name: vllm-api-key
+      image: curlimages/curl:8.10.1
+      imagePullPolicy: IfNotPresent
+      name: endurance
+      resources:
+        limits:
+          cpu: "2"
+          memory: 512Mi
+        requests:
+          cpu: 500m
+          memory: 256Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-b6cqh
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: bootsman-k8s-clnt01-n8-gpu
+    nodeSelector:
+      aither.io/benchmark-node: "true"
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Never
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-b6cqh
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T16:53:18Z"
+      status: "False"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:53:14Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T16:53:17Z"
+      reason: PodFailed
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T16:53:17Z"
+      reason: PodFailed
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:53:14Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 500m
+        memory: 256Mi
+      containerID: containerd://5a4d23a4c91d9b2017aed905b8cad371a2550256e7f24227b632d5501d66c59d
+      image: docker.io/curlimages/curl:8.10.1
+      imageID: docker.io/curlimages/curl@sha256:d9b4541e214bcd85196d6e92e2753ac6d0ea699f0af5741f8c6cccbfcf00ef4b
+      lastState: {}
+      name: endurance
+      ready: false
+      resources:
+        limits:
+          cpu: "2"
+          memory: 512Mi
+        requests:
+          cpu: 500m
+          memory: 256Mi
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: containerd://5a4d23a4c91d9b2017aed905b8cad371a2550256e7f24227b632d5501d66c59d
+          exitCode: 2
+          finishedAt: "2026-07-19T16:53:17Z"
+          reason: Error
+          startedAt: "2026-07-19T15:53:14Z"
+      user:
+        linux:
+          gid: 101
+          supplementalGroups:
+          - 101
+          uid: 100
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-b6cqh
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.78
+    hostIPs:
+    - ip: 10.129.13.78
+    phase: Failed
+    podIP: 10.244.0.155
+    podIPs:
+    - ip: 10.244.0.155
+    qosClass: Burstable
+    startTime: "2026-07-19T15:53:14Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-19T15:16:21Z"
+    generateName: benchmark-inference-
+    generation: 1
+    labels:
+      batch.kubernetes.io/controller-uid: 9aa15f5a-2193-4d1d-b581-c7f17cbf9507
+      batch.kubernetes.io/job-name: benchmark-inference
+      controller-uid: 9aa15f5a-2193-4d1d-b581-c7f17cbf9507
+      job-name: benchmark-inference
+    name: benchmark-inference-c4rfg
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Job
+      name: benchmark-inference
+      uid: 9aa15f5a-2193-4d1d-b581-c7f17cbf9507
+    resourceVersion: "855375"
+    uid: e03642db-f866-42a3-80f9-d0d84bf4a974
+  spec:
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        VLLM_KEY="$VLLM_API_KEY"
+        GATEWAY="nginx-gateway-32b.aither-inference.svc:8000"
+        REPORT="/tmp/benchmark-report.txt"
+
+        # Helper: print + write
+        log() { echo "$1" | tee -a "$REPORT"; }
+
+        log "=========================================="
+        log "= Inference Benchmark v2"
+        log "= Date: $(date -Iseconds)"
+        log "= Duration: full run (~20 min)"
+        log "=========================================="
+
+        # ---- AUTH NEGATIVE TESTS ----
+        log ""
+        log "--- AUTH TESTS ---"
+        for DESC in "no token" "wrong token"; do
+          case "$DESC" in
+            "no token")    H="";;
+            "wrong token") H="-H Authorization: Bearer ***";;
+          esac
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 \
+            $H \
+            "http://${GATEWAY}/v1/completions")
+          log "  Auth test '$DESC': HTTP $CODE (expect 401/403)"
+        done
+
+        CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 \
+          -H "Authorization: Bearer ***" \
+          "http://${GATEWAY}/v1/completions")
+        log "  Auth test 'valid token': HTTP $CODE (expect 200)"
+
+        # ---- 32B GATEWAY TESTS ----
+        log ""
+        log "--- 32B GATEWAY TESTS ---"
+
+        # Chat block test
+        log "  32B chat via gateway (expect 422):"
+        CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
+          -H "Authorization: Bearer ***" \
+          -H "Content-Type: application/json" \
+          -d '{"model":"qwen-32b-base","messages":[{"role":"user","content":"hi"}]}' \
+          "http://${GATEWAY}/v1/chat/completions")
+        log "    HTTP $CODE (expect 422)"
+
+        # Completion via gateway
+        log "  32B completion via gateway (expect 200):"
+        CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 120 \
+          -H "Authorization: Bearer ***" \
+          -H "Content-Type: application/json" \
+          -d '{"model":"qwen-32b-base","prompt":"The capital of France is","temperature":0,"max_tokens":24}' \
+          "http://${GATEWAY}/v1/completions")
+        log "    HTTP $CODE (expect 200)"
+
+        # ---- 14B BENCHMARK ----
+        log ""
+        log "--- 14B BENCHMARK ---"
+        MODEL_SVC="vllm-14b-instruct.aither-inference.svc:8000"
+        DATA14='{"model":"qwen-14b","messages":[{"role":"user","content":"What is capital of France?"}],"temperature":0,"max_tokens":128}'
+
+        # Health
+        log "1. Health:"
+        time curl -sS -o /dev/null -w "  200 in %{time_total}s\n" \
+          --max-time 10 "http://${MODEL_SVC}/health" 2>&1 | tee -a "$REPORT"
+
+        # Single Chat (TTFB)
+        log "2. Single Chat (TTFB):"
+        T=$(curl -sS -w "HTTP=%{http_code} TTFB=%{time_starttransfer}s TOTAL=%{time_total}s\n" \
+          --max-time 300 \
+          -H "Authorization: Bearer ***" \
+          -H "Content-Type: application/json" \
+          -d "$DATA14" \
+          -o /tmp/resp14.txt \
+          "http://${MODEL_SVC}/v1/chat/completions")
+        log "   $T"
+        log "   Response: $(head -c 200 /tmp/resp14.txt)"
+
+        # Concurrency 1,2,4
+        for CONC in 1 2 4; do
+          log "3. Concurrency $CONC:"
+          PIDS=""; TFILE=$(mktemp)
+          for j in $(seq 1 $CONC); do
+            (curl -sS -w "req_$j: HTTP=%{http_code} TTFB=%{time_starttransfer}s TOTAL=%{time_total}s\n" \
+              --max-time 300 \
+              -H "Authorization: Bearer ***" \
+              -H "Content-Type: application/json" \
+              -d "$DATA14" \
+              -o /dev/null \
+              "http://${MODEL_SVC}/v1/chat/completions" >> "$TFILE") &
+            PIDS="$PIDS $!"
+          done
+          wait $PIDS
+          while read -r line; do log "   $line"; done < "$TFILE"
+          rm "$TFILE"
+        done
+
+        # ---- 32B BENCHMARK ----
+        log ""
+        log "--- 32B BENCHMARK ---"
+        MODEL32="vllm-32b-gptq.aither-inference.svc:8000"
+        DATA32='{"model":"qwen-32b-base","prompt":"The capital of France is","temperature":0,"max_tokens":128}'
+
+        # Health
+        log "1. Health:"
+        time curl -sS -o /dev/null -w "  200 in %{time_total}s\n" \
+          --max-time 10 "http://${MODEL32}/health" 2>&1 | tee -a "$REPORT"
+
+        # Single Completion
+        log "2. Single Completion:"
+        T=$(curl -sS -w "HTTP=%{http_code} TTFB=%{time_starttransfer}s TOTAL=%{time_total}s\n" \
+          --max-time 300 \
+          -H "Authorization: Bearer ***" \
+          -H "Content-Type: application/json" \
+          -d "$DATA32" \
+          -o /tmp/resp32.txt \
+          "http://${MODEL32}/v1/completions")
+        log "   $T"
+        log "   Response: $(head -c 200 /tmp/resp32.txt)"
+
+        # Concurrency 1,2,4
+        for CONC in 1 2 4; do
+          log "3. Concurrency $CONC:"
+          PIDS=""; TFILE=$(mktemp)
+          for j in $(seq 1 $CONC); do
+            (curl -sS -w "req_$j: HTTP=%{http_code} TTFB=%{time_starttransfer}s TOTAL=%{time_total}s\n" \
+              --max-time 300 \
+              -H "Authorization: Bearer ***" \
+              -H "Content-Type: application/json" \
+              -d "$DATA32" \
+              -o /dev/null \
+              "http://${MODEL32}/v1/completions" >> "$TFILE") &
+            PIDS="$PIDS $!"
+          done
+          wait $PIDS
+          while read -r line; do log "   $line"; done < "$TFILE"
+          rm "$TFILE"
+        done
+
+        log ""
+        log "=========================================="
+        log "= BENCHMARK COMPLETE: $(date -Iseconds)"
+        log "=========================================="
+
+        # Print final report
+        cat "$REPORT"
+      env:
+      - name: VLLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            key: VLLM_API_KEY
+            name: vllm-api-key
+      image: curlimages/curl:8.10.1
+      imagePullPolicy: IfNotPresent
+      name: benchmark
+      resources:
+        limits:
+          cpu: "2"
+          memory: 512Mi
+        requests:
+          cpu: 500m
+          memory: 256Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-k5t45
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: bootsman-k8s-clnt01-n8-gpu
+    nodeSelector:
+      aither.io/benchmark-node: "true"
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Never
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-k5t45
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:52Z"
+      status: "False"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:16:21Z"
+      reason: PodCompleted
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:51Z"
+      reason: PodCompleted
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:51Z"
+      reason: PodCompleted
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:16:21Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 500m
+        memory: 256Mi
+      containerID: containerd://e577d6235b5a9151278109c500cc8920f111b7d0bbadcef81e401438466fd7d4
+      image: docker.io/curlimages/curl:8.10.1
+      imageID: docker.io/curlimages/curl@sha256:d9b4541e214bcd85196d6e92e2753ac6d0ea699f0af5741f8c6cccbfcf00ef4b
+      lastState: {}
+      name: benchmark
+      ready: false
+      resources:
+        limits:
+          cpu: "2"
+          memory: 512Mi
+        requests:
+          cpu: 500m
+          memory: 256Mi
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: containerd://e577d6235b5a9151278109c500cc8920f111b7d0bbadcef81e401438466fd7d4
+          exitCode: 0
+          finishedAt: "2026-07-19T15:17:51Z"
+          reason: Completed
+          startedAt: "2026-07-19T15:16:25Z"
+      user:
+        linux:
+          gid: 101
+          supplementalGroups:
+          - 101
+          uid: 100
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-k5t45
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.78
+    hostIPs:
+    - ip: 10.129.13.78
+    phase: Succeeded
+    podIP: 10.244.0.150
+    podIPs:
+    - ip: 10.244.0.150
+    qosClass: Burstable
+    startTime: "2026-07-19T15:16:21Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-19T19:09:51Z"
+    generateName: benchmark-load-60min-
+    generation: 1
+    labels:
+      batch.kubernetes.io/controller-uid: 0873eb28-f4ab-45db-9684-4141a8e527bc
+      batch.kubernetes.io/job-name: benchmark-load-60min
+      controller-uid: 0873eb28-f4ab-45db-9684-4141a8e527bc
+      job-name: benchmark-load-60min
+    name: benchmark-load-60min-78znx
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Job
+      name: benchmark-load-60min
+      uid: 0873eb28-f4ab-45db-9684-4141a8e527bc
+    resourceVersion: "899247"
+    uid: 42d79481-d0b5-46e8-b298-883ff5fd4221
+  spec:
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        KEY="$VLLM_API_KEY"
+        SVC14="vllm-14b-instruct.aither-inference.svc:8000"
+        SVC32="vllm-32b-gptq.aither-inference.svc:8000"
+        GW="nginx-gateway-32b.aither-inference.svc:8000"
+        DATA14='{"model":"qwen-14b","messages":[{"role":"user","content":"What is capital of France?"}],"temperature":0,"max_tokens":64}'
+        DATA32='{"model":"qwen-32b-base","prompt":"The capital of France is","temperature":0,"max_tokens":64}'
+        REPORT="/tmp/endurance-report.txt"
+        log() { echo "$1" | tee -a "$REPORT"; }
+
+        log "=== 60-min Endurance Test ==="
+        log "Start: $(date -Iseconds)"
+        log "Target: 3600s"
+
+        DURATION=3600
+        END=$(( $(date +%s) + DURATION ))
+        START_TS=$(date +%s)
+        REQ14=0; OK14=0; FAIL14=0
+        REQ32=0; OK32=0; FAIL32=0
+        REQGW=0; OKGW=0; FAILGW=0
+
+        while [ $(date +%s) -lt $END ]; do
+          # 14B request
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 300 \
+            -H "Authorizat
+
+... [OUTPUT TRUNCATED - 20854 chars omitted out of 70854 total] ...
+
+Context: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-jw4gd
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T19:23:48Z"
+      status: "False"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T19:22:34Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T19:23:47Z"
+      reason: PodFailed
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T19:23:47Z"
+      reason: PodFailed
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T19:22:34Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 500m
+        memory: 256Mi
+      containerID: containerd://7be077e466e37c2bf6ebafc7c77c4648345065b33e6f0c71b459293ef0be9077
+      image: docker.io/library/python:3.11-alpine
+      imageID: docker.io/library/python@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
+      lastState: {}
+      name: ttft
+      ready: false
+      resources:
+        limits:
+          cpu: "2"
+          memory: 1Gi
+        requests:
+          cpu: 500m
+          memory: 256Mi
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: containerd://7be077e466e37c2bf6ebafc7c77c4648345065b33e6f0c71b459293ef0be9077
+          exitCode: 1
+          finishedAt: "2026-07-19T19:23:46Z"
+          reason: Error
+          startedAt: "2026-07-19T19:22:41Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 10
+          - 11
+          - 20
+          - 26
+          - 27
+          uid: 0
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-jw4gd
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.78
+    hostIPs:
+    - ip: 10.129.13.78
+    phase: Failed
+    podIP: 10.244.0.159
+    podIPs:
+    - ip: 10.244.0.159
+    qosClass: Burstable
+    startTime: "2026-07-19T19:22:34Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-19T15:17:17Z"
+    generateName: nginx-gateway-32b-5898c69bcb-
+    generation: 1
+    labels:
+      app: nginx-gateway
+      model: qwen-32b-gptq
+      pod-template-hash: 5898c69bcb
+    name: nginx-gateway-32b-5898c69bcb-7hm4t
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: nginx-gateway-32b-5898c69bcb
+      uid: 514c7a5d-aadb-4ba4-8a15-dc695083e31d
+    resourceVersion: "855262"
+    uid: fa4042c9-d9c7-4ad5-a52b-d631742f11b0
+  spec:
+    containers:
+    - image: nginx:alpine
+      imagePullPolicy: IfNotPresent
+      name: nginx
+      ports:
+      - containerPort: 8000
+        name: http
+        protocol: TCP
+      resources:
+        limits:
+          cpu: "1"
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/nginx/conf.d
+        name: config
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-pw2h6
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: bootsman-k8s-clnt01-n8-gpu
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: nginx-gateway-32b
+      name: config
+    - name: kube-api-access-pw2h6
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:18Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:17Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:18Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:18Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:17:17Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 64Mi
+      containerID: containerd://ab2215699536e76ce02b6f73470d8ad95d2bad5974ebf2a4a90e3b50a5f664df
+      image: docker.io/library/nginx:alpine
+      imageID: docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752
+      lastState: {}
+      name: nginx
+      ready: true
+      resources:
+        limits:
+          cpu: "1"
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-19T15:17:17Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 10
+          - 11
+          - 20
+          - 26
+          - 27
+          uid: 0
+      volumeMounts:
+      - mountPath: /etc/nginx/conf.d
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-pw2h6
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.78
+    hostIPs:
+    - ip: 10.129.13.78
+    phase: Running
+    podIP: 10.244.0.151
+    podIPs:
+    - ip: 10.244.0.151
+    qosClass: Burstable
+    startTime: "2026-07-19T15:17:17Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-19T15:49:17Z"
+    generateName: nginx-gateway-32b-5d8fc6d7c-
+    generation: 1
+    labels:
+      app: nginx-gateway
+      model: qwen-32b-gptq
+      pod-template-hash: 5d8fc6d7c
+    name: nginx-gateway-32b-5d8fc6d7c-psrvp
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: nginx-gateway-32b-5d8fc6d7c
+      uid: 65d4f403-0e30-4aa4-9f78-ee92d53dc010
+    resourceVersion: "903427"
+    uid: d9410df0-7c2d-4a59-a0d6-7785ad584137
+  spec:
+    containers:
+    - image: nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1
+      imagePullPolicy: IfNotPresent
+      name: nginx
+      ports:
+      - containerPort: 8000
+        name: http
+        protocol: TCP
+      resources:
+        limits:
+          cpu: "1"
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/nginx/conf.d
+        name: config
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-b7csl
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: bootsman-k8s-clnt01-n8-gpu
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 101
+      runAsNonRoot: true
+      runAsUser: 101
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: nginx-gateway-32b
+      name: config
+    - emptyDir: {}
+      name: tmp
+    - name: kube-api-access-b7csl
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:49:20Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:49:17Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:49:17Z"
+      message: 'containers with unready status: [nginx]'
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:49:17Z"
+      message: 'containers with unready status: [nginx]'
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:49:17Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - image: nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1
+      imageID: ""
+      lastState: {}
+      name: nginx
+      ready: false
+      restartCount: 0
+      started: false
+      state:
+        waiting:
+          message: 'Back-off pulling image "nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1":
+            ErrImagePull: rpc error: code = NotFound desc = failed to pull and unpack
+            image "docker.io/library/nginx@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1":
+            failed to resolve image: docker.io/library/nginx@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1:
+            not found'
+          reason: ImagePullBackOff
+      volumeMounts:
+      - mountPath: /etc/nginx/conf.d
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-b7csl
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.78
+    hostIPs:
+    - ip: 10.129.13.78
+    phase: Pending
+    podIP: 10.244.0.153
+    podIPs:
+    - ip: 10.244.0.153
+    qosClass: Burstable
+    startTime: "2026-07-19T15:49:17Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-19T15:51:05Z"
+    generateName: nginx-gateway-32b-67cbbc9494-
+    generation: 1
+    labels:
+      app: nginx-gateway
+      model: qwen-32b-gptq
+      pod-template-hash: 67cbbc9494
+    name: nginx-gateway-32b-67cbbc9494-bqvgk
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: nginx-gateway-32b-67cbbc9494
+      uid: d09edc01-329d-437b-91a0-692630616a71
+    resourceVersion: "903572"
+    uid: bce5e062-e84f-40b1-bad7-468b449fff19
+  spec:
+    containers:
+    - image: nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1
+      imagePullPolicy: IfNotPresent
+      name: nginx
+      ports:
+      - containerPort: 8000
+        name: http
+        protocol: TCP
+      resources:
+        limits:
+          cpu: "1"
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: false
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/nginx/conf.d
+        name: config
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-gq9cd
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: bootsman-k8s-clnt01-n8-gpu
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 101
+      runAsNonRoot: true
+      runAsUser: 101
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: nginx-gateway-32b
+      name: config
+    - emptyDir: {}
+      name: tmp
+    - name: kube-api-access-gq9cd
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:51:06Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:51:05Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:51:05Z"
+      message: 'containers with unready status: [nginx]'
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:51:05Z"
+      message: 'containers with unready status: [nginx]'
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T15:51:05Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - image: nginx:alpine@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1
+      imageID: ""
+      lastState: {}
+      name: nginx
+      ready: false
+      restartCount: 0
+      started: false
+      state:
+        waiting:
+          message: 'rpc error: code = NotFound desc = failed to pull and unpack image
+            "docker.io/library/nginx@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1":
+            failed to resolve image: docker.io/library/nginx@sha256:343e2e1f84be5c2c3044fc00701a39497b8ddbc248b3e94e8bb1941836b7fda1:
+            not found'
+          reason: ErrImagePull
+      volumeMounts:
+      - mountPath: /etc/nginx/conf.d
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-gq9cd
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.78
+    hostIPs:
+    - ip: 10.129.13.78
+    phase: Pending
+    podIP: 10.244.0.154
+    podIPs:
+    - ip: 10.244.0.154
+    qosClass: Burstable
+    startTime: "2026-07-19T15:51:05Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/restartedAt: "2026-07-19T09:33:36+03:00"
+    creationTimestamp: "2026-07-19T09:13:37Z"
+    generateName: vllm-14b-instruct-7f6f784dcb-
+    generation: 1
+    labels:
+      app: vllm
+      model: qwen-14b-instruct
+      pod-template-hash: 7f6f784dcb
+    name: vllm-14b-instruct-7f6f784dcb-g2h5d
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: vllm-14b-instruct-7f6f784dcb
+      uid: 4ee6ca82-380d-4f3f-9b0a-c13d8b4b2a13
+    resourceVersion: "801668"
+    uid: ef1579c8-a0ec-4ea7-9cd6-77ff2b537c05
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: aither.io/inference-primary
+              operator: In
+              values:
+              - "true"
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: vllm
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    automountServiceAccountToken: false
+    containers:
+    - args:
+      - --model
+      - /model
+      - --tensor-parallel-size
+      - "1"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --gpu-memory-utilization
+      - "0.85"
+      - --max-model-len
+      - "2048"
+      - --dtype
+      - half
+      - --max-num-seqs
+      - "1"
+      - --enforce-eager
+      - --cpu-offload-gb
+      - "10"
+      - --swap-space
+      - "4"
+      - --generation-config
+      - vllm
+      - --served-model-name
+      - qwen-14b
+      - --disable-log-requests
+      - --disable-fastapi-docs
+      command:
+      - python3
+      - -m
+      - vllm.entrypoints.openai.api_server
+      env:
+      - name: PYTORCH_CUDA_ALLOC_CONF
+        value: expandable_segments:True
+      - name: VLLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            key: VLLM_API_KEY
+            name: vllm-api-key
+      image: vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: http
+          scheme: HTTP
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: vllm
+      ports:
+      - containerPort: 8000
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: http
+          scheme: HTTP
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: "8"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "8"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: http
+          scheme: HTTP
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /model
+        name: model
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: bootsmam-k8s-clnt01-n7-gpu
+    nodeSelector:
+      aither.io/qwen14b-instruct: "true"
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    runtimeClassName: nvidia
+    schedulerName: default-scheduler
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: vllm-sa
+    serviceAccountName: vllm-sa
+    terminationGracePeriodSeconds: 120
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+      name: dshm
+    - hostPath:
+        path: /data/models/Qwen2.5-14B-Instruct
+        type: Directory
+      name: model
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:13:43Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:13:41Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:15:16Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:15:16Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:13:41Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: "8"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+      containerID: containerd://3cc3c9d3938b194c5c01a449639ce21c5713abcefff5039b66d1eb2a82a03deb
+      image: docker.io/vllm/vllm-openai:v0.8.5
+      imageID: docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33
+      lastState: {}
+      name: vllm
+      ready: true
+      resources:
+        limits:
+          cpu: "8"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "8"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-19T09:13:42Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 44
+          - 105
+          uid: 0
+      volumeMounts:
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /model
+        name: model
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.77
+    hostIPs:
+    - ip: 10.129.13.77
+    phase: Running
+    podIP: 10.244.1.3
+    podIPs:
+    - ip: 10.244.1.3
+    qosClass: Guaranteed
+    startTime: "2026-07-19T09:13:41Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-19T09:13:38Z"
+    generateName: vllm-32b-gptq-7d6dc7c64-
+    generation: 1
+    labels:
+      app: vllm
+      model: qwen-32b-gptq
+      pod-template-hash: 7d6dc7c64
+    name: vllm-32b-gptq-7d6dc7c64-r82nh
+    namespace: aither-inference
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: vllm-32b-gptq-7d6dc7c64
+      uid: 64f8d8e3-e8b7-4a1c-a71c-586eb576dc50
+    resourceVersion: "801558"
+    uid: bbb1e400-9e37-47c9-be9e-c48c09eca2e0
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: aither.io/inference-primary
+              operator: In
+              values:
+              - "true"
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: vllm
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    automountServiceAccountToken: false
+    containers:
+    - args:
+      - --model
+      - /model
+      - --quantization
+      - gptq
+      - --dtype
+      - half
+      - --tensor-parallel-size
+      - "1"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --gpu-memory-utilization
+      - "0.95"
+      - --max-model-len
+      - "4096"
+      - --max-num-seqs
+      - "1"
+      - --enforce-eager
+      - --generation-config
+      - vllm
+      - --served-model-name
+      - qwen-32b-base
+      - --disable-log-requests
+      - --disable-fastapi-docs
+      command:
+      - python3
+      - -m
+      - vllm.entrypoints.openai.api_server
+      env:
+      - name: PYTORCH_CUDA_ALLOC_CONF
+        value: expandable_segments:True
+      - name: VLLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            key: VLLM_API_KEY
+            name: vllm-api-key
+      image: vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: http
+          scheme: HTTP
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: vllm
+      ports:
+      - containerPort: 8000
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: http
+          scheme: HTTP
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: "8"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "8"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: http
+          scheme: HTTP
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /model
+        name: model
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: bootsmam-k8s-clnt01-n7-gpu
+    nodeSelector:
+      aither.io/qwen32b-gptq: "true"
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    runtimeClassName: nvidia
+    schedulerName: default-scheduler
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: vllm-sa
+    serviceAccountName: vllm-sa
+    terminationGracePeriodSeconds: 120
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+      name: dshm
+    - hostPath:
+        path: /data/models/Qwen2.5-32B-GPTQ
+        type: Directory
+      name: model
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:13:45Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:13:43Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:14:39Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:14:39Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-19T09:13:43Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: "8"
+        memory: 48Gi
+        nvidia.com/gpu: "1"
+      containerID: containerd://47cb18f4cfeae072984676353f1bd35747dcc401f2272dba769d70717f1eb0aa
+      image: docker.io/vllm/vllm-openai:v0.8.5
+      imageID: docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33
+      lastState: {}
+      name: vllm
+      ready: true
+      resources:
+        limits:
+          cpu: "8"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "8"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-19T09:13:45Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 44
+          - 105
+          uid: 0
+      volumeMounts:
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /model
+        name: model
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.129.13.77
+    hostIPs:
+    - ip: 10.129.13.77
+    phase: Running
+    podIP: 10.244.1.4
+    podIPs:
+    - ip: 10.244.1.4
+    qosClass: Guaranteed
+    startTime: "2026-07-19T09:13:43Z"
+kind: List
+metadata:
+  resourceVersion: ""

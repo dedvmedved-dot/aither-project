@@ -1,0 +1,15 @@
+Source:
+docs/mvp-roadmap/02-inference-acceptance/LOAD_TEST_60MIN_REPORT.md
+
+Summary:
+Actual duration: 3607s
+14B requests: 330/330
+32B requests: 330/330
+Gateway requests: 66/66
+HTTP errors: 0
+Timeouts: 0
+Pod restarts: 0
+GPU OOM: 0
+BM-01: RESOLVED
+
+Inference acceptance at TP=1: PASSED WITH FINDINGS

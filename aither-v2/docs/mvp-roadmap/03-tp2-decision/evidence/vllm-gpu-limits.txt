@@ -1,0 +1,139 @@
+name: nginx
+          ports:
+          - containerPort: 8000
+            name: http
+            protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+--
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "7"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"labels":{"app":"vllm","model":"qwen-14b-instruct"},"name":"vllm-14b-instruct","namespace":"aither-inference"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"vllm","model":"qwen-14b-instruct"}},"strategy":{"rollingUpdate":{"maxSurge":0,"maxUnavailable":1},"type":"RollingUpdate"},"template":{"metadata":{"labels":{"app":"vllm","model":"qwen-14b-instruct"}},"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"aither.io/inference-primary","operator":"In","values":["true"]}]}]}},"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"app":"vllm"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}},"automountServiceAccountToken":false,"containers":[{"args":["--model","/model","--tensor-parallel-size","1","--host","0.0.0.0","--port","8000","--gpu-memory-utilization","0.85","--max-model-len","2048","--dtype","half","--max-num-seqs","1","--enforce-eager","--cpu-offload-gb","10","--swap-space","4","--generation-config","vllm","--served-model-name","qwen-14b","--disable-log-requests","--disable-fastapi-docs"],"command":["python3","-m","vllm.entrypoints.openai.api_server"],"env":[{"name":"PYTORCH_CUDA_ALLOC_CONF","value":"expandable_segments:True"},{"name":"VLLM_API_KEY","valueFrom":{"secretKeyRef":{"key":"VLLM_API_KEY","name":"vllm-api-key"}}}],"image":"vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33","livenessProbe":{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"periodSeconds":30,"timeoutSeconds":5},"name":"vllm","ports":[{"containerPort":8000,"name":"http","protocol":"TCP"}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"periodSeconds":5,"timeoutSeconds":3},"resources":{"limits":{"cpu":"8","memory":"64Gi","nvidia.com/gpu":"1"},"requests":{"cpu":"8","memory":"64Gi","nvidia.com/gpu":"1"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"startupProbe":{"failureThreshold":60,"httpGet":{"path":"/health","port":"http"},"periodSeconds":5,"timeoutSeconds":3},"volumeMounts":[{"mountPath":"/dev/shm","name":"dshm"},{"mountPath":"/model","name":"model","readOnly":true}]}],"nodeSelector":{"aither.io/qwen14b-instruct":"true"},"runtimeClassName":"nvidia","securityContext":{"seccompProfile":{"type":"RuntimeDefault"}},"serviceAccountName":"vllm-sa","terminationGracePeriodSeconds":120,"volumes":[{"emptyDir":{"medium":"Memory","sizeLimit":"8Gi"},"name":"dshm"},{"hostPath":{"path":"/data/models/Qwen2.5-14B-Instruct","type":"Directory"},"name":"model"}]}}}}
+    creationTimestamp: "2026-07-18T17:36:17Z"
+    generation: 7
+    labels:
+      app: vllm
+      model: qwen-14b-instruct
+    name: vllm-14b-instruct
+    namespace: aither-inference
+    resourceVersion: "801672"
+    uid: 6f23b9cf-18d7-4f1d-926c-e9c791841773
+  spec:
+    progressDeadlineSeconds: 600
+--
+        automountServiceAccountToken: false
+        containers:
+        - args:
+          - --model
+          - /model
+          - --tensor-parallel-size
+          - "1"
+          - --host
+          - 0.0.0.0
+          - --port
+          - "8000"
+--
+            value: expandable_segments:True
+          - name: VLLM_API_KEY
+            valueFrom:
+              secretKeyRef:
+                key: VLLM_API_KEY
+                name: vllm-api-key
+          image: vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+--
+              port: http
+              scheme: HTTP
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+--
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "10"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"labels":{"app":"vllm","model":"qwen-32b-gptq"},"name":"vllm-32b-gptq","namespace":"aither-inference"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"vllm","model":"qwen-32b-gptq"}},"strategy":{"rollingUpdate":{"maxSurge":0,"maxUnavailable":1},"type":"RollingUpdate"},"template":{"metadata":{"labels":{"app":"vllm","model":"qwen-32b-gptq"}},"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"aither.io/inference-primary","operator":"In","values":["true"]}]}]}},"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"app":"vllm"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}},"automountServiceAccountToken":false,"containers":[{"args":["--model","/model","--quantization","gptq","--dtype","half","--tensor-parallel-size","1","--host","0.0.0.0","--port","8000","--gpu-memory-utilization","0.95","--max-model-len","4096","--max-num-seqs","1","--enforce-eager","--generation-config","vllm","--served-model-name","qwen-32b-base","--disable-log-requests","--disable-fastapi-docs"],"command":["python3","-m","vllm.entrypoints.openai.api_server"],"env":[{"name":"PYTORCH_CUDA_ALLOC_CONF","value":"expandable_segments:True"},{"name":"VLLM_API_KEY","valueFrom":{"secretKeyRef":{"key":"VLLM_API_KEY","name":"vllm-api-key"}}}],"image":"vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33","livenessProbe":{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"periodSeconds":30,"timeoutSeconds":5},"name":"vllm","ports":[{"containerPort":8000,"name":"http","protocol":"TCP"}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"periodSeconds":5,"timeoutSeconds":3},"resources":{"limits":{"cpu":"8","memory":"48Gi","nvidia.com/gpu":"1"},"requests":{"cpu":"8","memory":"48Gi","nvidia.com/gpu":"1"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"startupProbe":{"failureThreshold":60,"httpGet":{"path":"/health","port":"http"},"periodSeconds":5,"timeoutSeconds":3},"volumeMounts":[{"mountPath":"/dev/shm","name":"dshm"},{"mountPath":"/model","name":"model","readOnly":true}]}],"nodeSelector":{"aither.io/qwen32b-gptq":"true"},"runtimeClassName":"nvidia","securityContext":{"seccompProfile":{"type":"RuntimeDefault"}},"serviceAccountName":"vllm-sa","terminationGracePeriodSeconds":120,"volumes":[{"emptyDir":{"medium":"Memory","sizeLimit":"8Gi"},"name":"dshm"},{"hostPath":{"path":"/data/models/Qwen2.5-32B-GPTQ","type":"Directory"},"name":"model"}]}}}}
+    creationTimestamp: "2026-07-18T13:57:00Z"
+    generation: 49
+    labels:
+      app: vllm
+      model: qwen-32b-gptq
+    name: vllm-32b-gptq
+    namespace: aither-inference
+    resourceVersion: "801562"
+    uid: 18e9a1ce-7495-47fb-aaa1-d22351409fd5
+  spec:
+    progressDeadlineSeconds: 600
+--
+          - /model
+          - --quantization
+          - gptq
+          - --dtype
+          - half
+          - --tensor-parallel-size
+          - "1"
+          - --host
+          - 0.0.0.0
+          - --port
+          - "8000"
+--
+            value: expandable_segments:True
+          - name: VLLM_API_KEY
+            valueFrom:
+              secretKeyRef:
+                key: VLLM_API_KEY
+                name: vllm-api-key
+          image: vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+--
+              port: http
+              scheme: HTTP
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: "8"
+              memory: 48Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "8"
+              memory: 48Gi
+              nvidia.com/gpu: "1"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
