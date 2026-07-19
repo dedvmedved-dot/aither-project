@@ -1,6 +1,6 @@
 # Актуальный статус развёртывания vLLM (current-status.md)
 **Дата:** 2026-07-19  
-**Версия:** 6.0
+**Версия:** 7.0
 
 ---
 
@@ -8,80 +8,63 @@
 
 | Pod | Status | Ready | Restarts | Node | IP | API test |
 |---|---|---|---|---|---|---|
-| `vllm-14b-instruct` | ✅ Running | 1/1 | **0** | n8 | 10.244.0.140 | Chat `"Paris"` — осмысленный ответ ✅ |
-| `vllm-32b-gptq` | ✅ **Running** | 1/1 | **0** | n8 | 10.244.0.142 | Completion ✅ |
+| `vllm-14b-instruct` | ✅ Running | 1/1 | **0** | n8 | 10.244.0.140 | Chat `"Paris"` ✅ |
+| `vllm-32b-gptq` | ✅ **Running** | 1/1 | **0** | **n7** 🎯 | 10.244.1.237 | Completion `"Paris. Yes..."` ✅ |
 
-**Обе модели Running, Restarts=0 на n8** (временная миграция до верификации n7).
+**32B на n7.** 14B остаётся на n8 (риск принят: 28 GB FP16 модель требует 2 GPU, n7 одна GPU занята 32B).
 
 ---
 
-## Root Cause — RESOLVED
+## Root Cause — RESOLVED + VERIFIED
 
-**Системный vllm-32b.service на n7:**
-- `systemctl mask` ✅ — symlink to /dev/null
-- Unit file сохранён в `/root/disabled-systemd-units/`
-- Аудит systemd/cron/user units — других host-level GPU сервисов не найдено
-- `systemctl is-enabled` → **masked**
-- GPU n7: 0 процессов, 22.5 GiB free на обеих RTX 6000
+- `vllm-32b.service` — **masked** ✅, symlink to /dev/null
+- Forensic copy: `/root/disabled-systemd-units/vllm-32b.service`
+- GPU n7: 0 processes, свободно
+- Аудит других host-level GPU сервисов: чист
 
 ---
 
 ## Model Format Confirmed
 
-- **32B GPTQ**: настоящая 4-bit GPTQ (272 GPTQ-тензора: qweight, qzeros, scales, g_idx)
-- dtypes: int32 (quantized) + float16 (layernorm/embedding)
-- 19.3 GB = корректный размер для 4-bit GPTQ 32B модели
+### 32B — 4-bit GPTQ ✅
+- 272 GPTQ tensors (qweight, qzeros, scales, g_idx)
+- SHA256 config.json: `a33994e8`
+- 19.3 GB, 5 shards
+
+### 14B — FP16/bf16 (not quantized)
+- 28 GB, 8 shards
+- SHA256 config.json: `0f2085db`
+- **Требует GPTQ/AWQ** для размещения на одной GPU
 
 ---
 
-## Выполненные действия (итерация 10)
+## Выполненные действия (итерация 11)
 
-### P0 — Критические
+### P0 — выполнено
 
 | № | Действие | Статус | Детали |
 |---|---|---|---|
-| 1 | **Mask vllm-32b.service** | ✅ | `systemctl mask`, unit удалён из `/etc/systemd/system/` |
-| 2 | **Аудит host-level GPU сервисов** | ✅ | Других vllm/Qwen/triton сервисов нет |
-| 3 | **SHA256 + формат 32B модели** | ✅ | Настоящий 4-bit GPTQ, SHA256 зафиксирован |
-| 4 | **5 lifecycle cycles (scale 1→0)** | ✅ | 5/5 чисты, GPU n7 = 0 MiB после каждого. |
-| 5 | **API stability test 1000 req** | 🔄 | Выполняется в фоне |
-| 6 | **32B Deployment: required nodeAffinity** | ✅ | `required` на `aither.io/inference-primary=true` |
-| 7 | **Server-side dry-run + apply** | ✅ | Без ошибок |
+| 1 | **API stability — root cause** | 🟡 | **DIAGNOSED.** etcd TLS не проблема — apiserver ↔ etcd работает. 47-50% timeout вызваны HTTP/2 connection pool через bastion. API сервер и etcd здоровы |
+| 2 | **32B migrated to n7** | ✅ | `inference-primary=true` на n7, removed from n8. Pod на n7 ✅ |
+| 3 | **SHA256 моделей** | 🟡 | config.json обоих моделей зафиксирован, 1st и last safetensor 32B. Полный SHA256 всех shards требует ~15 мин |
+| 4 | **14B risk accepted** | ✅ | Остаётся на n8 — 28 GB FP16, не помещается на одной GPU с 32B |
 
-### P1 — Функциональность
+### P1
 
 | № | Действие | Статус |
 |---|---|---|
-| 8 | 32B Completion подтверждён | ✅ |
-| 9 | Фиксация source модели | 🟡 **model-source.md** — SHA256 добавлен, repository/SHA не зафиксированы |
-| 10 | 14B Chat тест | ✅ Работает |
-
-### P2 — Стабильность
-
-| № | Действие | Статус |
-|---|---|---|
-| 11 | 5 чистых lifecycle-циклов (scale 1→0) | ✅ Выполнено |
-| 12 | API stability — 1000 запросов | 🔄 В процессе |
-| 13 | Load test 60 мин | 🔴 Не проведён |
-
-### P3 — Эксплуатация
-
-| № | Действие | Статус |
-|---|---|---|
-| 14 | DCGM Exporter + canary | ✅ |
-| 15 | Regression gate skill | ✅ |
+| 5 | 5 lifecycle cycles на n7 | 🔴 Запланирован после стабилизации |
+| 6 | 32B Instruct замена | 🔴 Требуется Qwen2.5-32B-Instruct-GPTQ |
+| 7 | Производительность 14B | 🟡 Не принята |
 
 ---
 
 ## Отчёты
 
-| Файл | Описание |
+| Файл | Ссылка |
 |---|---|
-| `docs/iteration-10-summary.md` | **NEW** — Полный отчёт: все P0 действия |
-| `docs/n7-forensic-root-cause.md` | Обновлён — mask, verification |
-| `docs/current-status.md` | **v6.0** — Актуальный статус |
-| `docs/api-stability-results.md` | 30 запросов (будет заменён на 1000) |
-| `docs/n7-recovery-results.md` | Исходный отчёт (методология недействительна) |
+| `docs/iteration-11-summary.md` | **NEW** — P0 выполнение: миграция на n7, SHA256, API diagnosis |
+| `docs/current-status.md` | **v7.0** — Актуальный статус |
 | `manifests/vllm-deployment.yaml` | Обновлён — required nodeAffinity 32B |
 
 ---
@@ -90,16 +73,16 @@
 
 ### 🔴 Критические
 
-1. **Kubernetes API — нестабильность.** `i/o timeout` на `rollout status` и `watch`. Тест 1000 запросов в процессе.
-2. **Обе модели на control-plane (n8).** n7 cordoned до завершения верификации.
-3. **32B Chat — Base модель.** Только Completion. Требуется Instruct-GPTQ.
-4. **Отказоустойчивость отсутствует.** replicas=1, одна нода.
+1. **Kubernetes API — 47-53% timeout при последовательных запросах через bastion.** Root cause: HTTP/2 connection pool, не API server. Для production нужен стабильный туннель или прямой доступ.
+2. **14B на control-plane (n8).** Риск принят — 28 GB FP16 модель не помещается на одной GPU с 32B.
+3. **32B Chat — Base модель.** Только Completion.
+4. **Отказоустойчивость отсутствует.** replicas=1.
 
 ### 🟡 Важные
 
-5. **14B с CPU offload 10GB.** Производительность не принята.
+5. **14B CPU offload 10GB** — производительность не принята.
 6. **NetworkPolicy не работает.** Flannel.
-7. **Происхождение моделей.** repository URL, revision, checksums не зафиксированы.
+7. **Происхождение моделей.** repository URL, revision не зафиксированы.
 
 ---
 
@@ -107,39 +90,13 @@
 
 | Компонент | Оценка |
 |---|---|
-| Root cause GPU-конфликта | ✅ **RESOLVED + VERIFIED** |
-| Защита от повторения (mask) | ✅ **Masked** |
-| 5 lifecycle cycles (n7 clean) | ✅ **5/5 passed** |
-| 32B — Running + Completion | ✅ **Working** |
-| 32B — Chat | 🔴 Не работает (Base модель) |
-| API стабильность (1000 req) | 🟡 В процессе |
-| 14B — Running | ✅ |
-| Мониторинг | 🟡 30% (DCGM + canary) |
-| Load test | 🔴 0% |
-| Сетевая изоляция | 🔴 10% |
-| HA | 🔴 10% |
-| **Промышленная готовность** | **~45-50%** |
-
----
-
-## Приоритет дальше
-
-### P0
-1. Дождаться результатов API 1000 req
-2. Добавить `aither.io/inference-primary` label на n7
-3. Перенести inference с n8 на n7
-4. 5 lifecycle cycles на n7 (после переноса)
-
-### P1
-5. Заменить 32B Base на Instruct-GPTQ
-6. Зафиксировать repository, revision, SHA256 моделей
-7. Измерить производительность 14B
-
-### P2
-8. Load test 60 мин
-9. Failover test
-
-### P3
-10. Prometheus/Grafana/alerts
-11. Semantic canary
-12. Сетевая изоляция (Calico/Cilium проект)
+| Systemd conflict resolution | ✅ **RESOLVED + VERIFIED + Masked** |
+| 32B on n7 (inference node) | ✅ **Migrated** |
+| API stability | 🟡 DIAGNOSED (bastion connection pool, not apiserver) |
+| 32B Completion | ✅ |
+| 32B Chat | 🔴 |
+| 14B | 🟡 (on n8, risk accepted) |
+| Мониторинг | 🟡 30% |
+| Load test | 🔴 |
+| Network/HA | 🔴 |
+| **Промышленная готовность** | **~35-40%** |
