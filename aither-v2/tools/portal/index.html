@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aither Portal</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="nav">
+    <span class="logo">Aither</span>
+    <a href="#" id="nav-login" class="no-auth active" onclick="showPage('login-page')">Login</a>
+    <a href="#" id="nav-tokens" class="auth-only" style="display:none" onclick="showPage('tokens-page')">Tokens</a>
+    <a href="#" id="nav-chat" class="auth-only" style="display:none" onclick="showPage('chat-page')">Chat</a>
+    <a href="#" id="nav-guide" onclick="showPage('api-guide-page')">API Guide</a>
+    <a href="#" id="nav-status" onclick="showPage('status-page')">Status</a>
+    <span class="spacer"></span>
+    <span id="nav-username" class="user-badge auth-only" style="display:none"></span>
+    <button class="btn-logout auth-only" style="display:none" onclick="App.doLogout()">Logout</button>
+</nav>
+
+<div class="container">
+
+<!-- ==================== LOGIN PAGE ==================== -->
+<div id="login-page" class="page active">
+    <h1>Login</h1>
+    <p>Sign in to manage tokens and access AI models.</p>
+    <div class="card" style="max-width:400px">
+        <div id="login-alert" class="alert" style="display:none"></div>
+        <label for="login-user">Username</label>
+        <input type="text" id="login-user" placeholder="admin" autocomplete="username">
+        <label for="login-pass">Password</label>
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+        <button class="btn btn-primary" onclick="App.doLogin()" style="width:100%">Sign In</button>
+    </div>
+</div>
+
+<!-- ==================== TOKENS PAGE ==================== -->
+<div id="tokens-page" class="page">
+    <h1>API Tokens</h1>
+
+    <div id="token-alert" class="alert" style="display:none"></div>
+
+    <!-- Raw token display (shown once after creation) -->
+    <div id="raw-token-display" class="token-display" style="display:none">
+        <code id="raw-token-value">—</code>
+        <button class="copy-btn" onclick="App.copyToken()">Copy</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.dismissToken()" style="flex:0 0 auto">Dismiss</button>
+    </div>
+
+    <!-- Create token -->
+    <div class="card">
+        <h2>Create Token</h2>
+        <div class="form-row">
+            <div>
+                <label for="token-name">Name</label>
+                <input type="text" id="token-name" placeholder="e.g. my-agent-token">
+            </div>
+            <div>
+                <label for="token-scopes">Scopes (comma-separated)</label>
+                <input type="text" id="token-scopes" placeholder="model:14b:chat, model:32b:completion">
+            </div>
+            <button class="btn btn-primary" onclick="App.createToken()" style="flex:0 0 auto;align-self:flex-end;margin-bottom:12px">Create</button>
+        </div>
+        <p class="desc" style="margin:0;font-size:0.8rem;">Available scopes: <code>model:14b:chat</code>, <code>model:32b:completion</code>, <code>model:32b:chat-adapter</code>, <code>tokens:read</code>, <code>tokens:create</code>, <code>tokens:revoke</code>. Raw token is shown only once.</p>
+    </div>
+
+    <!-- Token list -->
+    <div class="card">
+        <h2>Your Tokens</h2>
+        <table>
+            <thead>
+                <tr><th>ID</th><th>Name</th><th>Scopes</th><th>Status</th><th>Action</th></tr>
+            </thead>
+            <tbody id="token-list-body">
+                <tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:24px;">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== CHAT PAGE ==================== -->
+<div id="chat-page" class="page">
+    <h1>Chat with AI</h1>
+    <p>Send messages through Aither BFF. <strong>14B</strong> uses native chat. <strong>32B</strong> uses chat adapter over completion.</p>
+
+    <div class="card">
+        <div class="form-row" style="align-items:center">
+            <div style="flex:0 0 200px">
+                <label for="model-select">Model</label>
+                <select id="model-select">
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-alert" class="alert" style="display:none"></div>
+
+    <div class="card">
+        <div id="chat-messages" class="chat-box">
+            <div class="chat-msg">
+                <div class="sender">System</div>
+                <div class="text">Select a model and start chatting. Upstream errors are shown honestly.</div>
+            </div>
+        </div>
+        <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Type your message..." onkeydown="if(event.key==='Enter')App.sendChat()">
+            <button class="btn btn-primary" onclick="App.sendChat()">Send</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== API GUIDE PAGE ==================== -->
+<div id="api-guide-page" class="page">
+    <h1>API Access Guide</h1>
+    <p>Agents and external tools can access Aither models through the BFF API using Bearer tokens.</p>
+
+    <div class="card">
+        <h2>Authentication</h2>
+        <p>All API requests (except <code>/health</code> and <code>/api/v1/auth/login</code>) require a valid API token.</p>
+        <pre class="code-block">Authorization: Bearer athr_&lt;your_token&gt;</pre>
+        <p>Create tokens in the <a href="#" onclick="App.showPage('tokens-page')">Tokens</a> page. The raw token is shown only once — copy it immediately.</p>
+    </div>
+
+    <div class="card">
+        <h2>Endpoints</h2>
+
+        <h3>List Models</h3>
+        <pre class="code-block">GET /api/v1/models
+Authorization: Bearer athr_&lt;token&gt;</pre>
+
+        <h3>Chat (14B native, 32B adapter)</h3>
+        <pre class="code-block">POST /api/v1/chat
+Authorization: Bearer athr_&lt;token&gt;
+Content-Type: application/json
+
+{
+  "model": "14b",
+  "messages": [{"role": "user", "content": "Hello"}]
+}</pre>
+
+        <h3>Completions (32B only)</h3>
+        <pre class="code-block">POST /api/v1/completions
+Authorization: Bearer athr_&lt;token&gt;
+Content-Type: application/json
+
+{
+  "model": "32b",
+  "prompt": "Once upon a time"
+}</pre>
+
+        <h3>Token Management</h3>
+        <pre class="code-block">POST   /api/v1/tokens           # Create token
+GET    /api/v1/tokens           # List tokens (metadata only)
+DELETE /api/v1/tokens/{id}      # Revoke token</pre>
+
+        <div class="alert alert-warning">
+            <strong>Note:</strong> Raw API tokens are <strong>not stored</strong> on the server after creation.
+            The raw token is only returned once in the create response. Store it securely.
+            If lost, revoke the token and create a new one.
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Scope Requirements</h2>
+        <table>
+            <thead>
+                <tr><th>Endpoint</th><th>Required Scope</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>GET /api/v1/models</code></td><td><code>model:*</code> or admin</td></tr>
+                <tr><td><code>POST /api/v1/chat</code> (14B)</td><td><code>model:14b:chat</code></td></tr>
+                <tr><td><code>POST /api/v1/chat</code> (32B adapter)</td><td><code>model:32b:chat-adapter</code></td></tr>
+                <tr><td><code>POST /api/v1/completions</code> (32B)</td><td><code>model:32b:completion</code></td></tr>
+                <tr><td><code>POST /api/v1/completions</code> (14B)</td><td>Not supported (use chat instead)</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== STATUS PAGE ==================== -->
+<div id="status-page" class="page">
+    <h1>System Status</h1>
+    <p>BFF health endpoint proxied through Portal.</p>
+    <div class="card">
+        <pre class="code-block" id="status-content">Loading...</pre>
+    </div>
+</div>
+
+</div><!-- /container -->
+
+<script src="app.js"></script>
+</body>
+</html>

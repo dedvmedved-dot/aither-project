@@ -1,0 +1,6 @@
+=== portal-32b-native-not-claimed.txt ===
+Date: 2026-07-20
+Command: grep for 'native 32B' in portal source
+Expected: no native claim
+Actual: Confirmed: 32B labeled as 'chat adapter' in UI and guide
+Result: PASSED

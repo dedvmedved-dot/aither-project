@@ -1,0 +1,6 @@
+=== portal-health-via-proxy.txt ===
+Date: 2026-07-20
+Command: curl http://localhost/health via portal
+Expected: HTTP 200
+Actual: 200
+Result: PASSED

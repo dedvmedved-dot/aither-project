@@ -1,0 +1,6 @@
+=== portal-token-not-persisted-check.txt ===
+Date: 2026-07-20
+Command: grep for localStorage/sessionStorage in portal source
+Expected: no raw token persistence
+Actual: NO_STORAGE_API (no localStorage or sessionStorage calls in app.js)
+Result: PASSED

@@ -1,0 +1,6 @@
+=== portal-token-revoke.txt ===
+Date: 2026-07-20
+Command: curl DELETE /api/v1/tokens/d4041d445d1b
+Expected: 200
+Actual: 200
+Result: PASSED

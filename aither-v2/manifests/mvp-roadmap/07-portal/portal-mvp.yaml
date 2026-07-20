@@ -1,0 +1,286 @@
+# Aither Portal MVP — Stage 07.2
+# ConfigMap with inline static files, Deployment, Service
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-portal-config
+  namespace: aither-inference
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aither Portal</title>
+    <link rel="stylesheet" href="styles.css">
+    </head>
+    <body>
+    <nav class="nav">
+        <span class="logo">Aither</span>
+        <a href="#" id="nav-login" class="no-auth active" onclick="showPage('login-page')">Login</a>
+        <a href="#" id="nav-tokens" class="auth-only" style="display:none" onclick="showPage('tokens-page')">Tokens</a>
+        <a href="#" id="nav-chat" class="auth-only" style="display:none" onclick="showPage('chat-page')">Chat</a>
+        <a href="#" id="nav-guide" onclick="showPage('api-guide-page')">API Guide</a>
+        <a href="#" id="nav-status" onclick="showPage('status-page')">Status</a>
+        <span class="spacer"></span>
+        <span id="nav-username" class="user-badge auth-only" style="display:none"></span>
+        <button class="btn-logout auth-only" style="display:none" onclick="App.doLogout()">Logout</button>
+    </nav>
+    <div class="container">
+    <div id="login-page" class="page active">
+        <h1>Login</h1>
+        <p>Sign in to manage tokens and access AI models.</p>
+        <div class="card" style="max-width:400px">
+            <div id="login-alert" class="alert" style="display:none"></div>
+            <label for="login-user">Username</label>
+            <input type="text" id="login-user" placeholder="admin" autocomplete="username">
+            <label for="login-pass">Password</label>
+            <input type="password" id="login-pass" placeholder="......" autocomplete="current-password">
+            <button class="btn btn-primary" onclick="App.doLogin()" style="width:100%">Sign In</button>
+        </div>
+    </div>
+    <div id="tokens-page" class="page">
+        <h1>API Tokens</h1>
+        <div id="token-alert" class="alert" style="display:none"></div>
+        <div id="raw-token-display" class="token-display" style="display:none">
+            <code id="raw-token-value">-</code>
+            <button class="copy-btn" onclick="App.copyToken()">Copy</button>
+            <button class="btn btn-secondary btn-sm" onclick="App.dismissToken()">Dismiss</button>
+        </div>
+        <div class="card">
+            <h2>Create Token</h2>
+            <div class="form-row">
+                <div><label for="token-name">Name</label><input type="text" id="token-name" placeholder="my-agent-token"></div>
+                <div><label for="token-scopes">Scopes</label><input type="text" id="token-scopes" placeholder="model:14b:chat"></div>
+                <button class="btn btn-primary" onclick="App.createToken()" style="flex:0 0 auto;margin-bottom:12px">Create</button>
+            </div>
+            <p class="desc" style="font-size:0.8rem">Raw token shown only once.</p>
+        </div>
+        <div class="card">
+            <h2>Your Tokens</h2>
+            <table><thead><tr><th>ID</th><th>Name</th><th>Scopes</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="token-list-body"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading...</td></tr></tbody></table>
+        </div>
+    </div>
+    <div id="chat-page" class="page">
+        <h1>Chat with AI</h1>
+        <p>14B uses native chat. 32B uses chat adapter over completion.</p>
+        <div class="card">
+            <div class="form-row" style="align-items:center">
+                <div style="flex:0 0 200px"><label for="model-select">Model</label><select id="model-select"><option>Loading...</option></select></div>
+            </div>
+        </div>
+        <div id="chat-alert" class="alert" style="display:none"></div>
+        <div class="card">
+            <div id="chat-messages" class="chat-box">
+                <div class="chat-msg"><div class="sender">System</div><div class="text">Select a model and start chatting.</div></div>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chat-input" placeholder="Type your message..." onkeydown="if(event.key==='Enter')App.sendChat()">
+                <button class="btn btn-primary" onclick="App.sendChat()">Send</button>
+            </div>
+        </div>
+    </div>
+    <div id="api-guide-page" class="page">
+        <h1>API Access Guide</h1>
+        <p>Agents use Bearer tokens through BFF.</p>
+        <div class="card"><h2>Authentication</h2><p>Header: <code>Authorization: Bearer athr_&lt;token&gt;</code></p>
+        <pre class="code-block">GET /api/v1/models</pre>
+        <pre class="code-block">POST /api/v1/chat {"model":"14b","messages":[{"role":"user","content":"Hello"}]}</pre>
+        <pre class="code-block">POST /api/v1/completions {"model":"32b","prompt":"Hello"}</pre>
+        <div class="alert alert-warning">Raw tokens not stored server-side after creation.</div></div>
+        <div class="card"><h2>Scope Requirements</h2>
+        <table><thead><tr><th>Endpoint</th><th>Scope</th></tr></thead>
+        <tbody>
+        <tr><td>GET /api/v1/models</td><td>model:*</td></tr>
+        <tr><td>POST /api/v1/chat (14B)</td><td>model:14b:chat</td></tr>
+        <tr><td>POST /api/v1/chat (32B adapter)</td><td>model:32b:chat-adapter</td></tr>
+        <tr><td>POST /api/v1/completions (32B)</td><td>model:32b:completion</td></tr>
+        <tr><td>POST /api/v1/completions (14B)</td><td>Not supported</td></tr>
+        </tbody></table></div>
+    </div>
+    <div id="status-page" class="page">
+        <h1>System Status</h1>
+        <div class="card"><pre class="code-block" id="status-content">Loading...</pre></div>
+    </div>
+    </div>
+    <script src="app.js"></script>
+    </body>
+    </html>
+  styles.css: |
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#0d1117;--bg-card:#161b22;--bg-input:#21262d;--border:#30363d;--text:#c9d1d9;--text-muted:#8b949e;--accent:#58a6ff;--danger:#f85149;--success:#3fb950;--warning:#d29922;--radius:6px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6}
+    a{color:var(--accent)}
+    .nav{background:var(--bg-card);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:56px;gap:24px}
+    .nav .logo{font-weight:700;font-size:1.1rem;color:var(--accent)}
+    .nav a{color:var(--text-muted);font-size:0.9rem;padding:4px 0;border-bottom:2px solid transparent}
+    .nav a:hover,.nav a.active{color:var(--text);border-bottom-color:var(--accent)}
+    .nav .spacer{flex:1}
+    .nav .user-badge{font-size:0.85rem;color:var(--text-muted)}
+    .nav .btn-logout{background:none;border:1px solid var(--border);color:var(--text-muted);padding:4px 12px;border-radius:var(--radius);cursor:pointer}
+    .nav .btn-logout:hover{color:var(--danger);border-color:var(--danger)}
+    .container{max-width:960px;margin:0 auto;padding:32px 24px}
+    .page{display:none}.page.active{display:block}
+    h1{font-size:1.5rem;margin-bottom:8px}
+    h2{font-size:1.2rem;margin-bottom:16px;margin-top:24px}
+    p,.desc{color:var(--text-muted);margin-bottom:16px;font-size:0.9rem}
+    .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+    input,select{width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;margin-bottom:12px}
+    input:focus{outline:none;border-color:var(--accent)}
+    .btn{display:inline-block;padding:8px 16px;border:none;border-radius:var(--radius);cursor:pointer;font-size:0.9rem;font-family:var(--font)}
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-danger{background:var(--danger);color:#fff}
+    .btn-secondary{background:var(--bg-input);color:var(--text);border:1px solid var(--border)}
+    .btn-sm{padding:4px 10px;font-size:0.8rem}
+    .alert{padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-size:0.9rem}
+    .alert-error{background:rgba(248,81,73,0.15);border:1px solid rgba(248,81,73,0.3);color:var(--danger)}
+    .alert-success{background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.3);color:var(--success)}
+    .alert-warning{background:rgba(210,153,34,0.15);border:1px solid rgba(210,153,34,0.3);color:var(--warning)}
+    table{width:100%;border-collapse:collapse;font-size:0.85rem}
+    th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+    th{color:var(--text-muted)}
+    .chat-box{border:1px solid var(--border);border-radius:var(--radius);max-height:400px;overflow-y:auto;padding:16px;margin-bottom:12px}
+    .chat-msg{margin-bottom:12px}
+    .chat-msg .sender{font-weight:600;font-size:0.8rem;color:var(--accent)}
+    .chat-msg .sender.user{color:var(--success)}
+    .chat-msg .text{margin-top:4px;white-space:pre-wrap}
+    .chat-msg .text.error{color:var(--danger)}
+    .chat-input-row{display:flex;gap:8px}
+    .chat-input-row input{flex:1;margin-bottom:0}
+    .token-display{background:#1c2333;border:1px solid var(--warning);border-radius:var(--radius);padding:12px;margin:12px 0;word-break:break-all;font-family:'Courier New',monospace;display:flex;align-items:center;gap:8px}
+    .code-block{background:#1c2333;border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-family:'Courier New',monospace;font-size:0.8rem;overflow-x:auto;margin:8px 0}
+    .form-row{display:flex;gap:12px;align-items:flex-end}
+    .form-row>*{flex:1}
+    .form-row .btn{flex:0 0 auto}
+    .copy-btn{background:none;border:1px solid var(--border);color:var(--text-muted);padding:4px 8px;border-radius:var(--radius);cursor:pointer;font-size:0.75rem}
+    .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+    @media(max-width:640px){.nav{flex-wrap:wrap;height:auto;padding:8px 16px}.container{padding:16px}.form-row{flex-direction:column}}
+  app.js: |
+    (function(){'use strict';const API='/api/v1';let state={sessionId:null,username:null,tokens:[],models:[],chatModel:'14b',rawToken:null};
+    const pages=['login-page','tokens-page','chat-page','api-guide-page','status-page'];const navLinks=['nav-login','nav-tokens','nav-chat','nav-guide','nav-status'];
+    const $=id=>document.getElementById(id);
+    async function apiReq(path,opts={}){const url=API+path;const headers={'Content-Type':'application/json',...opts.headers};const res=await fetch(url,{...opts,headers,credentials:'include'});let data;try{data=await res.json()}catch{data=null}return{status:res.status,ok:res.ok,data}}
+    function showPage(id){pages.forEach(p=>document.getElementById(p).classList.remove('active'));navLinks.forEach(l=>document.getElementById(l).classList.remove('active'));document.getElementById(id).classList.add('active');const m={'login-page':'nav-login','tokens-page':'nav-tokens','chat-page':'nav-chat','api-guide-page':'nav-guide','status-page':'nav-status'};const el=document.getElementById(m[id]);if(el)el.classList.add('active')}
+    function showAlert(id,msg,type){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className='alert alert-'+type;el.style.display='block'}
+    function clearAlert(id){const el=document.getElementById(id);if(el)el.style.display='none'}
+    async function checkSession(){const r=await apiReq('/auth/me');if(r.ok&&r.data&&r.data.username){state.sessionId='active';state.username=r.data.username;return true}return false}
+    async function doLogin(){clearAlert('login-alert');const u=$(('login-user')).value.trim();const p=$(('login-pass')).value.trim();if(!u||!p){showAlert('login-alert','Enter username and password.','warning');return}
+    const r=await apiReq('/auth/login',{method:'POST',body:JSON.stringify({username:u,password:p})});if(r.ok&&r.data&&r.data.session_id){state.sessionId=r.data.session_id;state.username=u;$(('login-user')).value='';$(('login-pass')).value='';await onAuth()}
+    else{showAlert('login-alert',r.data&&r.data.detail?r.data.detail:'Login failed','error')}}
+    async function doLogout(){await apiReq('/auth/logout',{method:'POST'});state.sessionId=null;state.username=null;state.rawToken=null;onUnauth()}
+    async function onAuth(){$(('nav-username')).textContent=state.username;document.querySelectorAll('.auth-only').forEach(el=>el.style.display='');document.querySelectorAll('.no-auth').forEach(el=>el.style.display='none');$(('login-alert')).style.display='none';await loadTokens();await loadModels();showPage('tokens-page')}
+    function onUnauth(){state.tokens=[];state.models=[];$(('nav-username')).textContent='';document.querySelectorAll('.auth-only').forEach(el=>el.style.display='none');document.querySelectorAll('.no-auth').forEach(el=>el.style.display='');showPage('login-page')}
+    async function loadTokens(){const r=await apiReq('/tokens');if(r.ok&&Array.isArray(r.data)){state.tokens=r.data;renderTokens()}}
+    function renderTokens(){const tb=$(('token-list-body'));if(!tb)return;if(state.tokens.length===0){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No tokens.</td></tr>';return}
+    tb.innerHTML=state.tokens.map(t=>{const r=t.revoked===true||t.revoked==='true'||t.revoked===1||t.revoked==='1';return'<tr><td><code>'+(t.token_id||'-')+'</code></td><td>'+(t.name||'-')+'</td><td>'+((Array.isArray(t.scopes)?t.scopes.join(', '):t.scopes)||'-')+'</td><td>'+(r?'<span style="color:var(--danger)">Revoked</span>':'<span style="color:var(--success)">Active</span>')+'</td><td>'+(r?'—':'<button class="btn btn-danger btn-sm" onclick="App.revokeToken(\''+t.token_id+'\')">Revoke</button>')+'</td></tr>'}).join('')}
+    async function createToken(){clearAlert('token-alert');const n=$(('token-name')).value.trim();if(!n){showAlert('token-alert','Name required.','warning');return}let scopes=['model:14b:chat'];const si=$(('token-scopes')).value.trim();if(si)scopes=si.split(',').map(s=>s.trim()).filter(Boolean)
+    const r=await apiReq('/tokens',{method:'POST',body:JSON.stringify({name:n,scopes})});if(r.ok&&r.data&&r.data.token){state.rawToken=r.data.token;$(('raw-token-display')).style.display='flex';$(('raw-token-value')).textContent=state.rawToken;$(('token-name')).value='';$(('token-scopes')).value='';showAlert('token-alert','Token created! Copy now.','success');await loadTokens()}
+    else{showAlert('token-alert',r.data&&r.data.detail?r.data.detail:'Failed','error')}}
+    async function revokeToken(tid){if(!confirm('Revoke token '+tid+'?'))return;const r=await apiReq('/tokens/'+tid,{method:'DELETE'});if(r.ok){state.rawToken=null;$(('raw-token-display')).style.display='none';await loadTokens()}
+    else{showAlert('token-alert','Revoke failed','error')}}
+    function copyToken(){const v=$(('raw-token-value')).textContent;if(v){navigator.clipboard.writeText(v).then(()=>{const b=document.querySelector('.copy-btn');b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',2000)})}}
+    function dismissToken(){state.rawToken=null;$(('raw-token-display')).style.display='none'}
+    async function loadModels(){const r=await apiReq('/models');if(r.ok&&Array.isArray(r.data)){state.models=r.data;const el=$(('model-select'));if(el)el.innerHTML=r.data.map(m=>{const id=m.id||m.model||'';return'<option value="'+id+'">'+id+'</option>'}).join('')}}
+    async function sendChat(){clearAlert('chat-alert');const t=$(('chat-input')).value.trim();if(!t)return;const mid=$(('model-select')).value||'14b';appendChatMsg('user',t);$(('chat-input')).value='';const r=await apiReq('/chat',{method:'POST',body:JSON.stringify({model:mid,messages:[{role:'user',content:t}]})})
+    if(r.ok&&r.data){const reply=r.data.choices&&r.data.choices[0]?(r.data.choices[0].message||r.data.choices[0].text||''):(r.data.response||r.data.content||JSON.stringify(r.data));appendChatMsg('assistant',reply,mid.includes('32b')?'32B adapter':mid+' chat')}
+    else{appendChatMsg('assistant','Error: '+(r.data&&r.data.detail?r.data.detail:'HTTP '+r.status),mid,true)}}
+    function appendChatMsg(role,text,label,isError){const box=$(('chat-messages'));if(!box)return;const d=document.createElement('div');d.className='chat-msg';const s=document.createElement('div');s.className='sender'+(role==='user'?' user':'');s.textContent=role==='user'?'You':(label||'Assistant');d.appendChild(s);const t=document.createElement('div');t.className='text'+(isError?' error':'');t.textContent=text;d.appendChild(t);box.appendChild(d);box.scrollTop=box.scrollHeight}
+    async function loadStatus(){try{const r=await fetch('/health');const d=await r.json();$(('status-content')).textContent=JSON.stringify(d,null,2)}catch(e){$(('status-content')).textContent='Error: '+e.message}}
+    async function init(){window.App={doLogin,doLogout,createToken,revokeToken,copyToken,dismissToken,sendChat,loadStatus};const hs=await checkSession();if(hs)await onAuth();else onUnauth();loadStatus()}
+    document.addEventListener('DOMContentLoaded',init)})();
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+        location /api/ {
+            proxy_pass http://aither-bff:8000/api/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_pass_header Set-Cookie;
+        }
+        location /health {
+            proxy_pass http://aither-bff:8000/health;
+            proxy_set_header Host $host;
+        }
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aither-portal
+  namespace: aither-inference
+  labels:
+    app: aither-portal
+    stage: "07.2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aither-portal
+  template:
+    metadata:
+      labels:
+        app: aither-portal
+        stage: "07.2"
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+        - name: www
+          mountPath: /usr/share/nginx/html
+          readOnly: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+      volumes:
+      - name: config
+        configMap:
+          name: aither-portal-config
+          items:
+          - key: nginx.conf
+            path: default.conf
+      - name: www
+        configMap:
+          name: aither-portal-config
+          items:
+          - key: index.html
+            path: index.html
+          - key: styles.css
+            path: styles.css
+          - key: app.js
+            path: app.js
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aither-portal
+  namespace: aither-inference
+  labels:
+    app: aither-portal
+    stage: "07.2"
+spec:
+  selector:
+    app: aither-portal
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http

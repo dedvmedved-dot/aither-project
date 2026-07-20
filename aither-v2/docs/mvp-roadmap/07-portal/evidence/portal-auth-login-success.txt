@@ -1,0 +1,6 @@
+=== portal-auth-login-success.txt ===
+Date: 2026-07-20
+Command: curl POST /api/v1/auth/login via portal
+Expected: HTTP 200, session_id
+Actual: 200, session returned
+Result: PASSED

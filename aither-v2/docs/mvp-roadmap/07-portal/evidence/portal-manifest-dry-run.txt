@@ -1,0 +1,6 @@
+=== portal-manifest-dry-run.txt ===
+Date: 2026-07-20
+Command: kubectl apply --dry-run=client
+Expected: valid
+Actual: created (dry run)
+Result: PASSED

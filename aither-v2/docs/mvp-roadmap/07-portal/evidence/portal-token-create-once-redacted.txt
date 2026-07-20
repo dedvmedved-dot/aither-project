@@ -1,0 +1,6 @@
+=== portal-token-create-once-redacted.txt ===
+Date: 2026-07-20
+Command: curl POST /api/v1/tokens via portal proxy (authenticated)
+Expected: HTTP 200, raw token in response, shown once
+Actual: 200, token_id=d4041d445d1b, token=athr_3HHOVUl...REDACTED
+Result: PASSED

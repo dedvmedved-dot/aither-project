@@ -1,0 +1,6 @@
+=== portal-chat-14b-request.txt ===
+Date: 2026-07-20
+Command: curl POST /api/v1/chat model=14b via portal
+Expected: BFF passes request
+Actual: BFF auth passed; upstream 401 (test-only internal token)
+Result: PASSED / UPSTREAM AUTH NOT TESTED

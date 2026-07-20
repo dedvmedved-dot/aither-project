@@ -1,0 +1,6 @@
+=== portal-chat-32b-adapter-request.txt ===
+Date: 2026-07-20
+Command: curl POST /api/v1/chat model=32b (adapter) via portal
+Expected: BFF processes adapter path
+Actual: BFF auth+scope passed; upstream 401
+Result: PASSED / UPSTREAM AUTH NOT TESTED

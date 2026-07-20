@@ -1,0 +1,6 @@
+=== portal-bff-only-access-check.txt ===
+Date: 2026-07-20
+Command: grep for vLLM/gateway URLs in portal source
+Expected: no direct vLLM/gateway URLs
+Actual: NO_DIRECT_VLLM_URLS (only aither-bff references via proxy_pass)
+Result: PASSED

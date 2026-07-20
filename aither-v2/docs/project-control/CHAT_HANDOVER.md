@@ -50,7 +50,16 @@ Stage 07.1 — Auth / API Token / Agent Access Baseline: PASSED WITH FINDINGS / 
    - AUTH-RL-429-01: PASSED / CONNECTOR VERIFIED — controlled burst test confirmed HTTP 429 after 10th request (15 reqs, counter=15, TTL=28s).
    - Findings: AUTH-UPSTREAM-VALID-01 (PARTIAL), AUTH-REDIS-FAIL-01 (PARTIAL), AUTH-TOKEN-PERSIST-01 (PARTIAL).
    - Old Stage 07 Portal-only task: SUPERSEDED.
-Stage 07.2 Portal: READY FOR TASK PREPARATION, NOT STARTED.
+Stage 07.2 Portal: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
+   - nginx:alpine portal deployed, 1/1 Running.
+   - Login/logout/me via BFF session auth.
+   - Token management: create (once), list (metadata only), revoke.
+   - Chat UI: 14B native + 32B adapter through BFF.
+   - API Access / Agent guide page.
+   - Portal uses BFF only — no direct vLLM/Gateway access.
+   - Raw tokens NOT persisted in browser storage.
+   - 32B correctly labeled as chat adapter over completion.
+   - Open findings: none unique to Portal; see Stage 07.2 FINDINGS.md.
 Stage 08: NOT APPROVED.
 
 Stage 05 status details:

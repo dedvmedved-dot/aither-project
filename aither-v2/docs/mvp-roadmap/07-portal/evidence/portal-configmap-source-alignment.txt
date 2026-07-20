@@ -1,0 +1,6 @@
+=== portal-configmap-source-alignment.txt ===
+Date: 2026-07-20
+Command: SHA256 of tools/portal/* vs ConfigMap aither-portal-config data
+Expected: all 4 files match
+Actual: ALL_MATCH (index.html=MATCH, styles.css=MATCH, app.js=MATCH, nginx.conf=MATCH)
+Result: PASSED

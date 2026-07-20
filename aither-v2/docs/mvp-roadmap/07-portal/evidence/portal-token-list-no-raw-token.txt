@@ -1,0 +1,6 @@
+=== portal-token-list-no-raw-token.txt ===
+Date: 2026-07-20
+Command: curl GET /api/v1/tokens via portal
+Expected: metadata only, no raw token field
+Actual: token_id, name, scopes, created_at present; no 'token' key
+Result: PASSED

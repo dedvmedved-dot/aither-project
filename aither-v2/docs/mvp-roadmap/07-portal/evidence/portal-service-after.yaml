@@ -1,0 +1,20 @@
+=== portal-service-after.yaml ===
+Date: 2026-07-20
+Command: kubectl get svc -o yaml
+Expected: service port 80
+Actual: apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"aither-portal","stage":"07.2"},"name":"aither-portal","namespace":"aither-inference"},"spec":{"ports":[{"name":"http","port":80,"targetPort":80}],"selector":{"app":"aither-portal"}}}
+  creationTimestamp: "2026-07-20T11:33:04Z"
+  labels:
+    app: aither-portal
+    stage: "07.2"
+  name: aither-portal
+  namespace: aither-inference
+  resourceVersion: "1038809"
+  uid: 8e6001a4-05c3-4372-b9f4-ee2ca725ccdb
+spec:
+Result: PASSED

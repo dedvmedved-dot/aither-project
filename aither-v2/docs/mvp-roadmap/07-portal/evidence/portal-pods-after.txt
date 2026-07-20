@@ -1,0 +1,7 @@
+=== portal-pods-after.txt ===
+Date: 2026-07-20
+Command: kubectl get pods
+Expected: 1/1 Running
+Actual: NAME                            READY   STATUS    RESTARTS   AGE
+aither-portal-6c77797ff-k2rhj   1/1     Running   0          102s
+Result: PASSED

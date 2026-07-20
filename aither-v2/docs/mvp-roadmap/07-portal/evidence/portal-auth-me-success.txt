@@ -1,0 +1,6 @@
+=== portal-auth-me-success.txt ===
+Date: 2026-07-20
+Command: curl GET /api/v1/auth/me with cookie
+Expected: HTTP 200
+Actual: 200
+Result: PASSED

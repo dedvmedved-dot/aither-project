@@ -1,0 +1,6 @@
+=== portal-models-list-auth.txt ===
+Date: 2026-07-20
+Command: curl GET /api/v1/models with session cookie via portal
+Expected: 200 models listed
+Actual: 200
+Result: PASSED
