@@ -1,7 +1,7 @@
 # PART1-SECURITY-REMEDIATION-REPORT.md
 
-**Project:** Aither / AI Hermes MVP  
-**Stage:** Stage 10 — Implementation Part 1  
+**Project:** Aither / AI Hermes MVP
+**Stage:** Stage 10 — Implementation Part 1
 **Document:** Security Remediation Report  
 **Date:** 2026-07-20
 
