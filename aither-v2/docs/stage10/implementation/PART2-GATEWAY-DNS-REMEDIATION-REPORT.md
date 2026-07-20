@@ -1,8 +1,8 @@
 # PART2-GATEWAY-DNS-REMEDIATION-REPORT.md
 
-**Project:** Aither / AI Hermes MVP  
-**Stage:** Stage 10 — Implementation Part 2  
-**Document:** Gateway DNS Remediation Report  
+**Project:** Aither / AI Hermes MVP
+**Stage:** Stage 10 — Implementation Part 2
+**Document:** Gateway DNS Remediation Report
 **Date:** 2026-07-20
 
 ---

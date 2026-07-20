@@ -1,8 +1,8 @@
 # PART2-EVIDENCE.md
 
-**Project:** Aither / AI Hermes MVP  
-**Stage:** Stage 10 — Implementation Part 2  
-**Document:** Gateway DNS Remediation Evidence  
+**Project:** Aither / AI Hermes MVP
+**Stage:** Stage 10 — Implementation Part 2
+**Document:** Gateway DNS Remediation Evidence
 **Date:** 2026-07-20
 
 ---

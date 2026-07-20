@@ -1,8 +1,8 @@
 # PART2-RUNTIME-GIT-CONSISTENCY.md
 
-**Project:** Aither / AI Hermes MVP  
-**Stage:** Stage 10 — Implementation Part 2  
-**Document:** Git/Runtime Consistency Verification  
+**Project:** Aither / AI Hermes MVP
+**Stage:** Stage 10 — Implementation Part 2
+**Document:** Git/Runtime Consistency Verification
 **Date:** 2026-07-20
 
 ---
