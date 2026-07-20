@@ -90,6 +90,11 @@ data:
             return True,meta.get("scopes",[])
         return False,"Auth required"
 
+    def ck(req,rs):
+        sc=getattr(req.state,"auth_scope",None)
+        if isinstance(sc,str) and sc=="admin": return True
+        return isinstance(sc,list) and rs in sc
+
     def cvt(messages):
         lines=[f"<|{m.get('role','user')}|>\n{m.get('content','')}" for m in messages]
         lines.append("<|assistant|>\n"); return "\n".join(lines)
@@ -207,6 +212,10 @@ data:
     @app.get("/api/v1/models")
     async def list_models(req:Request):
         if not await check_rl(req): raise HTTPException(429)
+        sc=getattr(req.state,"auth_scope",None)
+        has=isinstance(sc,str) and sc=="admin"
+        has=has or (isinstance(sc,list) and any(s.startswith("model:") for s in sc))
+        if not has: raise HTTPException(403)
         return {"models":[{"id":"14b","name":M14,"type":"chat"},{"id":"32b","name":M32,"type":"completion"}]}
 
     @app.post("/api/v1/chat")
@@ -214,12 +223,14 @@ data:
         b=await req.json();m=b.get("model","")
         if not await check_rl(req): raise HTTPException(429)
         if m in ("32b",M32):
+            if not ck(req,"model:32b:chat-adapter"): raise HTTPException(403)
             p=cvt(b.get("messages",[]))
             cb={"model":M32,"prompt":p,"max_tokens":b.get("max_tokens",64),"temperature":b.get("temperature",0.0)}
             hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M32)}"}
             async with cli.stream("POST",f"{G32}/v1/completions",json=cb,headers=hd) as r:
                 return Response(content=await r.aread(),status_code=r.status_code)
         if m in ("14b",M14):
+            if not ck(req,"model:14b:chat"): raise HTTPException(403)
             b["model"]=M14
             hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M14)}"}
             async with cli.stream("POST",f"{C14}/v1/chat/completions",json=b,headers=hd) as r:
@@ -231,9 +242,10 @@ data:
         b=await req.json();m=b.get("model","")
         if not await check_rl(req): raise HTTPException(429)
         if m in ("32b",M32):
+            if not ck(req,"model:32b:completion"): raise HTTPException(403)
             b["model"]=M32;hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M32)}"};u=f"{G32}/v1/completions"
         elif m in ("14b",M14):
-            b["model"]=M14;hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M14)}"};u=f"{C14}/v1/completions"
+            raise HTTPException(422)
         else: raise HTTPException(400)
         async with cli.stream("POST",u,json=b,headers=hd) as r:
             return Response(content=await r.aread(),status_code=r.status_code)

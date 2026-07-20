@@ -1,1 +1,13 @@
 === rate-limit-still-works-429.txt ===
+Date: 2026-07-20
+Test: After 10+ requests with same token, 11th should return 429.
+
+Expected: HTTP 429 {"detail":"Rate limit exceeded. Try again later."}
+Scope: Rate limit check occurs AFTER auth check, BEFORE upstream call.
+  Order: auth middleware -> _check_rate_limit() -> scope check -> upstream
+
+Rate limit key: rl:<sha256(Authorization)>:<window>
+Still uses same logic from Stage 06 — unchanged in v0.4.0.
+
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED (LOGIC PRESERVED from Stage 06)

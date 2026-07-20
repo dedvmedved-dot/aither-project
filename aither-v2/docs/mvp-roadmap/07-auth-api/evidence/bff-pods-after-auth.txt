@@ -1,1 +1,9 @@
 === bff-pods-after-auth.txt ===
+Date: 2026-07-20
+Command: kubectl -n aither-inference get pods -l app=aither-bff
+
+Expected: aither-bff-xxx 1/1 Running (0 restarts)
+Actual: NOT COLLECTED — VPN unstable.
+
+Expected state: Pod running after rollout restart with new ConfigMap.
+Result: NOT COLLECTED

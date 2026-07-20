@@ -1,1 +1,18 @@
 === token-hash-storage-check.txt ===
+Date: 2026-07-20
+Command: (conceptual, no direct Redis access)
+  redis-cli -h aither-redis-rate-limit KEYS 'aither-auth:token:*'
+  redis-cli -h aither-redis-rate-limit GET 'aither-auth:token:<hash>'
+
+Expected:
+  - Keys match pattern aither-auth:token:<hex_hash>
+  - Value is JSON with token_id, token_hash, name, scopes, created_at, last_used_at, revoked, revoked_at
+  - Raw token (athr_xxx) is NOT stored anywhere in Redis
+
+Implementation:
+  _hash_api_token() uses hmac.new(AUTH_TOKEN_HASH_SECRET, token, hashlib.sha256).hexdigest()
+  gentok() generates raw_token + hash; only hash stored via tmk(token_hash)
+
+Source code confirmed: no raw token stored in Redis.
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED (PASSED by source code review)

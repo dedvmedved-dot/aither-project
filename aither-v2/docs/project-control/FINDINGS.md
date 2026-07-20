@@ -27,14 +27,14 @@
 | **BFF-RL-RESET-01** | **Rate limit window reset verified** | **PASSED** | **Stage 06** |
 | **BFF-RL-REDIS-FAIL-01** | **Redis unavailable behaviour (fail-open)** | **PARTIAL** | **Stage 06** |
 | **BFF-RL-RESET-TTL-01** | **TTL reset not directly observed; reset verified by manual Redis key flush** | **MINOR FINDING** | **Stage 06/Post-MVP** |
-| **AUTH-01** | **BFF central auth implemented** | **COMPLETED BY HERMES** | **Stage 07.1** |
-| **AUTH-API-TOKEN-01** | **API token issuance implemented** | **COMPLETED BY HERMES** | **Stage 07.1** |
-| **AUTH-TOKEN-HASH-01** | **Raw API tokens are not stored** | **PASSED** | **Stage 07.1** |
-| **AUTH-TOKEN-REVOKE-01** | **API token revoke works** | **COMPLETED BY HERMES** | **Stage 07.1** |
-| **AUTH-AGENT-01** | **AI agent can call models through API token** | **COMPLETED BY HERMES** | **Stage 07.1** |
+| **AUTH-01** | **BFF central auth implemented** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
+| **AUTH-API-TOKEN-01** | **API token issuance implemented** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
+| **AUTH-TOKEN-HASH-01** | **Raw API tokens are not stored** | **PASSED (code review)** | **Stage 07.1** |
+| **AUTH-TOKEN-REVOKE-01** | **API token revoke works** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
+| **AUTH-AGENT-01** | **AI agent can call models through API token** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
 | **AUTH-UPSTREAM-01** | **User API token is not forwarded to upstream vLLM/gateway** | **PASSED (code review)** | **Stage 07.1** |
 | **AUTH-REDIS-FAIL-01** | **Auth/token store unavailable behavior (Redis)** | **PARTIAL** | **Stage 07.1** |
 | **AUTH-TOKEN-PERSIST-01** | **Token metadata durability with Redis-only storage** | **PARTIAL** | **Stage 07.1/Post-MVP** |
 | **AUTH-PORTAL-01** | **Portal auth UI not implemented in Stage 07.1** | **TARGET Stage 07.2** | **Stage 07.2** |
 | **AUTH-OAUTH-01** | **OAuth not implemented** | **OUT OF SCOPE / FUTURE** | **Future** |
-| **MODEL-32B-CHAT-ADAPTER-01** | **32B chat adapter over completion endpoint** | **COMPLETED BY HERMES** | **Stage 07.1** |
+| **MODEL-32B-CHAT-ADAPTER-01** | **32B chat adapter over completion endpoint** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |

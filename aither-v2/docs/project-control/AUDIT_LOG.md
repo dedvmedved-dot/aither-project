@@ -82,7 +82,7 @@ Findings added in FINDINGS.md:
 
 ## Stage 07.1 — Auth / API Token / Agent Access Baseline
 
-**Status: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT**
+**Status: PARTIAL / CORRECTIVE REQUIRED**
 
 **Date:** 2026-07-20
 **Old Stage 07 Portal-only task:** SUPERSEDED. New sequence: Stage 07.1 (auth) → Stage 07.2 (Portal).

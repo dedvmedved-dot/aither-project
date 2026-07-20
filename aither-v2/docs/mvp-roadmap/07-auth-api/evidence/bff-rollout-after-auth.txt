@@ -1,1 +1,11 @@
 === bff-rollout-after-auth.txt ===
+Date: 2026-07-20
+Command: kubectl -n aither-inference rollout status deployment/aither-bff
+
+Expected: deployment "aither-bff" successfully rolled out (1 new replica)
+Actual: NOT COLLECTED — VPN unstable at time of evidence collection.
+ConfigMap applied but rollout restart could not be triggered remotely.
+
+Reason: VPN dropped before rollout confirm.
+Expected state: BFF v0.4.0 with scope enforcement and login fix.
+Result: NOT COLLECTED

@@ -1,1 +1,13 @@
 === token-list-no-raw-token.txt ===
+Date: 2026-07-20
+Command: curl -s -b /tmp/cookies.txt http://aither-bff.aither-inference.svc:8000/api/v1/tokens
+
+Expected: HTTP 200
+  {"tokens":[{"token_id":"...","name":"test-agent","scopes":[...],"created_at":"...","last_used_at":"...","revoked":false,"revoked_at":""}]}
+
+Security: Response must NOT contain "token" or "token_hash" fields.
+  - token_hash is an internal field in Redis, filtered out by list_tokens()
+  - Only metadata fields exposed
+
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED

@@ -230,6 +230,17 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
 
     return False, "Authentication required"
 
+def _check_scope(req: Request, required_scope: str) -> bool:
+    """Check if request has the required scope. Admin bypasses all scope checks."""
+    scope = getattr(req.state, "auth_scope", None)
+    if scope is None:
+        return False
+    if isinstance(scope, str) and scope == "admin":
+        return True
+    if isinstance(scope, list):
+        return required_scope in scope
+    return False
+
 # ---------------------------------------------------------------------------
 # Upstream credential helpers
 # ---------------------------------------------------------------------------
@@ -391,7 +402,7 @@ async def login(req: Request):
     # Create session
     session_id = _make_session_id()
     session_data = json.dumps({
-        "username": body.username,
+        "username": username,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "ip": req.client.host if req.client else "unknown",
     })
@@ -560,6 +571,16 @@ async def list_models(req: Request):
     if not allowed:
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
 
+    # Scope check: any model:* scope is enough for listing
+    has_model_scope = False
+    scope = getattr(req.state, "auth_scope", None)
+    if isinstance(scope, str) and scope == "admin":
+        has_model_scope = True
+    elif isinstance(scope, list):
+        has_model_scope = any(s.startswith("model:") for s in scope)
+    if not has_model_scope:
+        raise HTTPException(status_code=403, detail="Insufficient scope: requires model:* scope")
+
     return {
         "models": [
             {"id": "14b", "name": MODEL_14B, "type": "chat"},
@@ -578,6 +599,9 @@ async def chat(req: Request):
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
 
     if model == "32b" or model == MODEL_32B:
+        # Check scope: require model:32b:chat-adapter
+        if not _check_scope(req, "model:32b:chat-adapter"):
+            raise HTTPException(status_code=403, detail="Insufficient scope: requires model:32b:chat-adapter")
         # 32B chat adapter over completion
         messages = body.get("messages", [])
         prompt = _chat_to_completion_prompt(messages)
@@ -599,6 +623,9 @@ async def chat(req: Request):
             )
 
     if model == "14b" or model == MODEL_14B:
+        # Check scope: require model:14b:chat
+        if not _check_scope(req, "model:14b:chat"):
+            raise HTTPException(status_code=403, detail="Insufficient scope: requires model:14b:chat")
         body["model"] = MODEL_14B
         upstream_token = _get_upstream_auth(MODEL_14B)
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {upstream_token}"}
@@ -624,15 +651,16 @@ async def completions(req: Request):
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
 
     if model == "32b" or model == MODEL_32B:
+        # Check scope: require model:32b:completion
+        if not _check_scope(req, "model:32b:completion"):
+            raise HTTPException(status_code=403, detail="Insufficient scope: requires model:32b:completion")
         body["model"] = MODEL_32B
         upstream_token = _get_upstream_auth(MODEL_32B)
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {upstream_token}"}
         url = f"{GATEWAY_32B_URL}/v1/completions"
     elif model == "14b" or model == MODEL_14B:
-        body["model"] = MODEL_14B
-        upstream_token = _get_upstream_auth(MODEL_14B)
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {upstream_token}"}
-        url = f"{CHAT_14B_URL}/v1/completions"
+        # 14B completions: model:14b:chat scope is sufficient (MVP decision — 14B is primarily chat)
+        raise HTTPException(status_code=422, detail="14B model does not support completions endpoint. Use /api/v1/chat for 14B.")
     else:
         raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
 

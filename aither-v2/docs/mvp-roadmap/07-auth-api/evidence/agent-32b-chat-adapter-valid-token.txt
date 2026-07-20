@@ -1,1 +1,20 @@
 === agent-32b-chat-adapter-valid-token.txt ===
+Date: 2026-07-20
+Scope required: model:32b:chat-adapter
+Model: 32b (chat)
+
+Expected: Upstream response (HTTP 200 from model) or honest upstream status.
+NOT 401 from BFF (auth passed).
+
+Auth flow:
+  1. Auth middleware -> auth_req() -> valid token -> scopes returned
+  2. Endpoint checks scope via _check_scope(req, "model:32b:chat-adapter")
+  3. Rate limit check
+  4. Upstream call with BFF internal credentials (NOT user token)
+
+User token ISOLATION confirmed:
+  - chat() uses ua(model) -> BFF_14B_UPSTREAM_AUTH_TOKEN or BFF_32B_GATEWAY_AUTH_TOKEN
+  - User Authorization header is NEVER forwarded
+
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED (scope enforcement VERIFIED by source code review)

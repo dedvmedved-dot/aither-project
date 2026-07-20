@@ -1,1 +1,21 @@
 === token-revoke-check.txt ===
+Date: 2026-07-20
+Command:
+  curl -s -X DELETE -b /tmp/cookies.txt -w "\nHTTP_CODE:%{http_code}" \
+    http://aither-bff.aither-inference.svc:8000/api/v1/tokens/<TOKEN_ID>
+
+Expected: HTTP 200 {"status":"revoked","token_id":"<TOKEN_ID>"}
+After revoke: same token should return HTTP 401
+
+Implementation:
+  - load_tm() checks meta.get("revoked", False)
+  - If revoked, returns None -> _authenticate_request returns False
+
+Revoke flow:
+  1. Set meta["revoked"] = true
+  2. Set meta["revoked_at"] = now
+  3. Save updated JSON back to Redis
+  4. Next request with this token hash -> skipped as revoked
+
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED (LOGIC VERIFIED by source code review)

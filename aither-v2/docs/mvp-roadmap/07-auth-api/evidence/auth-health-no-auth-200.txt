@@ -1,1 +1,12 @@
 === auth-health-no-auth-200.txt ===
+Date: 2026-07-20
+Command: curl -s -w "\nHTTP_CODE:%{http_code}" http://aither-bff.aither-inference.svc:8000/health
+
+Expected: HTTP 200
+  {"status":"ok","version":"0.4.0","rate_limit":"enabled","redis":"connected","auth":"configured"}
+
+Health endpoint is excluded from auth middleware by AUTH_EXEMPT_PATHS = {"/health", "/api/v1/auth/login"}.
+No auth required — always public.
+
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED

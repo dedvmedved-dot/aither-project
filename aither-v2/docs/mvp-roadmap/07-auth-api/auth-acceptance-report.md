@@ -6,16 +6,21 @@
 
 | Area | Status |
 |---|---|
-| Central auth middleware | IMPLEMENTED |
-| Admin login/logout | IMPLEMENTED |
+| Central auth middleware | IMPLEMENTED (Corrective 1: scope enforcement added) |
+| Admin login/logout | IMPLEMENTED (Corrective 1: login bug fixed) |
 | API token creation | IMPLEMENTED |
 | API token listing | IMPLEMENTED |
 | API token revocation | IMPLEMENTED |
-| Agent access with Bearer token | IMPLEMENTED |
-| User token isolation (upstream) | IMPLEMENTED |
-| 32B chat adapter | IMPLEMENTED |
+| Agent access with Bearer token | IMPLEMENTED (Corrective 1: scope enforcement added) |
+| User token isolation (upstream) | IMPLEMENTED (PASSED code review) |
+| 32B chat adapter | IMPLEMENTED (Corrective 1: scope enforcement added) |
+| 32B chat adapter scope | model:32b:chat-adapter required |
+| 14B chat scope | model:14b:chat required |
+| 32B completion scope | model:32b:completion required |
+| 14B completions | BLOCKED (422) — use /api/v1/chat instead |
 | Rate limit integration | PRESERVED |
-| Evidence collection | PARTIAL (VPN unstable) |
+| Source/ConfigMap alignment | VERIFIED (both syntax OK, functional match) |
+| Runtime acceptance | NOT COLLECTED (VPN unstable) |
 
 ### Endpoints Added
 

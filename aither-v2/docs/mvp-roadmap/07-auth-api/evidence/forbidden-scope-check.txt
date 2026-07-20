@@ -1,1 +1,26 @@
 === forbidden-scope-check.txt ===
+Date: 2026-07-20
+Method: git diff --stat vs allowed scope
+
+Allowed paths:
+  aither-v2/tools/bff/
+  aither-v2/manifests/mvp-roadmap/05-bff/
+  aither-v2/docs/mvp-roadmap/07-auth-api/
+  aither-v2/manifests/mvp-roadmap/07-auth-api/
+  aither-v2/docs/mvp-roadmap/00-governance/
+  aither-v2/docs/project-control/
+
+Changes outside allowed scope:
+  NONE
+
+Forbidden areas confirmed unchanged:
+  vLLM Deployments/Services: NOT MODIFIED
+  GPU limits: NOT MODIFIED
+  TP/tensor_parallel_size: NOT MODIFIED
+  Gateway runtime: NOT MODIFIED
+  Redis manifest/runtime: NOT MODIFIED
+  Portal: NOT MODIFIED
+  OAuth: NOT MODIFIED
+  Monitoring: NOT MODIFIED
+  Stage 05/06 evidence: NOT MODIFIED
+Result: PASSED

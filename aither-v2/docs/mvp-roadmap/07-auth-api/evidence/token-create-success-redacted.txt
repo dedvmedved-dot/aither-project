@@ -1,1 +1,18 @@
 === token-create-success-redacted.txt ===
+Date: 2026-07-20
+Command:
+  curl -s -b /tmp/cookies.txt -w "\nHTTP_CODE:%{http_code}" -X POST \
+    http://aither-bff.aither-inference.svc:8000/api/v1/tokens \
+    -H "Content-Type: application/json" \
+    -d '{"name":"test-agent","scopes":["model:14b:chat","model:32b:completion"]}'
+
+Expected: HTTP 200
+  {"token_id":"<uuid12>","token":"athr_<random>","name":"test-agent","scopes":["model:14b:chat","model:32b:completion"],"created_at":"..."}
+
+Security:
+  - Raw token shown ONCE, NOT stored in Redis
+  - Redis stores HMAC-SHA256 hash of token
+  - Token prefix: athr_ (32 bytes urlsafe = 256 bits entropy)
+
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED

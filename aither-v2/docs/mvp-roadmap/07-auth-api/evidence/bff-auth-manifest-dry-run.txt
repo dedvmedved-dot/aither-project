@@ -1,1 +1,16 @@
 === bff-auth-manifest-dry-run.txt ===
+Date: 2026-07-20
+Command: kubectl apply -f manifests/mvp-roadmap/05-bff/bff-mvp.yaml --dry-run=client
+
+Expected: All 3 documents valid (ConfigMap, Deployment, Service)
+Actual: ConfigMap aither-bff-config configured (dry-run)
+        Deployment aither-bff configured (dry-run)
+        Service aither-bff unchanged (dry-run)
+
+Verification: Documents=3 all at correct indentation and structure
+  - ConfigMap: name=aither-bff-config, namespace=aither-inference
+  - Deployment: name=aither-bff, image=python:3.11-slim
+  - Service: name=aither-bff, ClusterIP
+
+Secret references: aither-bff-auth (6 keys via valueFrom/secretKeyRef)
+Result: PASSED

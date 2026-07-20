@@ -1,1 +1,18 @@
 === agent-models-valid-token-200.txt ===
+Date: 2026-07-20
+Command:
+  curl -s -w "\nHTTP_CODE:%{http_code}" -H "Authorization: Bearer athr_<valid_token>" \
+    http://aither-bff.aither-inference.svc:8000/api/v1/models
+
+Expected: HTTP 200
+  {"models":[{"id":"14b","name":"qwen-14b","type":"chat"},{"id":"32b","name":"qwen-32b-base","type":"completion"}]}
+
+Auth flow for agent:
+  1. Auth middleware intercepts -> calls auth_req()
+  2. auth_req() extracts Bearer token -> htok() -> load_tm()
+  3. Token found, not revoked -> returns True + scopes
+  4. list_models() checks any(model:* scope) -> PASS
+
+Scope enforcement present: admin or model:* scope required.
+Actual: NOT COLLECTED — VPN unstable.
+Result: NOT COLLECTED

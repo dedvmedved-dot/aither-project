@@ -16,12 +16,11 @@ Date: 2026-07-20
 | TP=2 | POSTPONED / RISK ACCEPTED | docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md |
 | BFF | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/05-bff/bff-acceptance-report.md |
 | Redis RL | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
-| Auth / API Token | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
+| Auth / API Token | **CORRECTIVE IN PROGRESS** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
 | Portal (UI) | NOT STARTED — superseded by Stage 07.1 + Stage 07.2 | |
 | Monitoring | PARTIAL | |
 | Provenance | NOT STARTED | |
 | VPN | DIAGNOSED | |
-| Auth / API Token | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
 
 ## Current blockers
 
@@ -39,4 +38,4 @@ Date: 2026-07-20
 ## Next approved stage
 
 Stage: Stage 07.1 — Auth / API Token / Agent Access Baseline
-Status: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Status: PARTIAL / CORRECTIVE REQUIRED
