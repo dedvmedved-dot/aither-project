@@ -15,6 +15,13 @@ data:
             server_name _;
             client_max_body_size 4m;
 
+            # Local health endpoint — checks nginx process only, not upstream
+            location = /healthz {
+                access_log off;
+                return 200 'ok';
+                add_header Content-Type text/plain;
+            }
+
             location = /v1/chat/completions {
                 return 422 '{"error":"qwen-32b-base does not support chat"}';
             }
@@ -68,15 +75,24 @@ spec:
           resources:
             requests: { cpu: "50m", memory: "64Mi" }
             limits: { cpu: "500m", memory: "256Mi" }
+          # startupProbe: allows nginx up to 150s to start (30 × 5s)
           startupProbe:
-            httpGet: { path: /health, port: 8000 }
+            httpGet: { path: /healthz, port: 8000 }
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 30
+          # readinessProbe: reflects readiness to accept traffic
           readinessProbe:
             httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          # livenessProbe: checks local nginx process (not upstream)
+          # Purpose: restart nginx if the local process is dead
+          # Does NOT depend on vLLM — /healthz is a local nginx return
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8000 }
+            periodSeconds: 30
             failureThreshold: 3
       volumes:
         - name: config
