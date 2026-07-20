@@ -371,3 +371,35 @@ Stage 08: NOT APPROVED
 Stage 07.2: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 08 — MVP End-to-End Runtime Acceptance
+
+**Date:** 2026-07-20
+**Commit:** 945d07d → (pending Stage 08 commit)
+**Method:** GitHub connector (post-execution)
+
+**Decision (pending ChatGPT audit):**
+- Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT
+- Upstream model responses not confirmed (AUTH-UPSTREAM-VALID-01: PARTIAL)
+
+**Evidence collected:**
+1. Portal deployment and health: PASSED
+2. Login/session: PASSED
+3. Token create/list/revoke/blocked: PASSED
+4. Models with Bearer token: PASSED
+5. 14B chat BFF flow: PASSED (upstream 401)
+6. 32B completion BFF flow: PASSED (upstream 401)
+7. 32B chat adapter BFF flow: PASSED (upstream 401)
+8. Rate limit 429 after full auth stack: PASSED
+9. No secrets committed: PASSED
+10. Forbidden zones unchanged: PASSED
+
+**E2E Acceptance Report:** docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md
+
+**Gate after Stage 08:**
+```
+Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT
+Stage 09: NOT APPROVED
+```

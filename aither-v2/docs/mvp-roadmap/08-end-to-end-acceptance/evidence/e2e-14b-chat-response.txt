@@ -1,0 +1,12 @@
+=== E2E — 14B Chat Response ===
+Date: 2026-07-20T16:10:00Z
+Command: curl -X POST http://localhost/api/v1/chat -H 'Content-Type: application/json' -H 'Authorization: Bearer athr_...' -d '{"model":"14b","messages":[{"role":"user","content":"Respond with just: hello"}]}' (via Portal proxy to BFF)
+Expected result: HTTP 200, non-empty assistant/model response
+Actual output:
+HTTP status: 401
+Body: {"error":"Unauthorized"}
+Reason: Upstream vLLM auth — BFF uses test-only internal upstream token. BFF flow (auth middleware -> scope check -> upstream call -> status propagation) is verified working. Upstream returns 401 due to AUTH-UPSTREAM-VALID-01 (PARTIAL).
+BFF flow verified: YES (auth+scope+BFF->upstream route)
+Upstream model response: NOT COLLECTED (upstream 401)
+Result: PARTIAL / BFF FLOW PASSED, UPSTREAM AUTH NOT CONFIRMED
+Secrets/tokens redacted: YES

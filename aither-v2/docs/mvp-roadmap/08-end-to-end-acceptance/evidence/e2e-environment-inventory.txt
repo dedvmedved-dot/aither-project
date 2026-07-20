@@ -1,0 +1,14 @@
+=== E2E — Environment Inventory ===
+Date: 2026-07-20T16:10:00Z
+Method: kubectl get pods -n aither-inference -o wide
+Expected result: BFF (1/1 Running), Portal (1/1 Running), Redis (1/1 Running), vLLM 14B (1/1 Running), vLLM 32B (1/1 Running), Gateway 32B (1/1 Running)
+
+Actual output:
+aither-bff-6fd96f6758-m7zj5                1/1     Running   0         4h54m
+aither-portal-56d684769b-chfxj             1/1     Running   0         3h8m
+aither-redis-rate-limit-754cdd9784-rnf45   1/1     Running   0         8h
+vllm-14b-instruct-7f6f784dcb-g2h5d         1/1     Running   0         30h
+vllm-32b-gptq-7d6dc7c64-r82nh              1/1     Running   0         30h
+nginx-gateway-32b-5d447469b9-pvxtq         1/1     Running   0         19h
+
+Result: PASSED

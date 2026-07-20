@@ -1,0 +1,8 @@
+=== E2E — Login Success ===
+Date: 2026-07-20T16:10:00Z
+Command: curl -X POST http://localhost/api/v1/auth/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' (via Portal proxy to BFF)
+Expected result: HTTP 200, JSON with status=ok, session_id
+Actual output:
+{"status":"ok","session_id":"6a0e18d59e6c42e1ad8783ab96ea48be"}
+HTTP status: 200
+Result: PASSED

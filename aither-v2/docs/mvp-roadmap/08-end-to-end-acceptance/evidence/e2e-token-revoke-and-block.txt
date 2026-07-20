@@ -1,0 +1,14 @@
+=== E2E — Token Revoke and Blocked ===
+Date: 2026-07-20T16:10:00Z
+Commands:
+  1. DELETE /api/v1/tokens/{id} with Bearer token
+  2. GET /api/v1/models with same (now revoked) Bearer token
+Expected result:
+  Revoke: HTTP 200, status=revoked
+  Blocked: HTTP 401, error indicates token is revoked
+Actual output:
+  Revoke: HTTP 200, {"status":"revoked","token_id":"742ac6f1b925"}
+  Blocked check: HTTP 401, {"error":"Token not found or revoked"}
+Token ID: 742ac6f1b925
+Token redacted: YES
+Result: PASSED

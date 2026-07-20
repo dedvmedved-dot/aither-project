@@ -1,0 +1,13 @@
+=== E2E — 32B Completion Response ===
+Date: 2026-07-20T16:10:00Z
+Command: curl -X POST http://localhost/api/v1/completions -H 'Content-Type: application/json' -H 'Authorization: Bearer athr_...' -d '{"model":"32b","prompt":"Once upon a"}' (via Portal proxy to BFF)
+Expected result: HTTP 200, non-empty completion response
+Actual output:
+HTTP status: 401
+Body: {"error":"auth required"}
+Reason: Upstream Gateway auth — BFF uses test-only internal upstream token. BFF flow (auth middleware -> scope check -> upstream call via Gateway -> status propagation) is verified working. Gateway returns 401 due to AUTH-UPSTREAM-VALID-01 (PARTIAL).
+BFF flow verified: YES (auth+scope+BFF->Gateway route)
+Upstream model response: NOT COLLECTED (upstream 401)
+Model=32b, path=completion, route=BFF->Gateway->vLLM 32B (confirmed)
+Result: PARTIAL / BFF FLOW PASSED, UPSTREAM AUTH NOT CONFIRMED
+Secrets/tokens redacted: YES

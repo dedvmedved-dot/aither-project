@@ -1,0 +1,10 @@
+=== E2E — Token List (Metadata Only) ===
+Date: 2026-07-20T16:10:00Z
+Command: curl -b session_cookies http://localhost/api/v1/tokens (via Portal proxy to BFF)
+Expected result: HTTP 200, JSON with {"tokens":[...]}, each token has token_id, name, scopes, created_at, last_used_at, revoked, revoked_at. NO raw "token" field.
+Actual output:
+{"tokens":[{"token_id":"c5e6b513a9e4","name":"e2e-test-token","scopes":["model:14b:chat","model:32b:completion","model:32b:chat-adapter"],"created_at":"2026-07-20T16:09:43.879575+00:00","last_used_at":"","revoked":false,"revoked_at":""},...]}
+HTTP status: 200
+Fields: token_id, name, scopes, created_at, last_used_at, revoked, revoked_at
+Raw "token" field present: NO
+Result: PASSED

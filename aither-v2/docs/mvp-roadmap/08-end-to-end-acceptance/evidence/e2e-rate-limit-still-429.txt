@@ -1,0 +1,17 @@
+=== E2E — Rate Limit Still 429 ===
+Date: 2026-07-20T16:10:00Z
+Command: 15 rapid GET /api/v1/models with same Bearer token via Portal proxy
+Expected result: First requests HTTP 200, after threshold HTTP 429, Redis counter > threshold
+Actual output:
+  Req 1: HTTP 200
+  Req 2: HTTP 200
+  Req 3: HTTP 200
+  Req 4-10: HTTP 200 (10 total)
+  Req 11: HTTP 429
+  Req 12-15: HTTP 429 (5 total)
+  200 count: 10
+  429 count: 5
+Token used (redacted): athr_HQI2GZKX3r...
+Rate limiting window: 60s, 10 req limit
+Result: PASSED
+Secrets/tokens redacted: YES

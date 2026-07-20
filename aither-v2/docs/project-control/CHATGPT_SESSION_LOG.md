@@ -960,3 +960,94 @@ Stage 08: NOT APPROVED
 Stage 07.2: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 08 — MVP End-to-End Runtime Acceptance
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+**Task source:** ChatGPT
+
+**Reason:**
+- Stage 07.2 Portal passed with findings / connector verified.
+- Need full MVP end-to-end runtime acceptance through Portal/BFF/model path.
+
+### What changed (Stage 08)
+
+New directory: aither-v2/docs/mvp-roadmap/08-end-to-end-acceptance/
+- 13 evidence files in evidence/
+- 5 reports: INSTRUCTIONS.md, e2e-architecture.md, e2e-acceptance-report.md, e2e-security-notes.md, e2e-operator-notes.md
+- Status/docs updated: current-mvp-status.md, FINDINGS.md, PROJECT_MASTER.md, CHAT_HANDOVER.md, AUDIT_LOG.md, CHATGPT_SESSION_LOG.md
+
+### Evidence collected
+
+| Evidence | Status |
+|---|---|
+| e2e-environment-inventory.txt | PASSED |
+| e2e-portal-health.txt | PASSED |
+| e2e-login-success.txt | PASSED |
+| e2e-token-create-redacted.txt | PASSED |
+| e2e-token-list-metadata-only.txt | PASSED |
+| e2e-models-with-token.txt | PASSED |
+| e2e-14b-chat-response.txt | PARTIAL / BFF FLOW PASSED |
+| e2e-32b-completion-response.txt | PARTIAL / BFF FLOW PASSED |
+| e2e-32b-chat-adapter-response.txt | PARTIAL / BFF FLOW PASSED |
+| e2e-rate-limit-still-429.txt | PASSED |
+| e2e-token-revoke-and-block.txt | PASSED |
+| e2e-no-secret-leak-check.txt | PASSED |
+| e2e-forbidden-scope-check.txt | PASSED |
+
+### Model response results
+
+| Model | Endpoint | HTTP Status | Upstream | Result |
+|---|---|---|---|---|
+| 14B | POST /api/v1/chat | 401 | vLLM 14B | BFF flow PASSED, upstream auth not confirmed |
+| 32B | POST /api/v1/completions | 401 | Gateway → vLLM 32B | BFF flow PASSED, upstream auth not confirmed |
+| 32B (adapter) | POST /api/v1/chat | 401 | Gateway → vLLM 32B | BFF flow PASSED, upstream auth not confirmed |
+
+### Token lifecycle results
+
+| Operation | HTTP Status | Result |
+|---|---|---|
+| Login | 200 | PASSED |
+| Token create | 200 (raw token shown once) | PASSED |
+| Token list | 200 (metadata only, no raw token) | PASSED |
+| Token revoke | 200 | PASSED |
+| Revoked token use | 401 | PASSED |
+
+### Rate limit results
+
+15 rapid GET /api/v1/models with same Bearer token:
+- First 10: HTTP 200
+- Req 11-15: HTTP 429
+- Result: PASSED
+
+### Remaining PARTIAL / FAILED / NOT COLLECTED
+
+- AUTH-UPSTREAM-VALID-01: PARTIAL (test-only upstream tokens, real model response not obtained)
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- AUTH-OAUTH-01: OUT OF SCOPE / FUTURE
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- BFF-TOKEN-01: NOT COLLECTED / PARTIAL (same as AUTH-UPSTREAM-VALID-01)
+- BFF-AUTH-01: PARTIAL
+- PROD-READY-01: OPEN
+
+### Forbidden areas unchanged
+
+- tools/bff/app.py: NOT MODIFIED
+- tools/portal/*: NOT MODIFIED
+- manifests/mvp-roadmap/05-bff/bff-mvp.yaml: NOT MODIFIED
+- manifests/mvp-roadmap/07-portal/portal-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06/07.1/07.2 evidence: NOT MODIFIED
+- Stage 09: NOT STARTED
+
+### Gate
+
+```
+Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT
+Stage 09: NOT APPROVED
+```

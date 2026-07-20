@@ -1,0 +1,9 @@
+=== E2E — Models with Bearer Token ===
+Date: 2026-07-20T16:10:00Z
+Command: curl http://localhost/api/v1/models -H 'Authorization: Bearer athr_...' (via Portal proxy to BFF)
+Expected result: HTTP 200, JSON with {"models":[{"id":"14b",...},{"id":"32b",...}]}
+Actual output:
+{"models":[{"id":"14b","name":"qwen-14b","type":"chat"},{"id":"32b","name":"qwen-32b-base","type":"completion"}]}
+HTTP status: 200
+Models returned: 14b (chat), 32b (completion)
+Result: PASSED

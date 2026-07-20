@@ -1,0 +1,34 @@
+=== E2E — Forbidden Scope Check ===
+Date: 2026-07-20T16:10:00Z
+Method: git diff verification — check that only Stage 08 files and docs were modified
+Expected result: No changes to forbidden zones: BFF, Portal, manifests, vLLM, GPU, TP, Gateway, Redis, OAuth, Monitoring, Stage 05/06/07.1/07.2 evidence
+Actual output:
+Files created/modified in this stage:
+  aither-v2/docs/mvp-roadmap/08-end-to-end-acceptance/ (new directory: evidence/, INSTRUCTIONS.md, reports)
+  aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md (status update only)
+  aither-v2/docs/project-control/FINDINGS.md (added E2E findings)
+  aither-v2/docs/project-control/PROJECT_MASTER.md (added Stage 08 entry)
+  aither-v2/docs/project-control/CHAT_HANDOVER.md (Stage 08 status)
+  aither-v2/docs/project-control/CHATGPT_SESSION_LOG.md (session log entry)
+  aither-v2/docs/project-control/AUDIT_LOG.md (audit entry)
+
+Not modified:
+  tools/bff/app.py — NOT MODIFIED
+  tools/portal/* — NOT MODIFIED
+  manifests/mvp-roadmap/05-bff/bff-mvp.yaml — NOT MODIFIED
+  manifests/mvp-roadmap/07-portal/portal-mvp.yaml — NOT MODIFIED
+  vLLM Deployments/Services — NOT MODIFIED
+  GPU limits / TP / tensor_parallel_size — NOT MODIFIED
+  Gateway runtime — NOT MODIFIED
+  Redis manifest/runtime — NOT MODIFIED
+  OAuth — NOT MODIFIED
+  Monitoring — NOT MODIFIED
+  Stage 05 evidence — NOT MODIFIED
+  Stage 06 evidence — NOT MODIFIED
+  Stage 07.1 evidence — NOT MODIFIED
+  Stage 07.2 evidence — NOT MODIFIED
+  Kubernetes secrets — NOT MODIFIED (runtime only, not committed)
+  kubeconfig — NOT MODIFIED
+  WireGuard/OpenVPN configs — NOT MODIFIED
+
+Result: PASSED

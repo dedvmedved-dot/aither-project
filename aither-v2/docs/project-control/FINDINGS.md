@@ -53,3 +53,11 @@
 | **PORTAL-UI-MODEL-LIST-01** | **Portal model selector renders from BFF {"models":[...]}** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
 | **PORTAL-UI-NAV-01** | **Portal navigation works without JS errors** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
 | **PORTAL-CM-ALIGN-01** | **Portal manifest ConfigMap matches tools/portal source** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **E2E-PORTAL-01** | **Portal end-to-end access** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
+| **E2E-AUTH-01** | **Login/session/token lifecycle end-to-end** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
+| **E2E-14B-CHAT-01** | **14B chat returns model response through Portal/BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT / PARTIAL** | **Stage 08** |
+| **E2E-32B-COMPLETION-01** | **32B completion returns model response through BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT / PARTIAL** | **Stage 08** |
+| **E2E-32B-CHAT-ADAPTER-01** | **32B chat adapter returns model response through Portal/BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT / PARTIAL** | **Stage 08** |
+| **E2E-RATE-LIMIT-01** | **Rate limit still returns 429 after full E2E flow** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
+| **E2E-TOKEN-REVOKE-01** | **Revoked token blocked** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
+| **E2E-NO-SECRETS-01** | **No raw tokens/secrets committed** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |

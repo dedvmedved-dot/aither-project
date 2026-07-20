@@ -18,8 +18,8 @@ Date: 2026-07-20
 | Redis RL | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
 | Auth / API Token | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
 | Portal (UI) | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-portal/portal-acceptance-report.md |
+| E2E (Portal→BFF→Model) | PARTIAL / WAITING FOR CHATGPT AUDIT | docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md |
 | Monitoring | PARTIAL | |
-| Provenance | NOT STARTED | |
 | VPN | DIAGNOSED | |
 
 ## Current blockers

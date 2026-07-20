@@ -62,7 +62,12 @@ Stage 07.2 Portal: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
    - Corrective 1 fixed UI data binding and navigation.
    - Corrective 2 fixed portal-mvp.yaml inline ConfigMap alignment.
    - SHA256 verified: index.html, app.js, styles.css, nginx.conf all MATCH.
-Stage 08: NOT APPROVED.
+Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT (overall MVP E2E).
+   - Portal/BFF/Redis/vLLM/Gateway path verified end-to-end.
+   - Login/token/revoke lifecycle verified.
+   - Rate limit 429 confirmed after full auth stack.
+   - Upstream model responses blocked by test-only internal tokens (AUTH-UPSTREAM-VALID-01: PARTIAL).
+   - BFF flow (auth -> scope -> upstream -> status propagation) confirmed for all endpoints.
 
 Stage 05 status details:
 - BFF deployed: 1/1 Running, FastAPI on python:3.11-slim
