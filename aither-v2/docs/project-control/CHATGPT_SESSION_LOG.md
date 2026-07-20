@@ -699,3 +699,127 @@ Stage 07.1: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 07.2 Portal: READY FOR TASK PREPARATION
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.2 — Portal UI with Auth, Token Management and Chat Access
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+**Task source:** ChatGPT
+
+**Decision:**
+- Stage 07.1 passed with findings / connector verified.
+- Stage 07.2 Portal UI implemented: nginx:alpine, static HTML/CSS/JS, reverse proxy to BFF only.
+- External audit (commit aa24ccc) returned PARTIAL / CORRECTIVE REQUIRED.
+
+### What changed (initial implementation, commit aa24ccc)
+
+Initial delivery is compressed from earlier session log — see project history for full detail.
+- 36 files created: portal source code, manifests, evidence, reports.
+- Portal deployed: 1/1 Running, nginx:alpine, reverse proxy /api/ → aither-bff:8000.
+- Login/logout/me, token create/list/revoke, chat 14B/32B adapter, API guide, status.
+- BFF-only architecture, no direct vLLM/Gateway.
+- Raw token shown once, not persisted in browser storage.
+- 32B labeled as chat adapter over completion, never native.
+
+### Evidence collected (initial delivery)
+
+24 evidence files — all PASSED (deployment, health, login, tokens, models, chat, BFF-only, token persistence, no secrets, forbidden scope).
+
+### Reports created
+
+- INSTRUCTIONS.md, portal-architecture.md, portal-acceptance-report.md, portal-security-notes.md
+- portal-user-guide.md, api-token-user-guide.md, chat-ui-notes.md, portal-inventory-report.md
+
+### External audit result (commit aa24ccc)
+
+**Result: Stage 07.2 Portal — PARTIAL / CORRECTIVE REQUIRED**
+
+Audit findings:
+1. Token list UI broken — loadTokens() expected array but BFF returns {"tokens":[...]}.
+2. Model selector broken — loadModels() expected array but BFF returns {"models":[...]}.
+3. Navigation broken — showPage() not exported to window.App; onclick handlers cause ReferenceError.
+4. Evidence tested API via curl but not UI/DOM rendering.
+5. PROJECT_MASTER.md not updated for Stage 07.2.
+
+### Gate before corrective
+
+```
+Stage 07.2: PARTIAL / CORRECTIVE REQUIRED
+Stage 08: NOT APPROVED
+```
+
+---
+
+## Stage 07.2 Corrective 1 — Portal UI response parsing, navigation and evidence correction
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+**Audit source:** ChatGPT GitHub connector audit of aa24ccc
+
+**Reason:**
+- loadTokens() expected array but BFF returns {"tokens":[...]}.
+- loadModels() expected array but BFF returns {"models":[...]}.
+- navigation used showPage() without exporting it to window.App.
+- UI rendering evidence was insufficient (API curl only, no DOM rendering proof).
+- PROJECT_MASTER.md stale — Stage 07.1 still at PARTIAL / CORRECTIVE REQUIRED.
+
+### What changed (this corrective)
+
+1. **app.js fixes:**
+   - loadTokens(): `const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data.tokens) ? r.data.tokens : [])`
+   - loadModels(): `const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data.models) ? r.data.models : [])`
+   - window.App export now includes `showPage` — all nav links use `App.showPage()`.
+2. **index.html:** All inline onclick handlers changed from `showPage(...)` to `App.showPage(...)`.
+3. **ConfigMap:** Recreated from source files — all 4 portal files align.
+4. **Evidence files added:**
+   - portal-ui-token-list-render-check.txt — token list renders from {"tokens":[...]}
+   - portal-ui-model-select-render-check.txt — model select renders from {"models":[...]}
+   - portal-ui-navigation-check.txt — all nav links use App.showPage(), no ReferenceError
+5. **Updated evidence files:** portal-configmap-source-alignment, portal-token-list-no-raw-token, portal-token-revoke, portal-models-list-auth, portal-bff-only-access-check, portal-token-not-persisted-check, portal-forbidden-scope-check.
+6. **Status docs aligned:** PROJECT_MASTER.md updated with Stage 07.2 entry and Stage 07.1 corrected status.
+
+### Evidence collected (new)
+
+| Evidence | Status |
+|---|---|
+| portal-ui-token-list-render-check.txt | PASSED |
+| portal-ui-model-select-render-check.txt | PASSED |
+| portal-ui-navigation-check.txt | PASSED |
+
+### Remaining PARTIAL / FAILED / NOT COLLECTED
+
+No new PARTIAL/FAILED findings. Unchanged from Stage 07.1:
+- AUTH-UPSTREAM-VALID-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- BFF-TOKEN-01: NOT COLLECTED
+- BFF-AUTH-01: PARTIAL
+- PROD-READY-01: OPEN
+
+### Forbidden areas unchanged
+
+- tools/bff/app.py: NOT MODIFIED
+- manifest/mvp-roadmap/05-bff/bff-mvp.yaml: NOT MODIFIED
+- vLLM Deployments/Services: NOT MODIFIED
+- GPU limits / TP / tensor_parallel_size: NOT MODIFIED
+- Gateway runtime: NOT MODIFIED
+- Redis manifest/runtime: NOT MODIFIED
+- OAuth: NOT MODIFIED
+- Monitoring: NOT MODIFIED
+- Stage 05 evidence: NOT MODIFIED
+- Stage 06 evidence: NOT MODIFIED
+- Stage 07.1 evidence: NOT MODIFIED
+- Kubernetes secrets: NOT MODIFIED
+- kubeconfig: NOT MODIFIED
+- WireGuard/OpenVPN configs: NOT MODIFIED
+
+### Gate
+
+```
+Stage 07.2: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 08: NOT APPROVED
+```

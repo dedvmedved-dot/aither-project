@@ -50,6 +50,9 @@
 | portal-token-not-persisted-check.txt | PASSED |
 | portal-no-secret-leak-check.txt | PASSED |
 | portal-forbidden-scope-check.txt | PASSED |
+| **portal-ui-token-list-render-check.txt** | PASSED |
+| **portal-ui-model-select-render-check.txt** | PASSED |
+| **portal-ui-navigation-check.txt** | PASSED |
 
 ### Key Findings
 

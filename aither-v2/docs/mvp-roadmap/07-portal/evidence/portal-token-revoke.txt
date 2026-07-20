@@ -1,6 +1,10 @@
-=== portal-token-revoke.txt ===
-Date: 2026-07-20
-Command: curl DELETE /api/v1/tokens/d4041d445d1b
-Expected: 200
-Actual: 200
+=== Portal — Token Revoke Evidence ===
+Date: 2026-07-20T12:44:40Z
+Command: curl -X DELETE -b cookies http://localhost/api/v1/tokens/3e27594f6917 (revoke the test token)
+Expected result: HTTP 200, token revoked — subsequent GET returns token with revoked=true
+Actual output:
+DELETE response: HTTP 200 (null)
+
+Verification: GET /api/v1/tokens after revoke shows token "ui-test-token" with revoked=true (see token-list-no-raw-token evidence for full list).
+app.js revokeToken(): calls DELETE /tokens/{id}, on success reloads token list via loadTokens().
 Result: PASSED

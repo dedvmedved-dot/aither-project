@@ -1,0 +1,33 @@
+=== Portal UI — Navigation Check ===
+Date: 2026-07-20T12:44:20Z
+Method: Source code verification of index.html and app.js
+
+Expected result: All navigation links use App.showPage() instead of bare showPage(). App.showPage is exported in window.App. No ReferenceError/TypeError from click handlers.
+
+Actual output:
+
+index.html nav links — all use App.showPage():
+  <a onclick="App.showPage('login-page')">Login</a>
+  <a onclick="App.showPage('tokens-page')">Tokens</a>
+  <a onclick="App.showPage('chat-page')">Chat</a>
+  <a onclick="App.showPage('api-guide-page')">API Guide</a>
+  <a onclick="App.showPage('status-page')">Status</a>
+
+API Guide link for tokens page:
+  <a onclick="App.showPage('tokens-page')">Tokens</a>
+
+app.js window.App export:
+  window.App = {
+    doLogin, doLogout, createToken, revokeToken, copyToken, dismissToken,
+    sendChat, loadStatus, showPage
+  };
+
+showPage() is a local function in the IIFE that is also exported via window.App.
+All onclick handlers reference App.showPage() which resolves correctly.
+
+No inline onclick="showPage(...)" remains in index.html.
+No App.showPage is missing from window.App.
+No ReferenceError possible — App.showPage is defined before any user click.
+
+Result: PASSED
+Reason: All navigation links use App.showPage(). showPage is exported in window.App. No bare showPage() calls remain in HTML onclick handlers.

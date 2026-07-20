@@ -11,11 +11,11 @@
 <!-- Navbar -->
 <nav class="nav">
     <span class="logo">Aither</span>
-    <a href="#" id="nav-login" class="no-auth active" onclick="showPage('login-page')">Login</a>
-    <a href="#" id="nav-tokens" class="auth-only" style="display:none" onclick="showPage('tokens-page')">Tokens</a>
-    <a href="#" id="nav-chat" class="auth-only" style="display:none" onclick="showPage('chat-page')">Chat</a>
-    <a href="#" id="nav-guide" onclick="showPage('api-guide-page')">API Guide</a>
-    <a href="#" id="nav-status" onclick="showPage('status-page')">Status</a>
+    <a href="#" id="nav-login" class="no-auth active" onclick="App.showPage('login-page')">Login</a>
+    <a href="#" id="nav-tokens" class="auth-only" style="display:none" onclick="App.showPage('tokens-page')">Tokens</a>
+    <a href="#" id="nav-chat" class="auth-only" style="display:none" onclick="App.showPage('chat-page')">Chat</a>
+    <a href="#" id="nav-guide" onclick="App.showPage('api-guide-page')">API Guide</a>
+    <a href="#" id="nav-status" onclick="App.showPage('status-page')">Status</a>
     <span class="spacer"></span>
     <span id="nav-username" class="user-badge auth-only" style="display:none"></span>
     <button class="btn-logout auth-only" style="display:none" onclick="App.doLogout()">Logout</button>

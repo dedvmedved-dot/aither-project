@@ -50,7 +50,7 @@ Stage 07.1 — Auth / API Token / Agent Access Baseline: PASSED WITH FINDINGS / 
    - AUTH-RL-429-01: PASSED / CONNECTOR VERIFIED — controlled burst test confirmed HTTP 429 after 10th request (15 reqs, counter=15, TTL=28s).
    - Findings: AUTH-UPSTREAM-VALID-01 (PARTIAL), AUTH-REDIS-FAIL-01 (PARTIAL), AUTH-TOKEN-PERSIST-01 (PARTIAL).
    - Old Stage 07 Portal-only task: SUPERSEDED.
-Stage 07.2 Portal: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
+Stage 07.2 Portal: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT (Corrective 1 applied).
    - nginx:alpine portal deployed, 1/1 Running.
    - Login/logout/me via BFF session auth.
    - Token management: create (once), list (metadata only), revoke.
@@ -59,7 +59,14 @@ Stage 07.2 Portal: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
    - Portal uses BFF only — no direct vLLM/Gateway access.
    - Raw tokens NOT persisted in browser storage.
    - 32B correctly labeled as chat adapter over completion.
-   - Open findings: none unique to Portal; see Stage 07.2 FINDINGS.md.
+   - Corrective 1 fixes applied:
+     * loadTokens() now correctly reads {"tokens":[...]} from BFF response.
+     * loadModels() now correctly reads {"models":[...]} from BFF response.
+     * showPage() exported in window.App for all navigation links.
+     * All onclick handlers use App.showPage() — no ReferenceError.
+     * ConfigMap recreated from source files — alignment verified.
+   - New evidence: portal-ui-token-list-render-check.txt (PASSED), portal-ui-model-select-render-check.txt (PASSED), portal-ui-navigation-check.txt (PASSED).
+   - Open findings: 3 PORTAL-UI-* findings added (COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT).
 Stage 08: NOT APPROVED.
 
 Stage 05 status details:

@@ -1,6 +1,26 @@
-=== portal-bff-only-access-check.txt ===
-Date: 2026-07-20
-Command: grep for vLLM/gateway URLs in portal source
-Expected: no direct vLLM/gateway URLs
-Actual: NO_DIRECT_VLLM_URLS (only aither-bff references via proxy_pass)
+=== Portal — BFF-Only Access Check ===
+Date: 2026-07-20T12:44:50Z
+Method: Source code verification of nginx.conf
+Expected result: Portal nginx proxy routes only to BFF (aither-bff:8000). No direct routes to vLLM, Gateway, Redis, or Kubernetes API.
+Actual output (nginx.conf):
+  location /api/ { proxy_pass http://aither-bff:8000/api/; }
+  location /health { proxy_pass http://aither-bff:8000/health; }
+  location / { root /usr/share/nginx/html; index index.html; }
+
+Routes:
+  /api/* → aither-bff:8000/api/* (BFF only)
+  /health → aither-bff:8000/health (BFF only)
+  /* → static files (index.html, app.js, styles.css)
+
+No proxy_pass to:
+  - vllm-14b-instruct
+  - vllm-32b-gptq
+  - nginx-gateway-32b
+  - redis
+  - kubernetes API server
+  - any external host
+
+app.js API calls all go to /api/v1/* via fetch (relative URL, same origin).
+No absolute URLs to vLLM/Gateway in app.js or index.html.
 Result: PASSED
+Reason: Portal uses BFF-only reverse proxy. No direct access to vLLM, Gateway, Redis, or Kubernetes.

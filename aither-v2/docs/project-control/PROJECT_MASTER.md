@@ -37,7 +37,10 @@ Working directory: aither-v2/
 | Stage 04.1 | Repository Integrity Verification | PASSED / CONNECTOR VERIFIED |
 | Stage 05 | BFF Acceptance | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 06 | Redis / Rate Limiting | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 07.1 | Auth / API Token / Agent Access Baseline | **PARTIAL / CORRECTIVE REQUIRED** |
+| Stage 07.1 | Auth / API Token / Agent Access Baseline | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 07.2 | Portal UI with Auth, Token Management and Chat Access | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** |
+| Stage 08 | NOT APPROVED | NOT APPROVED |
+
 
 ## 5. Accepted Decisions
 

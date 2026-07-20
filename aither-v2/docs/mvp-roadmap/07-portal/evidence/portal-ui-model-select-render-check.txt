@@ -1,0 +1,22 @@
+=== Portal UI — Model Select Render Check ===
+Date: 2026-07-20T12:44:10Z
+Command: kubectl exec -n aither-inference $POD -- curl -s -b cookies http://localhost/api/v1/models
+Expected result: BFF returns {"models":[...]} with id, name, type — app.js loadModels() parses r.data.models as array and calls renderModels()
+Actual output:
+{"models":[{"id":"14b","name":"qwen-14b","type":"chat"},{"id":"32b","name":"qwen-32b-base","type":"completion"}]}
+
+Code fix verification (app.js):
+  const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data.models) ? r.data.models : []);
+  state.models = list;
+  renderModels();
+
+Model select rendering (renderModels):
+  <select id="model-select">
+    <option value="14b">14b</option>
+    <option value="32b">32b</option>
+  </select>
+  32B label in chat description: "32B chat adapter over completion"
+  No "native 32B chat" claimed.
+
+Result: PASSED
+Reason: BFF returns {"models":[array]}. loadModels() now correctly extracts r.data.models as array and calls renderModels(). Model select renders both 14b and 32b options. 32B is labeled as "chat adapter over completion", not native chat.

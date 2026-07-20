@@ -1,6 +1,30 @@
-=== portal-forbidden-scope-check.txt ===
-Date: 2026-07-20
-Command: git diff --stat for BFF changes
-Expected: no BFF changes
-Actual: Only portal/*, manifests/07-portal/, docs/07-portal/ changed
+=== Portal — Forbidden Scope Check ===
+Date: 2026-07-20T12:45:00Z
+Method: git diff against previous commit (aa24ccc) and runtime verification
+Expected result: No changes to forbidden zones: BFF, vLLM, GPU, TP, Gateway, Redis, OAuth, Monitoring, Stage 05/06/07.1 evidence.
+Actual output:
+Files changed in this corrective:
+  aither-v2/tools/portal/index.html — nav links: showPage → App.showPage (UI fix only)
+  aither-v2/tools/portal/app.js — response parsing fixes, showPage export (UI logic fix only)
+  ConfigMap aither-portal-config — recreated from source files (alignment, no new forbidden routes)
+  Evidence files updated/created — docs only, no runtime changes
+  Project-control docs updated — docs only
+
+Not modified:
+  tools/bff/app.py — NOT MODIFIED
+  manifests/mvp-roadmap/05-bff/bff-mvp.yaml — NOT MODIFIED
+  Stage 05 evidence — NOT MODIFIED
+  Stage 06 evidence — NOT MODIFIED
+  Stage 07.1 evidence — NOT MODIFIED
+  vLLM Deployments — NOT MODIFIED
+  GPU limits — NOT MODIFIED
+  Gateway runtime — NOT MODIFIED
+  Redis manifest — NOT MODIFIED
+  OAuth — NOT MODIFIED
+  Monitoring — NOT MODIFIED
+  Kubernetes secrets — NOT MODIFIED
+  kubeconfig — NOT MODIFIED
+  WireGuard/OpenVPN configs — NOT MODIFIED
+
 Result: PASSED
+Reason: Only Portal UI source files and docs were changed. All forbidden zones remain untouched.

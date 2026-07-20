@@ -1,6 +1,13 @@
-=== portal-models-list-auth.txt ===
-Date: 2026-07-20
-Command: curl GET /api/v1/models with session cookie via portal
-Expected: 200 models listed
-Actual: 200
+=== Portal — Models List Auth + JSON Shape ===
+Date: 2026-07-20T12:44:45Z
+Command: curl -b cookies http://localhost/api/v1/models (via Portal proxy)
+Expected result: HTTP 200, JSON response with {"models":[...]} containing id, name, type
+Actual output:
+{"models":[{"id":"14b","name":"qwen-14b","type":"chat"},{"id":"32b","name":"qwen-32b-base","type":"completion"}]}
+Fields: id, name, type.
+2 models returned: 14b (chat type) and 32b (completion type).
+No 32b native chat claimed — type=completion indicates adapter.
+app.js loadModels() correctly parses r.data.models as array.
+app.js renderModels() renders <option value="14b">14b</option> and <option value="32b">32b</option>.
+Chat UI labels 32B as "32B chat adapter over completion" (in HTML description text).
 Result: PASSED

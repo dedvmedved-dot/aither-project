@@ -125,8 +125,9 @@
     // --- Tokens ---
     async function loadTokens() {
         const r = await apiReq('/tokens');
-        if (r.ok && Array.isArray(r.data)) {
-            state.tokens = r.data;
+        if (r.ok) {
+            const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data.tokens) ? r.data.tokens : []);
+            state.tokens = list;
             renderTokens();
         }
     }
@@ -213,8 +214,9 @@
     // --- Models ---
     async function loadModels() {
         const r = await apiReq('/models');
-        if (r.ok && Array.isArray(r.data)) {
-            state.models = r.data;
+        if (r.ok) {
+            const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data.models) ? r.data.models : []);
+            state.models = list;
             renderModels();
         }
     }
@@ -287,7 +289,7 @@
         // Expose functions to global scope for inline onclick
         window.App = {
             doLogin, doLogout, createToken, revokeToken, copyToken, dismissToken,
-            sendChat, loadStatus
+            sendChat, loadStatus, showPage
         };
 
         // Check session

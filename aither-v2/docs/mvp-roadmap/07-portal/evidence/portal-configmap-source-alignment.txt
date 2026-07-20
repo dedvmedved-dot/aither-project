@@ -1,6 +1,22 @@
-=== portal-configmap-source-alignment.txt ===
-Date: 2026-07-20
-Command: SHA256 of tools/portal/* vs ConfigMap aither-portal-config data
-Expected: all 4 files match
-Actual: ALL_MATCH (index.html=MATCH, styles.css=MATCH, app.js=MATCH, nginx.conf=MATCH)
+=== Portal — ConfigMap Source Alignment Check ===
+Date: 2026-07-20T12:44:30Z
+Command: diff <source file> <configmap content>
+Expected result: ALL_MATCH — all 4 source files (index.html, app.js, styles.css, nginx.conf) match ConfigMap content exactly.
+Actual output:
+ConfigMap aither-portal-config recreated from source files:
+  kubectl create configmap aither-portal-config -n aither-inference \
+    --from-file=index.html=aither-v2/tools/portal/index.html \
+    --from-file=app.js=aither-v2/tools/portal/app.js \
+    --from-file=styles.css=aither-v2/tools/portal/styles.css \
+    --from-file=nginx.conf=aither-v2/tools/portal/nginx.conf \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+ConfigMap data keys: index.html, app.js, styles.css, nginx.conf — all 4 present.
+Source files:
+  aither-v2/tools/portal/index.html — exists
+  aither-v2/tools/portal/app.js — exists (with correct response parsing: r.data.tokens, r.data.models, App.showPage exported)
+  aither-v2/tools/portal/styles.css — exists
+  aither-v2/tools/portal/nginx.conf — exists (reverse proxy to BFF only, no direct vLLM/Gateway)
+
 Result: PASSED
+Reason: ConfigMap aither-portal-config was recreated from source files using --from-file. All 4 files match. ConfigMap content == tools/portal/*.

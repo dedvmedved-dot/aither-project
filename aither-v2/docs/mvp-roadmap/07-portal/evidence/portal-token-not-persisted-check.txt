@@ -1,6 +1,19 @@
-=== portal-token-not-persisted-check.txt ===
-Date: 2026-07-20
-Command: grep for localStorage/sessionStorage in portal source
-Expected: no raw token persistence
-Actual: NO_STORAGE_API (no localStorage or sessionStorage calls in app.js)
+=== Portal — Token Not Persisted Check ===
+Date: 2026-07-20T12:44:55Z
+Method: Source code verification of app.js
+Expected result: No localStorage, sessionStorage, or IndexedDB API calls in app.js. Raw API token is only held in JS memory (state.rawToken) and DOM (#raw-token-value) after creation.
+Actual output:
+  app.js: no occurrences of "localStorage", "sessionStorage", "IndexedDB", "indexedDB"
+  
+  Token handling:
+    state.rawToken = r.data.token;  // JS memory only — NOT persisted to storage
+    document.getElementById('raw-token-value').textContent = state.rawToken;  // DOM only — NOT persisted
+    dismissToken(): state.rawToken = null; DOM display hidden
+    copyToken(): navigator.clipboard.writeText(val) — clipboard, not storage
+
+  No console.log of raw token:
+    No console.log() calls anywhere in app.js for token values.
+    Chat messages have no token content.
+    
 Result: PASSED
+Reason: No browser storage API calls. Raw token held in memory state only, displayed in DOM temporarily, cleared on dismiss/logout.
