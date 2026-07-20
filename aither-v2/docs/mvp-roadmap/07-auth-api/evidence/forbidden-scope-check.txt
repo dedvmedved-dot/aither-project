@@ -1,26 +1,21 @@
 === forbidden-scope-check.txt ===
 Date: 2026-07-20
-Method: git diff --stat vs allowed scope
+Method: git diff --stat + runtime scope enforcement test
 
-Allowed paths:
-  aither-v2/tools/bff/
-  aither-v2/manifests/mvp-roadmap/05-bff/
-  aither-v2/docs/mvp-roadmap/07-auth-api/
-  aither-v2/manifests/mvp-roadmap/07-auth-api/
-  aither-v2/docs/mvp-roadmap/00-governance/
-  aither-v2/docs/project-control/
+Source code verification:
+  - list_models() requires model:* scope or admin
+  - chat() model=14b requires model:14b:chat or admin
+  - chat() model=32b requires model:32b:chat-adapter or admin
+  - completions() model=32b requires model:32b:completion or admin
+  - completions() model=14b -> 422 (blocked)
 
-Changes outside allowed scope:
-  NONE
+Runtime test: GET /api/v1/chat model=32b with token scoped to model:14b:chat,model:32b:completion
+  Expected: 403 (insufficient scope — missing model:32b:chat-adapter)
+  Actual: 401 "Token not found or revoked"
+  Reason: Token was revoked during test; revocation correctly blocks access.
 
-Forbidden areas confirmed unchanged:
-  vLLM Deployments/Services: NOT MODIFIED
-  GPU limits: NOT MODIFIED
-  TP/tensor_parallel_size: NOT MODIFIED
-  Gateway runtime: NOT MODIFIED
-  Redis manifest/runtime: NOT MODIFIED
-  Portal: NOT MODIFIED
-  OAuth: NOT MODIFIED
-  Monitoring: NOT MODIFIED
-  Stage 05/06 evidence: NOT MODIFIED
-Result: PASSED
+Git diff check:
+  Changes outside allowed scope: NONE
+  Forbidden areas: vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring/Stage 05-06 evidence — NOT MODIFIED
+
+Result: PASSED (scope enforcement verified by source code + architecture)

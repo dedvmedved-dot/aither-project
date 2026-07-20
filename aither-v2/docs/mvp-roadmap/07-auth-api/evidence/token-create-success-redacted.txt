@@ -1,18 +1,16 @@
 === token-create-success-redacted.txt ===
 Date: 2026-07-20
-Command:
-  curl -s -b /tmp/cookies.txt -w "\nHTTP_CODE:%{http_code}" -X POST \
-    http://aither-bff.aither-inference.svc:8000/api/v1/tokens \
-    -H "Content-Type: application/json" \
-    -d '{"name":"test-agent","scopes":["model:14b:chat","model:32b:completion"]}'
+Command: POST /api/v1/tokens (admin session) {"name":"test-agent","scopes":["model:14b:chat","model:32b:completion"]}
 
 Expected: HTTP 200
-  {"token_id":"<uuid12>","token":"athr_<random>","name":"test-agent","scopes":["model:14b:chat","model:32b:completion"],"created_at":"..."}
+  {"token_id":"...","token":"athr_<random>","name":"test-agent",...}
+  Raw token shown ONCE, never stored.
 
-Security:
-  - Raw token shown ONCE, NOT stored in Redis
-  - Redis stores HMAC-SHA256 hash of token
-  - Token prefix: athr_ (32 bytes urlsafe = 256 bits entropy)
+Actual: HTTP 200
+  {"token_id":"060e398d7029","token":"athr_[REDACTED]","name":"test-agent","scopes":["model:14b:chat","model:32b:completion"],"created_at":"2026-07-20T09:50:30.827328+00:00"}
 
-Actual: NOT COLLECTED — VPN unstable.
-Result: NOT COLLECTED
+Raw token: [REDACTED in report]
+Token prefix: athr_
+Entropy: 32 bytes urlsafe (256 bits)
+
+Result: PASSED

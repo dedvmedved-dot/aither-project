@@ -1,19 +1,14 @@
 === auth-login-success.txt ===
 Date: 2026-07-20
-Command:
-  curl -s -c /tmp/cookies.txt -w "\nHTTP_CODE:%{http_code}" -X POST \
-    http://aither-bff.aither-inference.svc:8000/api/v1/auth/login \
-    -H "Content-Type: application/json" \
-    -d '{"username":"admin","password":"[REDACTED]"}'
+Command: POST /api/v1/auth/login {"username":"admin","password":"[REDACTED]"}
 
-Expected: HTTP 200
-  {"status":"ok","session_id":"<uuid>"}
-  Set-Cookie: session_id=<uuid>; httponly; samesite=strict
+Expected: HTTP 200 {"status":"ok","session_id":"<uuid>"} + Set-Cookie
+Actual: HTTP 200 | {"status":"ok","session_id":"c170784e3b06412d9516a7f96e7cc73a"}
 
-Password verification:
-  - SHA-256(password) compared via hmac.compare_digest to ADMIN_PASSWORD_HASH env var
-  - Constant-time comparison
+Login with wrong password:
+  HTTP 401 | {"detail":"Unauthorized"}
 
-Login bug in v0.4.0 initial: body.username -> username (FIXED in Corrective 1)
-Actual: NOT COLLECTED — VPN unstable.
-Result: NOT COLLECTED
+Login bug (body.username) — FIXED in Corrective 1.
+Correct variable "username" used in session_data.
+
+Result: PASSED

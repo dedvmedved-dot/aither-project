@@ -1,10 +1,11 @@
 === auth-models-no-token-401.txt ===
 Date: 2026-07-20
-Command: curl -s -w "\nHTTP_CODE:%{http_code}" http://aither-bff.aither-inference.svc:8000/api/v1/models
-         (no Authorization header, no session cookie)
+Command: GET /api/v1/models (no Authorization header, no session cookie)
 
 Expected: HTTP 401 {"error":"Auth required"}
-Enforcement: Auth middleware checks AEP dict — GET /api/v1/models requires auth.
+Actual: HTTP 401 | {"error":"Auth required"}
 
-Actual: NOT COLLECTED — VPN unstable.
-Result: NOT COLLECTED
+Auth middleware checks AEP dict: GET /api/v1/models requires authentication.
+No token/session -> auth_req() returns False -> 401.
+
+Result: PASSED

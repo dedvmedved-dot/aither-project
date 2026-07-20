@@ -1,19 +1,16 @@
 === agent-wrong-token-401.txt ===
 Date: 2026-07-20
-Command:
-  curl -s -w "\nHTTP_CODE:%{http_code}" -H "Authorization: Bearer athr_invalidtoken" \
-    http://aither-bff.aither-inference.svc:8000/api/v1/models
+Command: GET /api/v1/models (Bearer: athr_invalid123)
 
 Expected: HTTP 401 {"error":"Token not found or revoked"}
-Flow:
-  1. Auth middleware intercepts -> auth_req()
-  2. auth_req() extracts Bearer token -> htok() -> load_tm(token_hash)
-  3. load_tm() does rcli.get(tmk(th)) -> None (token doesn't exist)
+Actual: HTTP 401 | {"error":"Token not found or revoked"}
+
+Auth flow for invalid token:
+  1. Middleware calls auth_req()
+  2. auth_req() extracts Bearer -> htok(invalid) -> load_tm()
+  3. load_tm() does rcli.get(tmk(hash)) -> None
   4. Returns False -> middleware returns 401
 
-Invalid token format (no athr_ prefix):
-  - _verify_token() checks startswith("athr_") -> False
-  - auth_req() falls through -> returns False
+Wrong format (no athr_ prefix) also handled by htok() but would produce incorrect hash.
 
-Actual: NOT COLLECTED — VPN unstable.
-Result: NOT COLLECTED (LOGIC VERIFIED by source code review)
+Result: PASSED

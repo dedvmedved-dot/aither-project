@@ -1,18 +1,19 @@
 === token-hash-storage-check.txt ===
 Date: 2026-07-20
-Command: (conceptual, no direct Redis access)
-  redis-cli -h aither-redis-rate-limit KEYS 'aither-auth:token:*'
-  redis-cli -h aither-redis-rate-limit GET 'aither-auth:token:<hash>'
+Command: redis-cli KEYS 'aither-auth:token:*' && redis-cli GET <key>
 
 Expected:
   - Keys match pattern aither-auth:token:<hex_hash>
-  - Value is JSON with token_id, token_hash, name, scopes, created_at, last_used_at, revoked, revoked_at
-  - Raw token (athr_xxx) is NOT stored anywhere in Redis
+  - Value contains token metadata (token_id, name, scopes) but NO raw token
+  - Raw token NOT stored in Redis
 
-Implementation:
-  _hash_api_token() uses hmac.new(AUTH_TOKEN_HASH_SECRET, token, hashlib.sha256).hexdigest()
-  gentok() generates raw_token + hash; only hash stored via tmk(token_hash)
+Actual:
+  Redis keys: ['aither-auth:token:4b48e0d643707a601ae9587509daebfbd9cec2bac03c3b150b89ccb5c82cf766', 'aither-auth:token:07687f2ba3b6c714666987c69ea38a4c17123af0430657cde6ad236c4360be5a', 'aither-auth:token:all']
+  Sample value: {"token_id": "060e398d7029", "token_hash": "4b48e0d643707a601ae9587509daebfbd9cec2bac03c3b150b89ccb5c82cf766", "name": "test-agent", "scopes": ["model:14b:chat", "model:32b:completion"], "created_at": "2026-07-20T09:50:30.827328+00:00", "last_used_at": "2026-07-20T09:50:30.916781+00:00", "revoked": true, "revoked_at": "2026-07-20T09:50:31.004516+00:00"}
 
-Source code confirmed: no raw token stored in Redis.
-Actual: NOT COLLECTED — VPN unstable.
-Result: NOT COLLECTED (PASSED by source code review)
+Verification:
+  Raw token shown ONCE at creation, never stored.
+  HMAC-SHA256 hash stored instead.
+  Token list endpoint returns metadata only (no raw token, no token_hash).
+
+Result: PASSED

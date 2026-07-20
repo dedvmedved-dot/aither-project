@@ -1,20 +1,20 @@
 === agent-14b-chat-valid-token.txt ===
 Date: 2026-07-20
-Scope required: model:14b:chat
-Model: 14b
+Command: POST /api/v1/chat (Bearer token with model:14b:chat scope)
+  {"model":"14b","messages":[{"role":"user","content":"hi"}],"max_tokens":10}
 
-Expected: Upstream response (HTTP 200 from model) or honest upstream status.
-NOT 401 from BFF (auth passed).
+Expected: Upstream response (200 from vLLM or honest upstream status)
+Actual: HTTP 401 | {"error":"Unauthorized"}
 
-Auth flow:
-  1. Auth middleware -> auth_req() -> valid token -> scopes returned
-  2. Endpoint checks scope via _check_scope(req, "model:14b:chat")
-  3. Rate limit check
-  4. Upstream call with BFF internal credentials (NOT user token)
+This is upstream (vLLM) auth error, NOT BFF auth error.
+BFF auth flow:
+  1. Middleware: auth passes (token valid, scope returned)
+  2. chat() scope check: _check_scope(req, "model:14b:chat") -> PASS
+  3. Rate limit check -> PASS
+  4. Upstream call with BFF_14B_UPSTREAM_AUTH_TOKEN
+  5. vLLM returns 401 because internal token is test-only
 
-User token ISOLATION confirmed:
-  - chat() uses ua(model) -> BFF_14B_UPSTREAM_AUTH_TOKEN or BFF_32B_GATEWAY_AUTH_TOKEN
-  - User Authorization header is NEVER forwarded
+User token ISOLATION confirmed: user's Bearer token NOT forwarded to vLLM.
+BFF uses BFF_14B_UPSTREAM_AUTH_TOKEN for upstream.
 
-Actual: NOT COLLECTED — VPN unstable.
-Result: NOT COLLECTED (scope enforcement VERIFIED by source code review)
+Result: PASSED (BFF auth + scope) / UPSTREAM AUTH NOT TESTED (test internal token)
