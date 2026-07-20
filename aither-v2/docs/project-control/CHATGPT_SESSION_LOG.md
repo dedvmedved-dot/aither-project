@@ -1310,3 +1310,57 @@ Stage 09: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 10: NOT APPROVED
 PROD-READY-01: OPEN
 ```
+
+---
+
+## Session Close / Handover Update
+
+**Date:** 2026-07-20
+**Stage:** Session Close / Handover Update
+**Reason:** Завершение сессии. Передача контекста в новую Telegram-сессию.
+
+**Verified commit (Stage 09 Post-Audit Docs Alignment):**
+```
+Full SHA: ca3863c241e36d31d4200e69b5ba10067d39ef68
+Short:    ca3863c
+Message:  docs(project-control): record stage 09 gateway audit acceptance
+```
+
+**Finalised Stage 09 status:**
+- Stage 09 Post-Audit Docs Alignment: **PASSED / CONNECTOR VERIFIED** (verified commit ca3863c241e36d31d4200e69b5ba10067d39ef68)
+- Stage 09 — nginx-gateway-32b Replica Health: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- GW-32B-REPLICA-01: **RESOLVED / CONNECTOR VERIFIED**
+
+**Gate for next session:**
+```
+Stage 09: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 10: READY FOR TASK PREPARATION / NOT STARTED
+PROD-READY-01: OPEN
+```
+
+**Next operation (for new session):**
+Получить от ChatGPT задание Stage 10 — MVP Final Acceptance / RC1 Gate.
+Новая сессия не имеет права начинать Stage 10 без полного текста задания ChatGPT.
+
+**Open findings carried forward (unchanged):**
+- DNS-N7-01: PARTIAL
+- GW-RUNTIME-CM-01: PARTIAL
+- GW-CLUSTERIP-01: RISK ACCEPTED / PARTIAL
+- GW-IMG-01: RISK ACCEPTED / PARTIAL
+- GW-SC-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- AUTH-OAUTH-01: OUT OF SCOPE / FUTURE
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- PROD-READY-01: OPEN
+
+**Forbidden areas unchanged through entire session:**
+- BFF code unchanged.
+- Portal code unchanged.
+- GitHub manifests unchanged.
+- vLLM/GPU/TP/Redis/OAuth/Monitoring unchanged.
+- Stage 05/06/07.1/07.2/08 evidence unchanged.
+- Stage 10 not started.
+- PROD-READY-01 not closed.
+- No raw tokens, secrets, kubeconfig, VPN configs committed.

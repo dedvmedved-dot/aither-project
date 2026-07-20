@@ -41,7 +41,7 @@ Working directory: aither-v2/
 | Stage 07.2 | Portal UI with Auth, Token Management and Chat Access | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 08 | MVP End-to-End Runtime Acceptance | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 09 | nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 10 | NOT APPROVED | NOT APPROVED |
+| Stage 10 | MVP Final Acceptance / RC1 Gate | **READY FOR TASK PREPARATION / NOT STARTED** |
 
 
 ## 5. Accepted Decisions

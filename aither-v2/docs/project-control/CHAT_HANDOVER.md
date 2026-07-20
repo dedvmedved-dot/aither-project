@@ -88,7 +88,7 @@ Stage 09: PASSED WITH FINDINGS / CONNECTOR VERIFIED (nginx-gateway-32b Replica H
    - 32B chat remains adapter over completion, not native chat.
    - Tactical workaround accepted for MVP.
    - Production-readiness remains open.
-   - Stage 10 not approved.
+   - Stage 10: READY FOR TASK PREPARATION / NOT STARTED.
    - PROD-READY-01: OPEN.
 
 Stage 05 status details:
