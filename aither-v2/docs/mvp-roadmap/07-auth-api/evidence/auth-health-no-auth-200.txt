@@ -1,0 +1,1 @@
+=== auth-health-no-auth-200.txt ===

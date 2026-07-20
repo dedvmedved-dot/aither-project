@@ -42,7 +42,14 @@ Stage 06 — Redis / Rate Limiting: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
    - No raw tokens stored in Redis (confirmed).
    - Redis unavailable: fail-open.
    - Open findings: BFF-RL-REDIS-FAIL-01 (PARTIAL), BFF-RL-RESET-TTL-01 (MINOR FINDING), BFF-TOKEN-01 (NOT COLLECTED), BFF-AUTH-01 (PARTIAL).
-Stage 07 — Portal: READY FOR TASK PREPARATION.
+Stage 07.1 — Auth / API Token / Agent Access Baseline: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
+   - BFF central auth with admin login, API token management, agent access.
+   - 32B chat adapter over completion endpoint.
+   - User token NOT forwarded to upstream.
+   - Open findings: AUTH-REDIS-FAIL-01 (PARTIAL), AUTH-TOKEN-PERSIST-01 (PARTIAL).
+   - Old Stage 07 Portal-only task: SUPERSEDED.
+Stage 07.2 Portal: NOT APPROVED.
+Stage 08: NOT APPROVED.
 
 Stage 05 status details:
 - BFF deployed: 1/1 Running, FastAPI on python:3.11-slim

@@ -5,94 +5,240 @@ metadata:
   namespace: aither-inference
 data:
   app.py: |
-    import os, logging, hashlib, time, uvicorn
+    import os,json,time,uuid,secrets,hashlib,logging,hmac
+    from datetime import datetime,timezone
     from contextlib import asynccontextmanager
-    from fastapi import FastAPI, HTTPException, Request, Response
+    from fastapi import FastAPI,HTTPException,Request,Response
+    from fastapi.responses import JSONResponse
     from pydantic import BaseModel
-    import httpx
-    import redis.asyncio as redis_asyncio
+    import httpx,redis.asyncio as ra
 
-    MODEL_14B = "qwen-14b"
-    MODEL_32B = "qwen-32b-base"
-    CHAT_14B_URL = os.environ.get("BFF_14B_BASE_URL", "http://vllm-14b-instruct.aither-inference.svc:8000")
-    GATEWAY_32B_URL = os.environ.get("BFF_32B_GATEWAY_URL", "http://nginx-gateway-32b.aither-inference.svc:8000")
-    TIMEOUT = int(os.environ.get("BFF_REQUEST_TIMEOUT_SECONDS", "300"))
-    RL_ENABLED = os.environ.get("RATE_LIMIT_ENABLED", "true").lower() == "true"
-    REDIS_URL = os.environ.get("REDIS_URL", "redis://aither-redis-rate-limit.aither-inference.svc:6379/0")
-    RL_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "60"))
-    RL_MAX = int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", "10"))
-    logger = logging.getLogger("aither-bff")
-    client: httpx.AsyncClient = None
-    rcli = None
-    ravail = False
+    M14="qwen-14b";M32="qwen-32b-base"
+    C14=os.environ.get("BFF_14B_BASE_URL","http://vllm-14b-instruct.aither-inference.svc:8000")
+    G32=os.environ.get("BFF_32B_GATEWAY_URL","http://nginx-gateway-32b.aither-inference.svc:8000")
+    TO=int(os.environ.get("BFF_REQUEST_TIMEOUT_SECONDS","300"))
+    RL_EN=os.environ.get("RATE_LIMIT_ENABLED","true").lower()=="true"
+    RURL=os.environ.get("REDIS_URL","redis://aither-redis-rate-limit.aither-inference.svc:6379/0")
+    RL_W=int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS","60"))
+    RL_M=int(os.environ.get("RATE_LIMIT_MAX_REQUESTS","10"))
+    ADM_U=os.environ.get("ADMIN_USERNAME","");ADM_PH=os.environ.get("ADMIN_PASSWORD_HASH","")
+    SESS_S=os.environ.get("SESSION_SECRET","");ATH_S=os.environ.get("AUTH_TOKEN_HASH_SECRET","")
+    B14T=os.environ.get("BFF_14B_UPSTREAM_AUTH_TOKEN","");B32T=os.environ.get("BFF_32B_GATEWAY_AUTH_TOKEN","")
+    TP="athr_";RNS="aither-auth";TNS=f"{RNS}:token";SNS=f"{RNS}:session"
+    log=logging.getLogger("aither-bff");cli=None;rcli=None;ravail=False
 
     async def rlkey(req):
-        a = req.headers.get("authorization") or req.headers.get("Authorization") or ""
+        a=req.headers.get("authorization") or req.headers.get("Authorization") or ""
         if a: return f"rl:{hashlib.sha256(a.encode()).hexdigest()}"
-        fwd = req.headers.get("x-forwarded-for", "")
-        ip = fwd.split(",")[0].strip() if fwd else (req.client.host if req.client else "unknown")
+        fwd=req.headers.get("x-forwarded-for","")
+        ip=fwd.split(",")[0].strip() if fwd else (req.client.host if req.client else "unknown")
         return f"rl:ip:{ip}"
 
     async def check_rl(req):
         global ravail
-        if not RL_ENABLED: return True
-        if not ravail: logger.warning("Redis unavailable — fail-open"); return True
+        if not RL_EN: return True
+        if not ravail: log.warning("Redis unavailable — fail-open"); return True
         try:
-            k = await rlkey(req); w = int(time.time()) // RL_WINDOW; rk = f"{k}:{w}"
-            c = await rcli.incr(rk)
-            if c == 1: await rcli.expire(rk, RL_WINDOW + 5)
-            if c > RL_MAX: logger.warning("RL exceeded %s count=%d", k[:20], c); return False
+            k=await rlkey(req);w=int(time.time())//RL_W;rk=f"{k}:{w}"
+            c=await rcli.incr(rk)
+            if c==1: await rcli.expire(rk,RL_W+5)
+            if c>RL_M: log.warning("RL exceeded %s count=%d",k[:20],c); return False
             return True
-        except Exception as e:
-            logger.error("RL error: %s — fail-open", e); ravail = False; return True
+        except Exception as e: log.error("RL error: %s — fail-open",e);ravail=False;return True
+
+    def vc():
+        m=[]
+        if not ADM_U: m.append("ADMIN_USERNAME")
+        if not ADM_PH: m.append("ADMIN_PASSWORD_HASH")
+        if not SESS_S: m.append("SESSION_SECRET")
+        if not ATH_S: m.append("AUTH_TOKEN_HASH_SECRET")
+        if not B14T: m.append("BFF_14B_UPSTREAM_AUTH_TOKEN")
+        if not B32T: m.append("BFF_32B_GATEWAY_AUTH_TOKEN")
+        return f"Missing: {', '.join(m)}" if m else ""
+
+    def htok(t): return hmac.new(ATH_S.encode(),t.encode(),hashlib.sha256).hexdigest()
+    def gentok(): r=TP+secrets.token_urlsafe(32); return r,htok(r)
+    def sk(s): return f"{SNS}:{s}"
+    def tmk(h): return f"{TNS}:{h}"
+    def thsk(): return f"{TNS}:all"
+    def ua(m): return B32T if m==M32 else B14T
+
+    async def load_tm(th):
+        if not ravail: return None
+        d=await rcli.get(tmk(th))
+        if not d: return None
+        try:
+            m=json.loads(d)
+            if m.get("revoked",False): return None
+            m["last_used_at"]=datetime.now(timezone.utc).isoformat()
+            await rcli.set(tmk(th),json.dumps(m)); return m
+        except: return None
+
+    async def auth_req(req):
+        sid=req.cookies.get("session_id","")
+        ah=req.headers.get("authorization") or req.headers.get("Authorization") or ""
+        if sid and ravail:
+            sd=await rcli.get(sk(sid))
+            if sd:
+                try:
+                    s=json.loads(sd)
+                    if s.get("username")==ADM_U: return True,"admin"
+                except: pass
+        if ah.startswith("Bearer "):
+            rt=ah[7:].strip();th=htok(rt);meta=await load_tm(th)
+            if meta is None: return False,"Token not found or revoked"
+            return True,meta.get("scopes",[])
+        return False,"Auth required"
+
+    def cvt(messages):
+        lines=[f"<|{m.get('role','user')}|>\n{m.get('content','')}" for m in messages]
+        lines.append("<|assistant|>\n"); return "\n".join(lines)
 
     @asynccontextmanager
     async def lifespan(app):
-        global client, rcli, ravail
-        client = httpx.AsyncClient(timeout=TIMEOUT)
+        global cli,rcli,ravail
+        cli=httpx.AsyncClient(timeout=TO)
+        ai=vc()
+        if ai: log.warning("Auth config issue: %s",ai)
+        else: log.info("Auth config OK")
         try:
-            rcli = redis_asyncio.from_url(REDIS_URL, decode_responses=True)
-            await rcli.ping(); ravail = True
-            logger.info("Redis connected")
-        except Exception as e:
-            rcli = None; ravail = False
-            logger.warning("Redis unavailable: %s — fail-open", e)
+            rcli=ra.from_url(RURL,decode_responses=True)
+            await rcli.ping();ravail=True;log.info("Redis connected")
+        except Exception as e: rcli=None;ravail=False;log.warning("Redis unavailable: %s",e)
         yield
         if rcli: await rcli.aclose()
-        await client.aclose()
+        await cli.aclose()
 
-    app = FastAPI(title="Aither BFF", version="0.3.0", lifespan=lifespan)
-    class CR(BaseModel): model: str; messages: list; max_tokens: int = 64; temperature: float = 0.0
-    async def hdrs(req): h={"Content-Type":"application/json"}; [h.update({"Authorization":req.headers[a]}) for a in ["authorization","Authorization"] if a in req.headers]; return h
+    app=FastAPI(title="Aither BFF",version="0.4.0",lifespan=lifespan)
+    class CTReq(BaseModel): name:str=""; scopes:list=["model:14b:chat","model:32b:completion"]; expires_at:str=""
+    AEP={"/api/v1/models":{"GET"},"/api/v1/chat":{"POST"},"/api/v1/completions":{"POST"},"/api/v1/tokens":{"GET","POST"}}
+
+    @app.middleware("http")
+    async def amw(req:Request,call_next):
+        p=req.url.path;m=req.method
+        if p=="/health" or p.startswith("/api/v1/auth/"): return await call_next(req)
+        if p in AEP and m in AEP[p]:
+            ok,sc=await auth_req(req)
+            if not ok: return JSONResponse(status_code=401,content={"error":sc})
+            req.state.auth_ok=ok;req.state.auth_scope=sc
+        return await call_next(req)
 
     @app.get("/health")
-    async def health(): return {"status":"ok","rate_limit":"enabled" if RL_ENABLED else "disabled","redis":"connected" if ravail else "unavailable"}
+    async def health():
+        return {"status":"ok","version":"0.4.0","rate_limit":"enabled" if RL_EN else "disabled",
+                "redis":"connected" if ravail else "unavailable","auth":"configured" if not vc() else "partial"}
 
-    @app.post("/api/v1/chat")
-    async def chat(req: Request):
-        if not await check_rl(req): raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
-        body = await req.json(); model = body.get("model",""); hd = await hdrs(req)
-        if model in ("32b", MODEL_32B): raise HTTPException(status_code=422, detail=f"{MODEL_32B} does not support chat. Use /api/v1/completions.")
-        if model in ("14b", MODEL_14B): body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/chat/completions"
-        else: raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
-        async with client.stream("POST", url, json=body, headers=hd) as resp:
-            return Response(content=await resp.aread(), status_code=resp.status_code, media_type=resp.headers.get("content-type","application/json"))
+    @app.post("/api/v1/auth/login")
+    async def login(req:Request):
+        b=await req.json()
+        if not b or not b.get("username") or not b.get("password"): raise HTTPException(400)
+        u=b["username"];p=b["password"]
+        if not hmac.compare_digest(u,ADM_U): raise HTTPException(401)
+        ph=hashlib.sha256(p.encode()).hexdigest()
+        if not hmac.compare_digest(ph,ADM_PH): raise HTTPException(401)
+        if not ravail: raise HTTPException(503)
+        sid=uuid.uuid4().hex
+        sd=json.dumps({"username":u,"created_at":datetime.now(timezone.utc).isoformat(),"ip":req.client.host if req.client else "unknown"})
+        await rcli.setex(sk(sid),86400,sd)
+        r=JSONResponse(content={"status":"ok","session_id":sid})
+        r.set_cookie(key="session_id",value=sid,max_age=86400,httponly=True,samesite="strict",secure=False)
+        return r
 
-    @app.post("/api/v1/completions")
-    async def completions(req: Request):
-        if not await check_rl(req): raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
-        body = await req.json(); model = body.get("model",""); hd = await hdrs(req)
-        if model in ("32b", MODEL_32B): body["model"] = MODEL_32B; url = f"{GATEWAY_32B_URL}/v1/completions"
-        elif model in ("14b", MODEL_14B): body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/completions"
-        else: raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
-        async with client.stream("POST", url, json=body, headers=hd) as resp:
-            return Response(content=await resp.aread(), status_code=resp.status_code, media_type=resp.headers.get("content-type","application/json"))
+    @app.post("/api/v1/auth/logout")
+    async def logout(): r=JSONResponse(content={"status":"logged_out"}); r.delete_cookie("session_id"); return r
+
+    @app.get("/api/v1/auth/me")
+    async def auth_me(req:Request):
+        sid=req.cookies.get("session_id","")
+        if not sid or not ravail: raise HTTPException(401)
+        d=await rcli.get(sk(sid))
+        if not d: raise HTTPException(401)
+        try: s=json.loads(d);return {"username":s.get("username"),"created_at":s.get("created_at")}
+        except: raise HTTPException(500)
+
+    @app.post("/api/v1/tokens")
+    async def create_token(req:Request):
+        bd=await req.json();b=CTReq(**bd)
+        ok,sc=await auth_req(req)
+        if not ok: raise HTTPException(401)
+        if not ravail: raise HTTPException(503)
+        rt,th=gentok()
+        meta={"token_id":uuid.uuid4().hex[:12],"token_hash":th,"name":b.name or "unnamed",
+              "scopes":b.scopes or ["model:14b:chat"],"created_at":datetime.now(timezone.utc).isoformat(),
+              "last_used_at":"","revoked":False,"revoked_at":""}
+        await rcli.set(tmk(th),json.dumps(meta));await rcli.sadd(thsk(),th)
+        return {"token_id":meta["token_id"],"token":rt,"name":meta["name"],"scopes":meta["scopes"],"created_at":meta["created_at"]}
+
+    @app.get("/api/v1/tokens")
+    async def list_tokens(req:Request):
+        ok,sc=await auth_req(req)
+        if not ok: raise HTTPException(401)
+        if not ravail: raise HTTPException(503)
+        ths=await rcli.smembers(thsk());tokens=[]
+        for th in ths:
+            d=await rcli.get(tmk(th))
+            if d:
+                try:
+                    m=json.loads(d)
+                    tokens.append({"token_id":m.get("token_id"),"name":m.get("name"),"scopes":m.get("scopes"),
+                                   "created_at":m.get("created_at"),"last_used_at":m.get("last_used_at"),
+                                   "revoked":m.get("revoked",False),"revoked_at":m.get("revoked_at","")})
+                except: pass
+        return {"tokens":tokens}
+
+    @app.delete("/api/v1/tokens/{token_id}")
+    async def revoke_token(token_id:str,req:Request):
+        ok,sc=await auth_req(req)
+        if not ok: raise HTTPException(401)
+        if not ravail: raise HTTPException(503)
+        ths=await rcli.smembers(thsk());found=False
+        for th in ths:
+            d=await rcli.get(tmk(th))
+            if d:
+                try:
+                    m=json.loads(d)
+                    if m.get("token_id")==token_id:
+                        m["revoked"]=True;m["revoked_at"]=datetime.now(timezone.utc).isoformat()
+                        await rcli.set(tmk(th),json.dumps(m));found=True;break
+                except: pass
+        if not found: raise HTTPException(404)
+        return {"status":"revoked","token_id":token_id}
 
     @app.get("/api/v1/models")
-    async def list_models():
-        return {"models":[{"id":"14b","name":MODEL_14B,"type":"chat"},{"id":"32b","name":MODEL_32B,"type":"completion"}]}
-    if __name__ == "__main__":
-        uvicorn.run("app:app", host="0.0.0.0", port=8000)
+    async def list_models(req:Request):
+        if not await check_rl(req): raise HTTPException(429)
+        return {"models":[{"id":"14b","name":M14,"type":"chat"},{"id":"32b","name":M32,"type":"completion"}]}
+
+    @app.post("/api/v1/chat")
+    async def chat(req:Request):
+        b=await req.json();m=b.get("model","")
+        if not await check_rl(req): raise HTTPException(429)
+        if m in ("32b",M32):
+            p=cvt(b.get("messages",[]))
+            cb={"model":M32,"prompt":p,"max_tokens":b.get("max_tokens",64),"temperature":b.get("temperature",0.0)}
+            hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M32)}"}
+            async with cli.stream("POST",f"{G32}/v1/completions",json=cb,headers=hd) as r:
+                return Response(content=await r.aread(),status_code=r.status_code)
+        if m in ("14b",M14):
+            b["model"]=M14
+            hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M14)}"}
+            async with cli.stream("POST",f"{C14}/v1/chat/completions",json=b,headers=hd) as r:
+                return Response(content=await r.aread(),status_code=r.status_code)
+        raise HTTPException(400)
+
+    @app.post("/api/v1/completions")
+    async def completions(req:Request):
+        b=await req.json();m=b.get("model","")
+        if not await check_rl(req): raise HTTPException(429)
+        if m in ("32b",M32):
+            b["model"]=M32;hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M32)}"};u=f"{G32}/v1/completions"
+        elif m in ("14b",M14):
+            b["model"]=M14;hd={"Content-Type":"application/json","Authorization":f"Bearer {ua(M14)}"};u=f"{C14}/v1/completions"
+        else: raise HTTPException(400)
+        async with cli.stream("POST",u,json=b,headers=hd) as r:
+            return Response(content=await r.aread(),status_code=r.status_code)
+
+    if __name__=="__main__":import uvicorn;uvicorn.run("app:app",host="0.0.0.0",port=8000)
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -127,6 +273,42 @@ spec:
               value: "60"
             - name: RATE_LIMIT_MAX_REQUESTS
               value: "10"
+            - name: BFF_14B_BASE_URL
+              value: "http://vllm-14b-instruct.aither-inference.svc:8000"
+            - name: BFF_32B_GATEWAY_URL
+              value: "http://nginx-gateway-32b.aither-inference.svc:8000"
+            - name: BFF_REQUEST_TIMEOUT_SECONDS
+              value: "300"
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: aither-bff-auth
+                  key: ADMIN_USERNAME
+            - name: ADMIN_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: aither-bff-auth
+                  key: ADMIN_PASSWORD_HASH
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: aither-bff-auth
+                  key: SESSION_SECRET
+            - name: AUTH_TOKEN_HASH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: aither-bff-auth
+                  key: AUTH_TOKEN_HASH_SECRET
+            - name: BFF_14B_UPSTREAM_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aither-bff-auth
+                  key: BFF_14B_UPSTREAM_AUTH_TOKEN
+            - name: BFF_32B_GATEWAY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aither-bff-auth
+                  key: BFF_32B_GATEWAY_AUTH_TOKEN
           ports:
             - containerPort: 8000
               name: http

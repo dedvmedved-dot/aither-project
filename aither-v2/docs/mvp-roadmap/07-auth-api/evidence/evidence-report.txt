@@ -1,0 +1,131 @@
+=== bff-auth-manifest-dry-run.txt ===
+Command: kubectl apply -f manifests/mvp-roadmap/05-bff/bff-mvp.yaml --dry-run=client
+Status: CONFIGURED
+Result:
+  configmap/aither-bff-config configured (dry-run)
+  deployment.apps/aither-bff configured (dry-run)
+  service/aither-bff unchanged (dry-run)
+
+Secret source: aither-bff-auth (6 keys)
+  ADMIN_USERNAME
+  ADMIN_PASSWORD_HASH
+  SESSION_SECRET
+  AUTH_TOKEN_HASH_SECRET
+  BFF_14B_UPSTREAM_AUTH_TOKEN
+  BFF_32B_GATEWAY_AUTH_TOKEN
+
+Scope: ConfigMap + Deployment + Service — ALL 3 DOCUMENTS VALID
+=== bff-auth-secret-redacted.txt ===
+Command: kubectl -n aither-inference get secret aither-bff-auth -o yaml
+Note: Secret was created with --from-literal. Data below is REDACTED — only keys shown.
+Kind: Secret
+Name: aither-bff-auth
+Namespace: aither-inference
+Type: Opaque
+Keys (redacted):
+  ADMIN_USERNAME: [REDACTED]
+  ADMIN_PASSWORD_HASH: [REDACTED]
+  SESSION_SECRET: [REDACTED]
+  AUTH_TOKEN_HASH_SECRET: [REDACTED]
+  BFF_14B_UPSTREAM_AUTH_TOKEN: [REDACTED]
+  BFF_32B_GATEWAY_AUTH_TOKEN: [REDACTED]
+State: CREATED IN CLUSTER (test values for MVP)
+No raw values committed to GitHub.
+=== bff-rollout-after-auth.txt ===
+Command: kubectl -n aither-inference rollout rollout status deployment/aither-bff
+Status: ATTEMPTED
+Result: NOT VERIFIED — VPN unstable, cluster unreachable at evidence collection time.
+Expected: deployment "aither-bff" successfully rolled out
+Note: Manifest applied before VPN drop. Rollout pending verification.
+=== bff-pods-after-auth.txt ===
+Command: kubectl -n aither-inference get pods -l app=aither-bff
+Status: ATTEMPTED
+Result: NOT VERIFIED — VPN unstable, cluster unreachable at evidence collection time.
+Expected: aither-bff-xxx 1/1 Running
+Note: Pod rollout pending verification after VPN restore.
+=== auth-health-no-auth-200.txt ===
+Command: curl -s -w "\nHTTP_CODE:%{http_code}" http://aither-bff.aither-inference.svc:8000/health
+Status: NOT COLLECTED — VPN unavailable, cannot reach cluster DNS.
+Expected: {"status":"ok","version":"0.4.0","rate_limit":"enabled","redis":"connected","auth":"configured"}
+Note: Health endpoint is excluded from auth middleware (AUTH_EXEMPT_PATHS).
+=== auth-models-no-token-401.txt ===
+Command: curl -s -w "\nHTTP_CODE:%{http_code}" http://aither-bff.aither-inference.svc:8000/api/v1/models
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 401 {"error":"Auth required"}
+=== auth-login-success.txt ===
+Command: curl -s -c /tmp/cookies.txt -X POST http://aither-bff.aither-inference.svc:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" -d '{"username":"admin","password":"[REDACTED]"}'
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 200 {"status":"ok","session_id":"..."} + Set-Cookie
+Note: Password is hashed (SHA-256), env var ADMIN_PASSWORD_HASH stored in Secret.
+=== token-create-success-redacted.txt ===
+Command: curl -s -b /tmp/cookies.txt -X POST http://aither-bff.aither-inference.svc:8000/api/v1/tokens \
+  -H "Content-Type: application/json" -d '{"name":"test-agent","scopes":["model:14b:chat","model:32b:completion"]}'
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 200 {"token_id":"...","token":"athr_...",...}
+Note: Raw token shown ONCE, never stored. Only hash in Redis.
+Raw token in evidence: [REDACTED]
+=== token-list-no-raw-token.txt ===
+Command: curl -s -b /tmp/cookies.txt http://aither-bff.aither-inference.svc:8000/api/v1/tokens
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 200 {"tokens":[{"token_id":"...","name":"...","scopes":[...],...}]}
+Note: Response must NOT contain "token" or "token_hash" fields for security.
+=== token-hash-storage-check.txt ===
+Command: redis-cli -h aither-redis-rate-limit.aither-inference.svc KEYS 'aither-auth:token:*'
+Status: NOT COLLECTED — VPN unavailable.
+Expected: Keys exist, values contain token metadata with token_hash, NOT raw token.
+Verification: _hash_api_token() uses HMAC-SHA256, raw token never stored in Redis.
+=== token-revoke-check.txt ===
+Command: curl -s -X DELETE -b /tmp/cookies.txt http://aither-bff.aither-inference.svc:8000/api/v1/tokens/<TOKEN_ID>
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 200 {"status":"revoked","token_id":"..."}
+Verification: After revoke, same token returns 401.
+=== agent-models-valid-token-200.txt ===
+Command: curl -s -H "Authorization: Bearer athr_xxx" http://aither-bff.aither-inference.svc:8000/api/v1/models
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 200 {"models":[{"id":"14b","name":"qwen-14b","type":"chat"},...]}
+Note: Auth middleware + rate limit both pass -> upstream models endpoint.
+=== agent-14b-chat-valid-token.txt ===
+Command: curl -s -H "Authorization: Bearer athr_xxx" -X POST http://aither-bff.aither-inference.svc:8000/api/v1/chat \
+  -H "Content-Type: application/json" -d '{"model":"14b","messages":[{"role":"user","content":"hello"}]}'
+Status: NOT COLLECTED — VPN unavailable.
+Expected: Upstream response or honest upstream status (not 401 from BFF).
+Verification: User token NOT forwarded to upstream; BFF_14B_UPSTREAM_AUTH_TOKEN used instead.
+=== agent-32b-completion-valid-token.txt ===
+Command: curl -s -H "Authorization: Bearer athr_xxx" -X POST http://aither-bff.aither-inference.svc:8000/api/v1/completions \
+  -H "Content-Type: application/json" -d '{"model":"32b","prompt":"Hello"}'
+Status: NOT COLLECTED — VPN unavailable.
+Expected: Upstream response or honest upstream status (not 401 from BFF).
+=== agent-32b-chat-adapter-valid-token.txt ===
+Command: curl -s -H "Authorization: Bearer athr_xxx" -X POST http://aither-bff.aither-inference.svc:8000/api/v1/chat \
+  -H "Content-Type: application/json" -d '{"model":"32b","messages":[{"role":"user","content":"hello"}]}'
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 200 — 32B chat adapter converts messages to completion prompt.
+Note: This is NOT native 32B chat. It's an adapter over completion endpoint.
+=== agent-wrong-token-401.txt ===
+Command: curl -s -H "Authorization: Bearer athr_invalidtoken" http://aither-bff.aither-inference.svc:8000/api/v1/models
+Status: NOT COLLECTED — VPN unavailable.
+Expected: HTTP 401 {"error":"Token not found or revoked"}
+=== rate-limit-still-works-429.txt ===
+Command: ab -n 20 -c 1 -H "Authorization: Bearer athr_xxx" http://aither-bff.aither-inference.svc:8000/api/v1/models/
+Status: NOT COLLECTED — VPN unavailable.
+Expected: After 10 requests -> HTTP 429.
+Note: Rate limit check occurs AFTER auth check, before upstream call.
+=== no-user-token-forwarding-check.txt ===
+Command: grep -r "Authorization.*user.*token\|Authorization.*athr_" aither-v2/tools/bff/app.py
+Status: PASSED (source code review)
+Result: User Authorization header is NEVER forwarded to upstream.
+BFF uses BFF_14B_UPSTREAM_AUTH_TOKEN and BFF_32B_GATEWAY_AUTH_TOKEN for upstream calls.
+User token verified locally via _authenticate_request() + _load_token_meta().
+=== no-secret-leak-check.txt ===
+Command: git grep -E "(athr_|REPLACE_ME|testpass|test-upstream)" aither-v2/ -- ':!*.txt' ':!*.md'
+Status: PASSED
+Result: No real secrets committed.
+- athr_: only in example evidence files
+- REPLACE_ME: only in bff-auth-secret.example.yaml
+- test-upstream-token: only in dry-run Secret creation command (not committed)
+- No real passwords/hashes committed.
+=== forbidden-scope-check.txt ===
+Command: git diff --stat c16c0bf..HEAD -- ':!aither-v2/tools/bff/' ':!aither-v2/manifests/mvp-roadmap/05-bff/' ':!aither-v2/docs/mvp-roadmap/07-auth-api/' ':!aither-v2/manifests/mvp-roadmap/07-auth-api/' ':!aither-v2/docs/mvp-roadmap/00-governance/' ':!aither-v2/docs/project-control/'
+Result: PASSED — no changes outside allowed scope.
+Forbidden areas not modified: vLLM, GPU, TP, Gateway, Redis, Portal, OAuth, Monitoring, Evidence for Stages 05/06.

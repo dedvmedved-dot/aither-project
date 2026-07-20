@@ -211,3 +211,111 @@ ChatGPT. Stage 06 — Redis-backed fixed-window rate limiting for BFF.
 
 **Stage 06: PASSED WITH FINDINGS / CONNECTOR VERIFIED**
 **Stage 07: READY FOR TASK PREPARATION after this session-log correction is pushed and audited**
+
+---
+
+## Stage 07.1 — Auth / API Token / Agent Access Baseline
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+**Task source:** ChatGPT
+**Decision:**
+- Auth model included into MVP.
+- Old Stage 07 Portal-only task: SUPERSEDED.
+- New sequence: Stage 07.1 (auth) → Stage 07.2 (Portal).
+
+### What changed
+
+1. **BFF app.py v0.4.0** — central auth middleware:
+   - Admin login/logout with session cookies (Redis-backed, 24h TTL)
+   - API token management: create (raw token ONCE), list (metadata only), revoke
+   - Agent Bearer token verification (`athr_xxx` prefix, HMAC-SHA256 hash)
+   - 32B chat adapter over completion endpoint
+   - User token isolation: NEVER forwarded to upstream
+   - Upstream calls use internal `BFF_14B_UPSTREAM_AUTH_TOKEN` / `BFF_32B_GATEWAY_AUTH_TOKEN`
+
+2. **bff-mvp.yaml updated:**
+   - ConfigMap app.py synchronised with v0.4.0
+   - Deployment env vars: 6 from Secret `aither-bff-auth` (valueFrom/secretKeyRef)
+   - RL env vars preserved
+
+3. **Manifests created:**
+   - `manifests/mvp-roadmap/07-auth-api/bff-auth-secret.example.yaml` (REPLACE_ME only)
+
+4. **Kubernetes Secret created in cluster:**
+   - `aither-bff-auth` (6 keys, test values for MVP, not committed)
+
+### Evidence
+
+| Evidence | Status |
+|---|---|
+| bff-auth-manifest-dry-run.txt | PASSED |
+| bff-auth-secret-redacted.txt | PASSED |
+| bff-rollout-after-auth.txt | NOT COLLECTED (VPN drop) |
+| bff-pods-after-auth.txt | NOT COLLECTED (VPN drop) |
+| auth-health-no-auth-200.txt | NOT COLLECTED (VPN drop) |
+| auth-models-no-token-401.txt | NOT COLLECTED (VPN drop) |
+| auth-login-success.txt | NOT COLLECTED (VPN drop) |
+| token-create-success-redacted.txt | NOT COLLECTED (VPN drop) |
+| token-list-no-raw-token.txt | NOT COLLECTED (VPN drop) |
+| token-hash-storage-check.txt | NOT COLLECTED (VPN drop) |
+| token-revoke-check.txt | NOT COLLECTED (VPN drop) |
+| agent-models-valid-token-200.txt | NOT COLLECTED (VPN drop) |
+| agent-14b-chat-valid-token.txt | NOT COLLECTED (VPN drop) |
+| agent-32b-completion-valid-token.txt | NOT COLLECTED (VPN drop) |
+| agent-32b-chat-adapter-valid-token.txt | NOT COLLECTED (VPN drop) |
+| agent-wrong-token-401.txt | NOT COLLECTED (VPN drop) |
+| rate-limit-still-works-429.txt | NOT COLLECTED (VPN drop) |
+| no-user-token-forwarding-check.txt | PASSED (code review) |
+| no-secret-leak-check.txt | PASSED |
+| forbidden-scope-check.txt | PASSED |
+
+### Reports created
+
+- INSTRUCTIONS.md
+- auth-architecture.md
+- api-token-model.md
+- agent-integration-guide.md
+- 32b-chat-adapter-notes.md
+- auth-acceptance-report.md
+- auth-security-notes.md
+
+### Open findings (Stage 07.1)
+
+| Finding | Status |
+|---|---|
+| AUTH-01 | COMPLETED BY HERMES |
+| AUTH-API-TOKEN-01 | COMPLETED BY HERMES |
+| AUTH-TOKEN-HASH-01 | PASSED |
+| AUTH-TOKEN-REVOKE-01 | COMPLETED BY HERMES |
+| AUTH-AGENT-01 | COMPLETED BY HERMES |
+| AUTH-UPSTREAM-01 | PASSED (code review) |
+| AUTH-REDIS-FAIL-01 | PARTIAL |
+| AUTH-TOKEN-PERSIST-01 | PARTIAL |
+| AUTH-PORTAL-01 | TARGET Stage 07.2 |
+| AUTH-OAUTH-01 | OUT OF SCOPE |
+| MODEL-32B-CHAT-ADAPTER-01 | COMPLETED BY HERMES |
+
+### Open findings (unchanged from earlier stages)
+
+- BFF-TOKEN-01: NOT COLLECTED
+- BFF-AUTH-01: PARTIAL (not closed until ChatGPT audit)
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+
+### Forbidden areas unchanged
+
+- vLLM Deployments/Services: NOT MODIFIED
+- GPU limits: NOT MODIFIED
+- TP/tensor_parallel_size: NOT MODIFIED
+- Gateway runtime/Stage 04 evidence: NOT MODIFIED
+- Redis manifest/runtime: NOT MODIFIED
+- Portal: NOT MODIFIED (superseded)
+- OAuth: NOT MODIFIED
+- Stage 05/06 evidence: NOT MODIFIED
+
+### Gate
+
+- Stage 07.1: **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT**
+- Stage 07.2 Portal: **NOT APPROVED**
+- Stage 08: **NOT APPROVED**

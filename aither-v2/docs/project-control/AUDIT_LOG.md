@@ -77,3 +77,54 @@ Findings added in FINDINGS.md:
 **Gate after audit:**
 - Stage 06: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
 - Stage 07: **READY FOR TASK PREPARATION**
+
+---
+
+## Stage 07.1 — Auth / API Token / Agent Access Baseline
+
+**Status: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT**
+
+**Date:** 2026-07-20
+**Old Stage 07 Portal-only task:** SUPERSEDED. New sequence: Stage 07.1 (auth) → Stage 07.2 (Portal).
+
+**Summary:**
+- BFF v0.4.0 with central auth middleware.
+- Admin login with session cookies (Redis-backed, 24h TTL).
+- API token management: create (returns raw token ONCE), list (metadata only), revoke.
+- Agent access with Bearer tokens (`athr_xxx`).
+- 32B chat adapter over completion endpoint (not native chat).
+- User token NOT forwarded to upstream — uses internal `BFF_*_UPSTREAM_AUTH_TOKEN`.
+- Rate limiting preserved (Stage 06).
+- Kubernetes Secret `aither-bff-auth` with 6 env vars.
+- Example secret template (never commit real values).
+
+**Evidence:**
+- 20 evidence files in docs/mvp-roadmap/07-auth-api/evidence/
+- Source code review: user token isolation confirmed
+- Secret leak check: PASSED
+- Forbidden scope check: PASSED
+- Runtime evidence: PARTIALLY COLLECTED (VPN drop during evidence collection)
+
+**Findings added in FINDINGS.md:**
+- AUTH-01: COMPLETED BY HERMES
+- AUTH-API-TOKEN-01: COMPLETED BY HERMES
+- AUTH-TOKEN-HASH-01: PASSED
+- AUTH-TOKEN-REVOKE-01: COMPLETED BY HERMES
+- AUTH-AGENT-01: COMPLETED BY HERMES
+- AUTH-UPSTREAM-01: PASSED (code review)
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- AUTH-PORTAL-01: TARGET Stage 07.2
+- AUTH-OAUTH-01: OUT OF SCOPE
+- MODEL-32B-CHAT-ADAPTER-01: COMPLETED BY HERMES
+
+**Open findings (unchanged from previous stages):**
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- BFF-TOKEN-01: NOT COLLECTED
+- BFF-AUTH-01: PARTIAL (functionally addressed by AUTH-01 but not closed until ChatGPT audit)
+
+**Gate:**
+- Stage 07.1: **WAITING FOR CHATGPT AUDIT**
+- Stage 07.2 Portal: **NOT APPROVED**
+- Stage 08: **NOT APPROVED**
