@@ -560,3 +560,51 @@ Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 10: NOT APPROVED
 PROD-READY-01: OPEN
 ```
+
+---
+
+## Stage 09 — External ChatGPT Audit Acceptance
+
+**Date:** 2026-07-20
+**Stage:** Stage 09 / nginx-gateway-32b Replica Health
+**Commit audited:** c1d1f1953d6167a67ead7ad6153b379a656c24e1
+**Method:** GitHub connector
+
+**Decision:**
+- Stage 09: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- GW-32B-REPLICA-01: **RESOLVED / CONNECTOR VERIFIED**
+- Stage 10: **NOT APPROVED**
+- PROD-READY-01: **OPEN**
+
+**Accepted evidence:**
+- gw32b-initial-pod-state.txt
+- gw32b-crashing-pod-describe.txt
+- gw32b-crashing-pod-logs.txt
+- gw32b-root-cause.txt
+- gw32b-remediation-actions.txt
+- gw32b-rollout-status-after.txt
+- gw32b-pods-after.txt
+- gw32b-events-after.txt
+- gw32b-32b-completion-still-200.txt
+- gw32b-32b-chat-adapter-still-200.txt
+- gw32b-no-secret-leak-check.txt
+- gw32b-forbidden-scope-check.txt
+
+**Remaining findings:**
+- DNS-N7-01: PARTIAL
+- GW-RUNTIME-CM-01: PARTIAL
+- GW-CLUSTERIP-01: RISK ACCEPTED / PARTIAL
+- GW-IMG-01: RISK ACCEPTED / PARTIAL
+- GW-SC-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- PROD-READY-01: OPEN
+
+**Gate after audit:**
+```
+Stage 09: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 10: NOT APPROVED
+PROD-READY-01: OPEN
+```

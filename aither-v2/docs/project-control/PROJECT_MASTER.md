@@ -40,7 +40,8 @@ Working directory: aither-v2/
 | Stage 07.1 | Auth / API Token / Agent Access Baseline | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 07.2 | Portal UI with Auth, Token Management and Chat Access | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 08 | MVP End-to-End Runtime Acceptance | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 09 | nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** |
+| Stage 09 | nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10 | NOT APPROVED | NOT APPROVED |
 
 
 ## 5. Accepted Decisions

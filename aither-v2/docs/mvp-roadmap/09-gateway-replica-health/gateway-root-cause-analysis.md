@@ -56,3 +56,16 @@ Deploy CoreDNS on node n7 to provide ClusterDNS for all pods on that node. This 
 | Restart count: 0 | ✅ |
 | 32B completion regression | ✅ HTTP 200 |
 | 32B chat adapter regression | ✅ HTTP 200 |
+
+## External Audit Note
+
+ChatGPT external audit accepted the immediate remediation as MVP-compatible because:
+- nginx-gateway-32b returned to 2/2 Running and Ready.
+- 32B completion and 32B chat adapter still returned HTTP 200.
+- No BFF/Portal/vLLM/GPU/TP/Redis/OAuth/Monitoring changes were made.
+
+However, the remediation is tactical, not production-ready:
+- MissingClusterDNS on n7 remains unresolved.
+- Gateway runtime ConfigMap differs from GitHub source-of-truth.
+- Gateway uses hardcoded ClusterIP 10.99.3.103.
+- Long-term fix requires infrastructure stabilization and repo-backed manifest alignment.

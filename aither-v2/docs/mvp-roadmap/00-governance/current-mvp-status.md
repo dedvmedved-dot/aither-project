@@ -11,6 +11,7 @@ Date: 2026-07-20
 | vLLM 14B | PASSED | docs/mvp-roadmap/02-inference-acceptance/vllm-service-inventory.md |
 | vLLM 32B | PASSED WITH FINDINGS | docs/mvp-roadmap/02-inference-acceptance/32b-benchmark-report.md |
 | Gateway | PASSED WITH FINDINGS | docs/mvp-roadmap/04-gateway/gateway-hardening-report.md |
+| Gateway Replica Health | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/09-gateway-replica-health/gateway-replica-health-report.md |
 | Benchmark | **PASSED** | docs/mvp-roadmap/02-inference-acceptance/LOAD_TEST_60MIN_REPORT.md |
 | Streaming TTFT | PASSED WITH MINOR FINDINGS | docs/mvp-roadmap/02-inference-acceptance/streaming-ttft-report.md |
 | TP=2 | POSTPONED / RISK ACCEPTED | docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md |
@@ -18,13 +19,16 @@ Date: 2026-07-20
 | Redis RL | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
 | Auth / API Token | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
 | Portal (UI) | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-portal/portal-acceptance-report.md |
-| **E2E (Portal→BFF→Model)** | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md |
+| E2E (Portal→BFF→Model) | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md |
 | Monitoring | PARTIAL | |
 | VPN | DIAGNOSED | |
 
 ## Remaining findings (not blockers for MVP)
 
-- ~~GW-32B-REPLICA-01: nginx-gateway-32b has one replica in CrashLoopBackOff — PARTIAL~~ — **RESOLVED (Stage 09)**
+- **GW-32B-REPLICA-01** — **RESOLVED / CONNECTOR VERIFIED** (Stage 09)
+- DNS-N7-01: MissingClusterDNS on node n7 — PARTIAL
+- GW-RUNTIME-CM-01: nginx-gateway-32b runtime ConfigMap differs from GitHub source-of-truth — PARTIAL
+- GW-CLUSTERIP-01: gateway uses hardcoded ClusterIP 10.99.3.103 as tactical workaround — RISK ACCEPTED / PARTIAL
 - GW-IMG-01: RISK ACCEPTED / PARTIAL
 - GW-SC-01: PARTIAL
 - AUTH-REDIS-FAIL-01: PARTIAL
@@ -43,6 +47,6 @@ Date: 2026-07-20
 
 ## Next approved stage
 
-Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
-Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 09: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 10: NOT APPROVED
 PROD-READY-01: OPEN

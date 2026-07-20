@@ -1257,3 +1257,56 @@ Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 10: NOT APPROVED
 PROD-READY-01: OPEN
 ```
+
+---
+
+## Stage 09 Post-Audit Docs Alignment
+
+**Date:** 2026-07-20
+**Stage:** Stage 09 Post-Audit Docs Alignment
+**Audit source:** ChatGPT GitHub connector audit of commit c1d1f1953d6167a67ead7ad6153b379a656c24e1
+
+**Decision:**
+- Stage 09: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- GW-32B-REPLICA-01: **RESOLVED / CONNECTOR VERIFIED**
+- Stage 10: **NOT APPROVED**
+- PROD-READY-01: **OPEN**
+
+**Evidence accepted:**
+- Root cause confirmed by nginx logs: host not found in upstream.
+- MissingClusterDNS on node n7 confirmed.
+- Runtime ConfigMap patch applied but not committed.
+- nginx-gateway-32b final state: 2/2 Running and Ready.
+- CrashLoopBackOff: 0.
+- 32B completion regression: HTTP 200.
+- 32B chat adapter regression: HTTP 200.
+- No secret leak check: PASSED.
+- Forbidden scope check: PASSED.
+
+**Remaining PARTIAL / FAILED / NOT COLLECTED:**
+- DNS-N7-01: PARTIAL.
+- GW-RUNTIME-CM-01: PARTIAL.
+- GW-CLUSTERIP-01: RISK ACCEPTED / PARTIAL.
+- GW-IMG-01: RISK ACCEPTED / PARTIAL.
+- GW-SC-01: PARTIAL.
+- AUTH-REDIS-FAIL-01: PARTIAL.
+- AUTH-TOKEN-PERSIST-01: PARTIAL.
+- AUTH-OAUTH-01: OUT OF SCOPE / FUTURE.
+- BFF-RL-REDIS-FAIL-01: PARTIAL.
+- BFF-RL-RESET-TTL-01: MINOR FINDING.
+- PROD-READY-01: OPEN.
+
+**Forbidden areas unchanged:**
+- BFF code unchanged.
+- Portal code unchanged.
+- GitHub manifests unchanged.
+- vLLM/GPU/TP/Redis/OAuth/Monitoring unchanged.
+- Stage 05/06/07.1/07.2/08 evidence unchanged.
+- Stage 10 not started.
+
+**Gate:**
+```
+Stage 09: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 10: NOT APPROVED
+PROD-READY-01: OPEN
+```

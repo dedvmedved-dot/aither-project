@@ -43,9 +43,48 @@
 | Pod statuses | 1/1 Running (both) |
 | Restart counts | 0 (new pod), 0 (existing pod) |
 
-### Decision before ChatGPT audit
+### External ChatGPT Audit Decision
+
+**Date:** 2026-07-20
+**Commit audited:** c1d1f1953d6167a67ead7ad6153b379a656c24e1
+**Method:** GitHub connector
+
+**Decision:**
+- Stage 09: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- GW-32B-REPLICA-01: **RESOLVED / CONNECTOR VERIFIED**
+- Stage 10: **NOT APPROVED**
+- PROD-READY-01: **OPEN**
+
+**Accepted evidence:**
+- Root cause confirmed: nginx hostname resolution failed on n7 due MissingClusterDNS.
+- nginx logs confirmed host not found in upstream.
+- Runtime ConfigMap patch changed proxy_pass hostname to ClusterIP 10.99.3.103.
+- Runtime ConfigMap patch was not committed.
+- Final gateway state: 2/2 Running, 2/2 Ready, 0 CrashLoopBackOff.
+- 32B completion regression: HTTP 200.
+- 32B chat adapter regression: HTTP 200.
+- Forbidden scope check: PASSED.
+- No secret leak check: PASSED.
+
+### Remaining Findings
+
+| Finding | Status |
+|---|---|
+| DNS-N7-01 | PARTIAL (MissingClusterDNS on node n7) |
+| GW-RUNTIME-CM-01 | PARTIAL (runtime ConfigMap differs from GitHub source-of-truth) |
+| GW-CLUSTERIP-01 | RISK ACCEPTED / PARTIAL (hardcoded ClusterIP workaround) |
+| GW-IMG-01 | RISK ACCEPTED / PARTIAL |
+| GW-SC-01 | PARTIAL |
+| AUTH-REDIS-FAIL-01 | PARTIAL |
+| AUTH-TOKEN-PERSIST-01 | PARTIAL |
+| BFF-RL-REDIS-FAIL-01 | PARTIAL |
+| BFF-RL-RESET-TTL-01 | MINOR FINDING |
+| PROD-READY-01 | OPEN |
+
+### Gate
 
 ```
-Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 09: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 10: NOT APPROVED
 PROD-READY-01: OPEN
 ```
