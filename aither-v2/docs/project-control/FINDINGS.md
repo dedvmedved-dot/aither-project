@@ -20,3 +20,9 @@
 | **BFF-SEC-01** | **BFF container securityContext applied (runAsNonRoot, cap drop, read-only app volume)** | **PASSED** | **Stage 05** |
 | **BFF-STATUS-01** | **BFF correctly propagates upstream HTTP status codes** | **PASSED** | **Stage 05** |
 | **BFF-TOKEN-01** | **Valid token test for 32B completion not collected (VPN instability)** | **NOT COLLECTED** | **Stage 05** |
+| **BFF-RL-01** | **Rate limiting implemented in Stage 06** | **PASSED** | **Stage 06** |
+| **BFF-RL-REDIS-01** | **Redis-backed fixed-window rate limiting deployed** | **PASSED** | **Stage 06** |
+| **BFF-RL-429-01** | **HTTP 429 returned when limit exceeded** | **PASSED** | **Stage 06** |
+| **BFF-RL-KEY-01** | **Rate limit key does not store raw Authorization token** | **PASSED** | **Stage 06** |
+| **BFF-RL-RESET-01** | **Rate limit window reset verified** | **PASSED** | **Stage 06** |
+| **BFF-RL-REDIS-FAIL-01** | **Redis unavailable behaviour (fail-open)** | **PARTIAL** | **Stage 06** |

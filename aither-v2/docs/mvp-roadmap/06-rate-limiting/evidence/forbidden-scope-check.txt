@@ -1,0 +1,28 @@
+Forbidden scope verification — Stage 06 changes
+Date: 2026-07-20
+
+Verification that no forbidden areas were modified:
+
+| Area | Status |
+|---|---|
+| vLLM Deployments | NOT MODIFIED |
+| vLLM Services | NOT MODIFIED |
+| GPU limits | NOT MODIFIED |
+| TP / tensor_parallel_size | NOT MODIFIED |
+| Gateway runtime | NOT MODIFIED |
+| Gateway Stage 04 evidence | NOT MODIFIED |
+| Portal | NOT MODIFIED (not started) |
+| OAuth | NOT MODIFIED |
+| Monitoring | NOT MODIFIED |
+| GPU Operator | NOT MODIFIED |
+| containerd / NVIDIA runtime | NOT MODIFIED |
+| Stage 05 evidence | NOT MODIFIED |
+
+Changes limited to:
+- tools/bff/app.py (added Redis+rate limiting)
+- tools/bff/requirements.txt (added redis>=5.0.0)
+- manifests/mvp-roadmap/05-bff/bff-mvp.yaml (added env vars + ConfigMap update)
+- manifests/mvp-roadmap/06-rate-limiting/ (new: Redis manifest)
+- docs/mvp-roadmap/06-rate-limiting/ (new: evidence and reports)
+
+Status: PASSED (forbidden areas unchanged)

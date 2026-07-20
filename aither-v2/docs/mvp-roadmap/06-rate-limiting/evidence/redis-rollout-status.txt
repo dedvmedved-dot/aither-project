@@ -1,0 +1,13 @@
+Redis rollout status
+Date: 2026-07-20
+
+Deployment: aither-redis-rate-limit
+Namespace: aither-inference
+Status: 1/1 Running
+Image: redis:7-alpine
+Probes: readiness (redis-cli ping), liveness (redis-cli ping)
+
+History:
+- Initial deployment with full securityContext → CrashLoopBackOff (chown: Operation not permitted)
+- Fixed: removed runAsNonRoot + allowPrivilegeEscalation/cap drop for MVP Redis
+  (documented as finding BFF-RL-REDIS-FAIL-01: Redis runs as container default user)

@@ -1,0 +1,20 @@
+Rate limit key safety check
+Date: 2026-07-20
+
+Method: Inspect Redis keys in aither-redis-rate-limit
+
+Redis keys found:
+  rl:ip:127.0.0.1:29742192 -> 11
+
+Key format:
+- With Authorization header: rl:{sha256(token_hex)}:{window}
+- Without Authorization: rl:ip:{client_ip}:{window}
+
+Verification:
+- Raw Authorization token is NEVER stored in Redis
+- Only SHA-256 hash of the token (if present)
+- Only client IP (if no Authorization header)
+- Only an integer counter value (INCR)
+- No sensitive data, no raw tokens, no secrets
+
+Status: PASSED (no raw tokens stored)

@@ -5,64 +5,92 @@ metadata:
   namespace: aither-inference
 data:
   app.py: |
-    import os, logging, uvicorn
+    import os, logging, hashlib, time, uvicorn
     from contextlib import asynccontextmanager
     from fastapi import FastAPI, HTTPException, Request, Response
     from pydantic import BaseModel
     import httpx
+    import redis.asyncio as redis_asyncio
 
     MODEL_14B = "qwen-14b"
     MODEL_32B = "qwen-32b-base"
     CHAT_14B_URL = os.environ.get("BFF_14B_BASE_URL", "http://vllm-14b-instruct.aither-inference.svc:8000")
     GATEWAY_32B_URL = os.environ.get("BFF_32B_GATEWAY_URL", "http://nginx-gateway-32b.aither-inference.svc:8000")
     TIMEOUT = int(os.environ.get("BFF_REQUEST_TIMEOUT_SECONDS", "300"))
+    RL_ENABLED = os.environ.get("RATE_LIMIT_ENABLED", "true").lower() == "true"
+    REDIS_URL = os.environ.get("REDIS_URL", "redis://aither-redis-rate-limit.aither-inference.svc:6379/0")
+    RL_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "60"))
+    RL_MAX = int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", "10"))
     logger = logging.getLogger("aither-bff")
     client: httpx.AsyncClient = None
+    rcli = None
+    ravail = False
+
+    async def rlkey(req):
+        a = req.headers.get("authorization") or req.headers.get("Authorization") or ""
+        if a: return f"rl:{hashlib.sha256(a.encode()).hexdigest()}"
+        fwd = req.headers.get("x-forwarded-for", "")
+        ip = fwd.split(",")[0].strip() if fwd else (req.client.host if req.client else "unknown")
+        return f"rl:ip:{ip}"
+
+    async def check_rl(req):
+        global ravail
+        if not RL_ENABLED: return True
+        if not ravail: logger.warning("Redis unavailable — fail-open"); return True
+        try:
+            k = await rlkey(req); w = int(time.time()) // RL_WINDOW; rk = f"{k}:{w}"
+            c = await rcli.incr(rk)
+            if c == 1: await rcli.expire(rk, RL_WINDOW + 5)
+            if c > RL_MAX: logger.warning("RL exceeded %s count=%d", k[:20], c); return False
+            return True
+        except Exception as e:
+            logger.error("RL error: %s — fail-open", e); ravail = False; return True
 
     @asynccontextmanager
     async def lifespan(app):
-        global client
+        global client, rcli, ravail
         client = httpx.AsyncClient(timeout=TIMEOUT)
+        try:
+            rcli = redis_asyncio.from_url(REDIS_URL, decode_responses=True)
+            await rcli.ping(); ravail = True
+            logger.info("Redis connected")
+        except Exception as e:
+            rcli = None; ravail = False
+            logger.warning("Redis unavailable: %s — fail-open", e)
         yield
+        if rcli: await rcli.aclose()
         await client.aclose()
 
-    app = FastAPI(title="Aither BFF", version="0.2.0", lifespan=lifespan)
-
+    app = FastAPI(title="Aither BFF", version="0.3.0", lifespan=lifespan)
     class CR(BaseModel): model: str; messages: list; max_tokens: int = 64; temperature: float = 0.0
-
     async def hdrs(req): h={"Content-Type":"application/json"}; [h.update({"Authorization":req.headers[a]}) for a in ["authorization","Authorization"] if a in req.headers]; return h
 
     @app.get("/health")
-    async def health(): return {"status":"ok"}
+    async def health(): return {"status":"ok","rate_limit":"enabled" if RL_ENABLED else "disabled","redis":"connected" if ravail else "unavailable"}
 
     @app.post("/api/v1/chat")
     async def chat(req: Request):
+        if not await check_rl(req): raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
         body = await req.json(); model = body.get("model",""); hd = await hdrs(req)
-        if model in ("32b", MODEL_32B):
-            raise HTTPException(status_code=422, detail=f"{MODEL_32B} does not support chat. Use /api/v1/completions.")
-        if model in ("14b", MODEL_14B):
-            body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/chat/completions"
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
+        if model in ("32b", MODEL_32B): raise HTTPException(status_code=422, detail=f"{MODEL_32B} does not support chat. Use /api/v1/completions.")
+        if model in ("14b", MODEL_14B): body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/chat/completions"
+        else: raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
         async with client.stream("POST", url, json=body, headers=hd) as resp:
             return Response(content=await resp.aread(), status_code=resp.status_code, media_type=resp.headers.get("content-type","application/json"))
 
     @app.post("/api/v1/completions")
     async def completions(req: Request):
+        if not await check_rl(req): raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
         body = await req.json(); model = body.get("model",""); hd = await hdrs(req)
-        if model in ("32b", MODEL_32B):
-            body["model"] = MODEL_32B; url = f"{GATEWAY_32B_URL}/v1/completions"
-        elif model in ("14b", MODEL_14B):
-            body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/completions"
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
+        if model in ("32b", MODEL_32B): body["model"] = MODEL_32B; url = f"{GATEWAY_32B_URL}/v1/completions"
+        elif model in ("14b", MODEL_14B): body["model"] = MODEL_14B; url = f"{CHAT_14B_URL}/v1/completions"
+        else: raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
         async with client.stream("POST", url, json=body, headers=hd) as resp:
             return Response(content=await resp.aread(), status_code=resp.status_code, media_type=resp.headers.get("content-type","application/json"))
 
     @app.get("/api/v1/models")
     async def list_models():
         return {"models":[{"id":"14b","name":MODEL_14B,"type":"chat"},{"id":"32b","name":MODEL_32B,"type":"completion"}]}
-
     if __name__ == "__main__":
         uvicorn.run("app:app", host="0.0.0.0", port=8000)
 ---
@@ -89,7 +117,16 @@ spec:
             - /bin/sh
             - -c
             - |
-              export HOME=/tmp && pip install -q --user fastapi uvicorn httpx pydantic 2>&1 && exec python /app/app.py 2>&1
+              export HOME=/tmp && pip install -q --user fastapi uvicorn httpx pydantic redis 2>&1 && exec python /app/app.py 2>&1
+          env:
+            - name: RATE_LIMIT_ENABLED
+              value: "true"
+            - name: REDIS_URL
+              value: "redis://aither-redis-rate-limit.aither-inference.svc:6379/0"
+            - name: RATE_LIMIT_WINDOW_SECONDS
+              value: "60"
+            - name: RATE_LIMIT_MAX_REQUESTS
+              value: "10"
           ports:
             - containerPort: 8000
               name: http

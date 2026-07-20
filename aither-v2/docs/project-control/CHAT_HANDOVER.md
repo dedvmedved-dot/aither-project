@@ -35,7 +35,14 @@ Stage 04.1 — Repository Integrity Verification: PASSED / CONNECTOR VERIFIED.
 Stage 05 — BFF Acceptance: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
    - ChatGPT audit of commit 8219c56 confirmed: BFF implementation, routing, status code propagation, bypass prevention, no secrets committed.
    - Open findings: BFF-TOKEN-01 (NOT COLLECTED), BFF-AUTH-01 (PARTIAL).
-Stage 06 — Redis / Rate Limiting: READY FOR TASK PREPARATION.
+Stage 06 — Redis / Rate Limiting: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
+   - Redis-backed fixed-window rate limiting with 10 req/60s default.
+   - HTTP 429 on exceeded limit (confirmed).
+   - Rate limit by SHA-256(token hash) or client IP.
+   - No raw tokens stored in Redis (confirmed).
+   - Redis unavailable: fail-open.
+   - Open findings: BFF-RL-REDIS-FAIL-01 (PARTIAL — fail-open when Redis unavailable).
+Stage 07 — Portal: NOT APPROVED (WAITING FOR AUDIT).
 
 Stage 05 status details:
 - BFF deployed: 1/1 Running, FastAPI on python:3.11-slim

@@ -1,0 +1,14 @@
+Rate limit test: exceeded-limit requests
+Date: 2026-07-20
+
+Method: kubectl exec pod/aither-bff -> localhost:8000
+Test: Send more than RATE_LIMIT_MAX_REQUESTS (10 per 60s) from same client
+
+Result: HTTP 429 received at request >= limit+1
+Body: {"detail":"Rate limit exceeded. Try again later."}
+
+Evidence:
+- After 10+ requests to /api/v1/completions from same IP → 429
+- BFF correctly blocks before upstream call
+
+Status: PASSED (429 received)

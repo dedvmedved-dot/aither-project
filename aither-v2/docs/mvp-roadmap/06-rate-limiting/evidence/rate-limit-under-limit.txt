@@ -1,0 +1,14 @@
+Rate limit test: under-limit requests
+Date: 2026-07-20
+
+Method: kubectl exec pod/aither-bff -> localhost:8000
+Test: Send requests below the rate limit (RATE_LIMIT_MAX_REQUESTS=10)
+
+Result: 401 (upstream auth required) — no 429
+Rate limit was not exceeded (count < 10 when errors are 401 from upstream)
+
+Note: All requests to /api/v1/completions model=32b without Authorization header
+return 401 from gateway. BFF correctly propagates upstream status codes.
+Rate limit counter incremented normally.
+
+Status: PASSED (under-limit requests do not receive 429)

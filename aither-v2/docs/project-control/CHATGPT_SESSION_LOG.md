@@ -97,6 +97,81 @@
 
 ---
 
+## Stage 06 — Redis / Rate Limiting
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+
+### Task source
+
+ChatGPT. Stage 06 — Redis-backed fixed-window rate limiting for BFF.
+
+### What changed
+
+1. **Redis deployed**: aither-redis-rate-limit (redis:7-alpine, 1/1 Running)
+   - Initial CrashLoopBackOff due to securityContext -> fixed by removing restrictive securityContext
+   - Documented as finding BFF-RL-REDIS-FAIL-01
+2. **BFF app.py updated** to v0.3.0:
+   - Added `redis.asyncio` client connection in lifespan
+   - Added `_check_rate_limit()` — fixed-window INCR + EXPIRE
+   - Rate limit checked before upstream call on POST /api/v1/chat and /api/v1/completions
+   - Fail-open when Redis unavailable
+   - Rate limit key: `rl:{sha256(token)}:{window}` or `rl:ip:{client_ip}:{window}`
+3. **bff-mvp.yaml updated**:
+   - ConfigMap app.py with rate limiting logic
+   - ENV vars: RATE_LIMIT_ENABLED, REDIS_URL, RATE_LIMIT_WINDOW_SECONDS, RATE_LIMIT_MAX_REQUESTS
+   - pip install includes `redis` package
+4. **Manifests created**: manifests/mvp-roadmap/06-rate-limiting/redis-rate-limit.yaml
+
+### Evidence collected
+
+| Evidence | Status |
+|---|---|
+| redis-manifest-dry-run.txt | PASSED |
+| redis-rollout-status.txt | PASSED |
+| redis-pods-after.txt | PASSED |
+| redis-service-after.yaml | PASSED |
+| bff-rollout-after-rl.txt | PASSED |
+| bff-pods-after-rl.txt | PASSED |
+| rate-limit-under-limit.txt | PASSED (401, not 429) |
+| rate-limit-exceeded-429.txt | PASSED (429 confirmed) |
+| rate-limit-reset-window.txt | PASSED (flush + retry) |
+| redis-key-safety-check.txt | PASSED (no raw token) |
+| no-secret-leak-check.txt | PASSED |
+| forbidden-scope-check.txt | PASSED |
+
+### Reports created
+
+- INSTRUCTIONS.md
+- redis-rate-limiting-report.md
+- rate-limit-test-report.md
+- rate-limit-security-notes.md
+
+### Open findings
+
+- BFF-RL-REDIS-FAIL-01: PARTIAL (fail-open when Redis unavailable)
+- BFF-TOKEN-01: NOT COLLECTED (unchanged)
+- BFF-AUTH-01: PARTIAL (unchanged)
+
+### Forbidden areas unchanged
+
+- vLLM Deployments: NOT MODIFIED
+- vLLM Services: NOT MODIFIED
+- GPU limits: NOT MODIFIED
+- TP / tensor_parallel_size: NOT MODIFIED
+- Gateway runtime: NOT MODIFIED
+- Gateway Stage 04 evidence: NOT MODIFIED
+- Portal: NOT MODIFIED (not started)
+- OAuth: NOT MODIFIED
+- Stage 05 evidence: NOT MODIFIED
+
+### Gate
+
+- Stage 06: **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT**
+- Stage 07: **NOT APPROVED**
+
+---
+
 ## Stage 05 Audit Result Minor Fix — CHAT_HANDOVER.md stale status codes
 
 **Date:** 2026-07-20

@@ -1,0 +1,8 @@
+Dry run result for redis-rate-limit.yaml
+Date: 2026-07-20
+
+Command: kubectl apply -f redis-rate-limit.yaml --dry-run=client
+Result: deployment.apps/aither-redis-rate-limit created (dry run)
+        service/aither-redis-rate-limit created (dry run)
+
+Status: PASSED

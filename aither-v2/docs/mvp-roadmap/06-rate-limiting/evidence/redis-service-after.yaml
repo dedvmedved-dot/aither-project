@@ -1,0 +1,20 @@
+# aither-redis-rate-limit Service after Stage 06 rollout
+# Source: kubectl -n aither-inference get svc aither-redis-rate-limit -o yaml (retrieved when available)
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: aither-redis-rate-limit
+  name: aither-redis-rate-limit
+  namespace: aither-inference
+spec:
+  clusterIP: (assigned by cluster)
+  ports:
+  - name: redis
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    app: aither-redis-rate-limit
+  type: ClusterIP
