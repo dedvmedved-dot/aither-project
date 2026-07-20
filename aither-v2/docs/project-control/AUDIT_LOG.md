@@ -389,9 +389,9 @@ Stage 08: NOT APPROVED
 2. Login/session: PASSED
 3. Token create/list/revoke/blocked: PASSED
 4. Models with Bearer token: PASSED
-5. 14B chat BFF flow: PASSED (upstream 401)
-6. 32B completion BFF flow: PASSED (upstream 401)
-7. 32B chat adapter BFF flow: PASSED (upstream 401)
+5. 14B chat BFF flow: PASSED (upstream 401 — now resolved in Corrective 1)
+6. 32B completion BFF flow: PASSED (upstream 401 — now resolved in Corrective 1)
+7. 32B chat adapter BFF flow: PASSED (upstream 401 — now resolved in Corrective 1)
 8. Rate limit 429 after full auth stack: PASSED
 9. No secrets committed: PASSED
 10. Forbidden zones unchanged: PASSED
@@ -401,5 +401,63 @@ Stage 08: NOT APPROVED
 **Gate after Stage 08:**
 ```
 Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT
+Stage 09: NOT APPROVED
+```
+
+---
+
+## Stage 08 Corrective 1 — Upstream Internal Auth Resolution
+
+**Date:** 2026-07-20
+**Commit:** (this commit)
+**Method:** Runtime Secret patch + BFF rollout + model response retest
+
+**Root cause:** BFF's upstream auth tokens (`BFF_14B_UPSTREAM_AUTH_TOKEN`, `BFF_32B_GATEWAY_AUTH_TOKEN`) were test-only values (length 23, `test-upstream-token-14b`/`test-upstream-token-32b`). The real upstream auth key is stored in Secret `vllm-api-key`/`VLLM_API_KEY` (length 64).
+
+**Runtime operation:**
+1. Secret inventory checked: `aither-bff-auth` (exists), `vllm-api-key` (exists).
+2. `BFF_14B_UPSTREAM_AUTH_TOKEN` and `BFF_32B_GATEWAY_AUTH_TOKEN` patched with real `VLLM_API_KEY` value via `kubectl patch secret`.
+3. BFF rollout restarted: `kubectl rollout restart deployment/aither-bff`.
+4. New pod: `aither-bff-656ff579b9-9m2m6`, 1/1 Running, /health → HTTP 200.
+5. Model response retest with Portal proxy (correct scope tokens):
+
+| Endpoint | HTTP | Response |
+|---|---|---|
+| 14B chat (model:14b:chat scope) | 200 | "Hello from 14b" |
+| 32B completion (model:32b:completion scope) | 200 | "Hello from 32b." |
+| 32B chat adapter (model:32b:chat-adapter scope) | 200 | "Hello from 32b adapter" |
+
+**Note:** 32B chat adapter requires scope `model:32b:chat-adapter` (not `model:32b:chat`).
+
+**Findings resolved:**
+- `AUTH-UPSTREAM-VALID-01`: PARTIAL → COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+- `BFF-TOKEN-01`: NOT COLLECTED → COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+- `E2E-14B-CHAT-01`: PARTIAL → COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+- `E2E-32B-COMPLETION-01`: PARTIAL → COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+- `E2E-32B-CHAT-ADAPTER-01`: PARTIAL → COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+- `PORTAL-CHAT-14B-01`: UPSTREAM AUTH NOT TESTED → PASSED (real response)
+- `PORTAL-CHAT-32B-ADAPTER-01`: UPSTREAM AUTH NOT TESTED → PASSED (real response)
+
+**Evidence (8 new files):**
+- e2e-upstream-auth-secret-inventory.txt
+- e2e-bff-rollout-after-secret-update.txt
+- e2e-14b-chat-response-retest.txt
+- e2e-32b-completion-response-retest.txt
+- e2e-32b-chat-adapter-response-retest.txt
+- e2e-auth-upstream-valid-summary.txt
+- e2e-no-secret-leak-check-corrective-1.txt
+- e2e-forbidden-scope-check-corrective-1.txt
+
+**Forbidden areas unchanged:**
+- tools/bff/app.py: NOT MODIFIED
+- tools/portal/*: NOT MODIFIED
+- bff-mvp.yaml / portal-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06/07.1/07.2 evidence: NOT MODIFIED
+- Secret values NOT committed
+
+**Gate:**
+```
+Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 09: NOT APPROVED
 ```

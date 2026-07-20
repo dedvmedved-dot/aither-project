@@ -19,7 +19,7 @@
 | **BFF-AUTH-01** | **BFF has no built-in auth; relies on upstream auth** | **PARTIAL** | **Stage 08** |
 | **BFF-SEC-01** | **BFF container securityContext applied (runAsNonRoot, cap drop, read-only app volume)** | **PASSED** | **Stage 05** |
 | **BFF-STATUS-01** | **BFF correctly propagates upstream HTTP status codes** | **PASSED** | **Stage 05** |
-| **BFF-TOKEN-01** | **Valid token test for 32B completion not collected (VPN instability)** | **NOT COLLECTED** | **Stage 05** |
+| **BFF-TOKEN-01** | **Valid token test for 32B completion confirmed: HTTP 200 with real model response** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08 Corrective 1** |
 | **BFF-RL-01** | **Rate limiting implemented in Stage 06** | **PASSED** | **Stage 06** |
 | **BFF-RL-REDIS-01** | **Redis-backed fixed-window rate limiting deployed** | **PASSED** | **Stage 06** |
 | **BFF-RL-429-01** | **HTTP 429 returned when limit exceeded** | **PASSED** | **Stage 06** |
@@ -30,7 +30,7 @@
 | **AUTH-01** | **BFF central auth implemented** | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | **Stage 07.1** |
 | **AUTH-API-TOKEN-01** | **API token issuance implemented** | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | **Stage 07.1** |
 | **AUTH-RL-429-01** | **Rate limiting still returns 429 on BFF v0.4.0 after auth integration** | **PASSED (burst 15 reqs: 10×200 + 5×429)** | **Stage 07.1** |
-| **AUTH-UPSTREAM-VALID-01** | **Internal upstream tokens are test-only; end-to-end model 200 not confirmed** | **PARTIAL** | **Stage 07.1** |
+| **AUTH-UPSTREAM-VALID-01** | **Internal upstream tokens resolved: Secret patched with real VLLM_API_KEY; all model endpoints return HTTP 200** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08 Corrective 1** |
 | **AUTH-TOKEN-HASH-01** | **Raw API tokens are not stored** | **PASSED (code review + runtime)** | **Stage 07.1** |
 | **AUTH-TOKEN-REVOKE-01** | **API token revoke works** | **PASSED (runtime confirmed)** | **Stage 07.1** |
 | **AUTH-AGENT-01** | **AI agent can call models through API token** | **PASSED (runtime confirmed — BFF auth flow works)** | **Stage 07.1** |
@@ -44,8 +44,8 @@
 | **PORTAL-AUTH-01** | **Portal login/logout/me works through BFF** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
 | **PORTAL-TOKEN-01** | **Portal token create/list/revoke UI works** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
 | **PORTAL-TOKEN-SAFE-01** | **Raw token shown once and not persisted** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
-| **PORTAL-CHAT-14B-01** | **Portal 14B chat through BFF** | **PASSED WITH FINDING / BFF FLOW VERIFIED, UPSTREAM AUTH NOT TESTED** | **Stage 07.2** |
-| **PORTAL-CHAT-32B-ADAPTER-01** | **Portal 32B chat adapter through BFF** | **PASSED WITH FINDING / BFF FLOW VERIFIED, UPSTREAM AUTH NOT TESTED** | **Stage 07.2** |
+| **PORTAL-CHAT-14B-01** | **Portal 14B chat through BFF** | **PASSED (HTTP 200, real model response "Hello from 14b" received)** | **Stage 08 Corrective 1** |
+| **PORTAL-CHAT-32B-ADAPTER-01** | **Portal 32B chat adapter through BFF** | **PASSED (HTTP 200, real adapter response "Hello from 32b adapter" received)** | **Stage 08 Corrective 1** |
 | **PORTAL-BFF-ONLY-01** | **Portal uses BFF only, no direct vLLM/Gateway** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
 | **PORTAL-NO-SECRETS-01** | **No secrets/raw tokens committed** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
 | **AUTH-PORTAL-01** | **Portal auth UI implemented** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
@@ -55,9 +55,9 @@
 | **PORTAL-CM-ALIGN-01** | **Portal manifest ConfigMap matches tools/portal source** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
 | **E2E-PORTAL-01** | **Portal end-to-end access** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
 | **E2E-AUTH-01** | **Login/session/token lifecycle end-to-end** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
-| **E2E-14B-CHAT-01** | **14B chat returns model response through Portal/BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT / PARTIAL** | **Stage 08** |
-| **E2E-32B-COMPLETION-01** | **32B completion returns model response through BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT / PARTIAL** | **Stage 08** |
-| **E2E-32B-CHAT-ADAPTER-01** | **32B chat adapter returns model response through Portal/BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT / PARTIAL** | **Stage 08** |
+| **E2E-14B-CHAT-01** | **14B chat returns model response through Portal/BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08 Corrective 1** |
+| **E2E-32B-COMPLETION-01** | **32B completion returns model response through BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08 Corrective 1** |
+| **E2E-32B-CHAT-ADAPTER-01** | **32B chat adapter returns model response through Portal/BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08 Corrective 1** |
 | **E2E-RATE-LIMIT-01** | **Rate limit still returns 429 after full E2E flow** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
 | **E2E-TOKEN-REVOKE-01** | **Revoked token blocked** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |
 | **E2E-NO-SECRETS-01** | **No raw tokens/secrets committed** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 08** |

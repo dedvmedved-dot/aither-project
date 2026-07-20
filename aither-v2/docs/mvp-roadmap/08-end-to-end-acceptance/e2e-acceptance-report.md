@@ -12,11 +12,11 @@
 | Token list (metadata only) | ✅ PASSED |
 | Models with Bearer token | ✅ PASSED — HTTP 200 |
 | 14B chat (BFF flow) | ✅ PASSED — auth/scope/upstream BFF route verified |
-| 14B chat (model response) | ⚠️ PARTIAL — upstream 401 (AUTH-UPSTREAM-VALID-01) |
+| 14B chat (model response) | ✅ PASSED — HTTP 200, "Hello from 14b" |
 | 32B completion (BFF flow) | ✅ PASSED — auth/scope/upstream BFF→Gateway route verified |
-| 32B completion (model response) | ⚠️ PARTIAL — upstream 401 (AUTH-UPSTREAM-VALID-01) |
+| 32B completion (model response) | ✅ PASSED — HTTP 200, "Hello from 32b." |
 | 32B chat adapter (BFF flow) | ✅ PASSED — auth/scope/adapter→Gateway route verified |
-| 32B chat adapter (model response) | ⚠️ PARTIAL — upstream 401 (AUTH-UPSTREAM-VALID-01) |
+| 32B chat adapter (model response) | ✅ PASSED — HTTP 200, "Hello from 32b adapter" |
 | Rate limit (10 req/60s → 429) | ✅ PASSED — 10×200 + 5×429 confirmed |
 | Token revoke | ✅ PASSED — HTTP 200 → revoked |
 | Revoked token blocked | ✅ PASSED — HTTP 401 |
@@ -41,17 +41,50 @@
 | e2e-no-secret-leak-check.txt | PASSED |
 | e2e-forbidden-scope-check.txt | PASSED |
 
+### Corrective 1 — Evidence (New)
+
+| Evidence | Status |
+|---|---|
+| e2e-upstream-auth-secret-inventory.txt | PASSED |
+| e2e-bff-rollout-after-secret-update.txt | PASSED |
+| e2e-14b-chat-response-retest.txt | PASSED |
+| e2e-32b-completion-response-retest.txt | PASSED |
+| e2e-32b-chat-adapter-response-retest.txt | PASSED |
+| e2e-auth-upstream-valid-summary.txt | PASSED / AUTH-UPSTREAM-VALID-01 RESOLVED |
+| e2e-no-secret-leak-check-corrective-1.txt | PASSED |
+| e2e-forbidden-scope-check-corrective-1.txt | PASSED |
+
+### Corrective 1 — Upstream Internal Auth Resolution
+
+**Commit:** (this commit)
+
+**Runtime operation:**
+- Secret inventory checked.
+- Secret `aither-bff-auth` updated: `BFF_14B_UPSTREAM_AUTH_TOKEN` and `BFF_32B_GATEWAY_AUTH_TOKEN` changed from test-only (length 23) to real VLLM_API_KEY (length 64).
+- BFF rollout restarted: YES.
+
+**Retest results:**
+- 14B chat: **PASSED** — HTTP 200, "Hello from 14b"
+- 32B completion: **PASSED** — HTTP 200, "Hello from 32b."
+- 32B chat adapter: **PASSED** — HTTP 200, "Hello from 32b adapter"
+
+**Decision before ChatGPT audit:**
+```
+Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+```
+
 ### Key Findings
 
-1. **BFF flow confirmed** — auth middleware, scope enforcement, upstream routing, and status code propagation work correctly for all endpoints.
-2. **Upstream auth blocked** — test-only internal upstream tokens return 401. Real vLLM/Gateway auth tokens not deployed. Finding AUTH-UPSTREAM-VALID-01 remains PARTIAL.
-3. **Rate limiting active** — confirmed 429 after 10 requests in 60s window.
-4. **Full token lifecycle** — create (once) → list (metadata) → revoke → blocked — all PASSED.
+1. **AUTH-UPSTREAM-VALID-01 RESOLVED** — Secret aither-bff-auth updated with real VLLM_API_KEY; all three upstream endpoints return HTTP 200 with real model responses.
+2. **Full E2E flow confirmed** — Portal → BFF → vLLM/Gateway → model response works for all endpoints.
+3. **Full token lifecycle** — create (once) → list (metadata) → revoke → blocked — all PASSED.
+4. **Rate limiting active** — confirmed 429 after 10 requests in 60s window.
 5. **Portal/BFF-only architecture** — confirmed no direct vLLM/Gateway access.
-6. **32B labeled as adapter** — no native 32B chat claimed.
+6. **32B labeled as adapter** — 32B chat is adapter over completion (text_completion object), not native 32B chat.
 
 ### Gate
 
 ```
-Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT
+Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 09: NOT APPROVED
 ```

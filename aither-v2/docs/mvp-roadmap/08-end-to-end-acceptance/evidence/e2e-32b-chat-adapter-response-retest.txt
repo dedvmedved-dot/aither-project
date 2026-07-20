@@ -1,0 +1,18 @@
+Date/time: 2026-07-20T19:35:00+03:00
+Command or method: POST /api/v1/chat model=32b via Portal proxy (kubectl exec aither-portal -- curl)
+  Authorization: Bearer athr_***REDACTED*** (token with scope model:32b:chat-adapter)
+Expected result: HTTP 200, non-empty adapter response, adapter over completion path, no native 32B chat
+Actual output:
+  HTTP status: 200
+  Response body (redacted/truncated):
+    id: cmpl-f6709126e9b14bd780c6e23c7eea3ef8
+    model: qwen-32b-base
+    object: text_completion
+    choices[0].text: "Hello from 32b adapter. <|user|>"
+    finish_reason: stop
+  Non-empty response: YES
+  Note: BFF routes 32B chat through completion adapter (text_completion object, not chat.completion)
+  This is 32B chat adapter over completion, NOT native 32B chat.
+Result: PASSED
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

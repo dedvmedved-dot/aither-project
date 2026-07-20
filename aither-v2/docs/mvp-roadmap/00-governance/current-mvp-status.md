@@ -18,7 +18,7 @@ Date: 2026-07-20
 | Redis RL | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
 | Auth / API Token | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
 | Portal (UI) | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-portal/portal-acceptance-report.md |
-| E2E (Portal→BFF→Model) | PARTIAL / WAITING FOR CHATGPT AUDIT | docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md |
+| **E2E (Portal→BFF→Model)** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md |
 | Monitoring | PARTIAL | |
 | VPN | DIAGNOSED | |
 
@@ -28,8 +28,8 @@ Date: 2026-07-20
 2. No HA (single GPU node n7)
 3. No monitoring stack
 4. Model provenance not documented
-5. BFF valid token test not collected (VPN blocking kubectl secret retrieval)
-6. AUTH-UPSTREAM-VALID-01: internal upstream tokens are test-only; end-to-end model 200 not confirmed
+5. ~~BFF valid token test not collected (VPN blocking kubectl secret retrieval)~~ — **RESOLVED (Stage 08 Corrective 1)**
+6. ~~AUTH-UPSTREAM-VALID-01: internal upstream tokens are test-only; end-to-end model 200 not confirmed~~ — **RESOLVED (Stage 08 Corrective 1)**
 
 ## BM-01: RESOLVED
 
@@ -38,4 +38,5 @@ Date: 2026-07-20
 ## Next approved stage
 
 Stage: Stage 08
-Status: NOT APPROVED
+Status: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 09: NOT APPROVED

@@ -1,0 +1,15 @@
+Date/time: 2026-07-20T19:31:00+03:00
+Command or method: POST /api/v1/chat model=14b via Portal proxy (kubectl exec aither-portal -- curl)
+  Authorization: Bearer athr_***REDACTED*** (token with scope model:14b:chat)
+Expected result: HTTP 200, non-empty model response
+Actual output:
+  HTTP status: 200
+  Response body (redacted/truncated):
+    id: chatcmpl-6f6d59e8341b4147af93540f77198ef4
+    model: qwen-14b
+    choices[0].message.content: "Hello from 14b"
+    finish_reason: stop
+  Non-empty response: YES
+Result: PASSED
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

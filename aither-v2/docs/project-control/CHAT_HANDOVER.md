@@ -62,12 +62,16 @@ Stage 07.2 Portal: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
    - Corrective 1 fixed UI data binding and navigation.
    - Corrective 2 fixed portal-mvp.yaml inline ConfigMap alignment.
    - SHA256 verified: index.html, app.js, styles.css, nginx.conf all MATCH.
-Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT (overall MVP E2E).
+Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT (overall MVP E2E).
    - Portal/BFF/Redis/vLLM/Gateway path verified end-to-end.
    - Login/token/revoke lifecycle verified.
    - Rate limit 429 confirmed after full auth stack.
-   - Upstream model responses blocked by test-only internal tokens (AUTH-UPSTREAM-VALID-01: PARTIAL).
-   - BFF flow (auth -> scope -> upstream -> status propagation) confirmed for all endpoints.
+   - **Corrective 1:** Upstream auth resolved — Secret aither-bff-auth patched with real VLLM_API_KEY.
+   - **14B chat:** HTTP 200, real model response "Hello from 14b".
+   - **32B completion:** HTTP 200, real model response "Hello from 32b.".
+   - **32B chat adapter:** HTTP 200, real adapter response "Hello from 32b adapter".
+   - AUTH-UPSTREAM-VALID-01: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
+   - BFF-TOKEN-01: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
 
 Stage 05 status details:
 - BFF deployed: 1/1 Running, FastAPI on python:3.11-slim

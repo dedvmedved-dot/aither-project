@@ -1,0 +1,21 @@
+Date/time: 2026-07-20T19:35:00+03:00
+Command or method: kubectl exec aither-portal -- curl POST /api/v1/chat model=14b, POST /api/v1/completions model=32b, POST /api/v1/chat model=32b (all with correct auth and scopes)
+Expected result: ALL THREE upstream model responses -> HTTP 200 with real model output
+Actual output:
+  Endpoint                    HTTP Status   Response     Scope Used
+  14B chat                    200           "Hello from 14b"            model:14b:chat
+  32B completion              200           "Hello from 32b."           model:32b:completion
+  32B chat adapter (over completion) 200  "Hello from 32b adapter."    model:32b:chat-adapter
+
+  AUTH-UPSTREAM-VALID-01: RESOLVED
+  - Secret aither-bff-auth patched: BFF_14B_UPSTREAM_AUTH_TOKEN and BFF_32B_GATEWAY_AUTH_TOKEN
+    updated from test-only (length 23) to real VLLM_API_KEY (length 64).
+  - BFF rollout restarted: YES
+  - All three upstream endpoints return HTTP 200 with real model responses.
+  - 32B chat is adapter over completion (text_completion object, NOT native 32B chat).
+  - nginx-gateway-32b has 1/2 pods in CrashLoopBackOff (upstream ref vllm-32b-gptq mismatch),
+    but the other replica (pvxtq) is 1/1 Running and handles requests.
+HTTP status: 200 (all three)
+Result: PASSED / AUTH-UPSTREAM-VALID-01 RESOLVED
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

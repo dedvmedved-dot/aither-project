@@ -1051,3 +1051,79 @@ New directory: aither-v2/docs/mvp-roadmap/08-end-to-end-acceptance/
 Stage 08: PARTIAL / WAITING FOR CHATGPT AUDIT
 Stage 09: NOT APPROVED
 ```
+
+---
+
+## Stage 08 Corrective 1 — Upstream Internal Auth Resolution and Real Model Response Retest
+
+**Date:** 2026-07-20
+**Stage:** Stage 08 Corrective 1 — Upstream Internal Auth Resolution and Real Model Response Retest
+**Audit source:** ChatGPT — audit of ece0d6f (Stage 08 initial)
+**Reason:**
+- Stage 08 E2E was PARTIAL.
+- Portal/BFF/Auth/Token/Rate-limit flow passed.
+- Model responses failed with upstream HTTP 401 due test-only internal upstream tokens.
+- Real upstream key existed in Secret `vllm-api-key`/`VLLM_API_KEY`.
+
+### What changed
+
+**Runtime operations:**
+- Secret inventory checked: `aither-bff-auth` (exists), `vllm-api-key` (exists).
+- `BFF_14B_UPSTREAM_AUTH_TOKEN` and `BFF_32B_GATEWAY_AUTH_TOKEN` updated from test-only (length 23, sha256 9e71bc5c1cb1 / 615e8b5b15af) to real VLLM_API_KEY (length 64, sha256 1b9eb6896571).
+- `kubectl patch secret aither-bff-auth -n aither-inference` — runtime update, NOT committed.
+- `kubectl rollout restart deployment/aither-bff -n aither-inference` — new pod `aither-bff-656ff579b9-9m2m6`, 1/1 Running.
+- /health → HTTP 200 (confirmed).
+
+**Evidence collected:**
+| Evidence | Status |
+|---|---|
+| e2e-upstream-auth-secret-inventory.txt | PASSED |
+| e2e-bff-rollout-after-secret-update.txt | PASSED |
+| e2e-14b-chat-response-retest.txt | PASSED |
+| e2e-32b-completion-response-retest.txt | PASSED |
+| e2e-32b-chat-adapter-response-retest.txt | PASSED |
+| e2e-auth-upstream-valid-summary.txt | PASSED / AUTH-UPSTREAM-VALID-01 RESOLVED |
+| e2e-no-secret-leak-check-corrective-1.txt | PASSED |
+| e2e-forbidden-scope-check-corrective-1.txt | PASSED |
+
+### Model response retest results
+
+| Model | Endpoint | HTTP | Response | Scope Required |
+|---|---|---|---|---|
+| 14B | POST /api/v1/chat | 200 | "Hello from 14b" | model:14b:chat |
+| 32B | POST /api/v1/completions | 200 | "Hello from 32b." | model:32b:completion |
+| 32B (adapter) | POST /api/v1/chat | 200 | "Hello from 32b adapter" | model:32b:chat-adapter |
+
+**Note:** 32B chat adapter requires scope `model:32b:chat-adapter` (not `model:32b:chat`). This is correct BFF design — adapter over completion requires explicit scope.
+
+### Findings resolved
+
+| Finding | Before | After |
+|---|---|---|
+| AUTH-UPSTREAM-VALID-01 | PARTIAL | COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT |
+| BFF-TOKEN-01 | NOT COLLECTED | COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT |
+| E2E-14B-CHAT-01 | PARTIAL | COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT |
+| E2E-32B-COMPLETION-01 | PARTIAL | COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT |
+| E2E-32B-CHAT-ADAPTER-01 | PARTIAL | COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT |
+| PORTAL-CHAT-14B-01 | UPSTREAM AUTH NOT TESTED | PASSED (real response received) |
+| PORTAL-CHAT-32B-ADAPTER-01 | UPSTREAM AUTH NOT TESTED | PASSED (real response received) |
+
+### Forbidden areas unchanged
+
+- tools/bff/app.py: NOT MODIFIED
+- tools/portal/*: NOT MODIFIED
+- manifests/mvp-roadmap/05-bff/bff-mvp.yaml: NOT MODIFIED
+- manifests/mvp-roadmap/07-portal/portal-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06/07.1/07.2 evidence: NOT MODIFIED
+- Stage 09: NOT STARTED
+- Raw tokens NOT committed
+- Secret values NOT committed
+- Stage 08 NOT marked PASSED before ChatGPT audit
+
+### Gate
+
+```
+Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 09: NOT APPROVED
+```

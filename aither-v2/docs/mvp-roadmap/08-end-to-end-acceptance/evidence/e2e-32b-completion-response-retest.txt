@@ -1,0 +1,16 @@
+Date/time: 2026-07-20T19:31:00+03:00
+Command or method: POST /api/v1/completions model=32b via Portal proxy (kubectl exec aither-portal -- curl)
+  Authorization: Bearer athr_***REDACTED*** (token with scope model:32b:completion)
+Expected result: HTTP 200, non-empty completion response, BFF -> Gateway -> vLLM 32B path
+Actual output:
+  HTTP status: 200
+  Response body (redacted/truncated):
+    id: cmpl-44d2ee988a9c46138402f0cdb3d1aa0c
+    model: qwen-32b-base
+    choices[0].text: "\nSure, here's your phrase:\n\nHello from 32b."
+    finish_reason: stop
+  Non-empty response: YES
+  Route: BFF -> nginx-gateway-32b -> vllm-32b-gptq (qwen-32b-base)
+Result: PASSED
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES
