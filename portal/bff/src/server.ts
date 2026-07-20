@@ -10,7 +10,7 @@ const pgUser = "portal";
 const pgDb = "portal";
 const DB_URL = "postgres://" + pgUser + "@" + pgHost + ":" + String(pgPort) + "/" + pgDb;
 const CORE_API = "http://10.129.13.78:30900/v1";
-const JWT_SEC = "aither-dev-jwt-secret-2026";
+const JWT_SEC = process.env.JWT_SECRET || (() => { throw new Error("JWT_SECRET environment variable is required. See portal/.env.example"); })();
 
 function signToken(uid: string): string {
   return jwt.sign({ user_id: uid }, JWT_SEC, { expiresIn: "7d" });

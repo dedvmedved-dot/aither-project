@@ -6,7 +6,7 @@ services:
       - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: portal
-      POSTGRES_PASSWORD: portal
+      POSTGRES_PASSWORD: "${PG_PASSWORD:?PG_PASSWORD is required}"
       POSTGRES_DB: portal
     volumes:
       - portal_pgdata:/var/lib/postgresql/data
@@ -19,22 +19,24 @@ services:
     build: .
     environment:
       PG_HOST: 127.0.0.1
-      PG_PORT: "5432"
+      PG_PORT: "${PG_PORT:-5432}"
       PG_USER: portal
-      PG_PASSWORD: portal
-      PGPASSWORD: portal
+      PG_PASSWORD: "${PG_PASSWORD:?PG_PASSWORD is required}"
+      PGPASSWORD: "${PG_PASSWORD:?PG_PASSWORD is required}"
       PG_DB: portal
-      JWT_SECRET: "dev-jwt-secret-change-me"
-      NODE_ENV: production
-      CORS_ORIGIN: "http://130.17.1.90"
-      INVITE_CODE: "aither-2026"
-      CORE_API: "http://10.129.13.78:30900"
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required}"
+      NODE_ENV: "${NODE_ENV:-production}"
+      CORS_ORIGIN: "${CORS_ORIGIN:-http://130.17.1.90}"
+      INVITE_CODE: "${INVITE_CODE:?INVITE_CODE is required}"
+      CORE_API: "${CORE_API:-http://10.129.13.78:30900}"
       # LDAP (закомментировано — раскомментировать при настройке)
       # LDAP_URL: "ldap://freeipa.example.com:389"
       # LDAP_BASE_DN: "dc=example,dc=com"
       # LDAP_BIND_DN: "uid=admin,cn=users,cn=accounts,dc=example,dc=com"
-      # LDAP_BIND_PASSWORD: "changeme"
+      # LDAP_BIND_PASSWORD: "${LDAP_BIND_PASSWORD?LDAP_BIND_PASSWORD is required}"
       # LDAP_USER_BASE: "cn=users,cn=accounts,dc=example,dc=com"
+    env_file:
+      - .env
     network_mode: host
     depends_on:
       portal-db:
