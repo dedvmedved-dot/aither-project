@@ -389,3 +389,108 @@ ChatGPT. Stage 06 — Redis-backed fixed-window rate limiting for BFF.
 - Stage 07.1: **PARTIAL / CORRECTIVE REQUIRED** (runtime evidence still needed)
 - Stage 07.2 Portal: **NOT APPROVED**
 - Stage 08: **NOT APPROVED**
+
+---
+
+## Stage 07.1 Corrective 2 — Runtime evidence collection
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+
+**Reason:**
+- Stage 07.1 initial commit (`c14167b`) had NOT COLLECTED runtime evidence due to VPN drop.
+- Corrective 1 (`ba0a924`) fixed login bug and added scope enforcement, but runtime evidence was still NOT COLLECTED.
+
+### What changed
+
+18 evidence files collected via Python exec from BFF pod.
+
+### Evidence collected
+
+| Evidence | Status |
+|---|---|
+| bff-rollout-after-auth.txt | PASSED |
+| bff-pods-after-auth.txt | PASSED |
+| auth-health-no-auth-200.txt | PASSED |
+| auth-models-no-token-401.txt | PASSED |
+| auth-login-success.txt | PASSED |
+| token-create-success-redacted.txt | PASSED |
+| token-list-no-raw-token.txt | PASSED |
+| token-hash-storage-check.txt | PASSED |
+| token-revoke-check.txt | PASSED |
+| agent-models-valid-token-200.txt | PASSED |
+| agent-14b-chat-valid-token.txt | PASSED / UPSTREAM AUTH NOT TESTED |
+| agent-32b-completion-valid-token.txt | PASSED / UPSTREAM AUTH NOT TESTED |
+| agent-32b-chat-adapter-valid-token.txt | PASSED / UPSTREAM AUTH NOT TESTED |
+| agent-wrong-token-401.txt | PASSED |
+| rate-limit-still-works-429.txt | PARTIAL (no 429 observed — 12 reqs all 200) |
+| no-user-token-forwarding-check.txt | PASSED |
+| no-secret-leak-check.txt | PASSED |
+| forbidden-scope-check.txt | PASSED |
+
+### Rate-limit finding
+
+12 sequential GET /api/v1/models with same token returned all 200, not 429 after request 10. Possible window boundary crossing or Redis key expiry.
+
+### Forbidden areas unchanged
+
+- vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring/Stage 05 evidence/Stage 06 evidence: NOT MODIFIED
+
+### Gate (before audit)
+
+- Stage 07.1: **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT**
+- Stage 07.2 Portal: **NOT APPROVED**
+- Stage 08: **NOT APPROVED**
+
+---
+
+## Stage 07.1 Corrective 3 — Rate-limit retest and documentation alignment
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+
+**Reason:**
+- GitHub connector audit of `0db08fb` returned PARTIAL / CORRECTIVE REQUIRED.
+- Rate-limit test showed PARTIAL (no 429 observed).
+- `auth-acceptance-report.md` still contained stale NOT COLLECTED labels and COMPLETED gate.
+- Status/project-control docs needed alignment.
+
+### What changed
+
+1. **Rate-limit retest**: NOT COLLECTED — VPN down (WireGuard peer unreachable). Cluster inaccessible.
+2. **Evidence**: `rate-limit-still-works-429.txt` updated with retest NOT COLLECTED status and expected procedure.
+3. **auth-acceptance-report.md**: Evidence Inventory corrected to actual runtime results. Gate downgraded to PARTIAL / WAITING FOR CHATGPT AUDIT.
+4. **FINDINGS.md**: Added AUTH-RL-429-01 (NOT COLLECTED), AUTH-UPSTREAM-VALID-01 (PARTIAL). Updated AUTH-TOKEN-REVOKE-01 / AUTH-AGENT-01 / AUTH-TOKEN-HASH-01 / AUTH-UPSTREAM-01 to PASSED with runtime confirmation.
+5. **current-mvp-status.md**: Auth/API Token status → PARTIAL WITH RUNTIME EVIDENCE / RATE LIMIT CORRECTION REQUIRED.
+6. **CHAT_HANDOVER.md**: Stage 07.1 details updated.
+7. **AUDIT_LOG.md / CHATGPT_SESSION_LOG.md**: Structured entries added.
+
+### Rate-limit retest result
+
+NOT COLLECTED — VPN prevents controlled burst test with Redis key inspection and precise window tracking.
+
+### Remaining PARTIAL / FAILED / NOT COLLECTED
+
+| Finding | Status |
+|---|---|
+| AUTH-RL-429-01 | NOT COLLECTED / RETEST BLOCKED (VPN) |
+| AUTH-UPSTREAM-VALID-01 | PARTIAL (test-only upstream tokens) |
+| AUTH-REDIS-FAIL-01 | PARTIAL |
+| AUTH-TOKEN-PERSIST-01 | PARTIAL |
+| BFF-RL-REDIS-FAIL-01 | PARTIAL |
+| BFF-RL-RESET-TTL-01 | MINOR FINDING |
+| BFF-TOKEN-01 | NOT COLLECTED |
+| BFF-AUTH-01 | PARTIAL (until ChatGPT audit) |
+
+### Forbidden areas unchanged
+
+- vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring/Stage 05 evidence/Stage 06 evidence: NOT MODIFIED
+- Source code: NOT MODIFIED (no changes to app.py or bff-mvp.yaml)
+
+### Gate
+
+```
+Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT
+Stage 07.2 Portal: NOT APPROVED
+Stage 08: NOT APPROVED
+```

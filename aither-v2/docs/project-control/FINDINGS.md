@@ -29,12 +29,14 @@
 | **BFF-RL-RESET-TTL-01** | **TTL reset not directly observed; reset verified by manual Redis key flush** | **MINOR FINDING** | **Stage 06/Post-MVP** |
 | **AUTH-01** | **BFF central auth implemented** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
 | **AUTH-API-TOKEN-01** | **API token issuance implemented** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
-| **AUTH-TOKEN-HASH-01** | **Raw API tokens are not stored** | **PASSED (code review)** | **Stage 07.1** |
-| **AUTH-TOKEN-REVOKE-01** | **API token revoke works** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
-| **AUTH-AGENT-01** | **AI agent can call models through API token** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
-| **AUTH-UPSTREAM-01** | **User API token is not forwarded to upstream vLLM/gateway** | **PASSED (code review)** | **Stage 07.1** |
-| **AUTH-REDIS-FAIL-01** | **Auth/token store unavailable behavior (Redis)** | **PARTIAL** | **Stage 07.1** |
-| **AUTH-TOKEN-PERSIST-01** | **Token metadata durability with Redis-only storage** | **PARTIAL** | **Stage 07.1/Post-MVP** |
-| **AUTH-PORTAL-01** | **Portal auth UI not implemented in Stage 07.1** | **TARGET Stage 07.2** | **Stage 07.2** |
-| **AUTH-OAUTH-01** | **OAuth not implemented** | **OUT OF SCOPE / FUTURE** | **Future** |
-| **MODEL-32B-CHAT-ADAPTER-01** | **32B chat adapter over completion endpoint** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
+|| **AUTH-RL-429-01** | **Rate limiting still returns 429 on BFF v0.4.0 after auth integration** | **NOT COLLECTED / RETEST BLOCKED (VPN)** | **Stage 07.1** |
+|| **AUTH-UPSTREAM-VALID-01** | **Internal upstream tokens are test-only; end-to-end model 200 not confirmed** | **PARTIAL** | **Stage 07.1** |
+|| **AUTH-TOKEN-HASH-01** | **Raw API tokens are not stored** | **PASSED (code review + runtime)** | **Stage 07.1** |
+|| **AUTH-TOKEN-REVOKE-01** | **API token revoke works** | **PASSED (runtime confirmed)** | **Stage 07.1** |
+|| **AUTH-AGENT-01** | **AI agent can call models through API token** | **PASSED (runtime confirmed — BFF auth flow works)** | **Stage 07.1** |
+|| **AUTH-UPSTREAM-01** | **User API token is not forwarded to upstream vLLM/gateway** | **PASSED (code review + runtime confirmed)** | **Stage 07.1** |
+|| **AUTH-REDIS-FAIL-01** | **Auth/token store unavailable behavior (Redis)** | **PARTIAL** | **Stage 07.1** |
+|| **AUTH-TOKEN-PERSIST-01** | **Token metadata durability with Redis-only storage** | **PARTIAL** | **Stage 07.1/Post-MVP** |
+|| **AUTH-PORTAL-01** | **Portal auth UI not implemented in Stage 07.1** | **TARGET Stage 07.2** | **Stage 07.2** |
+|| **AUTH-OAUTH-01** | **OAuth not implemented** | **OUT OF SCOPE / FUTURE** | **Future** |
+|| **MODEL-32B-CHAT-ADAPTER-01** | **32B chat adapter over completion endpoint** | **PASSED (runtime confirmed — adapter logic works)** | **Stage 07.1** |

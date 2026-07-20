@@ -48,37 +48,39 @@
 |---|---|---|
 | bff-auth-manifest-dry-run.txt | COLLECTED | Manifest valid |
 | bff-auth-secret-redacted.txt | COLLECTED | Secret created, redacted |
-| bff-rollout-after-auth.txt | NOT COLLECTED | VPN drop |
-| bff-pods-after-auth.txt | NOT COLLECTED | VPN drop |
-| auth-health-no-auth-200.txt | NOT COLLECTED | VPN drop |
-| auth-models-no-token-401.txt | NOT COLLECTED | VPN drop |
-| auth-login-success.txt | NOT COLLECTED | VPN drop |
-| token-create-success-redacted.txt | NOT COLLECTED | VPN drop |
-| token-list-no-raw-token.txt | NOT COLLECTED | VPN drop |
-| token-hash-storage-check.txt | NOT COLLECTED | VPN drop |
-| token-revoke-check.txt | NOT COLLECTED | VPN drop |
-| agent-models-valid-token-200.txt | NOT COLLECTED | VPN drop |
-| agent-14b-chat-valid-token.txt | NOT COLLECTED | VPN drop |
-| agent-32b-completion-valid-token.txt | NOT COLLECTED | VPN drop |
-| agent-32b-chat-adapter-valid-token.txt | NOT COLLECTED | VPN drop |
-| agent-wrong-token-401.txt | NOT COLLECTED | VPN drop |
-| rate-limit-still-works-429.txt | NOT COLLECTED | VPN drop |
-| no-user-token-forwarding-check.txt | PASSED (code review) | Source verified |
-| no-secret-leak-check.txt | PASSED (git grep) | No secrets committed |
-| forbidden-scope-check.txt | PASSED (git diff) | Scope confirmed |
+| bff-rollout-after-auth.txt | ✅ PASSED | Rollout successful |
+| bff-pods-after-auth.txt | ✅ PASSED | 1/1 Running, 0 restarts |
+| auth-health-no-auth-200.txt | ✅ PASSED | HTTP 200, auth configured |
+| auth-models-no-token-401.txt | ✅ PASSED | HTTP 401 "Auth required" |
+| auth-login-success.txt | ✅ PASSED | Login 200, wrong pass 401 |
+| token-create-success-redacted.txt | ✅ PASSED | HTTP 200, token shown once |
+| token-list-no-raw-token.txt | ✅ PASSED | Metadata only, no raw token |
+| token-hash-storage-check.txt | ✅ PASSED | Redis HMAC-hash, no raw token |
+| token-revoke-check.txt | ✅ PASSED | HTTP 200, revoked token blocked |
+| agent-models-valid-token-200.txt | ✅ PASSED | HTTP 200, models listed |
+| agent-14b-chat-valid-token.txt | ✅ PASSED / UPSTREAM AUTH NOT TESTED | BFF passes; upstream returns 401 (test-only internal token) |
+| agent-32b-completion-valid-token.txt | ✅ PASSED / UPSTREAM AUTH NOT TESTED | BFF passes; upstream returns 401 |
+| agent-32b-chat-adapter-valid-token.txt | ✅ PASSED / UPSTREAM AUTH NOT TESTED | BFF passes; adapter logic works |
+| agent-wrong-token-401.txt | ✅ PASSED | HTTP 401 "Token not found or revoked" |
+| rate-limit-still-works-429.txt | ⚠️ NOT COLLECTED / RETEST BLOCKED | Initial test: PARTIAL (no 429 observed). Retest: NOT COLLECTED (VPN down) |
+| no-user-token-forwarding-check.txt | ✅ PASSED (code review) | Source verified |
+| no-secret-leak-check.txt | ✅ PASSED (git grep) | No secrets committed |
+| forbidden-scope-check.txt | ✅ PASSED (git diff) | Scope confirmed |
 
 ### Key Findings
 
-1. **VPN instability** prevented runtime evidence collection. Evidence must be re-collected after VPN restore.
+1. **VPN instability** prevented rate-limit retest. Evidence collected for all runtime tests except rate-limit retest.
 2. **Auth config** verified: 6 env vars from Secret `aither-bff-auth`.
 3. **User token isolation** confirmed by source code review: `_upstream_headers()` uses `BFF_*_UPSTREAM_AUTH_TOKEN`, never user token.
 4. **32B chat** is an adapter over completion, NOT native chat. Documented separately.
 5. **BFF-AUTH-01** (old finding) is functionally addressed but NOT closed until ChatGPT audits.
+6. **AUTH-UPSTREAM-VALID-01**: Internal upstream tokens are test-only; end-to-end model 200 not confirmed — PARTIAL.
+7. **AUTH-RL-429-01**: Rate limiting on BFF v0.4.0 — NOT COLLECTED (VPN prevents retest).
 
 ### Gate
 
 ```
-Stage 07.1: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```

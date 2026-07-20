@@ -1,19 +1,31 @@
 === rate-limit-still-works-429.txt ===
 Date: 2026-07-20
+
+## Initial test (Corrective 2)
+
 Command: 12 sequential GET /api/v1/models with same Bearer token
 
 Expected: Requests 1-10 -> 200, Request 11 -> 429
 Actual: All 12 returned 200
 
-Analysis:
-  Rate limit key: rl:<sha256(Authorization)>:<window>
-  Limit: 10 requests per 60 seconds
-  All 12 requests from Python loop completed within same window.
-  
-  Possible reasons for no 429:
-  1. Redis RL keys may have expired between tests (no prior load before test started)
-  2. The 12 requests were spread across two RL windows (window boundary crossed)
-  3. Count=12 > 10 should have triggered, but may need re-verification
+Initial result: PARTIAL — no HTTP 429 observed.
+Analysis: Possible reasons — window boundary crossing, Redis keys expired between tests, or rate-limit check window alignment.
 
-Result: PARTIAL — rate limit mechanism verified in Stage 06, but current test shows no 429.
-Note: Stage 06 confirmed 429 works. This test may need longer burst or lower limit to confirm.
+## Retest (Corrective 3)
+
+Date: 2026-07-20
+VPN status: DOWN (WireGuard peer 170.168.91.95 unreachable, no handshake)
+Kubernetes cluster: NOT ACCESSIBLE
+Retest: NOT COLLECTED
+
+Without cluster access, controlled burst retest with token creation, Redis key inspection, and precise window tracking cannot be performed.
+
+Expected retest procedure (for next VPN-stable session):
+  1. Create dedicated test token.
+  2. Flush rate-limit keys via redis-cli or delete by pattern rl:*.
+  3. Record current window id and Redis counter.
+  4. Execute 12-15 sequential requests within same window (burst <2s).
+  5. Check Redis counter after request 10 and request 11.
+  6. Confirm HTTP 429 observed.
+
+Result: NOT COLLECTED — VPN unavailable prevents controlled retest.
