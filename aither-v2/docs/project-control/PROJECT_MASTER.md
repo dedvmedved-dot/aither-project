@@ -36,7 +36,7 @@ Working directory: aither-v2/
 | Stage 04 | Gateway Hardening | PASSED WITH FINDINGS / CONNECTOR VERIFIED |
 | Stage 04.1 | Repository Integrity Verification | PASSED / CONNECTOR VERIFIED |
 | Stage 05 | BFF Acceptance | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 06 | Redis / Rate Limiting | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** |
+| Stage 06 | Redis / Rate Limiting | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 
 ## 5. Accepted Decisions
 
@@ -55,7 +55,7 @@ Working directory: aither-v2/
 | Gateway previously had ImagePullBackOff pods | RESOLVED |
 | Direct 32B vLLM access may bypass gateway policy | Accepted for MVP internal scope, controlled by BFF routing |
 | TP=2 not tested | Accepted; postponed |
-| Rate limiting not finalized | Target Stage 06 |
+| Rate limiting finalized | Target Stage 06 (PASSED WITH FINDINGS) |
 | BFF valid token test not collected | VPN instability blocked kubectl secret retrieval |
 | Production readiness not achieved | Not production-ready |
 

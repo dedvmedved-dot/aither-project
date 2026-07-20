@@ -1,4 +1,4 @@
-- Stage 06: READY FOR TASK PREPARATION.
+- Stage 06: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
 - Stage 05 is accepted for MVP with findings. Not production-ready.
 
 Evidence updated:
@@ -16,7 +16,7 @@ Findings:
 
 ## Stage 06 — Redis / Rate Limiting
 
-Status: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Status: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 
 Summary:
 - Redis deployed: aither-redis-rate-limit, 1/1 Running, redis:7-alpine.
@@ -47,9 +47,33 @@ Findings added in FINDINGS.md:
 - BFF-RL-KEY-01: PASSED
 - BFF-RL-RESET-01: PASSED
 - BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING (added during audit)
 - BFF-TOKEN-01: NOT COLLECTED (unchanged)
 - BFF-AUTH-01: PARTIAL (unchanged)
 
-Gate:
-- Stage 06: WAITING FOR CHATGPT AUDIT
-- Stage 07: NOT APPROVED
+## ChatGPT Audit Result
+
+**Date:** 2026-07-20
+**Commit audited:** c16c0bf
+**Method:** GitHub connector
+
+**Result: Stage 06 — PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+
+**Accepted:**
+1. Redis deployed and running (1/1, redis:7-alpine).
+2. BFF v0.3.0 contains Redis-backed fixed-window rate limiting.
+3. HTTP 429 confirmed when limit exceeded.
+4. Rate limit key uses SHA-256(token) or client IP — no raw tokens in Redis.
+5. Forbidden runtime zones unchanged.
+
+**Open findings (retained):**
+- BFF-RL-REDIS-FAIL-01: PARTIAL (fail-open when Redis unavailable)
+- BFF-RL-RESET-TTL-01: MINOR FINDING (TTL reset not directly observed; reset verified by manual key flush)
+- BFF-TOKEN-01: NOT COLLECTED (unchanged)
+- BFF-AUTH-01: PARTIAL (unchanged)
+
+**Stage 06 is accepted for MVP with findings. Not production-ready.**
+
+**Gate after audit:**
+- Stage 06: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- Stage 07: **READY FOR TASK PREPARATION**

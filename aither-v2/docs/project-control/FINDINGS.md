@@ -15,7 +15,7 @@
 | **BFF-ROUTE-01** | **32B completion routes through nginx-gateway-32b (never direct vLLM)** | **PASSED** | **Stage 05** |
 | **BFF-CHAT-32B-01** | **32B chat blocked by BFF before upstream (HTTP 422 confirmed)** | **PASSED** | **Stage 05** |
 | **BFF-DIRECT-01** | **Direct vLLM 32B user-facing bypass not present** | **PASSED** | **Stage 05** |
-| **BFF-RL-01** | **Rate limiting postponed to Stage 06** | **POSTPONED** | **Stage 06** |
+| **BFF-RL-01** | **Rate limiting postponed to Stage 06** | **SUPERSEDED (see BFF-RL-01 PASSED)** | **Stage 06** |
 | **BFF-AUTH-01** | **BFF has no built-in auth; relies on upstream auth** | **PARTIAL** | **Stage 08** |
 | **BFF-SEC-01** | **BFF container securityContext applied (runAsNonRoot, cap drop, read-only app volume)** | **PASSED** | **Stage 05** |
 | **BFF-STATUS-01** | **BFF correctly propagates upstream HTTP status codes** | **PASSED** | **Stage 05** |
@@ -26,3 +26,4 @@
 | **BFF-RL-KEY-01** | **Rate limit key does not store raw Authorization token** | **PASSED** | **Stage 06** |
 | **BFF-RL-RESET-01** | **Rate limit window reset verified** | **PASSED** | **Stage 06** |
 | **BFF-RL-REDIS-FAIL-01** | **Redis unavailable behaviour (fail-open)** | **PARTIAL** | **Stage 06** |
+| **BFF-RL-RESET-TTL-01** | **TTL reset not directly observed; reset verified by manual Redis key flush** | **MINOR FINDING** | **Stage 06/Post-MVP** |

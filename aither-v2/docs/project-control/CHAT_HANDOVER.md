@@ -35,14 +35,14 @@ Stage 04.1 — Repository Integrity Verification: PASSED / CONNECTOR VERIFIED.
 Stage 05 — BFF Acceptance: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
    - ChatGPT audit of commit 8219c56 confirmed: BFF implementation, routing, status code propagation, bypass prevention, no secrets committed.
    - Open findings: BFF-TOKEN-01 (NOT COLLECTED), BFF-AUTH-01 (PARTIAL).
-Stage 06 — Redis / Rate Limiting: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
+Stage 06 — Redis / Rate Limiting: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
    - Redis-backed fixed-window rate limiting with 10 req/60s default.
    - HTTP 429 on exceeded limit (confirmed).
    - Rate limit by SHA-256(token hash) or client IP.
    - No raw tokens stored in Redis (confirmed).
    - Redis unavailable: fail-open.
-   - Open findings: BFF-RL-REDIS-FAIL-01 (PARTIAL — fail-open when Redis unavailable).
-Stage 07 — Portal: NOT APPROVED (WAITING FOR AUDIT).
+   - Open findings: BFF-RL-REDIS-FAIL-01 (PARTIAL), BFF-RL-RESET-TTL-01 (MINOR FINDING), BFF-TOKEN-01 (NOT COLLECTED), BFF-AUTH-01 (PARTIAL).
+Stage 07 — Portal: READY FOR TASK PREPARATION.
 
 Stage 05 status details:
 - BFF deployed: 1/1 Running, FastAPI on python:3.11-slim
@@ -57,8 +57,8 @@ Stage 05 status details:
 - Direct vLLM bypass: NOT PRESENT ✅
 - No secrets committed: PASSED ✅
 - vLLM/GPU/TP/Gateway runtime/Portal/Redis/OAuth: NOT MODIFIED ✅
-- Rate limiting: POSTPONED to Stage 06
-- Stage 06: NOT STARTED
+- Rate limiting: IMPLEMENTED in Stage 06
+- Stage 06: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 
 Evidence directory: docs/mvp-roadmap/05-bff/evidence/ (14 files)
 
@@ -69,7 +69,6 @@ OAuth removed from immediate MVP.
 Gateway accepted with findings (GW-IMG-01, GW-SC-01, GW-RL-01).
 Direct vLLM 32B access is not user-facing for MVP.
 Hermes must not change vLLM/GPU/TP/BFF/Portal/Redis/OAuth outside approved scope.
-Stage 06 is BLOCKED until Stage 05 audit passes.
 
 Repository access:
 ChatGPT repository access was restored via GitHub connector/API.

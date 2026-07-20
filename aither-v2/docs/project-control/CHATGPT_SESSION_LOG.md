@@ -182,3 +182,20 @@ ChatGPT. Stage 06 — Redis-backed fixed-window rate limiting for BFF.
 **Gate after fix:** Stage 06 remains READY FOR TASK PREPARATION.
 **Changed files:** CHAT_HANDOVER.md, CHATGPT_SESSION_LOG.md (эта запись).
 **vLLM/GPU/TP/Gateway/BFF/Portal/Redis/OAuth:** NOT MODIFIED.
+
+---
+
+## Stage 06 Audit Result Minor Fix — documentation alignment
+
+**Date:** 2026-07-20
+**Reason:** External ChatGPT audit of c16c0bf returned `PASSED WITH FINDINGS / MINOR CORRECTION REQUIRED`.
+**Fixes applied:**
+1. FINDINGS.md: resolved BFF-RL-01 conflict (POSTPONED → SUPERSEDED), added BFF-RL-RESET-TTL-01 (MINOR FINDING).
+2. CHAT_HANDOVER.md: removed stale "Stage 06: NOT STARTED", "Stage 06 is BLOCKED", "POSTPONED"; updated to PASSED WITH FINDINGS / CONNECTOR VERIFIED.
+3. current-mvp-status.md: Redis RL set to PASSED WITH FINDINGS / CONNECTOR VERIFIED.
+4. AUDIT_LOG.md: added ChatGPT Audit Result section with commit c16c0bf audit record.
+5. PROJECT_MASTER.md: Stage 06 set to PASSED WITH FINDINGS / CONNECTOR VERIFIED.
+
+**Gate after fix:**
+- Stage 06: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- Stage 07: **READY FOR TASK PREPARATION**

@@ -15,7 +15,7 @@ Date: 2026-07-20
 | Streaming TTFT | PASSED WITH MINOR FINDINGS | docs/mvp-roadmap/02-inference-acceptance/streaming-ttft-report.md |
 | TP=2 | POSTPONED / RISK ACCEPTED | docs/mvp-roadmap/03-tp2-decision/tp2-decision-report.md |
 | BFF | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/05-bff/bff-acceptance-report.md |
-| Redis RL | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
+| Redis RL | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
 | Portal | NOT STARTED | |
 | Monitoring | PARTIAL | |
 | Provenance | NOT STARTED | |
@@ -37,4 +37,4 @@ Date: 2026-07-20
 ## Next approved stage
 
 Stage: Stage 07 — Portal
-Status: NOT APPROVED (requires Stage 06 audit)
+Status: READY FOR TASK PREPARATION (requires this documentation fix audit)
