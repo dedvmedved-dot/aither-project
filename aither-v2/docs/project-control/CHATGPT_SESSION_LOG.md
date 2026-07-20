@@ -196,33 +196,18 @@ ChatGPT. Stage 06 — Redis-backed fixed-window rate limiting for BFF.
 4. AUDIT_LOG.md: added ChatGPT Audit Result section with commit c16c0bf audit record.
 5. PROJECT_MASTER.md: Stage 06 set to PASSED WITH FINDINGS / CONNECTOR VERIFIED.
 
-**Gate after fix:**
-- Stage 06: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
-- Stage 07: **READY FOR TASK PREPARATION**
+**Patch bundle prepared:** stage06-audit-result-minor-fix.patch
+**Patch bundle preliminary review:** **PRELIMINARY PATCH VERIFIED** (ChatGPT confirmed scope and content)
+**Push status (first attempt):** FAILED — SSH key not configured in ~/.ssh/config
+**Push status (second attempt):** SUCCESS — used GIT_SSH_COMMAND with explicit IdentityFile
 
----
+**Remote GitHub commits after push:**
+- 47924ecc2d303d462b3aa86328e0f4c43b029c88 — Stage 06 external audit result docs fix
+- 9978c037ab3aaf2b0ca26edbd97437258cb36583 — session log push-status record
 
-## Stage 06 Documentation Fix — Push Status
+**ChatGPT connector verification:**
+- 47924ec: CONNECTOR VERIFIED
+- 9978c03: CONNECTOR VERIFIED
 
-**Date:** 2026-07-20
-**Commit:** 47924ecc2d303d462b3aa86328e0f4c43b029c88
-**Push status:** FAILED (SSH key not available — VPN/credential issue)
-**Remote GitHub commit:** c16c0bf (unchanged)
-**Stage 06:** PASSED WITH FINDINGS / MINOR CORRECTION REQUIRED (documentation fix local-only)
-**Stage 07:** NOT APPROVED
-
-**Files changed (local only):**
-1. aither-v2/docs/project-control/FINDINGS.md
-2. aither-v2/docs/project-control/AUDIT_LOG.md
-3. aither-v2/docs/project-control/PROJECT_MASTER.md
-4. aither-v2/docs/project-control/CHAT_HANDOVER.md
-5. aither-v2/docs/project-control/CHATGPT_SESSION_LOG.md
-6. aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md
-
-**Patch bundle prepared:**
-- stage06-audit-result-minor-fix.patch
-- stage06-audit-result-minor-fix-show.txt
-- stage06-audit-result-minor-fix-stat.txt
-- stage06-audit-result-minor-fix-sha256.txt
-
-**Forbidden areas unchanged:** vLLM/GPU/TP/Gateway/BFF/Redis/Portal/OAuth/Monitoring/Evidence — NOT MODIFIED
+**Stage 06: PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+**Stage 07: READY FOR TASK PREPARATION after this session-log correction is pushed and audited**
