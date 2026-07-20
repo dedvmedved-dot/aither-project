@@ -28,4 +28,29 @@ Expected retest procedure (for next VPN-stable session):
   5. Check Redis counter after request 10 and request 11.
   6. Confirm HTTP 429 observed.
 
-Result: NOT COLLECTED — VPN unavailable prevents controlled retest.
+|Result: NOT COLLECTED — VPN unavailable prevents controlled retest.
+
+## Retest (Corrective 5) — Controlled burst with window sync
+
+**Date:** 2026-07-20
+**Time:** 13:50 UTC+3
+**VPN status:** DOWN (WireGuard peer 170.168.91.95 unreachable, no handshake since last session)
+**Kubernetes cluster:** NOT ACCESSIBLE
+**Retest: NOT COLLECTED**
+
+Controlled retest with window sync, Redis key cleanup, and 15-request burst cannot be performed.
+
+### Expected procedure (unexecuted)
+
+1. Verify BFF deploy/pods/health via kubectl.
+2. Create dedicated test token with scopes `model:14b:chat`.
+3. Compute RL hash: `sha256("Bearer <token>")`.
+4. Delete existing keys by pattern `rl:<sha256>:*` via redis-cli.
+5. Sync window: if `date +%S > 45`, wait for next minute + 2s.
+6. Record window ID: `int(time.time()) // 60`.
+7. Execute 15 rapid `GET /api/v1/models` with Bearer token.
+8. Expected: requests 1-10 → 200, requests 11-15 → 429.
+9. Verify Redis counter > 10 and TTL > 0.
+
+**Result: NOT COLLECTED — VPN peer unreachable for this session.**
+**AUTH-RL-429-01: NOT COLLECTED / RETEST BLOCKED (VPN)**

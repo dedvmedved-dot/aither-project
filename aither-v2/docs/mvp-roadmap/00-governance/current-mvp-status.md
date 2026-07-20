@@ -24,12 +24,12 @@ Date: 2026-07-20
 
 ## Current blockers
 
-1. VPN/MTU instability (intermittent kubectl failures)
+1. VPN/MTU instability (intermittent kubectl failures; Corrective 5 rate-limit retest also blocked)
 2. No HA (single GPU node n7)
 3. No monitoring stack
 4. Model provenance not documented
 5. BFF valid token test not collected (VPN blocking kubectl secret retrieval)
-6. BFF auth rate-limit retest blocked (VPN down)
+6. BFF auth rate-limit retest blocked (VPN down — Corrective 5 attempted, still NOT COLLECTED)
 7. AUTH-UPSTREAM-VALID-01: internal upstream tokens are test-only; end-to-end model 200 not confirmed
 
 ## BM-01: RESOLVED

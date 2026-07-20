@@ -62,7 +62,7 @@
 | agent-32b-completion-valid-token.txt | ✅ PASSED / UPSTREAM AUTH NOT TESTED | BFF passes; upstream returns 401 |
 | agent-32b-chat-adapter-valid-token.txt | ✅ PASSED / UPSTREAM AUTH NOT TESTED | BFF passes; adapter logic works |
 | agent-wrong-token-401.txt | ✅ PASSED | HTTP 401 "Token not found or revoked" |
-| rate-limit-still-works-429.txt | ⚠️ NOT COLLECTED / RETEST BLOCKED | Initial test: PARTIAL (no 429 observed). Retest: NOT COLLECTED (VPN down) |
+| rate-limit-still-works-429.txt | ⚠️ NOT COLLECTED / RETEST BLOCKED (VPN) | Initial test: PARTIAL (no 429). Corrective 3 & 5 retests: NOT COLLECTED (VPN down) |
 | no-user-token-forwarding-check.txt | ✅ PASSED (code review) | Source verified |
 | no-secret-leak-check.txt | ✅ PASSED (git grep) | No secrets committed |
 | forbidden-scope-check.txt | ✅ PASSED (git diff) | Scope confirmed |

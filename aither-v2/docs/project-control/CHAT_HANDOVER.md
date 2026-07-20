@@ -47,7 +47,7 @@ Stage 07.1 — Auth / API Token / Agent Access Baseline: PARTIAL WITH RUNTIME EV
    - 32B chat adapter over completion endpoint.
    - User token NOT forwarded to upstream.
    - Runtime evidence collected (Corrective 2): rollout, pods, health, login, token lifecycle, agent auth all PASSED.
-   - Rate-limit retest NOT COLLECTED — VPN prevents controlled burst test.
+   - Rate-limit retest NOT COLLECTED — VPN prevents controlled burst test (Corrective 3 & 5 attempted).
    - Findings: AUTH-RL-429-01 (NOT COLLECTED), AUTH-UPSTREAM-VALID-01 (PARTIAL), AUTH-REDIS-FAIL-01 (PARTIAL), AUTH-TOKEN-PERSIST-01 (PARTIAL).
    - Old Stage 07 Portal-only task: SUPERSEDED.
 Stage 07.2 Portal: NOT APPROVED.

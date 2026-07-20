@@ -527,3 +527,57 @@ Stage 07.1: PARTIAL WITH RUNTIME EVIDENCE / RATE LIMIT CORRECTION REQUIRED
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.1 Corrective 5 — Controlled rate-limit 429 retest
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+
+**Reason:**
+- AUTH-RL-429-01 remained NOT COLLECTED / RETEST BLOCKED (VPN).
+- Stage 07.1 cannot be completed until BFF v0.4.0 rate-limit 429 is confirmed after auth integration.
+- Required controlled burst test with window sync, Redis key cleanup, and 15-request burst.
+
+### What changed
+
+1. **Evidence**: `rate-limit-still-works-429.txt` updated with Corrective 5 retest NOT COLLECTED.
+2. **auth-acceptance-report.md**: Evidence inventory note updated to reflect Corrective 5 attempt.
+3. **current-mvp-status.md**: Blockers updated — Corrective 5 rate-limit retest attempted, still blocked.
+4. **CHAT_HANDOVER.md**: Corrective 5 retest noted.
+5. **AUDIT_LOG.md / CHATGPT_SESSION_LOG.md**: Structured entries added.
+
+### Rate-limit retest result
+
+**NOT COLLECTED** — VPN peer (170.168.91.95:51820) unreachable, no WireGuard handshake.
+Controlled burst test with dedicated token, Redis key cleanup, window sync, and 15 requests cannot be performed.
+
+### Remaining PARTIAL / FAILED / NOT COLLECTED
+
+| Finding | Status |
+|---|---|
+| AUTH-RL-429-01 | NOT COLLECTED / RETEST BLOCKED (VPN) |
+| AUTH-UPSTREAM-VALID-01 | PARTIAL |
+| AUTH-REDIS-FAIL-01 | PARTIAL |
+| AUTH-TOKEN-PERSIST-01 | PARTIAL |
+| BFF-RL-REDIS-FAIL-01 | PARTIAL |
+| BFF-RL-RESET-TTL-01 | MINOR FINDING |
+| BFF-TOKEN-01 | NOT COLLECTED |
+| BFF-AUTH-01 | PARTIAL (until ChatGPT audit) |
+
+### Forbidden areas unchanged
+
+- tools/bff/app.py: NOT MODIFIED
+- bff-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06/07.1 evidence (except rate-limit file): NOT MODIFIED
+- Stage 07.2 Portal: NOT STARTED
+
+### Gate
+
+```
+Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT (rate-limit retest VPN-blocked)
+Stage 07.2 Portal: NOT APPROVED
+Stage 08: NOT APPROVED
+```

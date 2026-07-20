@@ -206,3 +206,35 @@ Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.1 Corrective 5 — Controlled rate-limit 429 retest
+
+**Date:** 2026-07-20
+**Status before:** PARTIAL WITH RUNTIME EVIDENCE / RATE LIMIT CORRECTION REQUIRED
+
+**Reason:**
+- AUTH-RL-429-01 remained NOT COLLECTED / RETEST BLOCKED (VPN).
+- Required controlled burst test with window sync, Redis key cleanup, and 15-request burst.
+- Stage 07.1 cannot be completed without confirming rate-limit 429 after auth integration.
+
+**Retest attempt:**
+1. Checked WireGuard: peer 170.168.91.95 unreachable, 0 B received, no handshake.
+2. wg-quick down/up attempted — handshake still fails (peer not reachable on public IP).
+3. VPN status: DOWN — cluster 10.129.13.78:6443 inaccessible.
+
+**Result: NOT COLLECTED**
+AUTH-RL-429-01: NOT COLLECTED / RETEST BLOCKED (VPN)
+
+**Forbidden areas unchanged:**
+- vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring/Stage 05 evidence/Stage 06 evidence: NOT MODIFIED
+- tools/bff/app.py: NOT MODIFIED
+- bff-mvp.yaml: NOT MODIFIED
+
+**Gate:**
+```
+Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT (rate-limit retest VPN-blocked)
+Stage 07.2 Portal: NOT APPROVED
+Stage 08: NOT APPROVED
+```
