@@ -199,3 +199,30 @@ ChatGPT. Stage 06 — Redis-backed fixed-window rate limiting for BFF.
 **Gate after fix:**
 - Stage 06: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
 - Stage 07: **READY FOR TASK PREPARATION**
+
+---
+
+## Stage 06 Documentation Fix — Push Status
+
+**Date:** 2026-07-20
+**Commit:** 47924ecc2d303d462b3aa86328e0f4c43b029c88
+**Push status:** FAILED (SSH key not available — VPN/credential issue)
+**Remote GitHub commit:** c16c0bf (unchanged)
+**Stage 06:** PASSED WITH FINDINGS / MINOR CORRECTION REQUIRED (documentation fix local-only)
+**Stage 07:** NOT APPROVED
+
+**Files changed (local only):**
+1. aither-v2/docs/project-control/FINDINGS.md
+2. aither-v2/docs/project-control/AUDIT_LOG.md
+3. aither-v2/docs/project-control/PROJECT_MASTER.md
+4. aither-v2/docs/project-control/CHAT_HANDOVER.md
+5. aither-v2/docs/project-control/CHATGPT_SESSION_LOG.md
+6. aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md
+
+**Patch bundle prepared:**
+- stage06-audit-result-minor-fix.patch
+- stage06-audit-result-minor-fix-show.txt
+- stage06-audit-result-minor-fix-stat.txt
+- stage06-audit-result-minor-fix-sha256.txt
+
+**Forbidden areas unchanged:** vLLM/GPU/TP/Gateway/BFF/Redis/Portal/OAuth/Monitoring/Evidence — NOT MODIFIED
