@@ -42,13 +42,13 @@ Stage 06 — Redis / Rate Limiting: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
    - No raw tokens stored in Redis (confirmed).
    - Redis unavailable: fail-open.
    - Open findings: BFF-RL-REDIS-FAIL-01 (PARTIAL), BFF-RL-RESET-TTL-01 (MINOR FINDING), BFF-TOKEN-01 (NOT COLLECTED), BFF-AUTH-01 (PARTIAL).
-Stage 07.1 — Auth / API Token / Agent Access Baseline: PARTIAL WITH RUNTIME EVIDENCE / RATE LIMIT CORRECTION REQUIRED.
+Stage 07.1 — Auth / API Token / Agent Access Baseline: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT.
    - BFF central auth with admin login, API token management, agent access.
    - 32B chat adapter over completion endpoint.
    - User token NOT forwarded to upstream.
-   - Runtime evidence collected (Corrective 2): rollout, pods, health, login, token lifecycle, agent auth all PASSED.
-   - Rate-limit retest NOT COLLECTED — VPN prevents controlled burst test (Corrective 3 & 5 attempted).
-   - Findings: AUTH-RL-429-01 (NOT COLLECTED), AUTH-UPSTREAM-VALID-01 (PARTIAL), AUTH-REDIS-FAIL-01 (PARTIAL), AUTH-TOKEN-PERSIST-01 (PARTIAL).
+   - Runtime evidence collected: rollout, pods, health, login, token lifecycle, agent auth, rate-limit 429 all PASSED.
+   - AUTH-RL-429-01: PASSED — controlled burst test confirmed HTTP 429 after 10th request (15 reqs, counter=15, TTL=28s).
+   - Findings: AUTH-UPSTREAM-VALID-01 (PARTIAL), AUTH-REDIS-FAIL-01 (PARTIAL), AUTH-TOKEN-PERSIST-01 (PARTIAL).
    - Old Stage 07 Portal-only task: SUPERSEDED.
 Stage 07.2 Portal: NOT APPROVED.
 Stage 08: NOT APPROVED.

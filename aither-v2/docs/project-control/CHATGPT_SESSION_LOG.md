@@ -581,3 +581,77 @@ Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT (rate-limit retest VPN-blocked)
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.1 Corrective 6 — Infrastructure Access Recovery / VPN Fix + AUTH-RL-429 retest
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+
+**Reason:**
+- AUTH-RL-429-01 remained NOT COLLECTED / RETEST BLOCKED (VPN).
+- Corrective 3 and Corrective 5 could not run controlled retest because VPN/WireGuard was unavailable.
+
+### VPN recovery result
+
+- WireGuard (wg0): handshake lost, 0 B received.
+- Alternative route via tun0 (OpenVPN-like): provided access to 10.129.0.0/16 subnet.
+- Kubernetes API server: reachable at 10.129.13.78:6443 via tun0.
+- kubectl fully functional.
+
+Result: **VPN RECOVERED** (via alternative tun0 route)
+
+### Kubernetes access result
+
+- kubectl works: YES
+- BFF pod: aither-bff-6fd96f6758-m7zj5, 1/1 Running, v0.4.0
+- Redis pod: aither-redis-rate-limit-754cdd9784-rnf45, 1/1 Running
+
+### Rate-limit retest result
+
+- executed: YES
+- HTTP 429 observed: **YES** ✅
+- Burst: 15 rapid GET /api/v1/models, same Bearer token
+  - Req 1-10: HTTP 200
+  - Req 11-15: HTTP 429
+- Redis counter: 15
+- TTL: 28 seconds
+- AUTH-RL-429-01: **PASSED**
+
+### What changed
+
+1. **Evidence**: `rate-limit-still-works-429.txt` updated with PASSED result.
+2. **Evidence**: `vpn-access-recovery-check.txt` created.
+3. **auth-acceptance-report.md**: Evidence inventory and gate updated to COMPLETED BY HERMES.
+4. **FINDINGS.md**: AUTH-RL-429-01 set to PASSED.
+5. **current-mvp-status.md**: Auth status → COMPLETED BY HERMES.
+6. **CHAT_HANDOVER.md**: Stage 07.1 status updated.
+7. **AUDIT_LOG.md / CHATGPT_SESSION_LOG.md**: Structured entries added.
+
+### Remaining PARTIAL / FAILED / NOT COLLECTED
+
+No new PARTIAL/FAILED findings added. Unchanged:
+- AUTH-UPSTREAM-VALID-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- BFF-TOKEN-01: NOT COLLECTED
+- BFF-AUTH-01: PARTIAL (until ChatGPT audit)
+
+### Forbidden areas unchanged
+
+- tools/bff/app.py: NOT MODIFIED
+- bff-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06 evidence: NOT MODIFIED
+- Stage 07.2 Portal: NOT STARTED
+
+### Gate
+
+```
+Stage 07.1: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 07.2 Portal: NOT APPROVED
+Stage 08: NOT APPROVED
+```

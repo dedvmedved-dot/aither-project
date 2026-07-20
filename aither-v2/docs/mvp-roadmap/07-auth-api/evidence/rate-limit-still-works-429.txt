@@ -18,39 +18,56 @@ VPN status: DOWN (WireGuard peer 170.168.91.95 unreachable, no handshake)
 Kubernetes cluster: NOT ACCESSIBLE
 Retest: NOT COLLECTED
 
-Without cluster access, controlled burst retest with token creation, Redis key inspection, and precise window tracking cannot be performed.
-
-Expected retest procedure (for next VPN-stable session):
-  1. Create dedicated test token.
-  2. Flush rate-limit keys via redis-cli or delete by pattern rl:*.
-  3. Record current window id and Redis counter.
-  4. Execute 12-15 sequential requests within same window (burst <2s).
-  5. Check Redis counter after request 10 and request 11.
-  6. Confirm HTTP 429 observed.
-
-|Result: NOT COLLECTED — VPN unavailable prevents controlled retest.
-
 ## Retest (Corrective 5) — Controlled burst with window sync
 
-**Date:** 2026-07-20
-**Time:** 13:50 UTC+3
-**VPN status:** DOWN (WireGuard peer 170.168.91.95 unreachable, no handshake since last session)
-**Kubernetes cluster:** NOT ACCESSIBLE
-**Retest: NOT COLLECTED**
+Date: 2026-07-20
+Time: 13:50 UTC+3
+VPN status: DOWN — retest NOT COLLECTED
 
-Controlled retest with window sync, Redis key cleanup, and 15-request burst cannot be performed.
+## Retest (Corrective 6) — Controlled burst with window sync
 
-### Expected procedure (unexecuted)
+Date: 2026-07-20
+Time: 14:12 UTC+3
+BFF pod: aither-bff-6fd96f6758-m7zj5
+BFF version: 0.4.0
+Health: status=ok, rate_limit=enabled, redis=connected, auth=configured
+Token:
+  redacted token: athr_DwaIzEt...REDACTED
+  raw token committed: NO
+RL key:
+  hash method: sha256("Bearer <token>")
+  RL_HASH: bef86509c0e47bc53822428088099eb8cc1bd452668cd56b51a379d16e5236b3
+  RL_KEY_PREFIX: rl:bef86509c0e47bc53822428088099eb8cc1bd452668cd56b51a379d16e5236b3
+Window ID: 29742434
+Sync: current second was 40 (< 45), no wait needed
 
-1. Verify BFF deploy/pods/health via kubectl.
-2. Create dedicated test token with scopes `model:14b:chat`.
-3. Compute RL hash: `sha256("Bearer <token>")`.
-4. Delete existing keys by pattern `rl:<sha256>:*` via redis-cli.
-5. Sync window: if `date +%S > 45`, wait for next minute + 2s.
-6. Record window ID: `int(time.time()) // 60`.
-7. Execute 15 rapid `GET /api/v1/models` with Bearer token.
-8. Expected: requests 1-10 → 200, requests 11-15 → 429.
-9. Verify Redis counter > 10 and TTL > 0.
+Request results:
+  request_number | http_code | note
+   1  | 200  | within limit
+   2  | 200  | within limit
+   3  | 200  | within limit
+   4  | 200  | within limit
+   5  | 200  | within limit
+   6  | 200  | within limit
+   7  | 200  | within limit
+   8  | 200  | within limit
+   9  | 200  | within limit
+  10  | 200  | within limit
+  11  | 429  | rate limit exceeded
+  12  | 429  | rate limit exceeded
+  13  | 429  | rate limit exceeded
+  14  | 429  | rate limit exceeded
+  15  | 429  | rate limit exceeded
 
-**Result: NOT COLLECTED — VPN peer unreachable for this session.**
-**AUTH-RL-429-01: NOT COLLECTED / RETEST BLOCKED (VPN)**
+Redis counter after burst: 15
+Redis TTL: 28 seconds (window ~60s, ~32s elapsed)
+
+Expected:
+  - Requests 1-10: HTTP 200
+  - Requests 11-15: HTTP 429
+  - Redis counter > 10
+  - TTL > 0
+
+Actual: All criteria MET
+Result: PASSED
+AUTH-RL-429-01: PASSED

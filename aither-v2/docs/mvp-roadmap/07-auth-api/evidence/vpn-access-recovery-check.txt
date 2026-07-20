@@ -1,0 +1,29 @@
+=== vpn-access-recovery-check.txt ===
+Date: 2026-07-20
+Time: 14:10 UTC+3
+Host: bootsman-k8s-clnt01-n8-gpu (via tun0 + WireGuard)
+
+VPN interface: wg0
+WireGuard peer:
+  peer public endpoint: 170.168.91.95:51820 (redacted)
+  latest handshake: N/A (0 B received)
+  transfer rx/tx: 0 B / 14.45 KiB sent
+
+Alternative route (tun0):
+  interface: tun0 (OpenVPN-style)
+  IP: 10.129.100.142/32
+  routes: 10.129.0.0/16 via tun0
+  Kubernetes API server: 10.129.13.78:6443 — REACHABLE
+
+Kubernetes API:
+  kubectl cluster-info: PASSED
+  kubectl get ns: PASSED
+  kubectl -n aither-inference get pods: PASSED
+
+BFF access:
+  kubectl -n aither-inference exec deploy/aither-bff -- ... : PASSED
+
+Redis access:
+  kubectl -n aither-inference exec deploy/aither-redis-rate-limit -- ... : PASSED
+
+Result: VPN RECOVERED (partial — tun0 provides access to API server, wg0 handshake still lost)

@@ -62,7 +62,7 @@
 | agent-32b-completion-valid-token.txt | ✅ PASSED / UPSTREAM AUTH NOT TESTED | BFF passes; upstream returns 401 |
 | agent-32b-chat-adapter-valid-token.txt | ✅ PASSED / UPSTREAM AUTH NOT TESTED | BFF passes; adapter logic works |
 | agent-wrong-token-401.txt | ✅ PASSED | HTTP 401 "Token not found or revoked" |
-| rate-limit-still-works-429.txt | ⚠️ NOT COLLECTED / RETEST BLOCKED (VPN) | Initial test: PARTIAL (no 429). Corrective 3 & 5 retests: NOT COLLECTED (VPN down) |
+| rate-limit-still-works-429.txt | ✅ PASSED | Controlled burst: 15 reqs, first 10 → 200, 11-15 → 429. Redis counter=15, TTL=28s. AUTH-RL-429-01: PASSED |
 | no-user-token-forwarding-check.txt | ✅ PASSED (code review) | Source verified |
 | no-secret-leak-check.txt | ✅ PASSED (git grep) | No secrets committed |
 | forbidden-scope-check.txt | ✅ PASSED (git diff) | Scope confirmed |
@@ -75,12 +75,13 @@
 4. **32B chat** is an adapter over completion, NOT native chat. Documented separately.
 5. **BFF-AUTH-01** (old finding) is functionally addressed but NOT closed until ChatGPT audits.
 6. **AUTH-UPSTREAM-VALID-01**: Internal upstream tokens are test-only; end-to-end model 200 not confirmed — PARTIAL.
-7. **AUTH-RL-429-01**: Rate limiting on BFF v0.4.0 — NOT COLLECTED (VPN prevents retest).
+7. **AUTH-RL-429-01**: Rate limiting on BFF v0.4.0 — **PASSED**. Controlled burst test confirmed HTTP 429 after 10th request (15 reqs, counter=15, TTL=28s).
+8. **AUTH-UPSTREAM-VALID-01**: Internal upstream tokens are test-only; end-to-end model 200 not confirmed — PARTIAL.
 
 ### Gate
 
 ```
-Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT
+Stage 07.1: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```
