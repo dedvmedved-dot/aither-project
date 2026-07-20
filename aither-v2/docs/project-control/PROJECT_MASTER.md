@@ -38,7 +38,7 @@ Working directory: aither-v2/
 | Stage 05 | BFF Acceptance | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 06 | Redis / Rate Limiting | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 07.1 | Auth / API Token / Agent Access Baseline | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 07.2 | Portal UI with Auth, Token Management and Chat Access | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** |
+| Stage 07.2 | Portal UI with Auth, Token Management and Chat Access | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 08 | NOT APPROVED | NOT APPROVED |
 
 

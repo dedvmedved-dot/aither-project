@@ -40,16 +40,16 @@
 | **AUTH-PORTAL-01** | **Portal auth UI not implemented in Stage 07.1** | **TARGET Stage 07.2** | **Stage 07.2** |
 | **AUTH-OAUTH-01** | **OAuth not implemented** | **OUT OF SCOPE / FUTURE** | **Future** |
 | **MODEL-32B-CHAT-ADAPTER-01** | **32B chat adapter over completion endpoint** | **PASSED (runtime confirmed — adapter logic works)** | **Stage 07.1** |
-| **PORTAL-01** | **Portal UI deployed** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-AUTH-01** | **Portal login/logout/me works through BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-TOKEN-01** | **Portal token create/list/revoke UI works** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-TOKEN-SAFE-01** | **Raw token shown once and not persisted** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-CHAT-14B-01** | **Portal 14B chat through BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-CHAT-32B-ADAPTER-01** | **Portal 32B chat adapter through BFF** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-BFF-ONLY-01** | **Portal uses BFF only, no direct vLLM/Gateway** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-NO-SECRETS-01** | **No secrets/raw tokens committed** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **AUTH-PORTAL-01** | **Portal auth UI implemented** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-UI-TOKEN-LIST-01** | **Portal token list renders from BFF {"tokens":[...]}** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-UI-MODEL-LIST-01** | **Portal model selector renders from BFF {"models":[...]}** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-UI-NAV-01** | **Portal navigation works without JS errors** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
-| **PORTAL-CM-ALIGN-01** | **Portal manifest ConfigMap matches tools/portal source** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
+| **PORTAL-01** | **Portal UI deployed** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-AUTH-01** | **Portal login/logout/me works through BFF** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-TOKEN-01** | **Portal token create/list/revoke UI works** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-TOKEN-SAFE-01** | **Raw token shown once and not persisted** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-CHAT-14B-01** | **Portal 14B chat through BFF** | **PASSED WITH FINDING / BFF FLOW VERIFIED, UPSTREAM AUTH NOT TESTED** | **Stage 07.2** |
+| **PORTAL-CHAT-32B-ADAPTER-01** | **Portal 32B chat adapter through BFF** | **PASSED WITH FINDING / BFF FLOW VERIFIED, UPSTREAM AUTH NOT TESTED** | **Stage 07.2** |
+| **PORTAL-BFF-ONLY-01** | **Portal uses BFF only, no direct vLLM/Gateway** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-NO-SECRETS-01** | **No secrets/raw tokens committed** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **AUTH-PORTAL-01** | **Portal auth UI implemented** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-UI-TOKEN-LIST-01** | **Portal token list renders from BFF {"tokens":[...]}** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-UI-MODEL-LIST-01** | **Portal model selector renders from BFF {"models":[...]}** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-UI-NAV-01** | **Portal navigation works without JS errors** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |
+| **PORTAL-CM-ALIGN-01** | **Portal manifest ConfigMap matches tools/portal source** | **PASSED / CONNECTOR VERIFIED** | **Stage 07.2** |

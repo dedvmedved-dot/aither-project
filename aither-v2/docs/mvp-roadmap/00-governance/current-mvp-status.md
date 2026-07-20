@@ -17,7 +17,7 @@ Date: 2026-07-20
 | BFF | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/05-bff/bff-acceptance-report.md |
 | Redis RL | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
 | Auth / API Token | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
-| Portal (UI) | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | docs/mvp-roadmap/07-portal/portal-acceptance-report.md |
+| Portal (UI) | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-portal/portal-acceptance-report.md |
 | Monitoring | PARTIAL | |
 | Provenance | NOT STARTED | |
 | VPN | DIAGNOSED | |

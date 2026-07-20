@@ -326,3 +326,48 @@ Stage 07.1: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 07.2 Portal: READY FOR TASK PREPARATION
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.2 — Portal UI with Auth, Token Management and Chat Access — External Audit Result
+
+**Date:** 2026-07-20
+**Commit audited:** `03b1a1bf604fbfb15ab798d61c9867de5cba35d2`
+**Method:** GitHub connector (raw content verification)
+
+**Decision:**
+- Stage 07.2 Corrective 2: **PASSED / CONNECTOR VERIFIED**
+- PORTAL-CM-ALIGN-01: **PASSED / CONNECTOR VERIFIED**
+- Stage 07.2 Portal: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- Stage 08: **NOT APPROVED**
+
+**Accepted evidence:**
+1. Portal deployed and accessible.
+2. Portal uses BFF-only reverse proxy.
+3. Login/logout/me work through BFF.
+4. Token create/list/revoke UI works.
+5. Raw token shown once and not persisted.
+6. Token list renders from BFF {"tokens":[...]}.
+7. Model selector renders from BFF {"models":[...]}.
+8. Navigation works via App.showPage().
+9. 32B is labeled as chat adapter over completion.
+10. portal-mvp.yaml inline ConfigMap matches tools/portal/*.
+11. SHA256 alignment: index.html/app.js/styles.css/nginx.conf all MATCH.
+12. Forbidden runtime areas were not modified.
+
+**Open findings (retained):**
+- AUTH-UPSTREAM-VALID-01 — PARTIAL
+- AUTH-REDIS-FAIL-01 — PARTIAL
+- AUTH-TOKEN-PERSIST-01 — PARTIAL
+- AUTH-OAUTH-01 — OUT OF SCOPE / FUTURE
+- BFF-RL-REDIS-FAIL-01 — PARTIAL
+- BFF-RL-RESET-TTL-01 — MINOR FINDING
+- BFF-TOKEN-01 — NOT COLLECTED
+- BFF-AUTH-01 — PARTIAL
+- PROD-READY-01 — OPEN
+
+**Gate after audit:**
+```
+Stage 07.2: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 08: NOT APPROVED
+```

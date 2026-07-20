@@ -905,3 +905,58 @@ Unchanged from previous stages:
 Stage 07.2: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.2 Post-Audit Docs Alignment
+
+**Date:** 2026-07-20
+**Audit source:** ChatGPT GitHub connector audit of commit 03b1a1b
+
+**Decision:**
+- Stage 07.2 Corrective 2: PASSED / CONNECTOR VERIFIED.
+- PORTAL-CM-ALIGN-01: PASSED / CONNECTOR VERIFIED.
+- Stage 07.2 Portal: PASSED WITH FINDINGS / CONNECTOR VERIFIED.
+- Stage 08: NOT APPROVED.
+
+**Evidence accepted:**
+1. Portal deployed and accessible.
+2. Portal uses BFF-only reverse proxy.
+3. Login/logout/me work through BFF.
+4. Token create/list/revoke UI works.
+5. Raw token shown once and not persisted.
+6. Token list renders from BFF {"tokens":[...]}.
+7. Model selector renders from BFF {"models":[...]}.
+8. Navigation works via App.showPage().
+9. 32B is labeled as chat adapter over completion.
+10. portal-mvp.yaml inline ConfigMap matches tools/portal/*.
+11. SHA256 alignment: index.html/app.js/styles.css/nginx.conf all MATCH.
+12. Forbidden runtime areas were not modified.
+
+**Remaining PARTIAL / FAILED / NOT COLLECTED:**
+- AUTH-UPSTREAM-VALID-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- AUTH-OAUTH-01: OUT OF SCOPE / FUTURE
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- BFF-TOKEN-01: NOT COLLECTED
+- BFF-AUTH-01: PARTIAL
+- PROD-READY-01: OPEN
+
+**Forbidden areas unchanged:**
+- tools/bff/app.py: NOT MODIFIED
+- manifests/mvp-roadmap/05-bff/bff-mvp.yaml: NOT MODIFIED
+- tools/portal/*: NOT MODIFIED
+- manifests/mvp-roadmap/07-portal/portal-mvp.yaml: NOT MODIFIED
+- evidence/*: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06/07.1 evidence: NOT MODIFIED
+- Stage 08: NOT STARTED
+
+### Gate
+
+```
+Stage 07.2: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 08: NOT APPROVED
+```
