@@ -1127,3 +1127,55 @@ Stage 09: NOT APPROVED
 Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 09: NOT APPROVED
 ```
+
+---
+
+## Stage 08 Post-Audit Docs Alignment
+
+**Date:** 2026-07-20
+**Stage:** Stage 08 Post-Audit Docs Alignment
+**Audit source:** ChatGPT GitHub connector audit of commit 6b284235a5816d90077683ec1504eb18e8265209
+
+**Decision:**
+- Stage 08 Corrective 1: **PASSED / CONNECTOR VERIFIED**
+- AUTH-UPSTREAM-VALID-01: **PASSED / CONNECTOR VERIFIED**
+- BFF-TOKEN-01: **PASSED / CONNECTOR VERIFIED**
+- Stage 08: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- Stage 09: **NOT APPROVED**
+- PROD-READY-01: **OPEN**
+
+**Evidence accepted:**
+- Runtime upstream auth Secret inventory.
+- Runtime Secret patch not committed.
+- BFF rollout after Secret update.
+- 14B chat HTTP 200 with real model response.
+- 32B completion HTTP 200 with real model response.
+- 32B chat adapter HTTP 200 with real adapter response.
+- No secret leak check.
+- Forbidden scope check.
+
+**Remaining PARTIAL / FAILED / NOT COLLECTED:**
+- GW-32B-REPLICA-01: PARTIAL (one nginx-gateway-32b replica CrashLoopBackOff)
+- GW-IMG-01: RISK ACCEPTED / PARTIAL
+- GW-SC-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- AUTH-OAUTH-01: OUT OF SCOPE / FUTURE
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- PROD-READY-01: OPEN
+
+**Forbidden areas unchanged:**
+- BFF code unchanged.
+- Portal code unchanged.
+- GitHub manifests unchanged.
+- vLLM/GPU/TP/Gateway/Redis/OAuth/Monitoring unchanged.
+- Stage 05/06/07.1/07.2 evidence unchanged.
+- Stage 09 not started.
+
+**Gate:**
+```
+Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 09: NOT APPROVED
+PROD-READY-01: OPEN
+```

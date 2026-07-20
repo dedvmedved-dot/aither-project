@@ -56,7 +56,7 @@
 
 ### Corrective 1 — Upstream Internal Auth Resolution
 
-**Commit:** (this commit)
+**Commit:** 6b284235a5816d90077683ec1504eb18e8265209
 
 **Runtime operation:**
 - Secret inventory checked.
@@ -68,23 +68,63 @@
 - 32B completion: **PASSED** — HTTP 200, "Hello from 32b."
 - 32B chat adapter: **PASSED** — HTTP 200, "Hello from 32b adapter"
 
-**Decision before ChatGPT audit:**
+**Decision before ChatGPT audit (superseded by external audit):**
 ```
 Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 ```
 
-### Key Findings
+### External ChatGPT Audit Decision
 
-1. **AUTH-UPSTREAM-VALID-01 RESOLVED** — Secret aither-bff-auth updated with real VLLM_API_KEY; all three upstream endpoints return HTTP 200 with real model responses.
-2. **Full E2E flow confirmed** — Portal → BFF → vLLM/Gateway → model response works for all endpoints.
-3. **Full token lifecycle** — create (once) → list (metadata) → revoke → blocked — all PASSED.
-4. **Rate limiting active** — confirmed 429 after 10 requests in 60s window.
-5. **Portal/BFF-only architecture** — confirmed no direct vLLM/Gateway access.
-6. **32B labeled as adapter** — 32B chat is adapter over completion (text_completion object), not native 32B chat.
+**Date:** 2026-07-20
+**Commit audited:** 6b284235a5816d90077683ec1504eb18e8265209
+**Method:** GitHub connector
+
+**Decision:**
+- Stage 08 Corrective 1: **PASSED / CONNECTOR VERIFIED**
+- AUTH-UPSTREAM-VALID-01: **PASSED / CONNECTOR VERIFIED**
+- BFF-TOKEN-01: **PASSED / CONNECTOR VERIFIED**
+- Stage 08: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- Stage 09: **NOT APPROVED**
+- PROD-READY-01: **OPEN**
+
+**Accepted evidence:**
+1. Runtime Secret inventory checked.
+2. aither-bff-auth exists.
+3. BFF_14B_UPSTREAM_AUTH_TOKEN exists and was updated at runtime.
+4. BFF_32B_GATEWAY_AUTH_TOKEN exists and was updated at runtime.
+5. Runtime Secret patch was not committed.
+6. BFF rollout restarted successfully.
+7. BFF pod is 1/1 Running.
+8. /health returns HTTP 200.
+9. 14B chat through Portal/BFF returns HTTP 200 and non-empty real model response.
+10. 32B completion through Portal/BFF/Gateway returns HTTP 200 and non-empty real model response.
+11. 32B chat adapter through Portal/BFF/Gateway returns HTTP 200 and non-empty adapter response.
+12. 32B chat is adapter over completion, not native 32B chat.
+13. Raw API tokens and upstream tokens are redacted.
+14. No secrets, kubeconfig or VPN configs committed.
+15. BFF code was not changed.
+16. Portal code was not changed.
+17. GitHub manifests were not changed.
+18. vLLM/GPU/TP/Gateway/Redis/OAuth/Monitoring were not modified.
+19. Stage 09 was not started.
+
+### Remaining Findings (not closed)
+
+| Finding | Status |
+|---|---|
+| GW-32B-REPLICA-01 | PARTIAL (one nginx-gateway-32b replica CrashLoopBackOff) |
+| GW-IMG-01 | RISK ACCEPTED / PARTIAL |
+| GW-SC-01 | PARTIAL |
+| AUTH-REDIS-FAIL-01 | PARTIAL |
+| AUTH-TOKEN-PERSIST-01 | PARTIAL |
+| BFF-RL-REDIS-FAIL-01 | PARTIAL |
+| BFF-RL-RESET-TTL-01 | MINOR FINDING |
+| PROD-READY-01 | OPEN |
 
 ### Gate
 
 ```
-Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 09: NOT APPROVED
+PROD-READY-01: OPEN
 ```

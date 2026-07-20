@@ -18,18 +18,24 @@ Date: 2026-07-20
 | Redis RL | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/06-rate-limiting/redis-rate-limiting-report.md |
 | Auth / API Token | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-auth-api/auth-acceptance-report.md |
 | Portal (UI) | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/07-portal/portal-acceptance-report.md |
-| **E2E (Portal→BFF→Model)** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md |
+| **E2E (Portal→BFF→Model)** | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | docs/mvp-roadmap/08-end-to-end-acceptance/e2e-acceptance-report.md |
 | Monitoring | PARTIAL | |
 | VPN | DIAGNOSED | |
 
-## Current blockers
+## Remaining findings (not blockers for MVP)
 
-1. VPN/MTU instability (intermittent kubectl failures)
-2. No HA (single GPU node n7)
-3. No monitoring stack
-4. Model provenance not documented
-5. ~~BFF valid token test not collected (VPN blocking kubectl secret retrieval)~~ — **RESOLVED (Stage 08 Corrective 1)**
-6. ~~AUTH-UPSTREAM-VALID-01: internal upstream tokens are test-only; end-to-end model 200 not confirmed~~ — **RESOLVED (Stage 08 Corrective 1)**
+- GW-32B-REPLICA-01: nginx-gateway-32b has one replica in CrashLoopBackOff — PARTIAL
+- GW-IMG-01: RISK ACCEPTED / PARTIAL
+- GW-SC-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- PROD-READY-01: OPEN
+- VPN/MTU instability (intermittent kubectl failures)
+- No HA (single GPU node n7)
+- No monitoring stack
+- Model provenance not documented
 
 ## BM-01: RESOLVED
 
@@ -37,6 +43,6 @@ Date: 2026-07-20
 
 ## Next approved stage
 
-Stage: Stage 08
-Status: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 09: NOT APPROVED
+PROD-READY-01: OPEN

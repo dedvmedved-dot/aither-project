@@ -461,3 +461,47 @@ Stage 09: NOT APPROVED
 Stage 08: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 09: NOT APPROVED
 ```
+
+---
+
+## Stage 08 — External ChatGPT Audit Acceptance
+
+**Date:** 2026-07-20
+**Stage:** Stage 08 Corrective 1 / MVP End-to-End Runtime Acceptance
+**Commit audited:** 6b284235a5816d90077683ec1504eb18e8265209
+**Method:** GitHub connector
+
+**Decision:**
+- Stage 08 Corrective 1: **PASSED / CONNECTOR VERIFIED**
+- AUTH-UPSTREAM-VALID-01: **PASSED / CONNECTOR VERIFIED**
+- BFF-TOKEN-01: **PASSED / CONNECTOR VERIFIED**
+- Stage 08: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- Stage 09: **NOT APPROVED**
+- PROD-READY-01: **OPEN**
+
+**Accepted evidence:**
+- e2e-upstream-auth-secret-inventory.txt
+- e2e-bff-rollout-after-secret-update.txt
+- e2e-14b-chat-response-retest.txt
+- e2e-32b-completion-response-retest.txt
+- e2e-32b-chat-adapter-response-retest.txt
+- e2e-auth-upstream-valid-summary.txt
+- e2e-no-secret-leak-check-corrective-1.txt
+- e2e-forbidden-scope-check-corrective-1.txt
+
+**Remaining findings:**
+- GW-32B-REPLICA-01: PARTIAL
+- GW-IMG-01: RISK ACCEPTED / PARTIAL
+- GW-SC-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- PROD-READY-01: OPEN
+
+**Gate after audit:**
+```
+Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 09: NOT APPROVED
+PROD-READY-01: OPEN
+```
