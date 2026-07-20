@@ -1179,3 +1179,81 @@ Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 09: NOT APPROVED
 PROD-READY-01: OPEN
 ```
+
+---
+
+## Stage 09 — nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation
+
+**Date:** 2026-07-20
+**Stage:** Stage 09 — nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation
+**Task source:** ChatGPT
+**Reason:**
+- Stage 08 passed with findings / connector verified.
+- Remaining finding GW-32B-REPLICA-01: one nginx-gateway-32b replica in CrashLoopBackOff.
+
+### What changed
+
+**Runtime diagnostics:**
+- Initial state: 1/2 Ready, 1 CrashLoopBackOff (242 restarts, 20h) on node n7.
+- Pod logs: `host not found in upstream "vllm-32b-gptq.aither-inference.svc"`.
+- Events: `MissingClusterDNS` on crashing pod.
+- CoreDNS: both pods on n8, none on n7.
+
+**Root cause:**
+nginx-gateway-32b ConfigMap used hostname `vllm-32b-gptq.aither-inference.svc` in proxy_pass. Node n7 has no ClusterDNS. nginx on n7 fails to resolve the hostname at startup and exits immediately. Pod on n8 works because CoreDNS is available there.
+
+**Remediation performed:**
+1. ConfigMap `nginx-gateway-32b` patched at runtime: hostname → ClusterIP `10.99.3.103` in all proxy_pass locations.
+2. Crashed pod deleted — ReplicaSet recreated it on n7 successfully.
+
+**Evidence collected (12 files):**
+- gw32b-initial-pod-state.txt (PASSED)
+- gw32b-crashing-pod-describe.txt (PASSED)
+- gw32b-crashing-pod-logs.txt (PASSED)
+- gw32b-root-cause.txt (PASSED)
+- gw32b-remediation-actions.txt (PASSED)
+- gw32b-rollout-status-after.txt (PASSED)
+- gw32b-pods-after.txt (PASSED)
+- gw32b-events-after.txt (PASSED)
+- gw32b-32b-completion-still-200.txt (PASSED)
+- gw32b-32b-chat-adapter-still-200.txt (PASSED)
+- gw32b-no-secret-leak-check.txt (PASSED)
+- gw32b-forbidden-scope-check.txt (PASSED)
+
+**Final gateway state:**
+- Desired replicas: 2
+- Ready replicas: 2
+- Available replicas: 2
+- CrashLoopBackOff pods: 0
+- ImagePullBackOff pods: 0
+- Pods: nginx-gateway-32b-5d447469b9-28kng (n7, 0 restarts), nginx-gateway-32b-5d447469b9-pvxtq (n8, 0 restarts)
+- MissingClusterDNS warning remains (cluster-level, non-blocking)
+
+**Regression results:**
+- 32B completion: HTTP 200, non-empty response.
+- 32B chat adapter: HTTP 200, adapter over completion, non-empty response.
+
+**Remaining PARTIAL / FAILED / NOT COLLECTED:**
+- MissingClusterDNS on n7 — cluster-level, out of scope for Stage 09.
+- GW-IMG-01: RISK ACCEPTED / PARTIAL
+- GW-SC-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- PROD-READY-01: OPEN
+
+**Forbidden areas unchanged:**
+- BFF code unchanged.
+- Portal code unchanged.
+- GitHub manifests unchanged.
+- vLLM/GPU/TP/Redis/OAuth/Monitoring unchanged.
+- Stage 05/06/07.1/07.2/08 evidence unchanged.
+- Stage 10 not started.
+
+**Gate:**
+```
+Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 10: NOT APPROVED
+PROD-READY-01: OPEN
+```

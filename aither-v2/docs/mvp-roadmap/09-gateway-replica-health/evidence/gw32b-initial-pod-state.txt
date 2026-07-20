@@ -1,0 +1,26 @@
+Date/time: 2026-07-20T20:15:00+03:00
+Command or method: kubectl get deploy nginx-gateway-32b -n aither-inference -o wide
+Expected result: Show deployment replicas and pod status
+Actual output:
+  NAME                READY   UP-TO-DATE   AVAILABLE   AGE
+  nginx-gateway-32b   1/2     2            1           28h
+
+kubectl get pods -n aither-inference -l app=nginx-gateway -o wide
+  nginx-gateway-32b-5d447469b9-8c9xs   0/1   CrashLoopBackOff   242   20h   n7
+  nginx-gateway-32b-5d447469b9-pvxtq   1/1   Running            0     20h   n8
+
+kubectl get rs -n aither-inference | grep nginx-gateway-32b
+  nginx-gateway-32b-5898c69bcb         0   0   0   28h (stale)
+  nginx-gateway-32b-5d447469b9         2   2   1   20h
+  nginx-gateway-32b-5d8fc6d7c          0   0   0   25h (stale)
+  nginx-gateway-32b-65d76c6f57         0   0   0   20h (stale)
+  nginx-gateway-32b-67cbbc9494         0   0   0   25h (stale)
+  nginx-gateway-32b-6c9897b69b         0   0   0   25h (stale)
+  nginx-gateway-32b-6f8cdfb44f         0   0   0   20h (stale)
+  nginx-gateway-32b-796fc84756         0   0   0   20h (stale)
+  nginx-gateway-32b-86b48b7657         0   0   0   20h (stale)
+  nginx-gateway-32b-cd894598           0   0   0   20h (stale)
+
+Result: PASSED — documented initial state with 1/2 Ready, 1 CrashLoopBackOff, 9 stale ReplicaSets
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

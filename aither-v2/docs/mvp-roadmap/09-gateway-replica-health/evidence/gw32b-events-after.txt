@@ -1,0 +1,15 @@
+Date/time: 2026-07-20T20:17:45+03:00
+Command or method: kubectl get events -n aither-inference --sort-by=.lastTimestamp | tail -30
+Expected result: No CrashLoopBackOff or error events after remediation
+Actual output:
+  Last events show:
+  - SuccessfulCreate for new pod 28kng
+  - Started container nginx on new pod 28kng
+  - MissingClusterDNS warning (non-blocking, pod runs fine with ClusterIP)
+  - No CrashLoopBackOff events after remediation
+  - No Error events after remediation
+  - No ImagePullBackOff events
+
+Result: PASSED — no crash/error events after remediation
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

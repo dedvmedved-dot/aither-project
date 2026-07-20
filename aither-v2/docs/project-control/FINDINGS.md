@@ -8,7 +8,7 @@
 | GW-RL-01 | Gateway/BFF rate limiting not finalized | POSTPONED | Stage 06 |
 | GW-IMG-01 | Image digest pinning not completed; version tag is used because digest pull failed over VPN | RISK ACCEPTED / PARTIAL | Post-MVP or Stage 08 |
 | GW-SC-01 | Gateway securityContext is partial; runAsNonRoot/readOnlyRootFilesystem not enabled due nginx compatibility | PARTIAL | Stage 08 |
-| **GW-32B-REPLICA-01** | **nginx-gateway-32b has one replica in CrashLoopBackOff; one replica remains Running and serves requests** | **PARTIAL** | **Stage 08/Stage 09** |
+| **GW-32B-REPLICA-01** | **nginx-gateway-32b replicas are 2/2 Running and Ready; CrashLoopBackOff resolved** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 09** |
 | ACCESS-01 | ChatGPT raw/blob access issue | RESOLVED | GitHub connector/API used as audit path |
 | PROD-READY-01 | MVP is not production-ready yet | OPEN | Stage 11 RC1 |
 | **BFF-01** | **BFF deployed and running (FastAPI, 1/1 Running, 0 restarts)** | **PASSED** | **Stage 05** |

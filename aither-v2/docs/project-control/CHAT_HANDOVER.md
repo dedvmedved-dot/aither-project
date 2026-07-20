@@ -78,6 +78,15 @@ Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED (overall MVP E2E).
    - One nginx-gateway-32b replica remains in CrashLoopBackOff; one replica is Running and serves requests. Accepted for MVP as finding, not production-ready.
    - Stage 09: NOT APPROVED.
    - PROD-READY-01: OPEN.
+Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT (nginx-gateway-32b Replica Health).
+   - One nginx-gateway-32b replica was in CrashLoopBackOff (242 restarts, 20h) on node n7.
+   - Root cause: nginx.conf used hostname `vllm-32b-gptq.aither-inference.svc`, node n7 has no ClusterDNS (both CoreDNS on n8).
+   - Remediation: ConfigMap patched at runtime — replaced hostname with ClusterIP `10.99.3.103`.
+   - Final state: 2/2 Running and Ready, 0 CrashLoopBackOff, 0 ImagePullBackOff.
+   - Regression: 32B completion HTTP 200, 32B chat adapter HTTP 200 — both confirmed.
+   - MissingClusterDNS warning remains on n7 (cluster-level issue, out of scope for gateway).
+   - Stage 10: NOT APPROVED.
+   - PROD-READY-01: OPEN.
 
 Stage 05 status details:
 - BFF deployed: 1/1 Running, FastAPI on python:3.11-slim

@@ -1,0 +1,36 @@
+Date/time: 2026-07-20T20:16:00+03:00
+Command or method: kubectl get configmap nginx-gateway-32b -n aither-inference -o yaml, kubectl get svc vllm-32b-gptq -n aither-inference -o jsonpath={.spec.clusterIP}
+Expected result: Find root cause of CrashLoopBackOff
+Actual output:
+  Root cause:
+    Нода n7 (bootsmam-k8s-clnt01-n7-gpu) не имеет ClusterDNS — оба CoreDNS pod запущены только на n8.
+    nginx.conf использует hostname "vllm-32b-gptq.aither-inference.svc:8000" в proxy_pass.
+    При запуске nginx пытается резолвить hostname и падает с "host not found", потому что
+    DNS на n7 недоступен (fallback на Default policy не помогает, т.к. nginx не использует /etc/resolv.conf
+    для k8s service discovery).
+    Pod на n8 работает, потому что CoreDNS доступен на этой ноде.
+
+  Evidence:
+    - MissingClusterDNS event на crashing pod
+    - nginx log: "host not found in upstream vllm-32b-gptq.aither-inference.svc"
+    - kubectl get pods -n kube-system -l k8s-app=kube-dns: оба pods на n8, ноль на n7
+
+  Affected object:
+    nginx-gateway-32b pod на ноде n7
+
+  Why one replica was Running while another crashed:
+    Работающий pod (pvxtq) запущен на n8, где CoreDNS доступен.
+    Падающий pod (8c9xs) запущен на n7, где ClusterDNS не настроен.
+
+  Required remediation:
+    Заменить hostname "vllm-32b-gptq.aither-inference.svc" на ClusterIP "10.99.3.103"
+    в ConfigMap nginx-gateway-32b -> nginx.conf.
+    Это устранит зависимость от DNS при старте nginx.
+
+  Out-of-scope areas touched: NO
+    - Только ConfigMap nginx-gateway-32b изменён.
+    - vLLM/GPU/TP/BFF/Portal/Redis/OAuth/Monitoring: NOT MODIFIED
+
+Result: PASSED — root cause identified and documented
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

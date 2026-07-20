@@ -1,0 +1,17 @@
+Date/time: 2026-07-20T20:18:10+03:00
+Command or method: POST /api/v1/chat model=32b via Portal/BFF/Gateway
+  Bearer token with model:32b:chat-adapter scope
+Expected result: HTTP 200, non-empty adapter response, adapter over completion (text_completion object)
+Actual output:
+  HTTP status: 200
+  id: cmpl-5b50cb6a8b1f4513b21de60b5a924a61
+  model: qwen-32b-base
+  object: text_completion
+  choices[0].text: "adapter regression ok<|"
+  finish_reason: stop
+  Non-empty response: YES
+  Route: Portal -> BFF -> nginx-gateway-32b (2/2 Running) -> vllm-32b-gptq -> qwen-32b-base
+  This is 32B chat adapter over completion, NOT native 32B chat.
+Result: PASSED — 32B chat adapter regression confirmed working after gateway remediation
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

@@ -505,3 +505,58 @@ Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Stage 09: NOT APPROVED
 PROD-READY-01: OPEN
 ```
+
+---
+
+## Stage 09 — nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation
+
+**Date:** 2026-07-20
+**Stage:** Stage 09 — nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation
+**Method:** Runtime diagnostics + ConfigMap patch + pod restart
+
+**Root cause:**
+nginx-gateway-32b ConfigMap used hostname `vllm-32b-gptq.aither-inference.svc` in proxy_pass. Node n7 (bootsmam-k8s-clnt01-n7-gpu) has no ClusterDNS — both CoreDNS pods are on n8. nginx on n7 fails to resolve the hostname at startup and exits immediately.
+
+**Diagnostics:**
+1. Initial state: 1/2 Ready, 1 CrashLoopBackOff (242 restarts, 20h).
+2. Crashing pod logs: `host not found in upstream "vllm-32b-gptq.aither-inference.svc"`.
+3. Events: `MissingClusterDNS` on crashing pod.
+4. CoreDNS pods: both on n8, none on n7.
+
+**Remediation:**
+1. ConfigMap `nginx-gateway-32b` updated at runtime: `proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000` → `proxy_pass http://10.99.3.103:8000` (ClusterIP) in all 3 locations (/v1/completions, /health, /v1/models).
+2. Crashed pod deleted — ReplicaSet recreated it successfully on n7.
+3. Final state: 2/2 Running and Ready, 0 CrashLoopBackOff, 0 ImagePullBackOff.
+
+**Regression:**
+- 32B completion: HTTP 200, non-empty response.
+- 32B chat adapter: HTTP 200, adapter over completion response.
+
+**Evidence (12 files):**
+- gw32b-initial-pod-state.txt
+- gw32b-crashing-pod-describe.txt
+- gw32b-crashing-pod-logs.txt
+- gw32b-root-cause.txt
+- gw32b-remediation-actions.txt
+- gw32b-rollout-status-after.txt
+- gw32b-pods-after.txt
+- gw32b-events-after.txt
+- gw32b-32b-completion-still-200.txt
+- gw32b-32b-chat-adapter-still-200.txt
+- gw32b-no-secret-leak-check.txt
+- gw32b-forbidden-scope-check.txt
+
+**Forbidden areas unchanged:**
+- tools/bff/app.py: NOT MODIFIED
+- tools/portal/*: NOT MODIFIED
+- bff-mvp.yaml / portal-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Redis/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06/07.1/07.2/08 evidence: NOT MODIFIED
+- GitHub manifests: NOT MODIFIED (runtime ConfigMap patch only)
+
+**Gate:**
+```
+Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 10: NOT APPROVED
+PROD-READY-01: OPEN
+```

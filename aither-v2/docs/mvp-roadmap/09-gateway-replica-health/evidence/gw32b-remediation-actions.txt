@@ -1,0 +1,31 @@
+Date/time: 2026-07-20T20:16:30+03:00
+Command or method: kubectl patch configmap nginx-gateway-32b -n aither-inference -p '{"data":{"nginx.conf":"..."}}'
+Expected result: Update nginx-gateway-32b ConfigMap to use ClusterIP instead of hostname
+Actual output:
+  configmap/nginx-gateway-32b patched
+
+Changes made:
+  1. Changed proxy_pass URL in nginx.conf from
+     http://vllm-32b-gptq.aither-inference.svc:8000
+     to
+     http://10.99.3.103:8000
+     in all 3 locations:
+     - /v1/completions
+     - /health
+     - /v1/models
+
+  2. Deleted crashing pod nginx-gateway-32b-5d447469b9-8c9xs
+     ReplicaSet recreated it as nginx-gateway-32b-5d447469b9-28kng
+
+Rationale:
+  - Service vllm-32b-gptq uses ClusterIP 10.99.3.103 (stable, doesn't change).
+  - ClusterIP не зависит от DNS — nginx не будет падать на старте.
+  - Нода n7 не имеет ClusterDNS (оба CoreDNS на n8), но ClusterIP доступен всегда.
+  - Long-term fix: deploy CoreDNS on n7. Out of current scope.
+
+No source/manifest files in GitHub were changed during runtime operation.
+Only runtime ConfigMap patch applied — NOT committed.
+
+Result: PASSED
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

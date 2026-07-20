@@ -24,7 +24,7 @@ Date: 2026-07-20
 
 ## Remaining findings (not blockers for MVP)
 
-- GW-32B-REPLICA-01: nginx-gateway-32b has one replica in CrashLoopBackOff — PARTIAL
+- ~~GW-32B-REPLICA-01: nginx-gateway-32b has one replica in CrashLoopBackOff — PARTIAL~~ — **RESOLVED (Stage 09)**
 - GW-IMG-01: RISK ACCEPTED / PARTIAL
 - GW-SC-01: PARTIAL
 - AUTH-REDIS-FAIL-01: PARTIAL
@@ -44,5 +44,5 @@ Date: 2026-07-20
 ## Next approved stage
 
 Stage 08: PASSED WITH FINDINGS / CONNECTOR VERIFIED
-Stage 09: NOT APPROVED
+Stage 09: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 PROD-READY-01: OPEN

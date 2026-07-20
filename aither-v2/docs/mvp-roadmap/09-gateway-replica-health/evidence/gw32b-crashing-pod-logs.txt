@@ -1,0 +1,11 @@
+Date/time: 2026-07-20T20:15:45+03:00
+Command or method: kubectl logs nginx-gateway-32b-5d447469b9-8c9xs -n aither-inference --tail=30
+Expected result: Show nginx startup error log
+Actual output:
+  /docker-entrypoint.sh: Configuration complete; ready for start up
+  2026/07/20 17:12:57 [emerg] 1#1: host not found in upstream "vllm-32b-gptq.aither-inference.svc" in /etc/nginx/nginx.conf:14
+  nginx: [emerg] host not found in upstream "vllm-32b-gptq.aither-inference.svc" in /etc/nginx/nginx.conf:14
+
+Result: PASSED — confirmed nginx fails to resolve upstream hostname on node without ClusterDNS
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

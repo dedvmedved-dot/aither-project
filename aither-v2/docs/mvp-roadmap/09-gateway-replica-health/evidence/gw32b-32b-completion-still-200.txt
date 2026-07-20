@@ -1,0 +1,15 @@
+Date/time: 2026-07-20T20:18:00+03:00
+Command or method: POST /api/v1/completions model=32b via Portal/BFF/Gateway
+  Bearer token with model:32b:completion scope
+Expected result: HTTP 200, non-empty completion response, route BFF -> nginx-gateway-32b -> vLLM 32B
+Actual output:
+  HTTP status: 200
+  id: cmpl-daa280a41ee645e9858070cccd0eb993
+  model: qwen-32b-base
+  choices[0].text: "...Gateway..."
+  finish_reason: length
+  Route: Portal -> BFF -> nginx-gateway-32b (2/2 Running) -> vllm-32b-gptq -> qwen-32b-base
+  Non-empty response: YES
+Result: PASSED — 32B completion regression confirmed working after gateway remediation
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

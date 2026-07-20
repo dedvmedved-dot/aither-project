@@ -1,0 +1,38 @@
+Date/time: 2026-07-20T20:18:45+03:00
+Command or method: git diff --name-only HEAD~1, manual review of changed files
+Expected result: Only Stage 09 docs/project-control files changed; forbidden zones unchanged
+Actual output:
+  Forbidden zones - unchanged:
+  - aither-v2/tools/bff/app.py: NOT MODIFIED ✓
+  - aither-v2/tools/portal/*: NOT MODIFIED ✓
+  - aither-v2/manifests/mvp-roadmap/05-bff/bff-mvp.yaml: NOT MODIFIED ✓
+  - aither-v2/manifests/mvp-roadmap/07-portal/portal-mvp.yaml: NOT MODIFIED ✓
+  - vLLM Deployments/Services/GPU/TP: NOT MODIFIED ✓
+  - Redis manifest/runtime: NOT MODIFIED ✓
+  - OAuth: NOT MODIFIED ✓
+  - Monitoring: NOT MODIFIED ✓
+  - Stage 05 evidence: NOT MODIFIED ✓
+  - Stage 06 evidence: NOT MODIFIED ✓
+  - Stage 07.1 evidence: NOT MODIFIED ✓
+  - Stage 07.2 evidence: NOT MODIFIED ✓
+  - Stage 08 evidence: NOT MODIFIED ✓
+  - Kubernetes manifests in GitHub: NOT MODIFIED (runtime ConfigMap patch only, not committed) ✓
+  - Stage 10: NOT STARTED ✓
+
+  Changed files (allowed):
+  - aither-v2/docs/mvp-roadmap/09-gateway-replica-health/evidence/* (new evidence)
+  - aither-v2/docs/mvp-roadmap/09-gateway-replica-health/*.md (new reports)
+  - aither-v2/docs/mvp-roadmap/00-governance/current-mvp-status.md
+  - aither-v2/docs/project-control/AUDIT_LOG.md
+  - aither-v2/docs/project-control/FINDINGS.md
+  - aither-v2/docs/project-control/PROJECT_MASTER.md
+  - aither-v2/docs/project-control/CHAT_HANDOVER.md
+  - aither-v2/docs/project-control/CHATGPT_SESSION_LOG.md
+
+  Runtime operation (not committed):
+  - kubectl patch configmap nginx-gateway-32b (changed proxy_pass from hostname to ClusterIP)
+  - kubectl delete pod (crashed replica recreated successfully)
+
+Result: PASSED
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

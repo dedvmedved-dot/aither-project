@@ -1,0 +1,23 @@
+Date/time: 2026-07-20T20:17:30+03:00
+Command or method: kubectl get pods -n aither-inference -l app=nginx-gateway -o wide
+Expected result: 2/2 Running, 2/2 Ready, 0 CrashLoopBackOff
+Actual output:
+  NAME                                         READY   STATUS    RESTARTS   AGE   NODE
+  nginx-gateway-32b-5d447469b9-28kng           1/1     Running   0          60s   bootsmam-k8s-clnt01-n7-gpu
+  nginx-gateway-32b-5d447469b9-pvxtq           1/1     Running   0          20h   bootsman-k8s-clnt01-n8-gpu
+
+kubectl get events -n aither-inference --sort-by=.lastTimestamp | tail -5
+  Normal    SuccessfulCreate    replicaset/nginx-gateway-32b-5d447469b9   Created pod: nginx-gateway-32b-5d447469b9-28kng
+  Normal    Pulled              pod/nginx-gateway-32b-5d447469b9-28kng    Container image "nginx:alpine" already present on machine
+  Normal    Created             pod/nginx-gateway-32b-5d447469b9-28kng    Created container: nginx
+  Normal    Started             pod/nginx-gateway-32b-5d447469b9-28kng    Started container nginx
+  Warning   MissingClusterDNS   pod/nginx-gateway-32b-5d447469b9-28kng    ... Falling back to "Default" policy. (non-blocking — pod runs with ClusterIP)
+
+CrashLoopBackOff: 0 pods
+ImagePullBackOff: 0 pods
+Restart count (new pod): 0
+MissingClusterDNS: still present as warning (cluster-level issue, non-blocking)
+
+Result: PASSED — 2/2 Running, 2/2 Ready, 0 CrashLoopBackOff
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES

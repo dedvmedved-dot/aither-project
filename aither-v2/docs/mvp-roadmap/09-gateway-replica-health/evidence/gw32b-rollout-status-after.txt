@@ -1,0 +1,17 @@
+Date/time: 2026-07-20T20:17:00+03:00
+Command or method: kubectl rollout status deployment/nginx-gateway-32b -n aither-inference
+Expected result: Deployment rolled out successfully
+Actual output:
+  deployment "nginx-gateway-32b" successfully rolled out
+
+kubectl get deploy nginx-gateway-32b -n aither-inference -o wide
+  READY   UP-TO-DATE   AVAILABLE
+  2/2     2            2
+
+kubectl get pods -n aither-inference -l app=nginx-gateway -o wide
+  nginx-gateway-32b-5d447469b9-28kng   1/1   Running   0   27s   n7
+  nginx-gateway-32b-5d447469b9-pvxtq   1/1   Running   0   20h   n8
+
+Result: PASSED — Deployment 2/2 Ready, 2 Available, 0 CrashLoopBackOff
+Reason if not PASSED: N/A
+Secrets/tokens redacted: YES
