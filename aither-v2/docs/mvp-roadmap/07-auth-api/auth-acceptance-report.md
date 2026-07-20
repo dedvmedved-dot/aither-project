@@ -20,7 +20,7 @@
 | 14B completions | BLOCKED (422) — use /api/v1/chat instead |
 | Rate limit integration | PRESERVED |
 | Source/ConfigMap alignment | VERIFIED (both syntax OK, functional match) |
-| Runtime acceptance | MOSTLY COLLECTED / RATE LIMIT RETEST NOT COLLECTED |
+| Runtime acceptance | COLLECTED / PASSED WITH FINDINGS |
 
 ### Endpoints Added
 
@@ -69,19 +69,18 @@
 
 ### Key Findings
 
-1. **VPN instability** prevented rate-limit retest. Evidence collected for all runtime tests except rate-limit retest.
+1. **VPN instability** — intermittent kubectl failures; workaround via tun0 route available.
 2. **Auth config** verified: 6 env vars from Secret `aither-bff-auth`.
 3. **User token isolation** confirmed by source code review: `_upstream_headers()` uses `BFF_*_UPSTREAM_AUTH_TOKEN`, never user token.
 4. **32B chat** is an adapter over completion, NOT native chat. Documented separately.
 5. **BFF-AUTH-01** (old finding) is functionally addressed but NOT closed until ChatGPT audits.
-6. **AUTH-UPSTREAM-VALID-01**: Internal upstream tokens are test-only; end-to-end model 200 not confirmed — PARTIAL.
-7. **AUTH-RL-429-01**: Rate limiting on BFF v0.4.0 — **PASSED**. Controlled burst test confirmed HTTP 429 after 10th request (15 reqs, counter=15, TTL=28s).
-8. **AUTH-UPSTREAM-VALID-01**: Internal upstream tokens are test-only; end-to-end model 200 not confirmed — PARTIAL.
+6. **AUTH-RL-429-01**: Rate limiting on BFF v0.4.0 — **PASSED / CONNECTOR VERIFIED**. Controlled burst test confirmed HTTP 429 after 10th request (15 reqs, counter=15, TTL=28s).
+7. **AUTH-UPSTREAM-VALID-01**: Internal upstream tokens are test-only; end-to-end model 200 not confirmed — PARTIAL.
 
 ### Gate
 
 ```
-Stage 07.1: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
-Stage 07.2 Portal: NOT APPROVED
+Stage 07.1: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 07.2 Portal: READY FOR TASK PREPARATION
 Stage 08: NOT APPROVED
 ```

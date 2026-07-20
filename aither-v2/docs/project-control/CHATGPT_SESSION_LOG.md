@@ -655,3 +655,47 @@ Stage 07.1: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.1 Post-Audit Docs Alignment
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+**Audit source:** ChatGPT GitHub connector audit of commit `1455dbd`
+
+**Decision:**
+- Stage 07.1 — Auth / API Token / Agent Access Baseline: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- AUTH-RL-429-01: **PASSED / CONNECTOR VERIFIED**
+- Stage 07.2 Portal: **READY FOR TASK PREPARATION, NOT STARTED**
+- Stage 08: **NOT APPROVED**
+
+**Evidence accepted:**
+- Controlled rate-limit 429 retest: burst 15 reqs, 10×200 + 5×429, Redis counter=15, TTL=28s.
+- VPN access recovery via tun0 alternative route.
+- All runtime evidence: rollout, pods, health, login, token lifecycle, agent auth, scope enforcement.
+- User token isolation and no secrets committed confirmed.
+
+**Remaining findings:**
+- AUTH-UPSTREAM-VALID-01 — PARTIAL
+- AUTH-REDIS-FAIL-01 — PARTIAL
+- AUTH-TOKEN-PERSIST-01 — PARTIAL
+- BFF-RL-REDIS-FAIL-01 — PARTIAL
+- BFF-RL-RESET-TTL-01 — MINOR FINDING
+- BFF-TOKEN-01 — NOT COLLECTED
+- BFF-AUTH-01 — PARTIAL
+
+**Forbidden areas unchanged:**
+- tools/bff/app.py: NOT MODIFIED
+- bff-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06 evidence: NOT MODIFIED
+- Stage 07.2 Portal: NOT STARTED
+
+### Gate
+
+```
+Stage 07.1: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 07.2 Portal: READY FOR TASK PREPARATION
+Stage 08: NOT APPROVED
+```

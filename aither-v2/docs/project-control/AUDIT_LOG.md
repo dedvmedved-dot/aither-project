@@ -288,3 +288,41 @@ Stage 07.1: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.1 — External ChatGPT Audit Acceptance
+
+**Date:** 2026-07-20
+**Commit audited:** `1455dbd3650230ca5e770d50f98c77b5b73efb00`
+**Method:** GitHub connector
+
+**Decision:**
+- Stage 07.1 — Auth / API Token / Agent Access Baseline: **PASSED WITH FINDINGS / CONNECTOR VERIFIED**
+- AUTH-RL-429-01: **PASSED / CONNECTOR VERIFIED**
+- Stage 07.2 Portal: **READY FOR TASK PREPARATION, NOT STARTED**
+- Stage 08: **NOT APPROVED**
+
+**Evidence accepted:**
+- Controlled rate-limit 429 retest: burst 15 reqs, 10×200 + 5×429, Redis counter=15, TTL=28s.
+- VPN access recovery via tun0 alternative route.
+- All runtime evidence: rollout, pods, health, login, token lifecycle, agent auth, scope enforcement.
+- User token isolation and no secrets committed confirmed.
+
+**Open findings (retained):**
+- AUTH-UPSTREAM-VALID-01 — PARTIAL
+- AUTH-REDIS-FAIL-01 — PARTIAL
+- AUTH-TOKEN-PERSIST-01 — PARTIAL
+- AUTH-PORTAL-01 — TARGET Stage 07.2
+- AUTH-OAUTH-01 — OUT OF SCOPE / FUTURE
+- BFF-RL-REDIS-FAIL-01 — PARTIAL
+- BFF-RL-RESET-TTL-01 — MINOR FINDING
+- BFF-TOKEN-01 — NOT COLLECTED
+- BFF-AUTH-01 — PARTIAL
+
+**Gate:**
+```
+Stage 07.1: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Stage 07.2 Portal: READY FOR TASK PREPARATION
+Stage 08: NOT APPROVED
+```

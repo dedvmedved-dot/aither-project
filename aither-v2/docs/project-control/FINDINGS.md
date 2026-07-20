@@ -27,8 +27,8 @@
 | **BFF-RL-RESET-01** | **Rate limit window reset verified** | **PASSED** | **Stage 06** |
 | **BFF-RL-REDIS-FAIL-01** | **Redis unavailable behaviour (fail-open)** | **PARTIAL** | **Stage 06** |
 | **BFF-RL-RESET-TTL-01** | **TTL reset not directly observed; reset verified by manual Redis key flush** | **MINOR FINDING** | **Stage 06/Post-MVP** |
-| **AUTH-01** | **BFF central auth implemented** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
-| **AUTH-API-TOKEN-01** | **API token issuance implemented** | **CORRECTIVE IN PROGRESS** | **Stage 07.1** |
+| **AUTH-01** | **BFF central auth implemented** | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | **Stage 07.1** |
+| **AUTH-API-TOKEN-01** | **API token issuance implemented** | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** | **Stage 07.1** |
 | **AUTH-RL-429-01** | **Rate limiting still returns 429 on BFF v0.4.0 after auth integration** | **PASSED (burst 15 reqs: 10×200 + 5×429)** | **Stage 07.1** |
 | **AUTH-UPSTREAM-VALID-01** | **Internal upstream tokens are test-only; end-to-end model 200 not confirmed** | **PARTIAL** | **Stage 07.1** |
 | **AUTH-TOKEN-HASH-01** | **Raw API tokens are not stored** | **PASSED (code review + runtime)** | **Stage 07.1** |
