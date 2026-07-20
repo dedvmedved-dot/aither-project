@@ -494,3 +494,36 @@ Stage 07.1: PARTIAL / WAITING FOR CHATGPT AUDIT
 Stage 07.2 Portal: NOT APPROVED
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.1 Corrective 4 — Minor documentation fix
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+
+**Reason:**
+- GitHub connector audit of `39f7d9f` found:
+  1. `auth-acceptance-report.md` had stale summary row: `Runtime acceptance | NOT COLLECTED (VPN unstable)` instead of reflecting MOSTLY COLLECTED.
+  2. `FINDINGS.md` had malformed markdown rows with leading `||` for AUTH-* entries.
+
+### What changed
+
+1. **auth-acceptance-report.md**: `Runtime acceptance | NOT COLLECTED` → `| MOSTLY COLLECTED / RATE LIMIT RETEST NOT COLLECTED`.
+2. **FINDINGS.md**: Removed extraneous leading `|` from 11 rows (AUTH-RL-429-01 through MODEL-32B-CHAT-ADAPTER-01).
+
+### Forbidden areas unchanged
+
+- tools/bff/app.py: NOT MODIFIED
+- bff-mvp.yaml: NOT MODIFIED
+- vLLM/GPU/TP/Gateway/Redis/Portal/OAuth/Monitoring: NOT MODIFIED
+- Stage 05/06/07.1 evidence: NOT MODIFIED
+- Stage 07.2 Portal: NOT STARTED
+
+### Gate
+
+```
+Stage 07.1: PARTIAL WITH RUNTIME EVIDENCE / RATE LIMIT CORRECTION REQUIRED
+Stage 07.2 Portal: NOT APPROVED
+Stage 08: NOT APPROVED
+```

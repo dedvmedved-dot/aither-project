@@ -20,7 +20,7 @@
 | 14B completions | BLOCKED (422) — use /api/v1/chat instead |
 | Rate limit integration | PRESERVED |
 | Source/ConfigMap alignment | VERIFIED (both syntax OK, functional match) |
-| Runtime acceptance | NOT COLLECTED (VPN unstable) |
+| Runtime acceptance | MOSTLY COLLECTED / RATE LIMIT RETEST NOT COLLECTED |
 
 ### Endpoints Added
 
