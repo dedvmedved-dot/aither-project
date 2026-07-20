@@ -56,7 +56,7 @@
 
 ### Key Findings
 
-1. **Source/ConfigMap alignment restored** — ConfigMap recreated from source files; all 4 files MATCH.
+1. **Source/ConfigMap alignment restored** — ConfigMap in portal-mvp.yaml now matches tools/portal/* exactly (SHA256 verified, all 4 files MATCH).
 2. **Raw token security** — token shown once, no localStorage/sessionStorage persistence.
 3. **BFF-only architecture** — portal routes exclusively through BFF; no direct vLLM/Gateway URLs.
 4. **32B chat correctly labeled** as "chat adapter over completion" — no native claim.

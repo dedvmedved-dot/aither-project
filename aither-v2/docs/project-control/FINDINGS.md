@@ -52,3 +52,4 @@
 | **PORTAL-UI-TOKEN-LIST-01** | **Portal token list renders from BFF {"tokens":[...]}** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
 | **PORTAL-UI-MODEL-LIST-01** | **Portal model selector renders from BFF {"models":[...]}** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
 | **PORTAL-UI-NAV-01** | **Portal navigation works without JS errors** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |
+| **PORTAL-CM-ALIGN-01** | **Portal manifest ConfigMap matches tools/portal source** | **COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT** | **Stage 07.2** |

@@ -823,3 +823,85 @@ No new PARTIAL/FAILED findings. Unchanged from Stage 07.1:
 Stage 07.2: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
 Stage 08: NOT APPROVED
 ```
+
+---
+
+## Stage 07.2 Corrective 2 — Portal manifest source alignment
+
+**Date:** 2026-07-20
+**Hermes model:** deepseek-chat
+**Audit source:** ChatGPT GitHub connector audit of 9fcc69c
+
+**Reason:**
+- tools/portal/app.js and index.html were fixed in Corrective 1.
+- portal-mvp.yaml inline ConfigMap still contained stale index.html with bare showPage() calls and stale app.js without response parsing fixes or showPage in window.App.
+- portal-configmap-source-alignment evidence contradicted repository manifest.
+
+### What changed (this corrective)
+
+1. **portal-mvp.yaml**: inline ConfigMap data regenerated from current tools/portal/* source files.
+   - index.html: all onclick handlers use App.showPage(), no bare showPage().
+   - app.js: loadTokens() reads Array.isArray(r.data.tokens), loadModels() reads Array.isArray(r.data.models), showPage exported in window.App.
+   - styles.css: unchanged.
+   - nginx.conf: unchanged (already correct).
+2. **ConfigMap synced to cluster**: `kubectl apply -f portal-mvp.yaml` + rollout restart.
+3. **Evidence updated**: portal-configmap-source-alignment.txt (SHA256 verified, ALL_MATCH), portal-forbidden-scope-check.txt.
+4. **Status docs updated**: FINDINGS.md (PORTAL-CM-ALIGN-01 added), CHAT_HANDOVER.md, CHATGPT_SESSION_LOG.md, AUDIT_LOG.md, current-mvp-status.md.
+
+### Manifest alignment result
+
+SHA256 comparison (source vs inline ConfigMap):
+
+| File | Source SHA256 | Inline SHA256 | Result |
+|---|---|---|---|
+| index.html | 390c3b43... | 390c3b43... | MATCH |
+| app.js | a8a30f00... | a8a30f00... | MATCH |
+| styles.css | 276cf04c... | 276cf04c... | MATCH |
+| nginx.conf | 6994932b... | 6994932b... | MATCH |
+
+Content checks:
+- index.html: App.showPage('login-page'), App.showPage('tokens-page'), App.showPage('chat-page'), App.showPage('api-guide-page'), App.showPage('status-page') — all present. No bare onclick="showPage".
+- app.js: Array.isArray(r.data.tokens) — ✅. Array.isArray(r.data.models) — ✅. showPage in window.App — ✅.
+- nginx.conf: proxy to aither-bff:8000 only — ✅. No direct vLLM/Gateway — ✅.
+
+### Evidence collected
+
+| Evidence | Status |
+|---|---|
+| portal-configmap-source-alignment.txt | PASSED (SHA256 ALL_MATCH) |
+| portal-forbidden-scope-check.txt | PASSED |
+
+### Remaining PARTIAL / FAILED / NOT COLLECTED
+
+Unchanged from previous stages:
+- AUTH-UPSTREAM-VALID-01: PARTIAL
+- AUTH-REDIS-FAIL-01: PARTIAL
+- AUTH-TOKEN-PERSIST-01: PARTIAL
+- BFF-RL-REDIS-FAIL-01: PARTIAL
+- BFF-RL-RESET-TTL-01: MINOR FINDING
+- BFF-TOKEN-01: NOT COLLECTED
+- BFF-AUTH-01: PARTIAL
+- PROD-READY-01: OPEN
+
+### Forbidden areas unchanged
+
+- tools/bff/app.py: NOT MODIFIED
+- manifests/mvp-roadmap/05-bff/bff-mvp.yaml: NOT MODIFIED
+- tools/portal/app.js: NOT MODIFIED (only manifest inline updated to match)
+- tools/portal/index.html: NOT MODIFIED (only manifest inline updated to match)
+- vLLM Deployments/Services: NOT MODIFIED
+- GPU limits / TP / tensor_parallel_size: NOT MODIFIED
+- Gateway runtime: NOT MODIFIED
+- Redis manifest/runtime: NOT MODIFIED
+- OAuth: NOT MODIFIED
+- Monitoring: NOT MODIFIED
+- Stage 05/06/07.1 evidence: NOT MODIFIED
+- Kubernetes secrets/kubeconfig/VPN configs: NOT MODIFIED
+- Stage 08: NOT STARTED
+
+### Gate
+
+```
+Stage 07.2: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT
+Stage 08: NOT APPROVED
+```

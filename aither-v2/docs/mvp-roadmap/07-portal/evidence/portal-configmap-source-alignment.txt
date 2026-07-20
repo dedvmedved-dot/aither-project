@@ -1,22 +1,38 @@
-=== Portal — ConfigMap Source Alignment Check ===
-Date: 2026-07-20T12:44:30Z
-Command: diff <source file> <configmap content>
-Expected result: ALL_MATCH — all 4 source files (index.html, app.js, styles.css, nginx.conf) match ConfigMap content exactly.
-Actual output:
-ConfigMap aither-portal-config recreated from source files:
-  kubectl create configmap aither-portal-config -n aither-inference \
-    --from-file=index.html=aither-v2/tools/portal/index.html \
-    --from-file=app.js=aither-v2/tools/portal/app.js \
-    --from-file=styles.css=aither-v2/tools/portal/styles.css \
-    --from-file=nginx.conf=aither-v2/tools/portal/nginx.conf \
-    --dry-run=client -o yaml | kubectl apply -f -
+=== Portal — ConfigMap Source Alignment (Corrective 2) ===
+Date: 2026-07-20T15:59:00Z
+Method: SHA256 comparison between aither-v2/tools/portal/* and inline ConfigMap in aither-v2/manifests/mvp-roadmap/07-portal/portal-mvp.yaml
+Expected result: ALL_MATCH — all 4 source files match inline ConfigMap content exactly.
 
-ConfigMap data keys: index.html, app.js, styles.css, nginx.conf — all 4 present.
-Source files:
-  aither-v2/tools/portal/index.html — exists
-  aither-v2/tools/portal/app.js — exists (with correct response parsing: r.data.tokens, r.data.models, App.showPage exported)
-  aither-v2/tools/portal/styles.css — exists
-  aither-v2/tools/portal/nginx.conf — exists (reverse proxy to BFF only, no direct vLLM/Gateway)
+Actual output (SHA256 comparison):
+
+  index.html:
+    source SHA256:   390c3b43bc8e73e6c90c5742a74c031d1e0134f9af2153979d622cd832f616d2
+    inline SHA256:   390c3b43bc8e73e6c90c5742a74c031d1e0134f9af2153979d622cd832f616d2
+    result:          MATCH
+    Content check: App.showPage('login-page'), App.showPage('tokens-page'), App.showPage('chat-page'),
+                   App.showPage('api-guide-page'), App.showPage('status-page') — all present.
+    No bare onclick="showPage" — PASS.
+
+  app.js:
+    source SHA256:   a8a30f0048521d299314923c792cd67889d4330d67d8a955631c71531f354124
+    inline SHA256:   a8a30f0048521d299314923c792cd67889d4330d67d8a955631c71531f354124
+    result:          MATCH
+    Content check: Array.isArray(r.data.tokens) — PASS.
+                   Array.isArray(r.data.models) — PASS.
+                   showPage in window.App export — PASS.
+
+  styles.css:
+    source SHA256:   276cf04cc1f386e67fdf1869ef3ad803ccb6abf901d75e37bef04cebc7cbd8a6
+    inline SHA256:   276cf04cc1f386e67fdf1869ef3ad803ccb6abf901d75e37bef04cebc7cbd8a6
+    result:          MATCH
+
+  nginx.conf:
+    source SHA256:   6994932b3d8c0a88b373e76fb47049f69ca07f7b95d2e1e08efe75e7a48dede6
+    inline SHA256:   6994932b3d8c0a88b373e76fb47049f69ca07f7b95d2e1e08efe75e7a48dede6
+    result:          MATCH
+    Content check: proxy to aither-bff:8000 — PASS.
+                   no direct vLLM/Gateway — PASS.
+
+OVERALL: ALL_MATCH
 
 Result: PASSED
-Reason: ConfigMap aither-portal-config was recreated from source files using --from-file. All 4 files match. ConfigMap content == tools/portal/*.

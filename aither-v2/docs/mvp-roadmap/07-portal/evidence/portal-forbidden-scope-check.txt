@@ -1,30 +1,33 @@
-=== Portal — Forbidden Scope Check ===
-Date: 2026-07-20T12:45:00Z
-Method: git diff against previous commit (aa24ccc) and runtime verification
-Expected result: No changes to forbidden zones: BFF, vLLM, GPU, TP, Gateway, Redis, OAuth, Monitoring, Stage 05/06/07.1 evidence.
+=== Portal — Forbidden Scope Check (Corrective 2) ===
+Date: 2026-07-20T15:59:00Z
+Method: git diff verification of files changed in this corrective
+Expected result: No changes to forbidden zones. Only portal-mvp.yaml (ConfigMap inline content sync) and docs changed.
+
 Actual output:
 Files changed in this corrective:
-  aither-v2/tools/portal/index.html — nav links: showPage → App.showPage (UI fix only)
-  aither-v2/tools/portal/app.js — response parsing fixes, showPage export (UI logic fix only)
-  ConfigMap aither-portal-config — recreated from source files (alignment, no new forbidden routes)
-  Evidence files updated/created — docs only, no runtime changes
-  Project-control docs updated — docs only
+  aither-v2/manifests/mvp-roadmap/07-portal/portal-mvp.yaml — ConfigMap data updated to match source files (index.html, app.js, styles.css, nginx.conf)
+  Evidence files updated: portal-configmap-source-alignment.txt, portal-forbidden-scope-check.txt
+  portal-acceptance-report.md — evidence inventory updated
+  project-control docs: FINDINGS.md, CHAT_HANDOVER.md, CHATGPT_SESSION_LOG.md, AUDIT_LOG.md, current-mvp-status.md
 
 Not modified:
   tools/bff/app.py — NOT MODIFIED
   manifests/mvp-roadmap/05-bff/bff-mvp.yaml — NOT MODIFIED
+  tools/portal/app.js — NOT MODIFIED (already fixed in Corrective 1)
+  tools/portal/index.html — NOT MODIFIED (already fixed in Corrective 1)
   Stage 05 evidence — NOT MODIFIED
   Stage 06 evidence — NOT MODIFIED
   Stage 07.1 evidence — NOT MODIFIED
-  vLLM Deployments — NOT MODIFIED
-  GPU limits — NOT MODIFIED
+  vLLM Deployments/Services — NOT MODIFIED
+  GPU limits / TP / tensor_parallel_size — NOT MODIFIED
   Gateway runtime — NOT MODIFIED
-  Redis manifest — NOT MODIFIED
+  Redis manifest/runtime — NOT MODIFIED
   OAuth — NOT MODIFIED
   Monitoring — NOT MODIFIED
   Kubernetes secrets — NOT MODIFIED
   kubeconfig — NOT MODIFIED
   WireGuard/OpenVPN configs — NOT MODIFIED
+  Stage 08 — NOT STARTED
 
 Result: PASSED
-Reason: Only Portal UI source files and docs were changed. All forbidden zones remain untouched.
+Reason: Only portal-mvp.yaml inline ConfigMap (non-functional sync of accepted UI fixes) and docs were changed. All forbidden zones remain untouched.

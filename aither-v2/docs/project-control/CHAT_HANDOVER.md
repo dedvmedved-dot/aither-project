@@ -67,6 +67,10 @@ Stage 07.2 Portal: COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT (Corrective 1
      * ConfigMap recreated from source files — alignment verified.
    - New evidence: portal-ui-token-list-render-check.txt (PASSED), portal-ui-model-select-render-check.txt (PASSED), portal-ui-navigation-check.txt (PASSED).
    - Open findings: 3 PORTAL-UI-* findings added (COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT).
+   - Corrective 2 (manifest alignment) applied:
+     * portal-mvp.yaml inline ConfigMap now MATCHES tools/portal/* (SHA256 verified: index.html, app.js, styles.css, nginx.conf all MATCH).
+     * ConfigMap synced to cluster; portal pod restarted with corrected code.
+     * Finding PORTAL-CM-ALIGN-01 added (COMPLETED BY HERMES / WAITING FOR CHATGPT AUDIT).
 Stage 08: NOT APPROVED.
 
 Stage 05 status details:
