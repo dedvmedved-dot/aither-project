@@ -9,6 +9,7 @@ data:
         worker_connections 1024;
     }
     http {
+        resolver 10.96.0.10 valid=30s;
         server {
             listen 8000;
             server_name _;
@@ -18,7 +19,7 @@ data:
                 return 422 '{"error":"qwen-32b-base does not support chat"}';
             }
             location /v1/completions {
-                proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000;
+                proxy_pass http://10.99.3.103:8000;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header Authorization $http_authorization;
@@ -29,8 +30,8 @@ data:
                 error_page 401 403 = @auth_denied;
             }
             location @auth_denied { return 401 '{"error":"auth required"}'; }
-            location /health { proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/health; }
-            location /v1/models { proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000/v1/models; }
+            location /health { proxy_pass http://10.99.3.103:8000/health; }
+            location /v1/models { proxy_pass http://10.99.3.103:8000/v1/models; }
             location / { return 404 '{"error":"not found"}'; }
         }
     }
@@ -49,6 +50,7 @@ spec:
     metadata:
       labels: { app: nginx-gateway, model: qwen-32b-gptq }
     spec:
+      dnsPolicy: Default
       containers:
         - name: nginx
           image: nginx:alpine
@@ -66,6 +68,16 @@ spec:
           resources:
             requests: { cpu: "50m", memory: "64Mi" }
             limits: { cpu: "500m", memory: "256Mi" }
+          startupProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
       volumes:
         - name: config
           configMap:
