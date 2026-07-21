@@ -84,22 +84,38 @@ apply_manifest \
   "${PROJECT_ROOT}/manifests/mvp-roadmap/06-rate-limiting/redis-rate-limit.yaml" \
   "Redis Rate Limiting"
 
-# === Order 4: BFF Backend ===
-echo "[30-services] === Phase 4: BFF Backend ===" | tee -a "${LOG}"
+# === Order 4: Identity Service ===
+echo "[30-services] === Phase 4: Identity Service (Stage 15) ===" | tee -a "${LOG}"
 
 apply_manifest \
-  "${PROJECT_ROOT}/manifests/mvp-roadmap/05-bff/bff-mvp.yaml" \
-  "BFF Backend"
+  "${PROJECT_ROOT}/services/identity/k8s/identity.yaml" \
+  "Identity Service"
 
-# === Order 5: Portal Frontend ===
-echo "[30-services] === Phase 5: Portal Frontend ===" | tee -a "${LOG}"
+# === Order 5: Portal Backend ===
+
+# === Order 5: Portal Backend (BFF) ===
+echo "[30-services] === Phase 5: Portal Backend (BFF) ===" | tee -a "${LOG}"
 
 apply_manifest \
-  "${PROJECT_ROOT}/manifests/mvp-roadmap/07-portal/portal-mvp.yaml" \
+  "${PROJECT_ROOT}/services/portal-backend/k8s/portal-backend.yaml" \
+  "Portal Backend (BFF)"
+
+# === Order 6: Portal Frontend ===
+echo "[30-services] === Phase 6: Portal Frontend ===" | tee -a "${LOG}"
+
+apply_manifest \
+  "${PROJECT_ROOT}/services/portal-frontend/k8s/portal-frontend.yaml" \
   "Portal Frontend"
 
-# === Order 6: Optional — Benchmarks & Diagnostics ===
-echo "[30-services] === Phase 6: Optional Diagnostics ===" | tee -a "${LOG}"
+# === Order 7: AI Platform Service ===
+echo "[30-services] === Phase 7: AI Platform (Stage 16) ===" | tee -a "${LOG}"
+
+apply_manifest \
+  "${PROJECT_ROOT}/services/ai-platform/k8s/ai-platform.yaml" \
+  "AI Platform Service"
+
+# === Order 8: Optional -- Benchmarks & Diagnostics ===
+echo "[30-services] === Phase 8: Optional Diagnostics ===" | tee -a "${LOG}"
 
 apply_manifest \
   "${PROJECT_ROOT}/manifests/mvp-roadmap/01-cluster-gpu/gpu-runtime-test.yaml" \
@@ -120,7 +136,7 @@ apply_manifest \
 # --- Pod readiness check (Gateway + vLLM) ---
 echo "[30-services] Waiting for critical pods to be ready..." | tee -a "${LOG}"
 
-for deployment in "vllm-14b-instruct" "nginx-gateway-32b" "aither-redis-rate-limit"; do
+for deployment in "vllm-14b-instruct" "nginx-gateway-32b" "aither-redis-rate-limit" "aither-identity" "aither-portal-backend" "aither-portal-frontend" "aither-ai-platform"; do
   if kubectl rollout status deployment/"${deployment}" -n aither-inference --timeout=120s 2>&1 | tee -a "${LOG}"; then
     echo "  PASS: ${deployment} is ready" | tee -a "${LOG}"
     PASS=$((PASS + 1))

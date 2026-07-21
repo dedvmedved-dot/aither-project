@@ -66,6 +66,37 @@ else
   echo "  WARN: model-pvc.yaml not found — skipping" | tee -a "${LOG}"
 fi
 
+# --- Identity PVC ---
+echo "[20-infrastructure] Creating PersistentVolumeClaim aither-identity-data..." | tee -a "${LOG}"
+if [ -f "${PROJECT_ROOT}/services/identity/k8s/identity.yaml" ]; then
+  # Extract and apply only the PVC from identity.yaml
+  python3 -c "
+import yaml
+for doc in yaml.safe_all(open('${PROJECT_ROOT}/services/identity/k8s/identity.yaml')):
+    if doc and doc.get('kind') == 'PersistentVolumeClaim':
+        print(yaml.dump(doc))
+" 2>/dev/null | kubectl apply -f - 2>&1 | tee -a "${LOG}"
+  echo "  PASS: PVC aither-identity-data applied" | tee -a "${LOG}"
+  PASS=$((PASS + 1))
+else
+  echo "  WARN: identity.yaml not found — skipping Identity PVC" | tee -a "${LOG}"
+fi
+
+# --- AI Platform PVC ---
+echo "[20-infrastructure] Creating PersistentVolumeClaim aither-ai-platform-data..." | tee -a "${LOG}"
+if [ -f "${PROJECT_ROOT}/services/ai-platform/k8s/ai-platform.yaml" ]; then
+  python3 -c "
+import yaml
+for doc in yaml.safe_all(open('${PROJECT_ROOT}/services/ai-platform/k8s/ai-platform.yaml')):
+    if doc and doc.get('kind') == 'PersistentVolumeClaim':
+        print(yaml.dump(doc))
+" 2>/dev/null | kubectl apply -f - 2>&1 | tee -a "${LOG}"
+  echo "  PASS: PVC aither-ai-platform-data applied" | tee -a "${LOG}"
+  PASS=$((PASS + 1))
+else
+  echo "  WARN: ai-platform.yaml not found — skipping AI Platform PVC" | tee -a "${LOG}"
+fi
+
 # --- BFF Auth Secret (template only — requires manual REPLACE_ME fill) ---
 echo "[20-infrastructure] Checking BFF auth secret..." | tee -a "${LOG}"
 if kubectl get secret aither-bff-auth -n aither-inference &>/dev/null; then

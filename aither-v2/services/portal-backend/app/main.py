@@ -18,6 +18,7 @@ from pydantic import BaseModel
 # ── Configuration ──────────────────────────────────────────────
 
 IDENTITY_URL = os.environ.get("PORTAL_IDENTITY_URL", "http://aither-identity:8000")
+AI_PLATFORM_URL = os.environ.get("PORTAL_AI_PLATFORM_URL", "http://aither-ai-platform:8000")
 LOG_LEVEL = os.environ.get("PORTAL_LOG_LEVEL", "INFO").upper()
 CORS_ORIGIN = os.environ.get("PORTAL_CORS_ORIGIN", "*")
 
@@ -145,6 +146,13 @@ async def portal_status():
         results["identity"] = r.json() if r.status_code == 200 else "unreachable"
     except Exception:
         results["identity"] = "unreachable"
+    try:
+        ac = httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=5.0)
+        r = await ac.get("/health")
+        results["ai-platform"] = "healthy" if r.status_code == 200 else "unreachable"
+        await ac.aclose()
+    except Exception:
+        results["ai-platform"] = "unreachable"
     return {"status": "operational" if all(v == "healthy" or isinstance(v, dict) for v in results.values()) else "degraded", "services": results}
 
 # ── Shutdown ───────────────────────────────────────────────────

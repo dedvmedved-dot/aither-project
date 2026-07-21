@@ -1,29 +1,28 @@
-# Aither Identity Service — Secret
-# Replace REPLACE_ME with actual values before applying.
-# Do not commit with real secrets.
+# Aither AI Platform — Secret template
+# Replace REPLACE_ME before applying.
 apiVersion: v1
 kind: Secret
 metadata:
-  name: aither-identity-secret
+  name: aither-ai-platform-secret
   namespace: aither-inference
   labels:
-    app: aither-identity
-    stage: "15"
+    app: aither-ai-platform
+    stage: "16"
 type: Opaque
 stringData:
-  IDENTITY_SECRET_KEY: "REPLACE_ME"        # Required: JWT signing key (min 32 chars)
-  IDENTITY_ADMIN_USER: "admin"             # Bootstrap admin username
-  IDENTITY_ADMIN_PASS: "REPLACE_ME"        # Required: bcrypt hash of admin password
+  # No secrets required for Stage 16 AI Platform
+  # (API Key validation uses Identity, Gateway has its own auth)
+  AI_PLATFORM_LOG_LEVEL: "INFO"
 ---
-# PersistentVolumeClaim for Identity data
+# PersistentVolumeClaim for AI Platform data
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: aither-identity-data
+  name: aither-ai-platform-data
   namespace: aither-inference
   labels:
-    app: aither-identity
-    stage: "15"
+    app: aither-ai-platform
+    stage: "16"
 spec:
   accessModes:
     - ReadWriteOnce
@@ -34,21 +33,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aither-identity
+  name: aither-ai-platform
   namespace: aither-inference
   labels:
-    app: aither-identity
-    stage: "15"
+    app: aither-ai-platform
+    stage: "16"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aither-identity
+      app: aither-ai-platform
   template:
     metadata:
       labels:
-        app: aither-identity
-        stage: "15"
+        app: aither-ai-platform
+        stage: "16"
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -56,22 +55,23 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
       containers:
-        - name: identity
-          image: aither-identity:stage15
+        - name: ai-platform
+          image: aither-ai-platform:stage16
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
               name: http
-          envFrom:
-            - secretRef:
-                name: aither-identity-secret
           env:
-            - name: IDENTITY_DB_PATH
-              value: "/data/identity.db"
-            - name: IDENTITY_TOKEN_TTL
-              value: "86400"
-            - name: IDENTITY_LOG_LEVEL
+            - name: AI_PLATFORM_DB_PATH
+              value: "/data/ai-platform.db"
+            - name: AI_PLATFORM_IDENTITY_URL
+              value: "http://aither-identity:8000"
+            - name: AI_PLATFORM_GATEWAY_URL
+              value: "http://nginx-gateway-32b.aither-inference.svc:8000"
+            - name: AI_PLATFORM_LOG_LEVEL
               value: "INFO"
+            - name: AI_PLATFORM_CORS_ORIGIN
+              value: "*"
           volumeMounts:
             - name: data
               mountPath: /data
@@ -79,38 +79,39 @@ spec:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 15
+            initialDelaySeconds: 15
+            periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /ready
               port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
           resources:
             requests:
               cpu: "100m"
-              memory: "128Mi"
+              memory: "256Mi"
             limits:
               cpu: "500m"
-              memory: "256Mi"
+              memory: "512Mi"
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: aither-identity-data
+            claimName: aither-ai-platform-data
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: aither-identity
+  name: aither-ai-platform
   namespace: aither-inference
   labels:
-    app: aither-identity
-    stage: "15"
+    app: aither-ai-platform
+    stage: "16"
 spec:
   type: ClusterIP
   selector:
-    app: aither-identity
+    app: aither-ai-platform
   ports:
     - port: 8000
       targetPort: 8000
