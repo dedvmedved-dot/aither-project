@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: aither-services
+  name: aither-stage17-services
   namespace: aither
   labels:
     app.kubernetes.io/part-of: aither
@@ -24,21 +24,26 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: aither-nginx-gateway
-  namespace: aither
+  name: aither-gateway-legacy
+  namespace: aither-inference
   labels:
     app.kubernetes.io/part-of: aither
     app.kubernetes.io/component: observability
     stage: stage17
 spec:
   selector:
-    matchLabels:
-      app.kubernetes.io/name: nginx-gateway-32b
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - nginx-gateway
+          - aither-bff
+          - aither-portal
   namespaceSelector:
     matchNames:
       - aither-inference
   endpoints:
-    - port: metrics
+    - port: http
       path: /metrics
       interval: 15s
       scrapeTimeout: 10s

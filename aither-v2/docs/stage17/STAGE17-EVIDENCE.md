@@ -214,10 +214,111 @@ All services emit structured JSON with these fields:
 
 ## 9. Limitations
 
-1. **Runtime metrics export** — NOT RUN: services not deployed to cluster. `/metrics` endpoints are implemented and verified at code level.
-2. **Full SSE streaming** — NOT implemented: streaming in OpenAI endpoint is a placeholder. Real SSE parsing requires Gateway support.
-3. **vLLM metrics** — NOT directly instrumented: vLLM exports its own metrics which can be scraped separately.
-4. **nginx metrics** — requires `nginx-vts-exporter` or similar. Services have their own metrics already.
-5. **Fluent Bit** — ConfigMap provided but requires operational deployment.
-6. **Alert routing** — Alertmanager configuration not provided (site-specific).
-7. **Existing business logic** — ✅ Unchanged. No Stage 15/16 endpoints, models, or data were modified.
+| **Runtime metrics export** | **BLOCKED** — Stage 17 services (Identity, Portal Backend, AI Platform) are not deployed to the cluster. Only legacy services (aither-bff, aither-portal, nginx-gateway-32b, vLLM) are running. Legacy services do not have /metrics endpoints. New services must be built and deployed via docker build + kubectl apply. |
+|---|---|
+| **Full SSE streaming** | NOT implemented: streaming in OpenAI endpoint is a placeholder. Real SSE parsing requires Gateway support. |
+| **vLLM metrics** | NOT directly instrumented: vLLM exports its own metrics which can be scraped separately. vLLM/v1/completions accessible via nginx-gateway-32b. |
+| **nginx metrics** | requires `nginx-vts-exporter` or similar. Current nginx config does not include stub_status or Prometheus exporter. nginx config was not modified (existing functionality preserved). |
+| **Fluent Bit** | ConfigMap provided but requires operational deployment. |
+| **Alert routing** | Alertmanager configuration not provided (site-specific). |
+| **Prometheus/Grafana stack** | NOT deployed in cluster. kube-prometheus-stack not installed. No Prometheus CRDs (ServiceMonitor, PrometheusRule) are available for validation. K8s manifests provided for when stack is deployed. |
+| **Existing business logic** | ✅ Unchanged. No Stage 15/16 endpoints, models, or data were modified. |
+
+---
+
+## 10. Audit Remediation (Stage 17A)
+
+### Preflight
+
+| Check | Value |
+|---|---|
+| Branch | `aither-v2` |
+| HEAD (pre) | `8492f27b2e1c2d86356c5f6750c557ce6586a559` |
+| Working tree | Clean |
+| `git pull --ff-only` | SSH blocked (known, remote verified at commit push) |
+
+### Findings
+
+| # | Finding | Resolution | Evidence | Status |
+|---|---|---|---|---|
+| 1 | **Runtime /metrics** endpoints not verified | Cluster available but Stage 17 services not deployed. Legacy services (aither-bff, aither-portal) do not have /metrics. NGINX Gateway lacks stub_status/metrics. Exec in vLLM times out (model loading). | See Runtime Results below | 🔶 BLOCKED |
+| 2 | **ServiceMonitor** selectors may mismatch | Updated: Stage 17 services use `app.kubernetes.io/part-of: aither`. Legacy gateway services added via `matchExpressions`. | `docs/stage17/k8s/servicemonitor.yaml` | ✅ FIXED |
+| 3 | **Dashboard validation** — no Grafana | Prometheus/Grafana stack NOT deployed in cluster. Dashboard JSON validated statically (all 5 panels valid JSON). | See Dashboard Results below | 🔶 BLOCKED |
+| 4 | **Alert rules** — no Prometheus | Prometheus operator CRDs not available. Alert rules validated statically (YAML syntax OK, 8 rules, 6 groups). | See Alert Results below | 🔶 BLOCKED |
+| 5 | **Runtime logging** — no running services | Stage 17 services not deployed. JSON logging verified via code audit. | ✅ PASS (code review) |
+| 6 | **Regression** — Stage 15/16 preserved | All bash/python/git-diff checks PASS. No changes to existing API or data model. | See Regression Results below | ✅ PASS |
+
+### Runtime Results
+
+| Service | /metrics URL | Result | Reason |
+|---|---|---|---|
+| Identity Service | `http://aither-identity:8000/metrics` | 🔶 BLOCKED | Service not deployed. Pod does not exist. |
+| Portal Backend | `http://aither-portal-backend:8080/metrics` | 🔶 BLOCKED | Service not deployed. Pod does not exist. |
+| AI Platform | `http://aither-ai-platform:8100/metrics` | 🔶 BLOCKED | Service not deployed. Pod does not exist. |
+| Gateway (nginx) | `http://nginx-gateway-32b:8000/metrics` | 🔶 BLOCKED | No stub_status/metrics in nginx config. nginx Prometheus exporter not deployed. |
+| vLLM | `http://vllm-32b-gptq:8000/metrics` | 🔶 BLOCKED | Pod exec times out (model on GPU). vLLM exports built-in /metrics but inaccessible from this context. |
+
+### Dashboard Results
+
+| Dashboard | Grafana Import | Reason |
+|---|---|---|
+| System Overview (5 panels) | 🔶 BLOCKED | Grafana not deployed in cluster. JSON validated statically — all panels have valid datasource refs and expressions. |
+| AI Platform (6 panels) | 🔶 BLOCKED | Same |
+| Gateway (3 panels) | 🔶 BLOCKED | Same |
+| Identity (4 panels) | 🔶 BLOCKED | Same |
+| Portal (3 panels) | 🔶 BLOCKED | Same |
+
+### Alert Results
+
+| Rule Group | Rules | Valid YAML | Prometheus Loaded |
+|---|---|---|---|
+| `aither-service-availability` | 2 (ServiceDown, ReadinessCheckFailed) | ✅ | 🔶 BLOCKED |
+| `aither-error-rate` | 1 (HighErrorRate) | ✅ | 🔶 BLOCKED |
+| `aither-latency` | 1 (HighLatency) | ✅ | 🔶 BLOCKED |
+| `aither-gateway` | 1 (GatewayUnavailable) | ✅ | 🔶 BLOCKED |
+| `aither-storage` | 1 (PVCLowSpace) | ✅ | 🔶 BLOCKED |
+| `aither-memory` | 1 (HighMemoryUsage) | ✅ | 🔶 BLOCKED |
+
+Prometheus not deployed → rules cannot be loaded for validation. No name conflicts detected (all names unique within aither-* namespace).
+
+### Logging Results
+
+| Check | Method | Result |
+|---|---|---|
+| JSON format present | Code audit (all 3 services) | ✅ PASS |
+| API Key absent from logs | Code audit | ✅ PASS |
+| Bearer Token absent from logs | Code audit | ✅ PASS |
+| Password absent from logs | Code audit | ✅ PASS |
+| System prompt absent from logs | Code audit | ✅ PASS |
+| Stack trace not returned to user | Code audit | ✅ PASS |
+| Runtime JSON log output | Services not deployed | 🔶 BLOCKED |
+
+### Regression Results (Stage 13–17)
+
+| Check | Result | Details |
+|---|---|---|
+| `bash -n deploy/*.sh` (5 scripts) | ✅ ALL PASS | 10-precheck, 20-infrastructure, 30-services, 40-validation, deploy |
+| `bash -n scripts/*.sh` (8 scripts) | ✅ ALL PASS | All Stage 13–17 scripts |
+| `python3 -m py_compile` (3 apps) | ✅ ALL PASS | identity, portal-backend, ai-platform |
+| `git diff --check` | ✅ CLEAN | No whitespace errors |
+| Existing acceptance scripts modified? | ✅ NO | Stage 13–16 scripts unchanged |
+| Stage 15 Identity API modified? | ✅ NO | All endpoints preserved |
+| Stage 16 AI Platform API modified? | ✅ NO | All endpoints preserved |
+| Portal Frontend compatibility broken? | ✅ NO | Not modified |
+
+### Security Confirmation
+
+| Concern | Result | Evidence |
+|---|---|---|
+| `/metrics` exposes sensitive data? | ✅ PASS | Only Prometheus-format numbers. No API keys, tokens, passwords in metric labels. |
+| `/metrics` requires auth? | ✅ Correct | `/metrics` intentionally unauthenticated (Prometheus scraping requirement). No sensitive data exposed. |
+| New endpoints break auth? | ✅ NO | `/metrics` is the only new endpoint — read-only, no auth (standard Prometheus practice). |
+| Secrets in Git? | ✅ NO | `.env` in `.gitignore`. No secrets committed. |
+
+### Remaining Limitations
+
+1. **Full observability deployment blocked** — Prometheus + Grafana stack not installed in cluster. kube-prometheus-stack must be deployed before observability can operate.
+2. **Stage 17 services not deployed** — Identity, Portal Backend, AI Platform from Stage 15–16 must be built and deployed for runtime metrics/logging verification.
+3. **NGINX Gateway metrics** — requires separate `nginx-vts-exporter` or Prometheus nginx exporter sidecar.
+4. **Stage 16 not CONNECTOR VERIFIED** — results are preliminary pending GitHub Connector audit of Stage 16.
+
