@@ -221,12 +221,19 @@ done
 # ============================================================
 echo -e "\n── 3. DNS/Upstream Consistency ──"
 
-# 3.11 dnsPolicy
-DNSPOLICY=$(kubectl -n "$NS" get deployment nginx-gateway-32b -o jsonpath='{.spec.template.spec.dnsPolicy}' 2>/dev/null || echo "ClusterFirst")
-if [ "$DNSPOLICY" = "ClusterFirst" ] || [ "$DNSPOLICY" = "Default" ]; then
-    pass "dnsPolicy: $DNSPOLICY"
+# 3.11 dnsPolicy (fail-closed: only ClusterFirst passes)
+DNSPOLICY=""
+if ! DNSPOLICY=$(kubectl -n "$NS" get deployment nginx-gateway-32b \
+    -o jsonpath='{.spec.template.spec.dnsPolicy}' 2>/dev/null); then
+    fail "Could not read Gateway dnsPolicy (kubectl error)"
+elif [ -z "$DNSPOLICY" ]; then
+    fail "dnsPolicy is empty (expected ClusterFirst)"
+elif [ "$DNSPOLICY" = "ClusterFirst" ]; then
+    pass "dnsPolicy: ClusterFirst"
+elif [ "$DNSPOLICY" = "Default" ]; then
+    fail "dnsPolicy: Default workaround is not allowed after DNS-N7-01 remediation"
 else
-    fail "dnsPolicy: $DNSPOLICY (unexpected value)"
+    fail "dnsPolicy: $DNSPOLICY (expected ClusterFirst)"
 fi
 
 # Level 1: Service ClusterIP

@@ -120,7 +120,7 @@ kube-dns   10.244.0.103:53,10.244.0.104:53 (2 endpoints on n8)
 
 ---
 
-## 5. Regression Test Results
+## 6. Regression Test Results
 
 ### Diagnostic Script
 
@@ -189,3 +189,80 @@ DNS-N7-01 is verified as closed. All DNS resolution tests pass on node n7.
 The root cause (missing `--config` flag in kubelet systemd unit) was corrected.
 The workaround (`dnsPolicy: Default`) was removed from the Gateway manifest.
 Full regression testing (33/33 PASS) confirms no regressions.
+
+---
+
+## 7. Acceptance Gate Remediation (Follow-up)
+
+### Defect: Fail-Open dnsPolicy Acceptance
+
+The original diagnostic script had two acceptance defects:
+
+1. **`|| echo "ClusterFirst"`** — if `kubectl` failed to read the Deployment,
+   the script silently defaulted to "ClusterFirst" and would PASS even when
+   the value could not be read.
+2. **`Default` accepted as PASS** — the workaround value was still considered
+   valid, so the script would not detect if DNS-N7-01 was not yet fixed.
+
+### Fix Applied
+
+Replaced the fail-open logic with strict fail-closed:
+
+```
+# Before (fail-open)
+DNSPOLICY=$(kubectl ... || echo "ClusterFirst")
+if [ "$DNSPOLICY" = "ClusterFirst" ] || [ "$DNSPOLICY" = "Default" ]; then
+    pass "dnsPolicy: $DNSPOLICY"
+
+# After (fail-closed)
+if ! DNSPOLICY=$(kubectl ...); then
+    fail "Could not read Gateway dnsPolicy (kubectl error)"
+elif [ -z "$DNSPOLICY" ]; then
+    fail "dnsPolicy is empty (expected ClusterFirst)"
+elif [ "$DNSPOLICY" = "ClusterFirst" ]; then
+    pass "dnsPolicy: ClusterFirst"
+elif [ "$DNSPOLICY" = "Default" ]; then
+    fail "dnsPolicy: Default workaround is not allowed after DNS-N7-01 remediation"
+else
+    fail "dnsPolicy: $DNSPOLICY (expected ClusterFirst)"
+fi
+```
+
+### Acceptance Gate Semantics
+
+| Input | Result |
+|---|---|
+| ClusterFirst | PASS |
+| Default | FAIL |
+| empty value | FAIL |
+| kubectl error | FAIL |
+| None / other | FAIL |
+
+### Negative Tests
+
+A dedicated test script was created: `scripts/test-check-gateway-dns-policy.sh`
+
+| Test Case | Input | Expected | Actual | Exit Code |
+|---|---|---|---|---|
+| ClusterFirst | ClusterFirst | PASS | PASS | 0 |
+| Default | Default | FAIL | FAIL | 1 |
+| kubectl error | (simulated) | FAIL | FAIL | 1 |
+| empty | "" | FAIL | FAIL | 1 |
+| None | None | FAIL | FAIL | 1 |
+| ClusterFirstWithHostNet | ClusterFirstWithHostNet | FAIL | FAIL | 1 |
+
+All 6 tests PASSed, 0 FAILed.
+
+### Production Validation (Post-Fix)
+
+```text
+Aither Gateway 32B — Comprehensive Diagnostic Check
+Namespace: aither-inference
+2026-07-21T01:54:17Z
+
+Passed: 33  Failed: 0  Warnings: 0
+Exit code: 0
+dnsPolicy: ClusterFirst
+```
+
+Commit: `2846366bea09e15a00b068d0f3552a4faa1340c7` → (next commit SHA)

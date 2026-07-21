@@ -99,12 +99,64 @@ as valid dnsPolicy values (forward-compatible).
 |---|---|
 | `/etc/systemd/system/kubelet.service` (on n7) | Added `--config=/var/lib/kubelet/config.yaml` |
 | `manifests/mvp-roadmap/04-gateway/nginx-gateway-32b-hardened.yaml` | `dnsPolicy: Default` → `ClusterFirst` |
-| `scripts/check-gateway-32b.sh` | Accept both dnsPolicy values |
+| `scripts/check-gateway-32b.sh` | **Fail-closed dnsPolicy**: strict `ClusterFirst` only, removed `|| echo "ClusterFirst"`, `Default` now FAILs |
+| `scripts/test-check-gateway-dns-policy.sh` | **New** — isolated negative tests for dnsPolicy acceptance logic |
 | `docs/stage11/DNS-N7-ROOTCAUSE.md` | New — root cause analysis |
-| `docs/stage11/DNS-N7-REMEDIATION.md` | New — this document |
-| `docs/stage11/DNS-N7-EVIDENCE.md` | New — verification evidence |
+| `docs/stage11/DNS-N7-REMEDIATION.md` | New — this document (updated with acceptance fix) |
+| `docs/stage11/DNS-N7-EVIDENCE.md` | New — verification evidence (updated with acceptance fix) |
 
 ---
+
+## Acceptance Gate Remediation (Follow-up)
+
+### Defect
+
+1. **`|| echo "ClusterFirst"`** caused fail-open: if kubectl failed to read
+   dnsPolicy from the Deployment, the script silently defaulted to
+   "ClusterFirst" and would PASS.
+2. **`Default` accepted as PASS** — the workaround value was still valid,
+   meaning the acceptance gate could not detect an unfixed DNS-N7-01.
+
+### Fix
+
+Replaced with strict fail-closed logic:
+
+```bash
+# Before (fail-open)
+DNSPOLICY=$(kubectl ... || echo "ClusterFirst")
+if [ "$DNSPOLICY" = "ClusterFirst" ] || [ "$DNSPOLICY" = "Default" ]; then ...
+
+# After (fail-closed)
+if ! DNSPOLICY=$(kubectl ...); then
+    fail "..."
+elif [ -z "$DNSPOLICY" ]; then
+    fail "..."
+elif [ "$DNSPOLICY" = "ClusterFirst" ]; then
+    pass "..."
+elif [ "$DNSPOLICY" = "Default" ]; then
+    fail "..."
+else
+    fail "..."
+fi
+```
+
+### Negative Tests
+
+6 test cases executed via `scripts/test-check-gateway-dns-policy.sh`:
+- ClusterFirst → PASS ✅
+- Default → FAIL ✅
+- kubectl error → FAIL ✅
+- empty → FAIL ✅
+- None → FAIL ✅
+- ClusterFirstWithHostNet → FAIL ✅
+
+### Production Validation
+
+```
+Passed: 33  Failed: 0  Warnings: 0
+Exit code: 0
+dnsPolicy: ClusterFirst
+```
 
 ## Safety Notes
 
