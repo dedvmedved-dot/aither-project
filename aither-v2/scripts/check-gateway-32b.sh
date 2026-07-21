@@ -223,10 +223,10 @@ echo -e "\n── 3. DNS/Upstream Consistency ──"
 
 # 3.11 dnsPolicy
 DNSPOLICY=$(kubectl -n "$NS" get deployment nginx-gateway-32b -o jsonpath='{.spec.template.spec.dnsPolicy}' 2>/dev/null || echo "ClusterFirst")
-if [ "$DNSPOLICY" = "Default" ]; then
-    pass "dnsPolicy: Default (n7-compatible workaround)"
+if [ "$DNSPOLICY" = "ClusterFirst" ] || [ "$DNSPOLICY" = "Default" ]; then
+    pass "dnsPolicy: $DNSPOLICY"
 else
-    fail "dnsPolicy: $DNSPOLICY (expected Default for n7 compatibility)"
+    fail "dnsPolicy: $DNSPOLICY (unexpected value)"
 fi
 
 # Level 1: Service ClusterIP

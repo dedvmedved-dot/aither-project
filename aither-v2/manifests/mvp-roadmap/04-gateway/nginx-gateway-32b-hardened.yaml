@@ -57,7 +57,7 @@ spec:
     metadata:
       labels: { app: nginx-gateway, model: qwen-32b-gptq }
     spec:
-      dnsPolicy: Default
+      dnsPolicy: ClusterFirst
       containers:
         - name: nginx
           image: nginx:alpine
