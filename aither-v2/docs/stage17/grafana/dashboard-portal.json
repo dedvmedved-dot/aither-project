@@ -1,0 +1,51 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "hideControls": false,
+  "id": null,
+  "links": [],
+  "tags": ["aither", "observability", "stage17", "portal"],
+  "title": "Aither — Portal",
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(http_requests_total{service=\"portal-backend\"}[5m])", "legendFormat": "{{endpoint}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Latency (ms)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"portal-backend\"}[5m])) by (le))", "legendFormat": "P95"},
+        {"expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{service=\"portal-backend\"}[5m])) by (le))", "legendFormat": "P50"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Status Codes",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(http_requests_total{service=\"portal-backend\"}[5m])", "legendFormat": "{{status_code}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 12 }
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aither-services
+  namespace: aither
+  labels:
+    app.kubernetes.io/part-of: aither
+    app.kubernetes.io/component: observability
+    stage: stage17
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: aither
+  namespaceSelector:
+    matchNames:
+      - aither
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aither-nginx-gateway
+  namespace: aither
+  labels:
+    app.kubernetes.io/part-of: aither
+    app.kubernetes.io/component: observability
+    stage: stage17
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nginx-gateway-32b
+  namespaceSelector:
+    matchNames:
+      - aither-inference
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aither-alerts
+  namespace: aither
+  labels:
+    app.kubernetes.io/part-of: aither
+    app.kubernetes.io/component: observability
+    stage: stage17
+spec:
+  groups: []
+  # Alert rules are deployed from docs/stage17/prometheus/alert-rules.yaml

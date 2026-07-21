@@ -1,0 +1,88 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "hideControls": false,
+  "id": null,
+  "links": [],
+  "tags": ["aither", "observability", "stage17"],
+  "title": "Aither — System Overview",
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Service Uptime",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0}] },
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {"expr": "process_uptime_seconds{service=~\"identity|portal-backend|ai-platform\"}", "legendFormat": "{{service}}"}
+      ],
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "HTTP Requests Rate (per second)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      },
+      "targets": [
+        {"expr": "rate(http_requests_total{service=~\"identity|portal-backend|ai-platform\"}[5m])", "legendFormat": "{{service}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 6, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Error Rate (5xx)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      },
+      "targets": [
+        {"expr": "rate(http_requests_total{service=~\"identity|portal-backend|ai-platform\",status_code=~\"5..\"}[5m])", "legendFormat": "{{service}} {{status_code}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 6, "y": 6 }
+    },
+    {
+      "id": 4,
+      "title": "P95 Latency (ms)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      },
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))", "legendFormat": "{{service}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 6, "y": 12 }
+    },
+    {
+      "id": 5,
+      "title": "Memory Usage (MB)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "MB" }
+      },
+      "targets": [
+        {"expr": "process_memory_usage_bytes{service=~\"identity|portal-backend|ai-platform\"} / 1e6", "legendFormat": "{{service}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 6, "y": 18 }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "hideControls": false,
+  "id": null,
+  "links": [],
+  "tags": ["aither", "observability", "stage17", "gateway"],
+  "title": "Aither — Gateway",
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(gateway_requests_total[5m])", "legendFormat": "{{status}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Error Rate",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(gateway_errors_total[5m])", "legendFormat": "Errors"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 }
+    },
+    {
+      "id": 3,
+      "title": "Gateway Active Requests",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "gateway_active_requests"}
+      ],
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 12 }
+    }
+  ]
+}

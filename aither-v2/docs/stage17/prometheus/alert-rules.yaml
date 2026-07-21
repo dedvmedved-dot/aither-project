@@ -1,0 +1,73 @@
+groups:
+  - name: aither-service-availability
+    rules:
+      - alert: ServiceDown
+        expr: up{service=~"identity|portal-backend|ai-platform|nginx-gateway-32b"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.service }} is down"
+          description: "{{ $labels.service }} has been unreachable for more than 1 minute."
+
+      - alert: ReadinessCheckFailed
+        expr: probe_success{service=~"identity|portal-backend|ai-platform"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Readiness check failed for {{ $labels.service }}"
+
+  - name: aither-error-rate
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx error rate on {{ $labels.service }}"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+  - name: aither-latency
+    rules:
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 5.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 latency on {{ $labels.service }}"
+          description: "P95 latency is {{ $value }}s over the last 5 minutes"
+
+  - name: aither-gateway
+    rules:
+      - alert: GatewayUnavailable
+        expr: rate(gateway_requests_total{status="error"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gateway is returning errors"
+          description: "Gateway error rate is {{ $value }} per second over the last 2 minutes"
+
+  - name: aither-storage
+    rules:
+      - alert: PVCLowSpace
+        expr: kubelet_volume_stats_used_bytes{namespace="aither"} / kubelet_volume_stats_capacity_bytes{namespace="aither"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PVC {{ $labels.persistentvolumeclaim }} is over 85% capacity"
+
+  - name: aither-memory
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_memory_usage_bytes{service=~"identity|portal-backend|ai-platform"} > 500 * 1e6
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.service }}"
+          description: "{{ $labels.service }} is using {{ $value | humanize1024 }}"

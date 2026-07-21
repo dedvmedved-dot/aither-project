@@ -16,6 +16,7 @@
 #   POST /v1/identity/users       — create user (admin only)
 #   POST /v1/identity/bootstrap   — create initial admin (one-shot)
 
+import asyncio
 import os
 import json
 import logging
@@ -31,6 +32,9 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
+from prometheus_client import Counter, Histogram, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+
 # ── Configuration ──────────────────────────────────────────────
 
 SECRET_KEY = os.environ.get("IDENTITY_SECRET_KEY", "")
@@ -43,11 +47,33 @@ LOG_LEVEL = os.environ.get("IDENTITY_LOG_LEVEL", "INFO").upper()
 if not SECRET_KEY or not SECRET_KEY.strip():
     raise RuntimeError("IDENTITY_SECRET_KEY is required")
 
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+class JSONFormatter(logging.Formatter):
+    """Structured JSON log formatter."""
+    def format(self, record: logging.LogRecord) -> str:
+        log_entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "service": "aither-identity",
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "request_id"):
+            log_entry["request_id"] = record.request_id
+        if hasattr(record, "user_id"):
+            log_entry["user_id"] = record.user_id
+        if hasattr(record, "endpoint"):
+            log_entry["endpoint"] = record.endpoint
+        if hasattr(record, "duration_ms"):
+            log_entry["duration_ms"] = record.duration_ms
+        if hasattr(record, "status_code"):
+            log_entry["status_code"] = record.status_code
+        return json.dumps(log_entry, default=str)
+
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 log = logging.getLogger("aither-identity")
+log.propagate = False
+_handler = logging.StreamHandler()
+_handler.setFormatter(JSONFormatter())
+log.addHandler(_handler)
 
 security = HTTPBearer(auto_error=False)
 
@@ -193,7 +219,31 @@ async def require_admin(user: dict = Depends(get_current_user)):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Start background task to periodically update gauges
+    async def update_gauges():
+        while True:
+            try:
+                import psutil
+                memory_usage_bytes.set(psutil.Process().memory_info().rss)
+            except Exception:
+                pass
+            try:
+                conn = get_db()
+                row = conn.execute(
+                    "SELECT COUNT(*) as cnt FROM sessions WHERE revoked=0"
+                ).fetchone()
+                active_users.set(row["cnt"])
+                conn.close()
+            except Exception:
+                pass
+            await asyncio.sleep(15)
+    task = asyncio.create_task(update_gauges())
     yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 app = FastAPI(
     title="Aither Identity Service",
@@ -202,6 +252,77 @@ app = FastAPI(
     docs_url="/v1/identity/docs",
     openapi_url="/v1/identity/openapi.json",
 )
+
+# ── Prometheus Metrics ─────────────────────────────────────────
+
+uptime_info = Info("identity", "Aither Identity Service metadata")
+uptime_info.info({"version": "1.0.0", "service": "aither-identity"})
+
+uptime = Gauge("identity_start_time_seconds", "Service start time (Unix timestamp)")
+uptime.set(time.time())
+
+http_requests_total = Counter(
+    "identity_http_requests_total",
+    "Total HTTP requests",
+    ["method", "endpoint", "status_code"],
+)
+
+http_request_duration_seconds = Histogram(
+    "identity_http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+
+active_requests = Gauge("identity_active_requests", "Currently active requests")
+
+memory_usage_bytes = Gauge(
+    "identity_memory_usage_bytes", "Current memory usage in bytes"
+)
+
+active_users = Gauge(
+    "identity_active_users", "Number of currently active (non-revoked) sessions"
+)
+
+errors_total = Counter(
+    "identity_errors_total", "Total errors by type", ["type"]
+)
+
+# ── Middleware ─────────────────────────────────────────────────
+
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    active_requests.inc()
+    start = time.time()
+    status_code = 200
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+    except HTTPException as exc:
+        status_code = exc.status_code
+        errors_total.labels(type="http_exception").inc()
+        raise
+    except Exception as exc:
+        status_code = 500
+        errors_total.labels(type="internal").inc()
+        raise
+    finally:
+        duration = time.time() - start
+        endpoint = request.url.path
+        http_requests_total.labels(
+            method=request.method, endpoint=endpoint, status_code=status_code
+        ).inc()
+        http_request_duration_seconds.labels(
+            method=request.method, endpoint=endpoint
+        ).observe(duration)
+        active_requests.dec()
+    return response
+
+# ── Metrics Endpoint ───────────────────────────────────────────
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # ── Routes ─────────────────────────────────────────────────────
 

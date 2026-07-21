@@ -30,6 +30,8 @@ from typing import Optional
 from urllib.parse import urljoin
 
 import httpx
+import prometheus_client
+from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi import FastAPI, HTTPException, Depends, Request, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -45,11 +47,33 @@ CORS_ORIGIN = os.environ.get("AI_PLATFORM_CORS_ORIGIN", "http://localhost:3000")
 # In production, set AI_PLATFORM_CORS_ORIGIN to the Portal Frontend URL.
 # Example: AI_PLATFORM_CORS_ORIGIN=https://portal.aither.example.com
 
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+class JSONFormatter(logging.Formatter):
+    """Structured JSON log formatter."""
+    def format(self, record: logging.LogRecord) -> str:
+        log_entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "service": "aither-ai-platform",
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "request_id"):
+            log_entry["request_id"] = record.request_id
+        if hasattr(record, "user_id"):
+            log_entry["user_id"] = record.user_id
+        if hasattr(record, "endpoint"):
+            log_entry["endpoint"] = record.endpoint
+        if hasattr(record, "duration_ms"):
+            log_entry["duration_ms"] = record.duration_ms
+        if hasattr(record, "status_code"):
+            log_entry["status_code"] = record.status_code
+        return json.dumps(log_entry, default=str)
+
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 log = logging.getLogger("aither-ai-platform")
+log.propagate = False
+_handler = logging.StreamHandler()
+_handler.setFormatter(JSONFormatter())
+log.addHandler(_handler)
 
 # ── HTTP Client ────────────────────────────────────────────────
 
@@ -224,17 +248,20 @@ async def verify_token(token: str) -> dict:
     c = await get_identity_client()
     r = await c.get("/v1/identity/me", headers={"Authorization": f"Bearer {token}"})
     if r.status_code != 200:
+        METRIC_ERRORS_TOTAL.labels(type="auth_failure").inc()
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return r.json()
 
 async def get_current_user(request: Request) -> dict:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
+        METRIC_ERRORS_TOTAL.labels(type="auth_missing").inc()
         raise HTTPException(status_code=401, detail="Authentication required")
     return await verify_token(auth[7:])
 
 async def require_admin(user: dict = Depends(get_current_user)):
     if user.get("role") != "administrator":
+        METRIC_ERRORS_TOTAL.labels(type="auth_forbidden").inc()
         raise HTTPException(status_code=403, detail="Administrator role required")
     return user
 
@@ -261,6 +288,7 @@ async def authenticate_api_key(full_key: str) -> dict:
     # Parse prefix and secret
     parts = full_key.split("_", 2)
     if len(parts) < 3:
+        METRIC_ERRORS_TOTAL.labels(type="invalid_api_key_format").inc()
         raise HTTPException(status_code=401, detail="Invalid API Key format")
     prefix = f"{parts[0]}_{parts[1]}"
 
@@ -274,14 +302,17 @@ async def authenticate_api_key(full_key: str) -> dict:
     conn.close()
 
     if row is None:
+        METRIC_ERRORS_TOTAL.labels(type="invalid_api_key").inc()
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
     if row["revoked_at"] is not None:
+        METRIC_ERRORS_TOTAL.labels(type="revoked_api_key").inc()
         raise HTTPException(status_code=401, detail="API Key has been revoked")
 
     if row["expires_at"]:
         exp = datetime.fromisoformat(row["expires_at"])
         if exp < datetime.now(timezone.utc).replace(tzinfo=None):
+            METRIC_ERRORS_TOTAL.labels(type="expired_api_key").inc()
             raise HTTPException(status_code=401, detail="API Key has expired")
 
     # Update last_used_at
@@ -322,6 +353,149 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Prometheus Metrics ─────────────────────────────────────────
+
+# System metrics
+METRIC_UPTIME = Gauge("uptime", "Service uptime in seconds")
+METRIC_MEMORY_USAGE = Gauge("memory_usage_bytes", "Process memory usage in bytes")
+METRIC_ACTIVE_REQUESTS = Gauge("active_requests", "Currently in-flight requests")
+METRIC_ACTIVE_API_KEYS = Gauge("active_api_keys", "Number of non-revoked API keys")
+METRIC_ACTIVE_CONVERSATIONS = Gauge("active_conversations", "Number of conversations")
+
+# Request metrics
+METRIC_HTTP_REQUESTS_TOTAL = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    labelnames=["method", "endpoint", "status_code"],
+)
+METRIC_HTTP_REQUEST_DURATION = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    labelnames=["method", "endpoint"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0),
+)
+
+# Gateway metrics
+METRIC_GATEWAY_REQUESTS = Counter(
+    "gateway_requests_total",
+    "Gateway proxy requests",
+    labelnames=["status"],
+)
+METRIC_GATEWAY_ERRORS = Counter(
+    "gateway_errors_total",
+    "Gateway errors by type",
+    labelnames=["type"],
+)
+
+# General error counter
+METRIC_ERRORS_TOTAL = Counter(
+    "errors_total",
+    "Application errors by type",
+    labelnames=["type"],
+)
+
+_start_time = time.time()
+
+
+def _update_periodic_gauges():
+    """Update gauges that need periodic refreshing from DB."""
+    import os
+
+    # Uptime
+    METRIC_UPTIME.set(time.time() - _start_time)
+
+    # Memory usage
+    try:
+        import os as _os
+
+        with open(f"/proc/{_os.getpid()}/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    # Value is in kB
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        METRIC_MEMORY_USAGE.set(int(parts[1]) * 1024)
+                    break
+    except Exception:
+        METRIC_MEMORY_USAGE.set(0)
+
+    # DB counters — best-effort, run in thread pool
+    try:
+        conn = get_db()
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM api_keys WHERE revoked_at IS NULL"
+        ).fetchone()
+        METRIC_ACTIVE_API_KEYS.set(row["cnt"] if row else 0)
+
+        row = conn.execute("SELECT COUNT(*) as cnt FROM conversations").fetchone()
+        METRIC_ACTIVE_CONVERSATIONS.set(row["cnt"] if row else 0)
+        conn.close()
+    except Exception:
+        pass
+
+
+@app.on_event("startup")
+async def start_periodic_metrics():
+    """Schedule periodic metric updates every 15 seconds."""
+    import asyncio
+
+    async def _loop():
+        while True:
+            try:
+                await asyncio.to_thread(_update_periodic_gauges)
+            except Exception:
+                pass
+            await asyncio.sleep(15)
+
+    asyncio.create_task(_loop())
+
+
+async def metrics_middleware(request: Request, call_next):
+    """Middleware that instruments request metrics."""
+    import time as _time
+
+    # Track active requests
+    METRIC_ACTIVE_REQUESTS.inc()
+
+    start = _time.monotonic()
+    response = None
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        duration = _time.monotonic() - start
+
+        # Build endpoint label — collapse path params to pattern
+        endpoint = request.url.path
+
+        METRIC_HTTP_REQUESTS_TOTAL.labels(
+            method=request.method,
+            endpoint=endpoint,
+            status_code=response.status_code if response is not None else 500,
+        ).inc()
+        METRIC_HTTP_REQUEST_DURATION.labels(
+            method=request.method, endpoint=endpoint
+        ).observe(duration)
+        METRIC_ACTIVE_REQUESTS.dec()
+
+
+app.middleware("http")(metrics_middleware)
+
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    """Prometheus metrics endpoint."""
+    # Refresh gauges before serving
+    import asyncio
+    await asyncio.to_thread(_update_periodic_gauges)
+
+    # Use simple Response to avoid middleware overhead on metrics scrape
+    data = generate_latest()
+    from fastapi.responses import Response
+
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
 
 # ── Health ─────────────────────────────────────────────────────
 
@@ -395,6 +569,7 @@ async def get_model(model_id: int, user: dict = Depends(get_current_user)):
     row = conn.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
     conn.close()
     if row is None:
+        METRIC_ERRORS_TOTAL.labels(type="model_not_found").inc()
         raise HTTPException(status_code=404, detail="Model not found")
     return {
         "id": row["id"],
@@ -435,6 +610,7 @@ async def update_model(model_id: int, req: ModelUpdate, admin: dict = Depends(re
     row = conn.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
     if row is None:
         conn.close()
+        METRIC_ERRORS_TOTAL.labels(type="model_not_found").inc()
         raise HTTPException(status_code=404, detail="Model not found")
 
     updates = {}
@@ -853,11 +1029,14 @@ async def send_message(conv_id: int, req: MessageSend, user: dict = Depends(get_
             )
 
         if gateway_resp.status_code != 200:
+            METRIC_GATEWAY_ERRORS.labels(type="http_error").inc()
             log.error("Gateway returned HTTP %d: %.200s", gateway_resp.status_code, gateway_resp.text[:200])
             raise HTTPException(
                 status_code=502,
                 detail=f"AI service returned error (HTTP {gateway_resp.status_code})",
             )
+
+        METRIC_GATEWAY_REQUESTS.labels(status="success").inc()
 
         result = gateway_resp.json()
 
@@ -874,11 +1053,14 @@ async def send_message(conv_id: int, req: MessageSend, user: dict = Depends(get_
             response_content = json.dumps(result)
 
     except httpx.TimeoutException:
+        METRIC_GATEWAY_ERRORS.labels(type="timeout").inc()
         raise HTTPException(status_code=504, detail="AI service timed out")
     except httpx.RequestError as e:
+        METRIC_GATEWAY_ERRORS.labels(type="connection").inc()
         log.error("Gateway unreachable: %s", e)
         raise HTTPException(status_code=502, detail="AI service unavailable")
     except Exception as e:
+        METRIC_GATEWAY_ERRORS.labels(type="unexpected").inc()
         log.error("Unexpected error calling Gateway: %s", e)
         raise HTTPException(status_code=502, detail="AI service error")
 
@@ -914,6 +1096,7 @@ async def chat_completions(
         key_value = x_api_key
 
     if not key_value or not key_value.startswith("aither_"):
+        METRIC_ERRORS_TOTAL.labels(type="missing_api_key").inc()
         raise HTTPException(status_code=401, detail="Valid API Key required (format: aither_...)")
 
     user = await authenticate_api_key(key_value)
@@ -972,10 +1155,13 @@ async def chat_completions(
                 )
 
             if gateway_resp.status_code != 200:
+                METRIC_GATEWAY_ERRORS.labels(type="http_error").inc()
                 return JSONResponse(
                     status_code=502,
                     content={"error": f"AI service returned HTTP {gateway_resp.status_code}"},
                 )
+
+            METRIC_GATEWAY_REQUESTS.labels(status="success").inc()
 
             # Note: Full SSE streaming requires event parsing
             # For Beta v0.9, fall back to non-streaming
@@ -1009,6 +1195,7 @@ async def chat_completions(
             )
 
         if gateway_resp.status_code != 200:
+            METRIC_GATEWAY_ERRORS.labels(type="http_error").inc()
             log.error("Gateway returned HTTP %d: %.200s", gateway_resp.status_code, gateway_resp.text[:200])
             return JSONResponse(
                 status_code=502,
@@ -1016,12 +1203,16 @@ async def chat_completions(
                          "detail": "Upstream inference error"},
             )
 
+        METRIC_GATEWAY_REQUESTS.labels(status="success").inc()
+
         result = gateway_resp.json()
         return result
 
     except httpx.TimeoutException:
+        METRIC_GATEWAY_ERRORS.labels(type="timeout").inc()
         raise HTTPException(status_code=504, detail="AI service timed out")
     except httpx.RequestError as e:
+        METRIC_GATEWAY_ERRORS.labels(type="connection").inc()
         log.error("Gateway unreachable: %s", e)
         raise HTTPException(status_code=502, detail="AI service unavailable")
 
