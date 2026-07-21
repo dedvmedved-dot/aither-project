@@ -322,3 +322,78 @@ Prometheus not deployed → rules cannot be loaded for validation. No name confl
 3. **NGINX Gateway metrics** — requires separate `nginx-vts-exporter` or Prometheus nginx exporter sidecar.
 4. **Stage 16 not CONNECTOR VERIFIED** — results are preliminary pending GitHub Connector audit of Stage 16.
 
+---
+
+## 11. Stage 17B Audit Remediation
+
+### Preflight
+
+| Check | Value |
+|---|---|
+| HEAD (pre) | `49759dfdd67ce3c18871b964ad0da645d6dc690c` |
+| Branch | `aither-v2` |
+| Working tree | Clean |
+| `git pull --ff-only` | SSH blocked (known, remote verified at push) |
+
+### Findings
+
+| # | Finding | Resolution | Evidence | Status |
+|---|---|---|---|---|
+| 1 | **ServiceMonitor namespace mismatch** — used `aither` but all Stage 15–17 services are in `aither-inference` | Changed ServiceMonitor namespace from `aither` to `aither-inference` | `docs/stage17/k8s/servicemonitor.yaml` | ✅ FIXED |
+| 2 | **ServiceMonitor selector mismatch** — used `app.kubernetes.io/part-of: aither` but actual services use `app: aither-*` | Changed selector to `matchExpressions` on `app` label with actual values | `docs/stage17/k8s/servicemonitor.yaml` | ✅ FIXED |
+| 3 | **Legacy ServiceMonitor included** — targeted `nginx-gateway`, `aither-bff`, `aither-portal` which do NOT export `/metrics` | Removed legacy ServiceMonitor entirely | `docs/stage17/k8s/servicemonitor.yaml` (deleted) | ✅ FIXED |
+| 4 | **PrometheusRule with empty `groups: []`** — invalid/no-op | Removed PrometheusRule from manifest. Alert rules exist in `docs/stage17/prometheus/alert-rules.yaml` and should be applied separately. | `docs/stage17/k8s/servicemonitor.yaml` (removed) | ✅ FIXED |
+| 5 | **ConfigMap namespaces wrong** — used `aither` instead of `aither-inference` | Changed ConfigMap namespaces to `aither-inference` | `docs/stage17/k8s/configmaps.yaml` | ✅ FIXED |
+| 6 | **DEPLOYMENT.md commands incorrect** — referenced wrong namespace and wrong resource names | Updated all kubectl commands and resource descriptions | `docs/stage17/DEPLOYMENT.md` | ✅ FIXED |
+| 7 | **Stage 16 docs contradict code on CORS default** — claimed `*` but code uses `http://localhost:3000` | Fixed `SECURITY-NOTES.md`, `DEPLOYMENT.md`, `STAGE16-EVIDENCE.md` to reflect actual default | `docs/stage16/SECURITY-NOTES.md`, `docs/stage16/DEPLOYMENT.md`, `docs/stage16/STAGE16-EVIDENCE.md` | ✅ FIXED |
+
+### ServiceMonitor Validation
+
+| Service (Stage 15–17) | Deployed? | Namespace | Service Labels | ServiceMonitor Selector | Match |
+|---|---|---|---|---|---|
+| `aither-identity` | ❌ NOT DEPLOYED | `aither-inference` | `app: aither-identity`, `stage: "15"` | `app in (aither-identity, ...)` | ✅ correct selector |
+| `aither-portal-backend` | ❌ NOT DEPLOYED | `aither-inference` | `app: aither-portal-backend`, `stage: "15"` | `app in (..., aither-portal-backend, ...)` | ✅ correct selector |
+| `aither-portal-frontend` | ❌ NOT DEPLOYED | `aither-inference` | `app: aither-portal-frontend` (from manifest) | `app in (..., aither-portal-frontend)` | ✅ correct selector |
+| `aither-ai-platform` | ❌ NOT DEPLOYED | `aither-inference` | `app: aither-ai-platform`, `stage: "16"` | `app in (..., aither-ai-platform)` | ✅ correct selector |
+
+### Runtime Readiness
+
+| Service | Namespace | Service Exists | Deployment Exists | /metrics endpoint | Ready |
+|---|---|---|---|---|---|
+| Identity | `aither-inference` | ❌ NOT DEPLOYED | ❌ NOT DEPLOYED | ❌ | ❌ |
+| Portal Backend | `aither-inference` | ❌ NOT DEPLOYED | ❌ NOT DEPLOYED | ❌ | ❌ |
+| Portal Frontend | `aither-inference` | ❌ NOT DEPLOYED | ❌ NOT DEPLOYED | ❌ | ❌ |
+| AI Platform | `aither-inference` | ❌ NOT DEPLOYED | ❌ NOT DEPLOYED | ❌ | ❌ |
+| Gateway (nginx) | `aither-inference` | ✅ (`nginx-gateway-32b`) | ✅ | ❌ (no stub_status) | ✅ (HTTP) |
+| vLLM | `aither-inference` | ✅ (`vllm-32b-gptq`) | ✅ | ✅ (built-in) | ✅ |
+
+### Regression Results
+
+| Check | Result |
+|---|---|
+| `bash -n deploy/*.sh` (5 scripts) | ✅ ALL PASS |
+| `bash -n scripts/*.sh` (8 scripts) | ✅ ALL PASS |
+| `python3 -m py_compile` (3 apps) | ✅ ALL PASS |
+| `git diff --check` | ✅ CLEAN |
+| Existing Stage 13–16 scripts modified? | ✅ NO |
+| Stage 15/16 API modified? | ✅ NO |
+| Frontend compatibility | ✅ UNCHANGED |
+
+### Documentation Validation
+
+| Document | Contradiction Found? | Fixed? |
+|---|---|---|
+| `docs/stage16/SECURITY-NOTES.md` | ✅ Claimed CORS default `*` — code uses `http://localhost:3000` | ✅ FIXED |
+| `docs/stage16/DEPLOYMENT.md` | ✅ Claimed `AI_PLATFORM_CORS_ORIGIN` default `*` — code uses `http://localhost:3000` | ✅ FIXED |
+| `docs/stage16/STAGE16-EVIDENCE.md` | ✅ Claimed "CORS default `*`" while audit section says "Changed default to `http://localhost:3000`" | ✅ FIXED |
+| `docs/stage17/DEPLOYMENT.md` | ✅ Referenced wrong namespace (`aither`), wrong resource names | ✅ FIXED |
+| `docs/stage17/k8s/servicemonitor.yaml` | ✅ Wrong namespace, wrong selectors, empty PrometheusRule | ✅ FIXED |
+| `docs/stage17/k8s/configmaps.yaml` | ✅ Wrong namespace (`aither`) | ✅ FIXED |
+
+### Remaining Limitations
+
+1. **Stage 15–17 services not deployed** — all runtime metrics / logging verification remains BLOCKED
+2. **Prometheus/Grafana not installed** — dashboards and alerts cannot be validated at runtime
+3. **NGINX Gateway lacks /metrics** — requires separate prometheus-nginx-exporter sidecar
+4. **Stage 16 not CONNECTOR VERIFIED** — results preliminary
+

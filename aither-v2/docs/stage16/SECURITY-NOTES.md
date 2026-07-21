@@ -11,7 +11,7 @@
 | Token forgery | HMAC-SHA256 signed tokens, constant-time comparison | ✅ |
 | Password cracking | bcrypt (12 rounds) | ✅ |
 | XSS | Content-Type: application/json on API responses | ✅ |
-| CORS abuse | Configurable origins (default: `*`, restrict in production) | ⚠️ |
+|| CORS abuse | Configurable origins (default: `http://localhost:3000`, restrict in production) | ✅ |
 
 ## API Key Protection
 
@@ -53,7 +53,7 @@ exact Portal Frontend origin. Multiple origins require a reverse proxy configura
 
 ## Known Limitations (Beta v0.9)
 
-1. **CORS:** Currently `*` for development. Restrict in production.
+1. **CORS:** Restricted to `http://localhost:3000` by default. Configure via environment variables for production.
 2. **Transport security:** No HTTPS by default. Add Ingress with TLS for production.
 3. **Rate limiting:** API Key usage not rate-limited (future: integrate with existing Redis rate limiter)
 4. **Audit logging:** Basic logging only. No audit trail for admin actions.

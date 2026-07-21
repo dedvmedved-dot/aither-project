@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: aither-grafana-dashboards
-  namespace: aither
+  namespace: aither-inference
   labels:
     app.kubernetes.io/part-of: aither
     app.kubernetes.io/component: observability
@@ -24,7 +24,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: aither-prometheus-rules
-  namespace: aither
+  namespace: aither-inference
   labels:
     app.kubernetes.io/part-of: aither
     app.kubernetes.io/component: observability
@@ -37,7 +37,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: aither-fluentbit-config
-  namespace: aither
+  namespace: aither-inference
   labels:
     app.kubernetes.io/part-of: aither
     app.kubernetes.io/component: observability

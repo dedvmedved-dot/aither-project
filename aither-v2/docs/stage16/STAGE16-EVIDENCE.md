@@ -179,7 +179,7 @@ All YAML documents validated via `yaml.safe_load_all`.
 
 1. **SQLite** — single-file, no HA, manual backup. PostgreSQL migration deferred to Stage 18.
 2. **Streaming** — architecture prepared, non-streaming for Beta reliability.
-3. **CORS** — default `*`, restrict in production.
+3. **CORS** — default `http://localhost:3000`, env-configurable for production.
 4. **No HTTPS** — add Ingress TLS for production.
 5. **No rate limiting on API Keys** — existing Redis rate limiter covers Portal API only.
 6. **Gateway availability** — chat completion requires Gateway and vLLM to be running inside cluster.

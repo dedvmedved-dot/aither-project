@@ -29,7 +29,7 @@ cd ../portal-frontend && docker build -t aither-portal-frontend:stage15 .
 | `AI_PLATFORM_IDENTITY_URL` | `http://aither-identity:8000` | No |
 | `AI_PLATFORM_GATEWAY_URL` | `http://nginx-gateway-32b.aither-inference.svc:8000` | No |
 | `AI_PLATFORM_LOG_LEVEL` | `INFO` | No |
-| `AI_PLATFORM_CORS_ORIGIN` | `*` | No |
+| `AI_PLATFORM_CORS_ORIGIN` | `http://localhost:3000` | No |
 
 ## Secrets to Create
 

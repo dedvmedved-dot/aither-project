@@ -6,20 +6,18 @@
   - `ServiceMonitor` CRD
   - `PrometheusRule` CRD
   - Grafana with sidecar dashboard loader (optional)
-- Services from Stage 15–16 deployed (Identity, Portal Backend, AI Platform)
+- Services from Stage 15–16 deployed (Identity, Portal Backend, AI Platform) in namespace `aither-inference`
 
 ## Deployment Steps
 
-### 1. Apply ServiceMonitors and PrometheusRule
+### 1. Apply ServiceMonitor
 
 ```bash
 kubectl apply -f docs/stage17/k8s/servicemonitor.yaml
 ```
 
 This creates:
-- `aither-services` ServiceMonitor — scrapes all Aither services
-- `aither-nginx-gateway` ServiceMonitor — scrapes Gateway metrics
-- `aither-alerts` PrometheusRule — alert rule container
+- `aither-stage17-services` ServiceMonitor — scrapes Stage 15–17 services (`app` label values: `aither-identity`, `aither-portal-backend`, `aither-ai-platform`, `aither-portal-frontend`) in namespace `aither-inference`
 
 ### 2. Apply ConfigMaps
 
@@ -27,7 +25,7 @@ This creates:
 kubectl apply -f docs/stage17/k8s/configmaps.yaml
 ```
 
-This creates:
+This creates 3 ConfigMaps in namespace `aither-inference`:
 - `aither-grafana-dashboards` — 5 dashboard JSON files (auto-provisioned via Grafana sidecar)
 - `aither-prometheus-rules` — Alert rules in YAML format
 - `aither-fluentbit-config` — Fluent Bit log aggregation config
@@ -39,21 +37,23 @@ Ensure Grafana has a Prometheus datasource named `Prometheus` that points to the
 ### 4. Verify Metrics Export
 
 ```bash
-# Forward a service port
-kubectl port-forward -n aither svc/aither-identity 8000:8000
+# Forward a service port (assuming identity is deployed)
+kubectl port-forward -n aither-inference svc/aither-identity 8000:8000
 # Verify metrics
 curl http://localhost:8000/metrics | head -20
 ```
 
 ### 5. Verify Alerts
 
+Alert rules are deployed via the ConfigMap `aither-prometheus-rules`. Apply them as a PrometheusRule when Prometheus operator is available:
+
 ```bash
-kubectl get prometheusrule -n aither aither-alerts
+kubectl apply -f docs/stage17/prometheus/alert-rules.yaml
 ```
 
 ### 6. Verify Dashboards
 
-Check Grafana UI → Dashboards → "Aither — *" should appear.
+Check Grafana UI → Dashboards → "Aither — *" should appear (requires Grafana sidecar dashboard reloader reading the `aither-grafana-dashboards` ConfigMap).
 
 ## Rollback
 
