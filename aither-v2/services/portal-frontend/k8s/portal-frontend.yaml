@@ -1,0 +1,527 @@
+# Aither Portal Frontend — ConfigMap (Nginx + static files)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-portal-frontend-config
+  namespace: aither-inference
+  labels:
+    app: aither-portal-frontend
+    stage: "15"
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aither — AI Platform</title>
+    <style>
+    /* Aither Portal — Stage 15 Styles */
+    :root {
+        --bg: #0d1117;
+        --bg-card: #161b22;
+        --bg-input: #21262d;
+        --border: #30363d;
+        --text: #c9d1d9;
+        --text-muted: #8b949e;
+        --accent: #58a6ff;
+        --accent-hover: #79c0ff;
+        --danger: #f85149;
+        --success: #3fb950;
+        --warning: #d29922;
+        --radius: 6px;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: var(--font);
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+    .nav {
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+        padding: 0 24px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+    .nav-brand {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--accent);
+        letter-spacing: -0.5px;
+    }
+    .nav-links { display: flex; gap: 4px; flex: 1; }
+    .nav-link {
+        padding: 8px 16px;
+        border-radius: var(--radius);
+        color: var(--text-muted);
+        font-size: 14px;
+        transition: all 0.15s;
+        cursor: pointer;
+    }
+    .nav-link:hover { color: var(--text); background: var(--bg-input); }
+    .nav-link.active { color: var(--text); background: var(--bg-input); }
+    .nav-user {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 14px;
+    }
+    .nav-username { font-weight: 600; }
+    .nav-role-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: var(--accent);
+        color: #fff;
+        text-transform: uppercase;
+    }
+    .page { display: none; padding: 32px 0; }
+    .page.active { display: block; }
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+    .container h1 {
+        font-size: 28px;
+        margin-bottom: 24px;
+        font-weight: 600;
+    }
+    .auth-card {
+        max-width: 400px;
+        margin: 80px auto 0;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 32px;
+    }
+    .auth-header { text-align: center; margin-bottom: 24px; }
+    .auth-header h1 { font-size: 28px; color: var(--accent); margin-bottom: 4px; }
+    .auth-footer { text-align: center; margin-top: 20px; font-size: 12px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: var(--text);
+    }
+    .form-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .form-input:focus { border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text-muted); }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 20px;
+        border-radius: var(--radius);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.15s;
+        font-family: inherit;
+    }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-block { width: 100%; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-outline {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--border);
+    }
+    .btn-outline:hover { background: var(--bg-input); border-color: var(--text-muted); }
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+    }
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .card-title { padding: 16px 20px 0; font-size: 16px; font-weight: 600; }
+    .card-body { padding: 12px 20px 20px; }
+    .card-body p { margin-bottom: 8px; font-size: 14px; }
+    .card-body p:last-child { margin-bottom: 0; }
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-muted); }
+    .info-value { font-weight: 500; }
+    .status-indicator { font-weight: 600; }
+    .status-indicator.ok { color: var(--success); }
+    .status-indicator.error { color: var(--danger); }
+    .status-indicator.warning { color: var(--warning); }
+    .role-badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 12px;
+    }
+    .alert {
+        padding: 12px 16px;
+        border-radius: var(--radius);
+        margin-bottom: 16px;
+        font-size: 14px;
+    }
+    .alert-danger { background: rgba(248,81,73,0.1); border: 1px solid var(--danger); color: var(--danger); }
+    .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(13,17,23,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    code { background: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .service-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+    }
+    .service-row:last-child { border-bottom: none; }
+    .service-name { font-weight: 500; }
+    .service-status { font-weight: 600; }
+    .service-status.ok { color: var(--success); }
+    .service-status.error { color: var(--danger); }
+    .text-muted { color: var(--text-muted); }
+    </style>
+    </head>
+    <body>
+      <nav class="nav" id="main-nav" style="display:none;">
+        <div class="nav-brand">Aither</div>
+        <div class="nav-links">
+          <a href="#" data-page="dashboard" class="nav-link active">Dashboard</a>
+          <a href="#" data-page="profile" class="nav-link">Profile</a>
+          <a href="#" data-page="status" class="nav-link">System Status</a>
+        </div>
+        <div class="nav-user">
+          <span class="nav-username" id="nav-username"></span>
+          <span class="nav-role-badge" id="nav-role-badge"></span>
+          <button class="btn btn-sm btn-outline" id="btn-logout">Logout</button>
+        </div>
+      </nav>
+      <div class="page active" id="page-login">
+        <div class="auth-card">
+          <div class="auth-header">
+            <h1>Aither</h1>
+            <p class="text-muted">AI Platform — Sign In</p>
+          </div>
+          <div class="alert alert-danger" id="login-error" style="display:none;"></div>
+          <form id="login-form">
+            <div class="form-group">
+              <label for="login-username">Username</label>
+              <input type="text" id="login-username" class="form-input" placeholder="Enter your username" required>
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input type="password" id="login-password" class="form-input" placeholder="Enter your password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="login-submit">Sign In</button>
+          </form>
+          <div class="auth-footer">
+            <p class="text-muted">Aither v1.0.0 — Stage 15</p>
+          </div>
+        </div>
+      </div>
+      <div class="page" id="page-dashboard">
+        <div class="container">
+          <h1>Dashboard</h1>
+          <div class="cards-grid">
+            <div class="card">
+              <div class="card-title">Account</div>
+              <div class="card-body">
+                <p>Logged in as <strong id="dash-username"></strong></p>
+                <p>Role: <span class="role-badge" id="dash-role"></span></p>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">System</div>
+              <div class="card-body">
+                <p>Version: <span id="dash-version">—</span></p>
+                <p>Status: <span class="status-indicator" id="dash-status">Checking...</span></p>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">API Access</div>
+              <div class="card-body">
+                <p>Portal API v1</p>
+                <p><code>/api/v1/*</code></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page" id="page-profile">
+        <div class="container">
+          <h1>Profile</h1>
+          <div class="card">
+            <div class="card-title">User Information</div>
+            <div class="card-body">
+              <div class="info-row"><span class="info-label">User ID</span><span class="info-value" id="profile-id">—</span></div>
+              <div class="info-row"><span class="info-label">Username</span><span class="info-value" id="profile-username">—</span></div>
+              <div class="info-row"><span class="info-label">Role</span><span class="info-value" id="profile-role">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page" id="page-status">
+        <div class="container">
+          <h1>System Status</h1>
+          <div class="card">
+            <div class="card-title">Services</div>
+            <div class="card-body" id="status-content"><p>Loading service status...</p></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Version Information</div>
+            <div class="card-body" id="version-content"><p>Loading version info...</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="loading-overlay" id="loading-overlay" style="display:none;">
+        <div class="spinner"></div>
+      </div>
+    <script>
+    /* Aither Portal — Stage 15 Application Logic */
+    const API_URL = '/api/v1';
+    let authToken = localStorage.getItem('aither_token') || null;
+    let currentUser = null;
+    const $ = (id) => document.getElementById(id);
+    const pages = ['login', 'dashboard', 'profile', 'status'];
+    async function api(path, opts = {}) {
+        const headers = { 'Content-Type': 'application/json', ...opts.headers };
+        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+        const res = await fetch(API_URL + path, { ...opts, headers });
+        let data;
+        try { data = await res.json(); } catch { data = null; }
+        return { status: res.status, ok: res.ok, data };
+    }
+    function showPage(id) {
+        pages.forEach(p => { const el = $(`page-${p}`); if (el) el.classList.remove('active'); });
+        const target = $(`page-${id}`);
+        if (target) target.classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.toggle('active', link.dataset.page === id);
+        });
+    }
+    function showError(id, msg) { const el = $(id); if (el) { el.textContent = msg; el.style.display = 'block'; } }
+    function hideError(id) { const el = $(id); if (el) el.style.display = 'none'; }
+    function setLoading(show) { const overlay = $('loading-overlay'); if (overlay) overlay.style.display = show ? 'flex' : 'none'; }
+    function updateNav() {
+        const nav = $('main-nav');
+        if (authToken && currentUser) {
+            nav.style.display = 'flex';
+            $('nav-username').textContent = currentUser.username;
+            $('nav-role-badge').textContent = currentUser.role === 'administrator' ? 'Admin' : 'User';
+        } else { nav.style.display = 'none'; }
+    }
+    function updateDashboard() {
+        if (!currentUser) return;
+        $('dash-username').textContent = currentUser.username;
+        $('dash-role').textContent = currentUser.role === 'administrator' ? 'Administrator' : 'User';
+        $('dash-role').className = 'role-badge';
+    }
+    function updateProfile() {
+        if (!currentUser) return;
+        $('profile-id').textContent = currentUser.id;
+        $('profile-username').textContent = currentUser.username;
+        $('profile-role').textContent = currentUser.role === 'administrator' ? 'Administrator' : 'User';
+    }
+    async function handleLogin(e) {
+        e.preventDefault();
+        hideError('login-error');
+        const username = $('login-username').value.trim();
+        const password = $('login-password').value;
+        if (!username || !password) { showError('login-error', 'Please enter username and password'); return; }
+        setLoading(true);
+        $('login-submit').disabled = true;
+        try {
+            const res = await api('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+            if (res.ok && res.data) {
+                authToken = res.data.token;
+                currentUser = res.data.user;
+                localStorage.setItem('aither_token', authToken);
+                updateNav();
+                showPage('dashboard');
+                updateDashboard();
+                $('login-username').value = '';
+                $('login-password').value = '';
+                try { const v = await fetch('/version').then(r => r.json()); $('dash-version').textContent = v.version || '—'; } catch {}
+                try { const h = await fetch('/health').then(r => r.json()); $('dash-status').textContent = h.status === 'ok' ? 'Healthy' : 'Degraded'; $('dash-status').className = 'status-indicator ' + (h.status === 'ok' ? 'ok' : 'warning'); } catch {}
+            } else {
+                showError('login-error', (res.data?.detail) || 'Login failed');
+            }
+        } catch (err) { showError('login-error', 'Network error — please try again'); }
+        finally { setLoading(false); $('login-submit').disabled = false; }
+    }
+    async function handleLogout() {
+        setLoading(true);
+        try { await api('/auth/logout', { method: 'POST' }); } catch {}
+        authToken = null; currentUser = null;
+        localStorage.removeItem('aither_token');
+        updateNav();
+        showPage('login');
+        setLoading(false);
+    }
+    async function loadProfile() {
+        if (!authToken || !currentUser) return;
+        updateProfile();
+        const res = await api('/auth/me');
+        if (res.ok && res.data) { currentUser = res.data; updateProfile(); updateDashboard(); updateNav(); }
+    }
+    async function loadStatusPage() {
+        setLoading(true);
+        try {
+            let html = '';
+            try { const res = await api('/status'); if (res.ok && res.data && res.data.services) { for (const [name, status] of Object.entries(res.data.services)) { const healthy = typeof status === 'object' || status === 'healthy'; html += '<div class=\"service-row\"><span class=\"service-name\">'+name+'</span><span class=\"service-status '+(healthy?'ok':'error')+'\">'+(healthy?'Healthy':'Unreachable')+'</span></div>'; } } else { html = '<p class=\"text-muted\">Status unavailable</p>'; } } catch { html = '<p class=\"text-muted\">Status service unreachable</p>'; }
+            $('status-content').innerHTML = html;
+            try { const v = await fetch('/version').then(r => r.json()); $('version-content').innerHTML = '<div class=\"info-row\"><span class=\"info-label\">Service</span><span class=\"info-value\">'+(v.service||'—')+'</span></div><div class=\"info-row\"><span class=\"info-label\">Version</span><span class=\"info-value\">'+(v.version||'—')+'</span></div><div class=\"info-row\"><span class=\"info-label\">Build</span><span class=\"info-value\">'+(v.build||'—')+'</span></div>'; } catch { $('version-content').innerHTML = '<p class=\"text-muted\">Version info unavailable</p>'; }
+        } finally { setLoading(false); }
+    }
+    async function checkSession() {
+        if (!authToken) return false;
+        const res = await api('/auth/me');
+        if (res.ok && res.data) { currentUser = res.data; updateNav(); updateDashboard(); showPage('dashboard'); try { const v = await fetch('/version').then(r => r.json()); $('dash-version').textContent = v.version||'—'; } catch {} try { const h = await fetch('/health').then(r => r.json()); $('dash-status').textContent = h.status==='ok'?'Healthy':'Degraded'; $('dash-status').className='status-indicator '+(h.status==='ok'?'ok':'warning'); } catch {} return true; }
+        authToken = null; currentUser = null; localStorage.removeItem('aither_token'); updateNav(); showPage('login'); return false;
+    }
+    function init() {
+        $('login-form').addEventListener('submit', handleLogin);
+        $('btn-logout').addEventListener('click', handleLogout);
+        document.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', (e) => { e.preventDefault(); const page = link.dataset.page; showPage(page); if (page === 'profile') loadProfile(); if (page === 'status') loadStatusPage(); }); });
+        if (authToken) checkSession();
+    }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
+    </script>
+    </body>
+    </html>
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        location /api/ { proxy_pass http://aither-portal-backend:8000; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+        location /health { proxy_pass http://aither-portal-backend:8000; proxy_set_header Host $host; }
+        location /ready { proxy_pass http://aither-portal-backend:8000; proxy_set_header Host $host; }
+        location /version { proxy_pass http://aither-portal-backend:8000; proxy_set_header Host $host; }
+        location / { try_files $uri $uri/ /index.html; }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aither-portal-frontend
+  namespace: aither-inference
+  labels:
+    app: aither-portal-frontend
+    stage: "15"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aither-portal-frontend
+  template:
+    metadata:
+      labels:
+        app: aither-portal-frontend
+        stage: "15"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: portal-frontend
+          image: nginx:stable-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/conf.d
+            - name: html
+              mountPath: /usr/share/nginx/html
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: aither-portal-frontend-config
+            items:
+              - key: nginx.conf
+                path: default.conf
+        - name: html
+          configMap:
+            name: aither-portal-frontend-config
+            items:
+              - key: index.html
+                path: index.html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aither-portal-frontend
+  namespace: aither-inference
+  labels:
+    app: aither-portal-frontend
+    stage: "15"
+spec:
+  type: ClusterIP
+  selector:
+    app: aither-portal-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http

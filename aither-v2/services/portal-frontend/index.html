@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aither — AI Platform</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="main-nav" style="display:none;">
+    <div class="nav-brand">Aither</div>
+    <div class="nav-links">
+      <a href="#" data-page="dashboard" class="nav-link active">Dashboard</a>
+      <a href="#" data-page="profile" class="nav-link">Profile</a>
+      <a href="#" data-page="status" class="nav-link">System Status</a>
+    </div>
+    <div class="nav-user">
+      <span class="nav-username" id="nav-username"></span>
+      <span class="nav-role-badge" id="nav-role-badge"></span>
+      <button class="btn btn-sm btn-outline" id="btn-logout">Logout</button>
+    </div>
+  </nav>
+
+  <!-- Login Page -->
+  <div class="page active" id="page-login">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Aither</h1>
+        <p class="text-muted">AI Platform — Sign In</p>
+      </div>
+      <div class="alert alert-danger" id="login-error" style="display:none;"></div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" class="form-input" placeholder="Enter your username" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="Enter your password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">Sign In</button>
+      </form>
+      <div class="auth-footer">
+        <p class="text-muted">Aither v1.0.0 — Stage 15</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Page -->
+  <div class="page" id="page-dashboard">
+    <div class="container">
+      <h1>Dashboard</h1>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-title">Account</div>
+          <div class="card-body">
+            <p>Logged in as <strong id="dash-username"></strong></p>
+            <p>Role: <span class="role-badge" id="dash-role"></span></p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">System</div>
+          <div class="card-body">
+            <p>Version: <span id="dash-version">—</span></p>
+            <p>Status: <span class="status-indicator" id="dash-status">Checking...</span></p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">API Access</div>
+          <div class="card-body">
+            <p>Portal API v1</p>
+            <p><code>/api/v1/*</code></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Page -->
+  <div class="page" id="page-profile">
+    <div class="container">
+      <h1>Profile</h1>
+      <div class="card">
+        <div class="card-title">User Information</div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="info-label">User ID</span>
+            <span class="info-value" id="profile-id">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Username</span>
+            <span class="info-value" id="profile-username">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Role</span>
+            <span class="info-value" id="profile-role">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Status Page -->
+  <div class="page" id="page-status">
+    <div class="container">
+      <h1>System Status</h1>
+      <div class="card">
+        <div class="card-title">Services</div>
+        <div class="card-body" id="status-content">
+          <p>Loading service status...</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Version Information</div>
+        <div class="card-body" id="version-content">
+          <p>Loading version info...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loading-overlay" style="display:none;">
+    <div class="spinner"></div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>

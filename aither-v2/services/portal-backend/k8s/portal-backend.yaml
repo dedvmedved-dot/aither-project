@@ -1,0 +1,71 @@
+# Aither Portal Backend (BFF) — Deployment and Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aither-portal-backend
+  namespace: aither-inference
+  labels:
+    app: aither-portal-backend
+    stage: "15"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aither-portal-backend
+  template:
+    metadata:
+      labels:
+        app: aither-portal-backend
+        stage: "15"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: portal-backend
+          image: aither-portal-backend:stage15
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: PORTAL_IDENTITY_URL
+              value: "http://aither-identity:8000"
+            - name: PORTAL_LOG_LEVEL
+              value: "INFO"
+            - name: PORTAL_CORS_ORIGIN
+              value: "*"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aither-portal-backend
+  namespace: aither-inference
+  labels:
+    app: aither-portal-backend
+    stage: "15"
+spec:
+  type: ClusterIP
+  selector:
+    app: aither-portal-backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
