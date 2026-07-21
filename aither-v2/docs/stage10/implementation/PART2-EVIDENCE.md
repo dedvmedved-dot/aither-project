@@ -373,6 +373,91 @@ Passed: 32  Failed: 0  Warnings: 0
 EXIT_CODE=0
 ```
 
-## 21. No Secrets in Evidence
+## 22. Completion Model Consistency Gate
 
-All auth tokens in evidence are replaced with `<redacted>`. The value `invalid-test-token` is explicitly a dummy test value. No JWT, API keys, bearer tokens, passwords, kubeconfigs, or private addresses are included in this document.
+### Rationale
+
+The `model` field in `/v1/completions` response must strictly equal the model used in the request. Previously `RESP_MODEL` was extracted but not compared — leaving a gap where a different model could respond without detection.
+
+### Implementation
+
+Added `validate_response_model()` function in the main script:
+
+```bash
+validate_response_model() {
+    local requested="$1"
+    local response="$2"
+
+    if [ -z "$response" ]; then
+        fail "Completion response model field is missing"
+    elif [ "$response" = "$requested" ]; then
+        pass "Completion response model matches requested model: $response"
+    else
+        fail "Completion model mismatch: requested=$requested response=$response"
+    fi
+}
+```
+
+### Self-test mode (`MODEL_VALIDATION_SELFTEST=1`)
+
+```text
+$ MODEL_VALIDATION_SELFTEST=1 bash scripts/check-gateway-32b.sh
+
+═══ Model Validation Self-Test ═══
+
+--- Case A: mismatch ---
+✗ Completion model mismatch: requested=qwen-32b-base response=wrong-model
+
+--- Case B: missing model ---
+✗ Completion response model field is missing
+
+--- Case C: match ---
+✓ Completion response model matches requested model: qwen-32b-base
+
+Passed: 1  Failed: 2  Warnings: 0
+EXIT_CODE=1
+```
+
+### Positive runtime result
+
+```text
+$ bash scripts/check-gateway-32b.sh
+...
+── 6. Authenticated Tests (mandatory) ──
+
+--- /v1/models ---
+✓ Gateway /v1/models: HTTP 200, model ID: qwen-32b-base
+
+--- /v1/completions (model: qwen-32b-base) ---
+✓ Gateway /v1/completions: HTTP 200, text=" in the chat..."
+✓ Completion response model matches requested model: qwen-32b-base
+✓ Response does not contain auth/model errors
+
+Passed: 33  Failed: 0  Warnings: 0
+EXIT_CODE=0
+```
+
+### Requested vs response model
+
+| Field | Value |
+|---|---|
+| Models endpoint model ID | `qwen-32b-base` |
+| Requested model in completion | `qwen-32b-base` |
+| Response model in completion | `qwen-32b-base` |
+| Strict equality | ✅ True |
+
+### Negative test results
+
+| Case | Requested | Response | FAIL count | Exit code |
+|---|---|---|---|---|
+| Mismatch | `qwen-32b-base` | `wrong-model` | 1 | 1 |
+| Missing model | `qwen-32b-base` | (empty) | 1 | 1 |
+| Match | `qwen-32b-base` | `qwen-32b-base` | 0 | 0 |
+
+### Standalone E2E
+
+The `test-gateway-32b-e2e.sh` script now also validates that the response model matches the requested model with the same strict equality check.
+
+## 23. No Secrets in Evidence
+
+All auth tokens in evidence are replaced with `<redacted>`. The value `invalid-test-token` and `wrong-model` are explicitly dummy test values. No JWT, API keys, bearer tokens, passwords, kubeconfigs, or private addresses are included in this document.

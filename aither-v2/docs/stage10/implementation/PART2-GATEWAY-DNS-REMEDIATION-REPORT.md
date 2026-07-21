@@ -77,7 +77,7 @@ SSH to n7 was unavailable during the implementation window. Variant B is fully f
 
 ### Acceptance Gate Strictness Follow-up
 
-The following improvements were made in commit `47e56b7`:
+The following improvements were made in commit `392c323`:
 
 1. **Authenticated tests are mandatory**: `GATEWAY_TOKEN` is resolved from env or K8s Secret. If unavailable → `FAIL`, exit 1. Authenticated tests always run.
 2. **Health test failures are FAIL**: `/healthz` and `/health` errors use `fail()` (not `warn()`). Command failures, timeouts, and non-200 responses all increment `FAIL`.
@@ -88,6 +88,10 @@ The following improvements were made in commit `47e56b7`:
    - No token (`GATEWAY_SECRET_NAME=nonexistent`): FAIL=3, exit code 1
    - Invalid token (`invalid-test-token`): FAIL=2, exit code 1
    - Valid token: PASS=32, FAIL=0, exit code 0
+
+### Completion Model Consistency Follow-up
+
+This commit adds mandatory validation that the `model` field in the `/v1/completions` response strictly equals the requested model. Implemented via `validate_response_model()` function with self-test mode. See evidence for positive and negative test results.
 
 ## 6. Changed Files
 

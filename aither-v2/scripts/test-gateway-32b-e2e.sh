@@ -59,11 +59,7 @@ echo -e "\nUsing gateway pod: $GWPOD"
 
 # --- Test 1: /v1/models ---
 echo -e "\n── Test 1: /v1/models through Gateway ──"
-MODELS_RESPONSE=$(kubectl -n "$NS" exec "$GWPOD" -- sh -c "
-    curl -s -w '\nHTTP_CODE:%{http_code}' \
-        http://localhost:8000/v1/models \
-        -H 'Authorization: Bearer ${GATEWAY_TOKEN}' \
-        --connect-timeout 10 --max-time 30" 2>/dev/null || echo "ERR")
+MODELS_RESPONSE=$(kubectl -n "$NS" exec "$GWPOD" -- sh -c "curl -s -w '\nHTTP_CODE:%{http_code}' http://localhost:8000/v1/models -H 'Authorization: Bearer ${GATEWAY_TOKEN}' --connect-timeout 10 --max-time 30" 2>/dev/null || echo "ERR")
 MODELS_HTTP=$(echo "$MODELS_RESPONSE" | grep 'HTTP_CODE:' | sed 's/HTTP_CODE://')
 MODELS_BODY=$(echo "$MODELS_RESPONSE" | sed '/HTTP_CODE:/d')
 
@@ -82,19 +78,14 @@ fi
 echo -e "\n── Test 2: /v1/completions through Gateway ──"
 COMP_MODEL="${ACTUAL_MODEL_ID:-qwen-32b-base}"
 
-COMP_RESPONSE=$(kubectl -n "$NS" exec "$GWPOD" -- sh -c "
-    curl -s -w '\nHTTP_CODE:%{http_code}' \
-        -X POST http://localhost:8000/v1/completions \
-        -H 'Content-Type: application/json' \
-        -H 'Authorization: Bearer ${GATEWAY_TOKEN}' \
-        -d '{\"model\":\"${COMP_MODEL}\",\"prompt\":\"Return exactly the word READY\",\"max_tokens\":8,\"temperature\":0}' \
-        --connect-timeout 30 --max-time 120" 2>/dev/null || echo "ERR")
+COMP_RESPONSE=$(kubectl -n "$NS" exec "$GWPOD" -- sh -c "curl -s -w '\nHTTP_CODE:%{http_code}' -X POST http://localhost:8000/v1/completions -H 'Content-Type: application/json' -H 'Authorization: Bearer ${GATEWAY_TOKEN}' -d '{\"model\":\"${COMP_MODEL}\",\"prompt\":\"Return exactly the word READY\",\"max_tokens\":8,\"temperature\":0}' --connect-timeout 30 --max-time 120" 2>/dev/null || echo "ERR")
 
 COMP_HTTP=$(echo "$COMP_RESPONSE" | grep 'HTTP_CODE:' | sed 's/HTTP_CODE://')
 COMP_BODY=$(echo "$COMP_RESPONSE" | sed '/HTTP_CODE:/d')
 
 if [ "$COMP_HTTP" = "200" ]; then
     CHOICE_TEXT=$(echo "$COMP_BODY" | grep -o '"text":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+    RESP_MODEL=$(echo "$COMP_BODY" | grep -o '"model":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
     if [ -n "$CHOICE_TEXT" ]; then
         pass "/v1/completions: HTTP 200, text=\"$(echo "$CHOICE_TEXT" | head -c 50)\""
     else
@@ -105,6 +96,14 @@ if [ "$COMP_HTTP" = "200" ]; then
         fail "Response contains 'not found' error"
     else
         pass "No model errors in response"
+    fi
+    # Check response model consistency
+    if [ -z "$RESP_MODEL" ]; then
+        fail "Response model field is missing"
+    elif [ "$RESP_MODEL" = "$COMP_MODEL" ]; then
+        pass "Response model matches requested model: $RESP_MODEL"
+    else
+        fail "Model mismatch: requested=$COMP_MODEL response=$RESP_MODEL"
     fi
 else
     fail "/v1/completions: expected 200, got ${COMP_HTTP:-ERR}"

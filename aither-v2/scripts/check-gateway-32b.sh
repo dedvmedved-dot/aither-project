@@ -36,6 +36,44 @@ pass()  { echo -e "${GREEN}✓${NC} $1"; PASS=$((PASS+1)); }
 fail()  { echo -e "${RED}✗${NC} $1"; FAIL=$((FAIL+1)); }
 warn()  { echo -e "${YELLOW}⚠${NC} $1"; WARN=$((WARN+1)); }
 
+# Validates that completion response model matches requested model.
+# Called with: validate_response_model "$requested_model" "$response_model"
+# Exported so it can be tested independently.
+validate_response_model() {
+    local requested="$1"
+    local response="$2"
+
+    if [ -z "$response" ]; then
+        fail "Completion response model field is missing"
+    elif [ "$response" = "$requested" ]; then
+        pass "Completion response model matches requested model: $response"
+    else
+        fail "Completion model mismatch: requested=$requested response=$response"
+    fi
+}
+
+# Self-test mode: when MODEL_VALIDATION_SELFTEST=1, runs model validation
+# self-tests and exits, skipping production checks.
+if [ "${MODEL_VALIDATION_SELFTEST:-0}" = "1" ]; then
+    echo "═══ Model Validation Self-Test ═══"
+
+    echo -e "\n--- Case A: mismatch ---"
+    validate_response_model "qwen-32b-base" "wrong-model"
+
+    echo -e "\n--- Case B: missing model ---"
+    validate_response_model "qwen-32b-base" ""
+
+    echo -e "\n--- Case C: match ---"
+    validate_response_model "qwen-32b-base" "qwen-32b-base"
+
+    echo ""
+    echo "═══════════════════════════════════"
+    echo -e "${GREEN}Passed: $PASS${NC}  ${RED}Failed: $FAIL${NC}  ${YELLOW}Warnings: $WARN${NC}"
+    echo "═══════════════════════════════════"
+    if [ "$FAIL" -gt 0 ]; then exit 1; fi
+    exit 0
+fi
+
 echo "══════════════════════════════════════════════════════"
 echo "  Aither Gateway 32B — Comprehensive Diagnostic Check"
 echo "  Namespace: $NS"
@@ -394,6 +432,9 @@ if [ "$COMP_HTTP" = "200" ]; then
     else
         fail "Response contains error: $ERROR_CHECK"
     fi
+
+    # Validate completion response model matches requested model
+    validate_response_model "$COMP_MODEL" "$RESP_MODEL"
 elif [ "$COMP_HTTP" = "ERR" ]; then
     fail "Gateway /v1/completions: could not test (VPN)"
 else
