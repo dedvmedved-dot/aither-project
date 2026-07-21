@@ -34,7 +34,8 @@ spec:
             - name: PORTAL_LOG_LEVEL
               value: "INFO"
             - name: PORTAL_CORS_ORIGIN
-              value: "*"
+              value: "http://localhost:3000"
+            # Production: set to your Portal Frontend URL
           livenessProbe:
             httpGet:
               path: /health

@@ -71,7 +71,8 @@ spec:
             - name: AI_PLATFORM_LOG_LEVEL
               value: "INFO"
             - name: AI_PLATFORM_CORS_ORIGIN
-              value: "*"
+              value: "http://localhost:3000"
+            # Production: set to your Portal Frontend URL
           volumeMounts:
             - name: data
               mountPath: /data

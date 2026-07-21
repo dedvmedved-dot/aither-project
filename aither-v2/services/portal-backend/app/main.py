@@ -20,7 +20,10 @@ from pydantic import BaseModel
 IDENTITY_URL = os.environ.get("PORTAL_IDENTITY_URL", "http://aither-identity:8000")
 AI_PLATFORM_URL = os.environ.get("PORTAL_AI_PLATFORM_URL", "http://aither-ai-platform:8000")
 LOG_LEVEL = os.environ.get("PORTAL_LOG_LEVEL", "INFO").upper()
-CORS_ORIGIN = os.environ.get("PORTAL_CORS_ORIGIN", "*")
+CORS_ORIGIN = os.environ.get("PORTAL_CORS_ORIGIN", "http://localhost:3000")
+# In production, set PORTAL_CORS_ORIGIN to the Portal Frontend URL.
+# Example: PORTAL_CORS_ORIGIN=https://portal.aither.example.com
+# Multiple origins are not supported by this middleware — use a reverse proxy for complex rules.
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),

@@ -41,7 +41,9 @@ DB_PATH = os.environ.get("AI_PLATFORM_DB_PATH", "/data/ai-platform.db")
 IDENTITY_URL = os.environ.get("AI_PLATFORM_IDENTITY_URL", "http://aither-identity:8000")
 GATEWAY_URL = os.environ.get("AI_PLATFORM_GATEWAY_URL", "http://nginx-gateway-32b.aither-inference.svc:8000")
 LOG_LEVEL = os.environ.get("AI_PLATFORM_LOG_LEVEL", "INFO").upper()
-CORS_ORIGIN = os.environ.get("AI_PLATFORM_CORS_ORIGIN", "*")
+CORS_ORIGIN = os.environ.get("AI_PLATFORM_CORS_ORIGIN", "http://localhost:3000")
+# In production, set AI_PLATFORM_CORS_ORIGIN to the Portal Frontend URL.
+# Example: AI_PLATFORM_CORS_ORIGIN=https://portal.aither.example.com
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),

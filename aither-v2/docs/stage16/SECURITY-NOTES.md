@@ -39,6 +39,18 @@ Admin can view metadata but not full secrets.
 | Create/view chats | Any authenticated user (own chats only) |
 | Admin: view all users | Administrator |
 
+## CORS Configuration
+
+All services support configurable CORS via environment variables:
+
+| Service | Variable | Default | Production |
+|---|---|---|---|
+| Portal Backend | `PORTAL_CORS_ORIGIN` | `http://localhost:3000` | Set to Portal Frontend URL |
+| AI Platform | `AI_PLATFORM_CORS_ORIGIN` | `http://localhost:3000` | Set to Portal Frontend URL |
+
+**Important:** The default is `http://localhost:3000` (NOT `*`). In production, set to the
+exact Portal Frontend origin. Multiple origins require a reverse proxy configuration.
+
 ## Known Limitations (Beta v0.9)
 
 1. **CORS:** Currently `*` for development. Restrict in production.

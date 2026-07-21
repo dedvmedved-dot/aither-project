@@ -153,3 +153,9 @@ Content-Type: application/json
 ```json
 {"detail": "Human-readable message"}
 ```
+
+## CORS
+
+CORS is configured via environment variable (default: `http://localhost:3000`).
+In production, set `PORTAL_CORS_ORIGIN` (Portal Backend) or `AI_PLATFORM_CORS_ORIGIN`
+(AI Platform) to the exact Portal Frontend origin.
