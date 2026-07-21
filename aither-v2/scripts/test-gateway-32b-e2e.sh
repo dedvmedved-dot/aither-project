@@ -7,7 +7,7 @@
 #   - Gateway /v1/completions returns HTTP 200 with non-empty completion
 #   - No auth errors, no model-not-found errors
 #
-# Requires: kubectl, curl
+# Requires: kubectl, curl, base64
 # Token is read from Kubernetes Secret (not printed or committed)
 set -euo pipefail
 
@@ -30,10 +30,14 @@ echo "  Namespace: $NS"
 echo "  $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo "══════════════════════════════════════════════════════"
 
-# Get auth token from K8s Secret (never printed)
-GATEWAY_TOKEN=$(kubectl get secret -n "$NS" aither-bff-auth -o jsonpath='{.data.BFF_32B_GATEWAY_AUTH_TOKEN}' 2>/dev/null | base64 -d || echo "")
+# Get auth token from env or K8s Secret (never printed)
+GATEWAY_TOKEN="${GATEWAY_TOKEN:-}"
 if [ -z "$GATEWAY_TOKEN" ]; then
-    fail "Could not retrieve BFF_32B_GATEWAY_AUTH_TOKEN from K8s Secret"
+    GATEWAY_TOKEN=$(kubectl get secret -n "$NS" aither-bff-auth \
+        -o jsonpath='{.data.BFF_32B_GATEWAY_AUTH_TOKEN}' 2>/dev/null | base64 -d || echo "")
+fi
+if [ -z "$GATEWAY_TOKEN" ]; then
+    fail "Gateway authentication token unavailable"
     echo ""
     echo "══════════════════════════════════════════════════════"
     echo -e "${RED}Passed: $PASS  Failed: $FAIL${NC}"

@@ -310,6 +310,69 @@ Kubernetes label model:  qwen-32b-gptq
 Actual API model ID:     qwen-32b-base  (confirmed via /v1/models)
 ```
 
-## 20. No Secrets in Evidence
+## 20. Acceptance Gate Follow-up — Negative Tests
 
-All auth tokens in evidence are replaced with `<redacted>`. No JWT, API keys, bearer tokens, passwords, kubeconfigs, or private addresses are included in this document.
+### Test A: No token (GATEWAY_SECRET_NAME=nonexistent)
+
+```text
+$ bash -c 'unset GATEWAY_TOKEN; export GATEWAY_SECRET_NAME=nonexistent; bash scripts/check-gateway-32b.sh'
+...
+── Authentication Token ──
+✗ Gateway authentication token unavailable; authenticated acceptance tests cannot run
+...
+── 6. Authenticated Tests (mandatory) ──
+
+--- /v1/models ---
+✗ Gateway /v1/models: expected 200, got 401
+
+--- /v1/completions (model: qwen-32b-base) ---
+✗ Gateway /v1/completions: expected 200, got 401
+
+Passed: 28  Failed: 3  Warnings: 0
+EXIT_CODE=1
+```
+
+### Test B: Invalid token (GATEWAY_TOKEN=invalid-test-token)
+
+```text
+$ bash -c 'unset GATEWAY_TOKEN; export GATEWAY_TOKEN=invalid-test-token; bash scripts/check-gateway-32b.sh'
+...
+── Authentication Token ──
+✓ Gateway authentication token resolved (18 chars)
+...
+── 6. Authenticated Tests (mandatory) ──
+
+--- /v1/models ---
+✗ Gateway /v1/models: expected 200, got 401
+
+--- /v1/completions (model: qwen-32b-base) ---
+✗ Gateway /v1/completions: expected 200, got 401
+
+Passed: 29  Failed: 2  Warnings: 0
+EXIT_CODE=1
+```
+
+### Test C: Positive token path
+
+```text
+$ export GATEWAY_TOKEN=<redacted>; bash scripts/check-gateway-32b.sh
+...
+── Authentication Token ──
+✓ Gateway authentication token resolved (64 chars)
+...
+── 6. Authenticated Tests (mandatory) ──
+
+--- /v1/models ---
+✓ Gateway /v1/models: HTTP 200, model ID: qwen-32b-base
+
+--- /v1/completions (model: qwen-32b-base) ---
+✓ Gateway /v1/completions: HTTP 200, text=" in the chat..."
+✓ Response does not contain auth/model errors
+
+Passed: 32  Failed: 0  Warnings: 0
+EXIT_CODE=0
+```
+
+## 21. No Secrets in Evidence
+
+All auth tokens in evidence are replaced with `<redacted>`. The value `invalid-test-token` is explicitly a dummy test value. No JWT, API keys, bearer tokens, passwords, kubeconfigs, or private addresses are included in this document.

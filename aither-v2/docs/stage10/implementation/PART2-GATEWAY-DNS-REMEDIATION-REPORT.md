@@ -70,13 +70,24 @@ SSH to n7 was unavailable during the implementation window. Variant B is fully f
 
 | Finding | Status | Evidence |
 |---|---|---|
-| Diagnostic script consistency check | ✅ **CLOSED** | 27/27 PASS, 0 FAIL, 0 WARN |
-| WARN instead of FAIL | ✅ **CLOSED** | All critical checks use `fail()`, VPN instability = FAIL |
-| Authenticated E2E inference | ✅ **CLOSED** | Gateway → vLLM 32B → HTTP 200, non-empty completion |
-| Model ID mismatch | ✅ **CLOSED** | Tested via /v1/models: actual ID = `qwen-32b-base`; docs updated |
-| Probe documentation mismatch | ✅ **CLOSED** | livenessProbe added, probe design documented |
-| Zero-drift methodology | ✅ **CLOSED** | Structural `kubectl diff`, 5-level upstream comparison |
-| DNS-N7-01 | ⚠️ **PARTIAL** | Requires node-level kubelet config access |
+| Missing token allowed exit 0 | ✅ **CLOSED** | `fail()` when token unavailable; exit 1 |
+| Health test error allowed WARN | ✅ **CLOSED** | `fail()` on health test errors instead of `warn()` |
+| Running used instead of Ready | ✅ **CLOSED** | Pods checked with `phase=Running + Ready=True` |
+| jq dependency mismatch | ✅ **CLOSED** | `jq` removed from requirements; no `jq` usage |
+
+### Acceptance Gate Strictness Follow-up
+
+The following improvements were made in commit `47e56b7`:
+
+1. **Authenticated tests are mandatory**: `GATEWAY_TOKEN` is resolved from env or K8s Secret. If unavailable → `FAIL`, exit 1. Authenticated tests always run.
+2. **Health test failures are FAIL**: `/healthz` and `/health` errors use `fail()` (not `warn()`). Command failures, timeouts, and non-200 responses all increment `FAIL`.
+3. **Pod readiness uses Ready condition**: Both `phase=Running` and `Ready=True` must be true for each pod.
+4. **`jq` dependency removed**: All JSON parsing uses `grep`/`sed`/`awk`. Requirements line lists only actually used commands: `kubectl, curl, base64, grep, awk, sed`.
+5. **Dependency check**: Missing required commands are reported as `FAIL`.
+6. **Negative tests confirmed**:
+   - No token (`GATEWAY_SECRET_NAME=nonexistent`): FAIL=3, exit code 1
+   - Invalid token (`invalid-test-token`): FAIL=2, exit code 1
+   - Valid token: PASS=32, FAIL=0, exit code 0
 
 ## 6. Changed Files
 
