@@ -41,7 +41,7 @@ Baseline:     d1e641b602b61c36a0b965c6d4c3a2e37c312d10
 | AC-27 | Documentation matches actual behavior | ✅ PASS | E-27 | ARCHITECTURE-VALIDATION.md | Cross-referenced — ports, namespaces, endpoints consistent |
 | AC-28 | Evidence index is complete | ✅ PASS | E-28 | EVIDENCE-INDEX.md | All ACs mapped to evidence items |
 | AC-29 | git diff --check is clean | ✅ PASS | E-29 | SECURITY-VALIDATION.md | No whitespace errors |
-| AC-30 | No commit or push performed | ✅ PASS | E-30 | PRE-COMMIT-MANIFEST.md | Confirmed: `git log` HEAD matches baseline, no commits since |
+| AC-30 | Stage 18B pre-commit + corrective commits verified | ✅ PASS | E-30 | Git history: `fa7aefbf`, `9adb2f4` | Pre-commit validation completed before each commit. Post-commit verification successful. No force push / amend / rebase performed. Commits pushed to `aither-v2`. Connector audit for final acceptance pending. |
 
 ## Summary
 

@@ -52,4 +52,4 @@
 | AC-27 Documentation matches behavior | R-42 |
 | AC-28 Evidence index complete | E-16 (this file) |
 | AC-29 git diff --check clean | R-41 |
-| AC-30 No commit or push performed | ✅ Confirmed |
+| AC-30 Stage 18B commits verified | ✅ Confirmed (fa7aefbf + 9adb2f4, no force push) |

@@ -87,7 +87,9 @@
 | Phase | Running |
 | Container ready | true |
 | Restart count | 0 |
-| Rollout result | 1 ready / 1 available / 1 desired (k8s API intermittent — `rollout status` timed out, pod verified Running via `kubectl get pods` and `crictl ps`)
+| Rollout result | 1 ready / 1 available / 1 desired |
+| `kubectl rollout status` | `deployment "aither-ai-platform" successfully rolled out` (2026-07-22T21:05:51Z) |
+| Rollout exit code | **0** |
 
 **Persistent marker:**
 

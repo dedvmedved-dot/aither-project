@@ -74,7 +74,9 @@ Demonstrate actual AI Platform pod deletion, replacement pod creation, persisten
 | availableReplicas | 1 |
 | desired replicas | 1 |
 | Deployment Available | ✅ 1/1 |
-| `kubectl rollout status` exit code | N/A (k8s API intermittent — pod verified via `kubectl get pods` [Running] and `kubectl get deployment` [1/1 available]) |
+| `kubectl rollout status` | `deployment "aither-ai-platform" successfully rolled out` (2026-07-22T21:05:51Z) |
+| `kubectl rollout status` exit code | **0** (confirmed 2026-07-22T21:05:51Z) |
+| Alternative verification | Also verified via `kubectl get deployment` (1/1 ready/available) and `crictl ps` (Running) |
 
 ## Persistent Marker After Recovery
 
