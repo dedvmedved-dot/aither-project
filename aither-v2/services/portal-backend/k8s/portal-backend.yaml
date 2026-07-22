@@ -21,7 +21,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: portal-backend
-          image: aither-portal-backend:stage15
+          image: 10.129.13.78:5000/aither-portal-backend:stage18a-82fe433
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000

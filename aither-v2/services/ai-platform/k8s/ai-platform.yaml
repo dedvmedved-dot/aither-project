@@ -56,7 +56,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: ai-platform
-          image: aither-ai-platform:stage16
+          image: 10.129.13.78:5000/aither-ai-platform:stage18a-82fe433
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000

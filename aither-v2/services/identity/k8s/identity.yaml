@@ -57,7 +57,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: identity
-          image: aither-identity:stage15
+          image: 10.129.13.78:5000/aither-identity:stage18a-82fe433
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
