@@ -5,7 +5,7 @@ set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
-NAMESPACE="aither-inference"
+NAMESPACE="${NAMESPACE:-aither-inference}"
 MANIFESTS=(
   "services/identity/k8s/identity.yaml"
   "services/portal-backend/k8s/portal-backend.yaml"
