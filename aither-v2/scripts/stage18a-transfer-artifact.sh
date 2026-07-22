@@ -3,7 +3,7 @@
 # Usage: ./scripts/stage18a-transfer-artifact.sh <source_host> <dest_host>
 #   source_host: build host SSH hostname/IP
 #   dest_host: target node SSH hostname/IP (default: n8)
-set -euo pipefail
+set -Eeuo pipefail
 
 SOURCE="${1:-build-host}"
 DEST="${2:-n8}"

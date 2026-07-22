@@ -6,6 +6,9 @@
 - containerd v2.2.1+ on both nodes
 - Private registry running on n8:5000
 - kubectl access from build host
+- **Secret `aither-identity-secret` must exist in namespace `aither-inference`**
+  - Do NOT apply the example file directly
+  - Create from `services/identity/k8s/identity-secret.example.yaml` after replacing placeholders
 
 ## Deployment Sequence
 

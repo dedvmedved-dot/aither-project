@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stage 18A — Import and push images into persistent registry on n8
 # Usage: ./scripts/stage18a-push-images.sh [n8_host] [registry_port]
-set -euo pipefail
+set -Eeuo pipefail
 
 N8_HOST="${1:-10.129.13.78}"
 REGISTRY="${2:-localhost:5000}"

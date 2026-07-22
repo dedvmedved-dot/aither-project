@@ -2,7 +2,7 @@
 # Stage 18A — Build Aither service images with immutable tags
 # Usage: ./scripts/stage18a-build-images.sh [registry_host]
 #   registry_host: target registry (default: 127.0.0.1:5000)
-set -euo pipefail
+set -Eeuo pipefail
 
 REGISTRY="${1:-127.0.0.1:5000}"
 GIT_SHA="${2:-$(git rev-parse --short HEAD)}"

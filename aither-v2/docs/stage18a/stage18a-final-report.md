@@ -1,12 +1,17 @@
-# Stage 18A — Final Report (Hermes Pre-Commit Preparation)
+# Stage 18A — Final Report (Historical Pre-Commit Snapshot)
 
-## A. Repository State
+> **NOTE:** This document is a historical snapshot of the Stage 18A pre-commit
+> state (HEAD `82fe433`). It describes the state *before* the Stage 18A commit
+> was created and pushed. For current state after commit `ac74963`, refer to
+> the git log or run `git show --stat HEAD`.
+
+## A. Repository State (Snapshot — Pre-Commit)
 
 | Field | Value |
 |-------|-------|
 | Repository | `dedvmedved-dot/aither-project` |
 | Branch | `aither-v2` |
-| HEAD | `82fe433845f8487296033e80e249160b8f7a58d7` |
+| HEAD (at snapshot) | `82fe433845f8487296033e80e249160b8f7a58d7` |
 | Working directory | `/root/aither-v2/aither-v2/` |
 
 ## B. Summary
@@ -51,7 +56,7 @@ All scripts and files not related to Stage 18A (test scripts for Stage 15/16/17,
 | Large-file scan (>5MB) | ✅ CLEAN — none found |
 | Binary/archive scan | ✅ CLEAN — none found |
 | Automation syntax (`bash -n`) | ✅ ALL 5 SCRIPTS PASS |
-| Automation lint (`shellcheck`) | ⚠️ NOT INSTALLED — syntax check passed as substitute |
+| Automation lint (`shellcheck`) | ⚠️ NOT RUN — TOOL NOT INSTALLED |
 | Regression (14 tests) | ✅ 14/14 PASS |
 | Documentation consistency | ✅ REVIEWED — no contradictions after ARCHITECTURE.md/REGISTRY.md update |
 
@@ -86,14 +91,14 @@ All evidence files are located in `docs/stage18a/`:
 | `stage18a-automation-validation.md` | Automation scripts validation |
 | `stage18a-evidence-index.md` | Evidence index |
 
-## H. Risks and Limitations
+## H. Risks and Limitations (Snapshot)
 
 1. **n7 `crictl` not installed** — kubelet pulls images via CRI correctly; manual `crictl pull` unavailable on n7
-2. **Stage 18A pods pinned to n8** — historical `nodeName` from Stage 15-16 persists in live Deployment objects. Requires `kubectl patch deployment ... -p '{"spec":{"template":{"spec":{"nodeName":null}}}}'` to enable multi-node scheduling
+2. **Stage 18A pods pinned to n8** — historical `nodeName` from Stage 15-16 persists in live Deployment objects. Requires `kubectl patch` to enable multi-node scheduling
 3. **Portal-backend port-forward timeout from build host** — not a service defect (kubelet confirms 200 OK). Root cause: intermittent K8s API connectivity from build host
 4. **Registry without TLS** — Acceptable for cluster-internal deployment. Need TLS if exposed externally
 5. **Registry without auth** — Open for read/write on cluster network. Documented limitation
-6. **`REPLACE_ME` placeholder** in `services/identity/k8s/identity.yaml:16` — must be replaced before production deployment
+6. **`REPLACE_ME` placeholder** — moved to `identity-secret.example.yaml` in C1 corrective actions; deployment will fail if Secret missing
 7. **Pre-existing `node-debugger` pod in Error state** — unrelated to Stage 18A, in `default` namespace
 
 ## I. Proposed Commit Message
@@ -108,22 +113,4 @@ stage18a: implement persistent registry and containerd CRI recovery
 - Add automation scripts: build, transfer, push, verify, deploy
 - Add comprehensive documentation: architecture, registry, deployment, CRI recovery, evidence
 - Verify: both nodes Ready, CRI operational, all services Running, health checks passing
-```
-
-## J. Authorization Request
-
-```
-STAGE 18A PRE-COMMIT PREPARATION COMPLETE
-
-COMMIT CREATED:
-NO
-
-COMMIT AUTHORIZATION:
-PENDING ARCHITECT APPROVAL
-
-CONNECTOR AUDIT:
-PENDING
-
-FINAL ACCEPTANCE:
-PENDING
 ```

@@ -16,8 +16,8 @@
 |-------|:---:|:---:|:---:|:---:|:---:|
 | Executable bit | ✅ `-rwx--x--x` | ✅ `-rwx--x--x` | ✅ `-rwx--x--x` | ✅ `-rwx--x--x` | ✅ `-rwx--x--x` |
 | Syntax (`bash -n`) | ✅ PASS | ✅ PASS | ✅ PASS | ✅ PASS | ✅ PASS |
-| `shellcheck` | ⚠️ NOT INSTALLED | ⚠️ NOT INSTALLED | ⚠️ NOT INSTALLED | ⚠️ NOT INSTALLED | ⚠️ NOT INSTALLED |
-| Error handling | ✅ `set -euo pipefail` | ✅ `set -euo pipefail` | ✅ `set -euo pipefail` | ✅ `set -euo pipefail` | ✅ `set -euo pipefail` |
+| `shellcheck` | ⚠️ NOT RUN — TOOL NOT INSTALLED | ⚠️ NOT RUN — TOOL NOT INSTALLED | ⚠️ NOT RUN — TOOL NOT INSTALLED | ⚠️ NOT RUN — TOOL NOT INSTALLED | ⚠️ NOT RUN — TOOL NOT INSTALLED |
+| Error handling | ✅ `set -Eeuo pipefail` | ✅ `set -Eeuo pipefail` | ✅ `set -Eeuo pipefail` | ✅ `set -Eeuo pipefail` | ✅ `set -Eeuo pipefail` |
 | Hardcoded secrets | ✅ NONE | ✅ NONE | ✅ NONE | ✅ NONE | ✅ NONE |
 | Hardcoded credentials | ✅ NONE | ✅ NONE | ✅ NONE | ✅ NONE | ✅ NONE |
 | Runtime data in repo | ✅ NONE | ✅ NONE | ✅ NONE | ✅ NONE | ✅ NONE |
@@ -53,8 +53,13 @@
 
 ### `stage18a-deploy-services.sh`
 - **Idempotent:** Yes — `kubectl apply` is idempotent by design
-- **Destructive:** No — applies manifests, waits for rollout, reports timeout without exit
-- **Edge case:** Rollout timeout (120s) is non-fatal — prints WARNING, continues to next deployment
+- **Destructive:** No — applies manifests, waits for rollout
+- **Preflight:** ✅ Checks kubectl exists, cluster reachable, namespace exists, Secret exists, manifest files exist. Exits with code 1 on any failure.
+- **Secret safety:** ✅ Fails immediately (exit 1) if `aither-identity-secret` does not exist. Does not create or apply secrets automatically.
+- **Rollout handling:** ✅ Uses `kubectl rollout status ... --timeout=120s` without `|| echo WARNING`. On failure, outputs deployment name, `kubectl get deployment`, `kubectl get pods` for diagnostics, then exits with code 1.
+- **Rollout success:** ✅ When all deployments succeed, exits with code 0.
+- **Missing Secret:** ✅ Deploy stops with clear message and instructions to create Secret from example file.
+- **Edge case:** Rollout timeout (120s) causes non-zero exit for that deployment, preventing silent deployment failures.
 
 ## Recommendations
 

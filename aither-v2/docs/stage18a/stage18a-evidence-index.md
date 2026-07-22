@@ -15,6 +15,7 @@
 | E-09 | `docs/stage18a/stage18a-security-scan.md` | Report | Security scan report (no critical findings) | ❌ No runtime data | ❌ No secrets |
 | E-10 | `docs/stage18a/stage18a-automation-validation.md` | Report | Automation scripts validation (all pass) | ❌ No runtime data | ❌ No secrets |
 | E-11 | `docs/stage18a/stage18a-evidence-index.md` | Report | This file — evidence index | ❌ No runtime data | ❌ No secrets |
+| E-12 | `services/identity/k8s/identity-secret.example.yaml` | Configuration Example | Secret example with placeholders — DO NOT APPLY DIRECTLY | ❌ No runtime data | ❌ Placeholders only (`REPLACE_ME`) |
 
 ## Stage 18A Images
 
