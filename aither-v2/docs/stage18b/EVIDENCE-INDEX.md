@@ -16,6 +16,8 @@
 | E-12 | OPERATIONAL-RUNBOOK.md | Operational procedures | Documentation |
 | E-13 | FINAL-REPORT.md | Stage 18B-C1 final report | Consolidation |
 | E-14 | ACCEPTANCE-MATRIX.md | AC-01 through AC-30 with evidence IDs | Consolidation |
+| E-15 | RUNTIME-EVIDENCE.md (AI Platform Corrective section) | AI Platform pod deletion, replacement, marker preservation, health ×3 (Stage 18B-C3) | kubectl + crictl exec via SSH |
+| E-16 | SERVICE-DATA-PERSISTENCE.md | Historical marker clarification — three markers explained | Documentation |
 
 ## Acceptance Criteria Coverage
 
@@ -38,7 +40,7 @@
 | AC-15 All deployments Available | R-15,16,17 |
 | AC-16 All required pods Ready | R-25,26,27 |
 | AC-17 Health endpoints pass repeatedly | R-22,23,24 |
-| AC-18 Pod deletion recovery | R-25,26,27 |
+| AC-18 Pod deletion recovery | R-25,26,27 (E-15 for ai-platform) |
 | AC-19 First node runtime restart | R-28 |
 | AC-20 Second node runtime restart | R-29 |
 | AC-21 Persistent data survives pod recovery | R-33 |
@@ -48,6 +50,6 @@
 | AC-25 Scripts pass bash syntax | R-38 |
 | AC-26 No real secrets in repository | R-40 |
 | AC-27 Documentation matches behavior | R-42 |
-| AC-28 Evidence index complete | E-14 (this file) |
+| AC-28 Evidence index complete | E-16 (this file) |
 | AC-29 git diff --check clean | R-41 |
 | AC-30 No commit or push performed | ✅ Confirmed |

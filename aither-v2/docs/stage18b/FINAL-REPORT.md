@@ -91,7 +91,40 @@ M  scripts/stage18a-deploy-services.sh         (NAMESPACE override support)
 - SERVICE-DATA-PERSISTENCE.md
 - FINAL-REPORT.md (this file)
 
-## 7. Final Status
+## 7. Connector Audit Corrective Actions
+
+### Finding 1: AI Platform recovery not demonstrated
+
+**Observation:** Stage 18B did not demonstrate actual AI Platform pod deletion and replacement.
+
+**Correction (Stage 18B-C3):** Actual AI Platform pod deletion and replacement executed:
+
+- Original pod `aither-ai-platform-d6fc574cf-gxjcm` (UID: `c5946712-...`) deleted
+- Replacement pod `aither-ai-platform-d6fc574cf-bfgqn` (UID: `17969774-...`) created
+- Replacement UID differs from original ✅
+- Rollout: 1/1 ready and available ✅
+- Health ×3: 200, 200, 200 ✅
+- Persistent marker `stage18b-c3-ai-platform-marker-1784743322` preserved after recovery ✅
+
+**Evidence:** RUNTIME-EVIDENCE.md (AI Platform Corrective Pod Recovery section), SERVICE-DATA-PERSISTENCE.md
+
+### Finding 2: Marker ID inconsistency
+
+**Observation:** Multiple persistent marker IDs used without explanation (`stage18b-persistence-marker-1784738828` and `stage18b-c1-marker-1784740580`).
+
+**Correction (Stage 18B-C3):** Historical marker clarification added to SERVICE-DATA-PERSISTENCE.md:
+
+| Marker | Service | Stage | Purpose |
+|--------|---------|-------|---------|
+| `stage18b-persistence-marker-1784738828` | aither-identity | Stage 18B (original) | Initial identity PVC test |
+| `stage18b-c1-marker-1784740580` | aither-identity | Stage 18B-C1 | Corrective re-verification |
+| `stage18b-c3-ai-platform-marker-1784743322` | aither-ai-platform | Stage 18B-C3 | AI Platform corrective test |
+
+**Conclusion:** Three separate test runs with independent timestamps — no data conflict.
+
+---
+
+## 8. Final Status
 
 ```
 STAGE 18B-C1 EVIDENCE COMPLETION FINISHED

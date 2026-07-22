@@ -28,7 +28,7 @@
 | R-24 | AI platform health ×3 | PASS | HTTP 200 ×3 | ✅ PASS | Задание №8 |
 | R-25 | Identity pod recovery | PASS | New pod Running, health 200 | ✅ PASS | Задание №9 |
 | R-26 | Portal pod recovery | PASS | New pod Running, health 200 | ✅ PASS | Задание №9 |
-| R-27 | AI platform pod recovery | PASS | Existing pod Running | ✅ PASS | Задание №9 |
+| R-27 | AI platform pod recovery | Replacement pod Running | Original pod `-gxjcm` deleted → replacement `-bfgqn` created, UID changed, rollout 1/1, marker preserved, health 200×3 | ✅ PASS | Stage 18B-C3 — SERVICE-DATA-PERSISTENCE.md, RUNTIME-EVIDENCE.md |
 | R-28 | First node containerd restart (n8) | PASS | active, Ready, CRI ok | ✅ PASS | Задание №10 |
 | R-29 | Second node containerd restart (n7) | PASS | active, Ready | ✅ PASS | Задание №10 |
 | R-30 | Registry restart | PASS | active, API available | ✅ PASS | Задание №11 |

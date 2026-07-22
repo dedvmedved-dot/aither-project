@@ -29,10 +29,10 @@ Baseline:     d1e641b602b61c36a0b965c6d4c3a2e37c312d10
 | AC-15 | All Aither deployments Available | ✅ PASS | E-15 | RUNTIME-EVIDENCE.md | 3 deployments, all Available (1/1) |
 | AC-16 | All required pods Ready | ✅ PASS | E-16 | RUNTIME-EVIDENCE.md | identity, portal-backend, ai-platform — all Running 1/1 |
 | AC-17 | Health endpoints pass repeatedly | ✅ PASS | E-17 | RUNTIME-EVIDENCE.md | ×3 each: identity HTTP 200, portal-backend HTTP 200, ai-platform HTTP 200 |
-| AC-18 | Pod deletion recovery passes | ✅ PASS | E-18 | RUNTIME-EVIDENCE.md | identity pod deleted → replacement in Running, health 200; portal-backend pod deleted → replacement Running |
+| AC-18 | Pod deletion recovery passes | ✅ PASS | E-15 | RUNTIME-EVIDENCE.md, SERVICE-DATA-PERSISTENCE.md | identity replacement verified (Stage 18B), portal-backend replacement verified (Stage 18B), **ai-platform replacement verified in Stage 18B-C3** (pod `-gxjcm` → `-bfgqn`, UID changed, rollout 1/1, health 200×3, marker preserved) |
 | AC-19 | First node runtime restart passes | ✅ PASS | E-19 | CRI-RUNTIME-RECOVERY.md | n8: `systemctl restart containerd` → active, node Ready, CRI ready |
 | AC-20 | Second node runtime restart passes | ✅ PASS | E-20 | CRI-RUNTIME-RECOVERY.md | n7: `systemctl restart containerd` → active, node Ready, pods Running |
-| AC-21 | Persistent data survives pod recovery | ✅ PASS | E-21 | SERVICE-DATA-PERSISTENCE.md | Marker `stage18b-c1-marker-1784740580` created → pod deleted → pod recreated → marker read: preserved |
+| AC-21 | Persistent data survives pod recovery | ✅ PASS | E-15 | SERVICE-DATA-PERSISTENCE.md | Identity markers `stage18b-persistence-marker-1784738828` and `stage18b-c1-marker-1784740580` preserved; **AI Platform marker `stage18b-c3-ai-platform-marker-1784743322` preserved in Stage 18B-C3** |
 | AC-22 | PVC/PV bindings remain valid | ✅ PASS | E-22 | SERVICE-DATA-PERSISTENCE.md | Both PVCs Bound, PVs Bound (Retain policy) |
 | AC-23 | Rollout failure path returns non-zero exit | ✅ PASS | E-23 | FAILURE-INJECTION.md | Mock kubectl — rollout status exit 1 → actual deploy script exit 1 |
 | AC-24 | Failure diagnostics are emitted | ✅ PASS | E-24 | FAILURE-INJECTION.md | `ERROR: Rollout failed`, deployment status, pod status all emitted |
