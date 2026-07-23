@@ -42,6 +42,7 @@ from pydantic import BaseModel, Field
 DB_PATH = os.environ.get("AI_PLATFORM_DB_PATH", "/data/ai-platform.db")
 IDENTITY_URL = os.environ.get("AI_PLATFORM_IDENTITY_URL", "http://aither-identity:8000")
 GATEWAY_URL = os.environ.get("AI_PLATFORM_GATEWAY_URL", "http://nginx-gateway-32b.aither-inference.svc:8000")
+GATEWAY_API_KEY = os.environ.get("AI_PLATFORM_GATEWAY_API_KEY", "")
 LOG_LEVEL = os.environ.get("AI_PLATFORM_LOG_LEVEL", "INFO").upper()
 CORS_ORIGIN = os.environ.get("AI_PLATFORM_CORS_ORIGIN", "http://localhost:3000")
 # In production, set AI_PLATFORM_CORS_ORIGIN to the Portal Frontend URL.
@@ -89,7 +90,10 @@ async def get_identity_client() -> httpx.AsyncClient:
 async def get_gateway_client() -> httpx.AsyncClient:
     global gateway_client
     if gateway_client is None:
-        gateway_client = httpx.AsyncClient(base_url=GATEWAY_URL, timeout=300.0)
+        headers = {}
+        if GATEWAY_API_KEY:
+            headers["Authorization"] = f"Bearer {GATEWAY_API_KEY}"
+        gateway_client = httpx.AsyncClient(base_url=GATEWAY_URL, timeout=300.0, headers=headers)
     return gateway_client
 
 # ── Database ───────────────────────────────────────────────────

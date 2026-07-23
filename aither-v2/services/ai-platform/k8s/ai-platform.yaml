@@ -72,7 +72,11 @@ spec:
               value: "INFO"
             - name: AI_PLATFORM_CORS_ORIGIN
               value: "http://localhost:3000"
-            # Production: set to your Portal Frontend URL
+            - name: AI_PLATFORM_GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
           volumeMounts:
             - name: data
               mountPath: /data
