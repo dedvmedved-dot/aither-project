@@ -1,0 +1,53 @@
+# E2E Test Evidence — Stage BA-02R
+# Date: 2026-07-23
+# Executed via: Portal Backend API proxy
+
+=== STEP 1: LOGIN ===
+POST /api/v1/auth/login → 200
+Token: YES
+
+=== STEP 2: MODELS ===
+GET /api/v1/models → 200
+Models: qwen-14b-instruct (enabled=False), qwen-32b-gptq (enabled=True)
+Only 1 model enabled (architecture decision: Option B)
+
+=== STEP 3: CREATE ASSISTANT ===
+POST /api/v1/assistants → 201
+Assistant ID: 9 (linked to model_id=2, qwen-32b-gptq)
+
+=== STEP 4: CREATE CONVERSATION ===
+POST /api/v1/conversations → 201
+Conversation ID: 11
+
+=== STEP 5: SEND MESSAGE ===
+POST /api/v1/conversations/11/messages → 200
+Response (qwen-32b-base): "Bonjour!"
+
+=== STEP 6: GET CONVERSATION (with messages) ===
+GET /api/v1/conversations/11 → 200
+Messages: 2
+  [user]: Say hello in exactly one word
+  [assistant]: Bonjour! (qwen-32b-base)
+
+=== STEP 7: LIST CONVERSATIONS ===
+GET /api/v1/conversations → 200
+Count: 4 conversations
+
+=== STEP 8: LOGOUT ===
+POST /api/v1/auth/logout → 200
+
+=== STEP 9: LOGIN AGAIN ===
+POST /api/v1/auth/login → 200
+Token: YES (new JWT issued)
+
+=== STEP 10: CONVERSATIONS AFTER RELOGIN ===
+GET /api/v1/conversations → 200
+Count: 4 (same as before logout)
+
+=== STEP 11: HISTORY RESTORED ===
+GET /api/v1/conversations/11 → 200
+Messages: 2 (preserved)
+  [user]: Say hello in exactly one word
+  [assistant]: Bonjour!
+
+=== RESULT: FULL E2E PASSED ===
