@@ -35,8 +35,8 @@
 | **Value (masked)** | `'us...min'`, `'pa...min'` |
 | **Context** | Standard test/default credentials for Identity service (`admin`/`admin`), documented in multiple project files |
 | **Git history exposure** | NO — local untracked files only |
-| **Required action** | No action required — this is the documented default test account for the Identity service |
-| **Commit eligibility** | ELIGIBLE AFTER REVIEW (credentials are default/test, not production) |
+| **Required action** | Replace hardcoded credentials with environment variables or command-line parameters before script publication |
+| **Commit eligibility** | ELIGIBLE AFTER REFACTOR |
 
 ### RC2R-SEC-002: Auth Token Placeholder
 
@@ -98,4 +98,13 @@ The modified `main.py` references `GATEWAY_API_KEY` from environment variable `A
 SECURITY HOLD: NOT ACTIVE
 ```
 
-No real production secrets found in any RC2R local file. All findings are either PLACEHOLDER (test credentials) or FALSE POSITIVE (file names that don't match their content). All 67 files are eligible for future commit after appropriate review.
+No real production secrets found in any RC2R local file. All findings are either PLACEHOLDER (test credentials) or FALSE POSITIVE (file names that don't match their content).
+
+No files are blocked specifically by detected active secrets.
+
+Commit eligibility remains conditional on:
+- evidence integrity cleanup;
+- removal or annotation of empty and duplicate files;
+- script credential refactoring;
+- correction of misleading filenames;
+- external ChatGPT audit.
