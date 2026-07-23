@@ -22,6 +22,18 @@ data:
                 add_header Content-Type text/plain;
             }
 
+            location = /ready {
+                access_log off;
+                proxy_pass http://10.99.3.103:8000/health;
+                proxy_read_timeout 5s;
+            }
+
+            location = /version {
+                access_log off;
+                return 200 '{"service":"nginx-gateway-32b","version":"1.0.0"}';
+                add_header Content-Type application/json;
+            }
+
             location = /v1/chat/completions {
                 return 422 '{"error":"qwen-32b-base does not support chat"}';
             }
