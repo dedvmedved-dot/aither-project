@@ -40,7 +40,7 @@ This document inventories all local (uncommitted) changes present in the working
 | **Applied to runtime?** | ❌ NO — only local file change; portal-frontend ConfigMap not updated |
 | **Evidence exists?** | ❌ NO — local only |
 | **Potential value** | MEDIUM — improves browser security, but TLS is prerequisite for several headers |
-| **Risk** | LOW — headers are additive, would not break existing functionality |
+| **Risk** | MEDIUM — CSP and related headers may break SPA resources or API connectivity and require functional testing before acceptance |
 | **Recommendation** | REVIEW FOR FUTURE TASK |
 
 **Changes:**
