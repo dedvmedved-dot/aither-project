@@ -130,5 +130,31 @@ Hermes behavior rules:
 - do not hide failures;
 - preserve logs and evidence;
 - use raw GitHub links;
-- report all PARTIAL/FAILED findings.
+|- report all PARTIAL/FAILED findings.
+```
+
+---
+
+## Stage 10–10D Update
+
+```
+Stage 10: FAILED / CONNECTOR VERIFIED
+Reason: mandatory stop gate violation after dirty working tree detection.
+
+Stage 10A: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 18be3d5cf5f55bef9b61c8915ec826be9ea2360e
+
+Stage 10B: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 0dd4aa72ad969fbaf6472fb1190e078ddeb75a36
+
+Stage 10C: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: f65c6ee31b4138ead364556221c78f34bb758935
+
+Stage 10D: IN PROGRESS / NOT YET AUDITED
+```
+
+```
+Release classification: INTERNAL PILOT RELEASE CANDIDATE
+Production v1.0: NO-GO
+PROD-READY-01: OPEN
 ```

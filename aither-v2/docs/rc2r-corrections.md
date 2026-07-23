@@ -100,4 +100,15 @@ Valid designation: Internal Pilot Release Candidate (not approved for public pro
 
 ## Conclusion
 
-All previously conflicting or false statements in RC2 documentation have been identified and corrected in the correction register above. Existing evidence files at `evidence/rc2/` and `reports/rc2/` are NOT modified — this document serves as the authoritative correction register. RC2R evidence and reports supersede the RC2 findings.
+All identified RC2 contradictions are recorded in this correction register.
+The original RC2 reports and evidence remain unchanged.
+
+For governance and release decisions, the corrected statuses in this
+register supersede the specific contradictory RC2 conclusions listed above.
+
+Local RC2R reports and evidence remain pending controlled review.
+They are not connector-verified and do not yet supersede RC2 evidence.
+
+Only this committed correction register supersedes the specific false
+or misleading RC2 conclusions identified by Finding IDs RC2R-CORR-001
+through RC2R-CORR-006.
