@@ -45,9 +45,10 @@ Working directory: aither-v2/
 | Stage 10A | Audit Corrections | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10B | RC2R Evidence Quarantine | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10C | Release and Governance Corrections | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 10D | Governance Alignment | **IN PROGRESS / NOT YET AUDITED** |
+| Stage 10D | Governance Alignment | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10E | Governance Closeout and Markdown Repair | **IN PROGRESS / NOT YET AUDITED** |
 
-### Stage 10‑10D Audit Status
+### Stage 10‑10E Audit Status
 
 ```
 Stage 10: FAILED / CONNECTOR VERIFIED
@@ -62,7 +63,11 @@ Verified commit: 0dd4aa72ad969fbaf6472fb1190e078ddeb75a36
 Stage 10C: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Verified commit: f65c6ee31b4138ead364556221c78f34bb758935
 
-Stage 10D: IN PROGRESS / NOT YET AUDITED
+Stage 10D: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 8dc7e019660d2a5e2ec558e6b98ebc2ea732eb77
+Finding DOC-MD-01: corrected in Stage 10E
+
+Stage 10E: IN PROGRESS / NOT YET AUDITED
 ```
 
 ```
