@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -286,6 +286,145 @@ async def portal_status():
     except Exception:
         results["ai-platform"] = "unreachable"
     return {"status": "operational" if all(v == "healthy" or isinstance(v, dict) for v in results.values()) else "degraded", "services": results}
+
+# ── AI Platform API Proxy ──────────────────────────────────────
+
+@app.get("/api/v1/models")
+async def proxy_models(request: Request):
+    """Proxy to AI Platform: GET /api/v1/models."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.get("/api/v1/models", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.post("/api/v1/models")
+async def proxy_create_model(request: Request):
+    """Proxy to AI Platform: POST /api/v1/models."""
+    auth = request.headers.get("Authorization", "")
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.post("/api/v1/models", content=body, headers={"Authorization": auth, "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.get("/api/v1/api-keys")
+async def proxy_api_keys(request: Request):
+    """Proxy to AI Platform: GET /api/v1/api-keys."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.get("/api/v1/api-keys", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.post("/api/v1/api-keys")
+async def proxy_create_api_key(request: Request):
+    """Proxy to AI Platform: POST /api/v1/api-keys."""
+    auth = request.headers.get("Authorization", "")
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.post("/api/v1/api-keys", content=body, headers={"Authorization": auth, "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.delete("/api/v1/api-keys/{key_id}")
+async def proxy_revoke_api_key(key_id: int, request: Request):
+    """Proxy to AI Platform: DELETE /api/v1/api-keys/{id}."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.delete(f"/api/v1/api-keys/{key_id}", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.get("/api/v1/assistants")
+async def proxy_assistants(request: Request):
+    """Proxy to AI Platform: GET /api/v1/assistants."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.get("/api/v1/assistants", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.post("/api/v1/assistants")
+async def proxy_create_assistant(request: Request):
+    """Proxy to AI Platform: POST /api/v1/assistants."""
+    auth = request.headers.get("Authorization", "")
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.post("/api/v1/assistants", content=body, headers={"Authorization": auth, "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.get("/api/v1/conversations")
+async def proxy_conversations(request: Request):
+    """Proxy to AI Platform: GET /api/v1/conversations."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.get("/api/v1/conversations", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.post("/api/v1/conversations")
+async def proxy_create_conversation(request: Request):
+    """Proxy to AI Platform: POST /api/v1/conversations."""
+    auth = request.headers.get("Authorization", "")
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.post("/api/v1/conversations", content=body, headers={"Authorization": auth, "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.get("/api/v1/conversations/{conv_id}")
+async def proxy_get_conversation(conv_id: int, request: Request):
+    """Proxy to AI Platform: GET /api/v1/conversations/{id}."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.get(f"/api/v1/conversations/{conv_id}", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.post("/api/v1/conversations/{conv_id}/messages")
+async def proxy_send_message(conv_id: int, request: Request):
+    """Proxy to AI Platform: POST /api/v1/conversations/{id}/messages."""
+    auth = request.headers.get("Authorization", "")
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=60.0) as ac:
+            r = await ac.post(f"/api/v1/conversations/{conv_id}/messages", content=body, headers={"Authorization": auth, "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.delete("/api/v1/conversations/{conv_id}")
+async def proxy_delete_conversation(conv_id: int, request: Request):
+    """Proxy to AI Platform: DELETE /api/v1/conversations/{id}."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.delete(f"/api/v1/conversations/{conv_id}", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
 
 # ── Shutdown ───────────────────────────────────────────────────
 
