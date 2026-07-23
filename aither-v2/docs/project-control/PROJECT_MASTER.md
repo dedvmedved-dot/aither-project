@@ -46,9 +46,10 @@ Working directory: aither-v2/
 | Stage 10B | RC2R Evidence Quarantine | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10C | Release and Governance Corrections | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10D | Governance Alignment | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 10E | Governance Closeout and Markdown Repair | **IN PROGRESS / NOT YET AUDITED** |
+|| Stage 10E | Governance Closeout and Markdown Repair | **FAILED / CONNECTOR VERIFIED** |
+|| Stage 10F | Deterministic Markdown Structure Repair | **IN PROGRESS / NOT YET AUDITED** |
 
-### Stage 10‑10E Audit Status
+### Stage 10‑10F Audit Status
 
 ```
 Stage 10: FAILED / CONNECTOR VERIFIED
@@ -67,7 +68,11 @@ Stage 10D: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Verified commit: 8dc7e019660d2a5e2ec558e6b98ebc2ea732eb77
 Finding DOC-MD-01: corrected in Stage 10E
 
-Stage 10E: IN PROGRESS / NOT YET AUDITED
+Stage 10E: FAILED / CONNECTOR VERIFIED
+Verified commit: fae8ceea384e812d8c3bb5fa4422aeb1d6202c20
+Reason: unmatched Markdown fence remained after claimed repair.
+
+Stage 10F: IN PROGRESS / NOT YET AUDITED
 ```
 
 ```

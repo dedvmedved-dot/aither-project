@@ -131,10 +131,11 @@ Hermes behavior rules:
 - preserve logs and evidence;
 - use raw GitHub links;
 - report all PARTIAL/FAILED findings.
+```
 
 ---
 
-## Stage 10–10E Update
+## Stage 10–10F Update
 
 ```
 Stage 10: FAILED / CONNECTOR VERIFIED
@@ -153,7 +154,11 @@ Stage 10D: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Verified commit: 8dc7e019660d2a5e2ec558e6b98ebc2ea732eb77
 Finding DOC-MD-01: corrected in Stage 10E
 
-Stage 10E: IN PROGRESS / NOT YET AUDITED
+Stage 10E: FAILED / CONNECTOR VERIFIED
+Verified commit: fae8ceea384e812d8c3bb5fa4422aeb1d6202c20
+Reason: unmatched Markdown fence remained after claimed repair.
+
+Stage 10F: IN PROGRESS / NOT YET AUDITED
 ```
 
 ```

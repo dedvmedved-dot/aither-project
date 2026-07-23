@@ -45,7 +45,7 @@ Date: 2026-07-20
 
 60-minute load test completed successfully (330/330 requests, 0 errors, 0 restarts, 0 OOM).
 
-## Audit status (Stage 10–10E)
+## Audit status (Stage 10–10F)
 
 ```
 Stage 10: FAILED / CONNECTOR VERIFIED
@@ -64,7 +64,11 @@ Stage 10D: PASSED WITH FINDINGS / CONNECTOR VERIFIED
 Verified commit: 8dc7e019660d2a5e2ec558e6b98ebc2ea732eb77
 Finding DOC-MD-01: corrected in Stage 10E
 
-Stage 10E: IN PROGRESS / NOT YET AUDITED
+Stage 10E: FAILED / CONNECTOR VERIFIED
+Verified commit: fae8ceea384e812d8c3bb5fa4422aeb1d6202c20
+Reason: unmatched Markdown fence remained after claimed repair.
+
+Stage 10F: IN PROGRESS / NOT YET AUDITED
 
 Release classification: INTERNAL PILOT RELEASE CANDIDATE
 Production v1.0: NO-GO

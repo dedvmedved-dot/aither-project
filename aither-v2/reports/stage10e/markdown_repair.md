@@ -34,9 +34,7 @@
 **Location:** `aither-v2/docs/project-control/CHAT_HANDOVER.md`, line 134
 
 **Damaged:**
-```
-``` (closing fence with no matching opening fence)
-```
+`` ``` `` (closing fence with no matching opening fence)
 
 **Correction:** Removed the orphaned fence. The preceding block (Hermes behavior rules) is a standard Markdown unordered list, not a code block, so no fence was needed.
 
@@ -69,3 +67,16 @@
 | PROD-READY-01 closed | NO |
 | Force push used | NO |
 | Finding DOC-MD-01 | CORRECTED / AWAITING VERIFICATION |
+
+---
+
+## External Audit Result
+
+Stage 10E: FAILED / CONNECTOR VERIFIED
+
+Verified commit:
+fae8ceea384e812d8c3bb5fa4422aeb1d6202c20
+
+Reason:
+Fence verification was incorrect. CHAT_HANDOVER.md contained five fence
+lines and ended with an unmatched opening fence.
