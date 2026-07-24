@@ -10,7 +10,7 @@
 ### P1.1 Remove duplicate article directories
 - **Files**: 12 redundant files
 - **Action**: `git rm -r aither-send/ aither-send\ 2/`
-- **Risk**: None — exact duplicates of `aither-article/`
+- **Risk**: Low — exact duplicates of `aither-article/`. Approval required from ChatGPT. Rollback: `git checkout HEAD -- <files>`. Reference validation: verify no links point to these paths.
 - **Estimated savings**: 12 files
 
 ### P1.2 Remove empty placeholder directories

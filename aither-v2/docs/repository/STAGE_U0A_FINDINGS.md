@@ -74,13 +74,67 @@
 
 ---
 
-## Summary
+## Stage U0.A-R1 Findings
+
+### U0A-GOV-001 — Baseline STOP Gate Procedural Finding
+**Severity**: LOW
+**Category**: Procedure
+**Description**: The Stage U0.A task required STOP on unexpected dirty working tree. Five pre-existing RC2R dirty paths (2 modified, 3 untracked) existed before Stage U0.A. These were documented, expected, and unchanged. No new dirty paths appeared during the stage. The STOP gate was acknowledged but not invoked because the paths were not "unexpected."
+**Status**: CLOSED WITH FINDING — documented in BASELINE_PROVENANCE.md and BASELINE_INTEGRITY.md
+**Evidence**: `docs/repository/BASELINE_PROVENANCE.md`, `docs/repository/BASELINE_INTEGRITY.md`
+
+### U0A-CAT-001 — File Catalog Incompleteness
+**Severity**: HIGH
+**Category**: Inventory
+**Description**: The previous FILE_CATALOG.md contained aggregated entries ("plus 33 others", "..."). This violated the requirement for 100% complete inventory.
+**Status**: CORRECTED — new FILE_CATALOG.md generated with 887 individual file entries, no aggregation
+**Evidence**: `docs/repository/FILE_CATALOG.md` (887 rows, 0 aggregations)
+
+### U0A-VAL-001 — Validation and Reconciliation
+**Severity**: HIGH
+**Category**: Quality
+**Description**: File count reconciliation across git ls-files (887), FILE_CATALOG.md (887), FILE_METADATA.csv (887 + header), and FILE_HASHES.txt (887) confirmed all sources match.
+**Status**: CORRECTED — documented in FILE_RECONCILIATION.md and VALIDATION_REPORT.md
+**Evidence**: `docs/repository/FILE_RECONCILIATION.md`, `docs/repository/VALIDATION_REPORT.md`
+
+### U0A-GIT-001 — Baseline Integrity
+**Severity**: MEDIUM
+**Category**: Governance
+**Description**: The baseline integrity was verified. All pre-existing dirty paths are documented RC2R changes. The committed state (HEAD 11b0d64) is reproducible from GitHub. No procedural violations beyond the documented GOV-001.
+**Status**: CORRECTED — documented in BASELINE_INTEGRITY.md
+**Evidence**: `docs/repository/BASELINE_INTEGRITY.md`
+
+### U0A-GIT-002 — Metadata Commit SHA Error
+**Severity**: LOW
+**Category**: Documentation
+**Description**: The Stage U0.A final report contained an erroneous full SHA `704bb2d253a3dfb5ac4e9e0a8c72e0e7de41c13b` for the metadata commit. The correct SHA is `704bb2dcc658b8aeab698e08819c53c28f26e0a2`. Both share the same 7-char prefix `704bb2d`. The commit exists and was pushed.
+**Status**: CORRECTED — documented in METADATA_COMMIT_INVESTIGATION.md
+**Evidence**: `reports/stage-u0/u0-a-r1/METADATA_COMMIT_INVESTIGATION.md`
+
+### U0A-DEP-001 — Dependency Map Expansion
+**Severity**: LOW
+**Category**: Documentation
+**Description**: The DEPENDENCY_MAP.md was expanded with service dependency tables, storage dependencies, network dependencies, and detailed protocol/port/auth mappings. Mermaid diagram retained for visual reference.
+**Status**: CORRECTED
+**Evidence**: `docs/repository/DEPENDENCY_MAP.md`
+
+### U0A-CLN-001 — Cleanup Plan Risk Completeness
+**Severity**: LOW
+**Category**: Documentation
+**Description**: The CLEANUP_PLAN.md contained "Risk: None" for P1.1. Replaced with "Risk: Low" including approval, rollback, and reference validation requirements.
+**Status**: CORRECTED
+**Evidence**: `docs/repository/CLEANUP_PLAN.md`
+
+---
+
+## Summary (Updated — Stage U0.A-R1)
 
 | Severity | Count | Key Items |
 |----------|-------|-----------|
 | 🔴 CRITICAL | 0 | — |
-| 🟡 MEDIUM | 4 | U0A-FIND-03 (duplicates), U0A-FIND-04 (legacy), U0A-FIND-05 (superseded), U0A-FIND-07 (split docs) |
-| 🟢 LOW | 3 | U0A-FIND-02 (.gitkeep), U0A-FIND-06 (placeholders), others |
-| ℹ️ INFO | 3 | U0A-FIND-01 (size), U0A-FIND-08 (branches), U0A-FIND-09 (code changes), U0A-FIND-10 (corrections) |
+| 🟡 HIGH | 2 | U0A-CAT-001 (CORRECTED), U0A-VAL-001 (CORRECTED) |
+| 🟢 MEDIUM | 5 | U0A-FIND-03, U0A-FIND-04, U0A-FIND-05, U0A-FIND-07, U0A-GIT-001 (CORRECTED) |
+| ℹ️ LOW | 4 | U0A-GOV-001 (CLOSED WITH FINDING), U0A-GIT-002 (CORRECTED), U0A-DEP-001 (CORRECTED), U0A-CLN-001 (CORRECTED) |
+| ℹ️ INFO | 4 | U0A-FIND-01, U0A-FIND-08, U0A-FIND-09, U0A-FIND-10 |
 
-**Status**: Stage U0.A deliverables complete. All findings documented — no destructive actions taken.
+**Stage U0.A-R1 findings**: 6 closed (1 procedural, 5 corrected), 1 CLOSED WITH FINDING
