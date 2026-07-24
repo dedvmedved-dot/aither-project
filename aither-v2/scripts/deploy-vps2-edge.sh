@@ -113,12 +113,28 @@ docker run -d \
 
 sleep 2
 
-# Health check
-if curl -sk https://localhost/health >/dev/null 2>&1; then
-  echo "✅ nginx healthy"
-else
-  echo "WARNING: nginx health check failed (may need auth)" >&2
+# Health check — must pass (fail-closed)
+echo "Running health check..."
+HEALTH_OK=1
+
+# Test nginx is listening on 443
+if ! curl -sk --connect-timeout 5 https://localhost:443/ >/dev/null 2>&1; then
+  echo "ERROR: nginx not responding on :443" >&2
+  HEALTH_OK=0
 fi
+
+# Test nginx is listening on 10443
+if ! curl -sk --connect-timeout 5 https://localhost:10443/ >/dev/null 2>&1; then
+  echo "ERROR: nginx not responding on :10443" >&2
+  HEALTH_OK=0
+fi
+
+if [ $HEALTH_OK -eq 0 ]; then
+  echo "FATAL: Health check failed — deployment aborted" >&2
+  echo "Rollback: docker stop aither-failover-nginx vpn-cisco; docker rm aither-failover-nginx vpn-cisco; cp \$BACKUP_DIR/nginx-failover.conf /root/"
+  exit 1
+fi
+echo "✅ Health check passed (all ports responding)"
 
 echo "=== Deploy complete ==="
 echo "Backup: $BACKUP_DIR"
