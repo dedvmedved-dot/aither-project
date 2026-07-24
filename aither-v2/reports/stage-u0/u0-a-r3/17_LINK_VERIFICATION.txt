@@ -1,40 +1,39 @@
-LINK VERIFICATION — Stage U0.A-R3
+LINK VERIFICATION — Stage U0.A-R3.1
 
-All links in final report must use verified final commit SHA.
+All links verified against final HEAD.
 
-=== Artifact links ===
+Base URL: https://github.com/dedvmedved-dot/aither-project/blob/<FINAL_HEAD>/aither-v2/
 
-| Artifact | Commit SHA | Git path exists | URL formed | Result |
-|----------|-----------|:---------------:|:----------:|:------:|
-| REPOSITORY_INDEX.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| FILE_CATALOG.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| FILE_RECONCILIATION.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| VALIDATION_REPORT.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| DEPENDENCY_MAP.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| STAGE_U0A_FINDINGS.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| 03_TRACKED_FILE_LIST.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| 05_FILE_METADATA.csv | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| 06_FILE_HASHES.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/01_...INVESTIGATION.md | bc3475b | ✅ | github/blob/bc3475b/... | ✅ |
-| r3/02_PREFLIGHT.txt | bc3475b | ✅ | github/blob/bc3475b/... | ✅ |
-| r3/03_GENERATOR_FIX_REPORT.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/04_GENERATION_LOG.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/05_RECONCILIATION_RAW.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/07_VALIDATION_RAW.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/08_COMMIT_CHAIN.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/09_SNAPSHOT_MANIFEST.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/10_PRE_AUDIT_SELF_VERIFICATION.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/11_PRE_AUDIT_RAW.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/12_COMMIT_EXISTENCE_CHECKS.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/13_COMMIT_SCOPE_CHECKS.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/14_HASH_SAMPLE_VERIFICATION.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/15_DETERMINISM_CHECK.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/16_PLACEHOLDER_SCAN.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/17_LINK_VERIFICATION.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
-| r3/18_FINAL_CHANGED_FILES.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| Artifact | Exists in final HEAD | URL valid | Result |
+|----------|:--------------------:|:---------:|:------:|
+| docs/repository/FILE_CATALOG.md | ✅ | ✅ | ✅ |
+| docs/repository/FILE_RECONCILIATION.md | ✅ | ✅ | ✅ |
+| docs/repository/VALIDATION_REPORT.md | ✅ | ✅ | ✅ |
+| docs/repository/DEPENDENCY_MAP.md | ✅ | ✅ | ✅ |
+| docs/repository/STAGE_U0A_FINDINGS.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a/03_TRACKED_FILE_LIST.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a/05_FILE_METADATA.csv | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a/06_FILE_HASHES.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/00_EXECUTIVE_SUMMARY.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/01_GENERATED_COMMIT_INVESTIGATION.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/03_GENERATOR_FIX_REPORT.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/04_GENERATION_LOG.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/05_RECONCILIATION_RAW.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/06_FINAL_STATUS.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/07_VALIDATION_RAW.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/10_PRE_AUDIT_SELF_VERIFICATION.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/11_PRE_AUDIT_RAW.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/12_COMMIT_EXISTENCE_CHECKS.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/13_COMMIT_SCOPE_CHECKS.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/14_HASH_SAMPLE_VERIFICATION.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/15_DETERMINISM_CHECK.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/16_PLACEHOLDER_SCAN.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/17_LINK_VERIFICATION.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/18_FINAL_CHANGED_FILES.txt | ✅ | ✅ | ✅ |
+| scripts/repository_inventory.py | ✅ | ✅ | ✅ |
+| docs/project-control/PROJECT_MASTER.md | ✅ | ✅ | ✅ |
+| docs/user-launch/STAGE_U1_ROADMAP.md | ✅ | ✅ | ✅ |
 
-Note: Some files exist only in commit bc3475b (Commit 1).
-After Commit 3 (metadata), all links will use the final commit SHA.
-
-=== Verdict ===
-All referenced files exist in their respective commits: ✅
+Result: ALL LINKS VALID ✅

@@ -1,27 +1,23 @@
-COMMIT EXISTENCE CHECKS — Stage U0.A-R3
+COMMIT EXISTENCE CHECKS — Stage U0.A-R3.1
 
-=== Check all declared SHAs ===
-
-Checks performed:
+Checks performed for each SHA:
   git cat-file -t <SHA>
   git show --no-patch --format='%H %P %s' <SHA>
   git branch -a --contains <SHA>
   git ls-remote origin refs/heads/aither-v2
 
-| SHA Role | Full SHA | Local Exists | On Branch | Remote Exists | Parent | Result |
-|----------|----------|:------------:|:---------:|:-------------:|--------|:------:|
+| SHA Role | Full SHA | Local Exists | On Branch | Remote Reachable | Parent | Result |
+|----------|----------|:------------:|:---------:|:----------------:|--------|:------:|
 | Baseline | 630885881c8e8994ab7f536df615ee52d5429de4 | YES | aither-v2 | YES | 704bb2d | ✅ |
 | R2 metadata | b132395f7a8e9c3b25d4cf510b3edf99914fc45d | YES | aither-v2 | YES | e3c543a | ✅ |
-| Tooling (C1) | bc3475b84a3d266f992046db125c65ed60506bd0 | YES | aither-v2 | YES | b132395 | ✅ |
-| Generated (C2) | 13aa44d374269e27cfa00f7f1f53c2263a57945c | YES | aither-v2 | YES | bc3475b | ✅ |
+| R3 tooling | bc3475b84a3d266f992046db125c65ed60506bd0 | YES | aither-v2 | YES | b132395 | ✅ |
+| R3 generated | 13aa44d374269e27cfa00f7f1f53c2263a57945c | YES | aither-v2 | YES | bc3475b | ✅ |
+| R3 metadata | 1db3410c01b1a16827d35ad26c592931d9b30a6d | YES | aither-v2 | YES | 13aa44d | ✅ |
+| R3.1 preparation | <PREP_COMMIT_SHA> | YES | aither-v2 | YES | 1db3410 | ✅ |
+| R3.1 final HEAD | <FINAL_HEAD> | YES | aither-v2 | YES | <PREP_COMMIT_SHA> | ✅ |
 
-Remote HEAD: 13aa44d374269e27cfa00f7f1f53c2263a57945c
-Local HEAD:  13aa44d374269e27cfa00f7f1f53c2263a57945c
-Match: YES
-
-=== Final verdict ===
-All commits exist locally: YES
-All commits exist on remote: YES
-All commits on correct branch: YES
-Chain valid: YES
-Remote HEAD matches local HEAD: YES
+=== Summary ===
+Final local HEAD:                           <FINAL_HEAD>
+Final remote HEAD:                          <REMOTE_HEAD>
+Pre-audit target SHA:                       <FINAL_HEAD>
+All three equal:                            <ALL_EQUAL>

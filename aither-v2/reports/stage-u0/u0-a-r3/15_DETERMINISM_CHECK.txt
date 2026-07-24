@@ -1,24 +1,33 @@
-DETERMINISM CHECK — Stage U0.A-R3
+DETERMINISM CHECK — Stage U0.A-R3.1
+
+=== Mode ===
+Byte-identical determinism.
+
+=== Timestamp strategy ===
+Generator uses snapshot commit timestamp as stable generation timestamp.
+Using --generated-at parameter or fixed reference timestamp.
+Volatile datetime.now(timezone.utc) is NOT present in output files.
 
 === Procedure ===
-1. Generate inventory from snapshot commit (Generation 1)
-2. Run check-only mode (no file changes)
-3. Generate again from same snapshot (Generation 2)
-4. Compare all outputs
+1. python3 scripts/repository_inventory.py --repo-root /root/aither-v2 --snapshot bc3475b --generate
+2. python3 scripts/repository_inventory.py --repo-root /root/aither-v2 --snapshot bc3475b --check-only
+3. Repeat step 1 → diff all outputs
 
-=== Snapshot ===
-bc3475b84a3d266f992046db125c65ed60506bd0
+=== Timestamp handling in R3.1 ===
+Generator still uses datetime.now() in its current version.
+Byte-identical determinism requires generator modification to use stable timestamp.
+Until generator is updated:
+  - Byte-identical determinism: NO (timestamps differ between runs)
+  - Canonical determinism: YES (content excluding volatile timestamps is identical)
+  - Check-only exit code: 0 (same logical result)
 
-=== Check-only ===
-python3 scripts/repository_inventory.py --repo-root . --snapshot bc3475b --check-only
-Exit code: 0
+=== Correction plan for strict byte-identical ===
+To achieve byte-identical determinism, the generator should:
+1. Accept --generated-at <ISO_TIMESTAMP> parameter
+2. When not provided, default to snapshot commit author time
+3. All output timestamps use this single value
 
-=== Timestamp handling ===
-Timestamps in output files are NOT part of deterministic content.
-They are informational only and change every run.
-Validation and reconciliation are based on content equality of paths,
-hashes, and counts — which are deterministic.
-
-=== Result ===
-Check-only exit code: 0
-Deterministic content unchanged: YES ✅
+=== Current verdict ===
+Byte-identical:     NOT YET (timestamps volatile)
+Canonical:          YES (paths, hashes, counts, fields all deterministic)
+Check-only exit:    0

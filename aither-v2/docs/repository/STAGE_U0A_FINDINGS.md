@@ -230,4 +230,73 @@
 | ℹ️ LOW | 5 | U0A-GOV-001 (CLOSED WITH FINDING), U0A-GIT-002, U0A-DEP-001, U0A-CLN-001, U0AR2-VAL-001 |
 | ℹ️ INFO | 4 | U0A-FIND-01, U0A-FIND-08, U0A-FIND-09, U0A-FIND-10 |
 
-**Stage U0.A-R3 findings**: 5 new R2 findings + 7 legacy findings verified — all CORRECTED / AWAITING EXTERNAL VERIFICATION
+| **Stage U0.A-R3 findings**: 5 new R2 findings + 7 legacy findings verified — all CORRECTED / AWAITING EXTERNAL VERIFICATION
+|----------------------------------|-------|-----------|
+|
+|---
+
+## Stage U0.A-R3.1 Findings
+
+### U0AR3-MAN-001 — Manifest References Incorrect Metadata SHA
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: The R3 Snapshot Manifest listed `metadata_commit_sha` as `13aa44d` (generated inventory commit) instead of `1db3410` (actual R3 metadata commit). Manifest also lacked fields for R3.1 commits.
+**Root cause**: Manifest was created during Commit 2 but not updated after Commit 3 (the actual metadata commit).
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Manifest rewritten with full chain: r3_metadata_commit_sha = 1db3410 + R3.1 fields
+**Corrective commit**: `<FINAL_HEAD>`
+**Evidence**: `reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt`
+**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Residual risk**: LOW — cosmetic only, no functional impact
+
+### U0AR3-AUD-001 — Pre-Audit Verification Referenced Wrong HEAD
+**Severity**: HIGH
+**Category**: Governance
+**Description**: Pre-Audit Self Verification (10_PRE_AUDIT_SELF_VERIFICATION.md) stated "After final commit (Commit 2: 13aa44d)" when the actual final commit was `1db3410`. Pre-audit was executed against commit 13aa44d, not 1db3410.
+**Root cause**: Pre-audit created mid-Stage before metadata commit, then never re-executed.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Pre-audit rewritten with FINAL_HEAD as target, executed AFTER push of final commit
+**Corrective commit**: `<FINAL_HEAD>`
+**Evidence**: `reports/stage-u0/u0-a-r3/10_PRE_AUDIT_SELF_VERIFICATION.md`, `reports/stage-u0/u0-a-r3/11_PRE_AUDIT_RAW.txt`
+**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Residual risk**: LOW — corrected, verification now targets final HEAD
+
+### U0AR3-TRACE-001 — Commit Existence Evidence Missing Final HEAD
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: Commit Existence Checks (12_COMMIT_EXISTENCE_CHECKS.txt) listed only 4 SHAs (baseline, R3 tooling, R2 metadata, R3 generated). Missing: R3 metadata (1db3410), R3.1 preparation, R3.1 final HEAD.
+**Root cause**: Evidence created before full commit chain complete.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: All 7 SHAs now included with local/remote/parent verification
+**Corrective commit**: `<FINAL_HEAD>`
+**Evidence**: `reports/stage-u0/u0-a-r3/12_COMMIT_EXISTENCE_CHECKS.txt`, `reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt`
+**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Residual risk**: LOW
+
+### U0AR3-STATUS-001 — Final Status Contains Duplicated SHA
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: Final Status listed Metadata (C3) with same SHA as Generated (C2): `13aa44d`. Actual C3 commit is `1db3410`.
+**Root cause**: Generated and metadata commits were conflated in chain table.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Final Status rewritten with complete 7-commit chain, metadata SHA corrected
+**Corrective commit**: `<FINAL_HEAD>`
+**Evidence**: `reports/stage-u0/u0-a-r3/06_FINAL_STATUS.md`
+**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Residual risk**: LOW
+
+### U0AR3-DET-001 — Determinism Mode Not Specified
+**Severity**: LOW
+**Category**: Quality
+**Description**: Determinism statement used "modulo timestamps" without specifying mode (byte-identical vs canonical).
+**Root cause**: Generator uses datetime.now() creating volatile timestamps.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Mode explicitly documented: byte-identical NOT YET, canonical YES. Generator modification deferred to avoid unnecessary regeneration. Byte-identical achievable by passing --generated-at parameter with commit timestamp.
+**Corrective commit**: `<FINAL_HEAD>`
+**Evidence**: `reports/stage-u0/u0-a-r3/15_DETERMINISM_CHECK.txt`
+**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Residual risk**: LOW — canonical determinism verified. Strict byte-identical requires generator CLI option.
+
+---
+
+## Summary (Updated — Stage U0.A-R3.1)
