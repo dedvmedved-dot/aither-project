@@ -1,0 +1,35 @@
+PRE-AUDIT RAW — Stage U0.A-R3
+Raw command outputs for pre-audit verification.
+
+=== Git cat-file checks ===
+$ git cat-file -t 630885881c8e8994ab7f536df615ee52d5429de4
+commit
+$ git cat-file -t b132395f7a8e9c3b25d4cf510b3edf99914fc45d
+commit
+$ git cat-file -t bc3475b84a3d266f992046db125c65ed60506bd0
+commit
+$ git cat-file -t 13aa44d374269e27cfa00f7f1f53c2263a57945c
+commit
+
+=== git branch --contains ===
+$ git branch -a --contains 630885881c8e8994ab7f536df615ee52d5429de4
+* aither-v2
+  remotes/origin/aither-v2
+
+$ git branch -a --contains bc3475b84a3d266f992046db125c65ed60506bd0
+* aither-v2
+  remotes/origin/aither-v2
+
+$ git branch -a --contains 13aa44d374269e27cfa00f7f1f53c2263a57945c
+* aither-v2
+  remotes/origin/aither-v2
+
+=== Remote HEAD ===
+$ git ls-remote origin refs/heads/aither-v2
+13aa44d374269e27cfa00f7f1f53c2263a57945c
+
+=== Allowlist SHA check ===
+$ sha256sum aither-v2/services/ai-platform/app/main.py
+56300810ceb45f1a4886c80b885c8ec654bc6be25a0bcfcb878e4fe2647d80d7
+$ sha256sum aither-v2/services/portal-frontend/nginx.conf
+4f79ff3b322263c8ec309db4b2570b929ec556b7f6b83b971ba053b1a9df63a4

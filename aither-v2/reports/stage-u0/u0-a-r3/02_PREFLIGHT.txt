@@ -1,0 +1,58 @@
+# Preflight — Stage U0.A-R3
+# Timestamp: 2026-07-24 08:05 UTC
+# Operator: Hermes + DeepSeek
+
+=== git branch --show-current ===
+aither-v2
+
+=== git rev-parse HEAD ===
+b132395f7a8e9c3b25d4cf510b3edf99914fc45d
+
+=== git status --short ===
+ M aither-v2/services/ai-platform/app/main.py
+ M aither-v2/services/portal-frontend/nginx.conf
+?? aither-v2/evidence/rc2r/
+?? aither-v2/reports/rc2r/
+?? aither-v2/scripts/rc2r/
+
+=== git status --branch ===
+On branch aither-v2
+Your branch is up to date with 'origin/aither-v2'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   aither-v2/services/ai-platform/app/main.py
+	modified:   aither-v2/services/portal-frontend/nginx.conf
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	aither-v2/evidence/rc2r/
+	aither-v2/reports/rc2r/
+	aither-v2/scripts/rc2r/
+
+=== git remote -v ===
+origin	git@github.com:dedvmedved-dot/aither-project.git (fetch)
+origin	git@github.com:dedvmedved-dot/aither-project.git (push)
+
+=== Allowlisted dirty paths ===
+[ALLOWED] modified: aither-v2/services/ai-platform/app/main.py
+[ALLOWED] modified: aither-v2/services/portal-frontend/nginx.conf
+[ALLOWED] untracked: aither-v2/evidence/rc2r/ (52 files)
+[ALLOWED] untracked: aither-v2/reports/rc2r/ (7 files)
+[ALLOWED] untracked: aither-v2/scripts/rc2r/ (4 files)
+
+=== Unexpected dirty paths ===
+NONE
+
+=== Allowlist SHA-256 ===
+56300810ceb45f1a4886c80b885c8ec654bc6be25a0bcfcb878e4fe2647d80d7  aither-v2/services/ai-platform/app/main.py
+4f79ff3b322263c8ec309db4b2570b929ec556b7f6b83b971ba053b1a9df63a4  aither-v2/services/portal-frontend/nginx.conf
+
+=== HEAD Verification ===
+Expected: b132395f7a8e9c3b25d4cf510b3edf99914fc45d
+Actual:   b132395f7a8e9c3b25d4cf510b3edf99914fc45d
+Result:   MATCH
+
+=== Preflight Verdict ===
+PASSED — all checks OK, proceed to Stage U0.A-R3

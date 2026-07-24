@@ -1454,8 +1454,8 @@ async function main() {
       const method = req.method;
       const headers: any = { "Content-Type": "application/json" };
       // Generate admin JWT — Gateway verifies with shared secret
-      // Default Gateway secret is "aither-admin-secret" (JWT_SECRET env or ADMIN_SECRET fallback)
-      const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "aither-admin-secret";
+      // Default Gateway secret must be provided via env — NEVER hardcoded
+      const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || (() => { throw new Error("ADMIN_JWT_SECRET environment variable is required for Gateway admin access"); })();
       const adminToken = jwt.sign(
         { role: "admin", iat: Math.floor(Date.now() / 1000) },
         ADMIN_JWT_SECRET,

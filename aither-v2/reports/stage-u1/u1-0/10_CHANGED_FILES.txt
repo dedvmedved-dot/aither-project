@@ -1,0 +1,39 @@
+# Changed Files — Stage U1.0
+
+## New Files (Created)
+
+```
+docs/user-launch/USER_ACCESS_ARCHITECTURE.md
+docs/user-launch/ENDPOINT_MATRIX.md
+docs/user-launch/ACCESS_SECURITY_BASELINE.md
+docs/user-launch/STAGE_U1_ROADMAP.md
+docs/user-launch/ADR_U1_ACCESS.md
+reports/stage-u1/u1-0/00_EXECUTIVE_SUMMARY.md
+reports/stage-u1/u1-0/01_GIT_BASELINE.txt
+reports/stage-u1/u1-0/02_REPOSITORY_INVENTORY.txt
+reports/stage-u1/u1-0/03_RUNTIME_INVENTORY.txt
+reports/stage-u1/u1-0/04_CURRENT_ENDPOINTS.md
+reports/stage-u1/u1-0/05_TARGET_ENDPOINTS.md
+reports/stage-u1/u1-0/06_GAP_ANALYSIS.md
+reports/stage-u1/u1-0/07_SECURITY_FINDINGS.md
+reports/stage-u1/u1-0/08_RISKS_AND_BLOCKERS.md
+reports/stage-u1/u1-0/09_COMMANDS.log
+reports/stage-u1/u1-0/10_CHANGED_FILES.txt
+reports/stage-u1/u1-0/11_FINAL_STATUS.md
+```
+
+## Modified Files
+
+```
+docs/project-control/PROJECT_MASTER.md
+```
+
+## Unchanged (Pre-existing Local Changes)
+
+```
+services/ai-platform/app/main.py (modified, RC2R — not committed)
+services/portal-frontend/nginx.conf (modified, RC2R — not committed)
+evidence/rc2r/ (untracked — not committed)
+reports/rc2r/ (untracked — not committed)
+scripts/rc2r/ (untracked — not committed)
+```

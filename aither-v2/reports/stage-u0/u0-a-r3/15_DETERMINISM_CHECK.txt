@@ -1,0 +1,29 @@
+DETERMINISM CHECK — Stage U0.A-R3.2
+=====================================
+
+=== Mode ===
+byte-identical
+
+=== Timestamp source ===
+Snapshot commit timestamp (git show -s --format=%cI <snapshot_sha>)
+
+=== Procedure (two-run diff) ===
+Run 1: python3 scripts/repository_inventory.py --snapshot bc3475b --output-dir /tmp/u0ar32-run1 --generate
+Run 2: python3 scripts/repository_inventory.py --snapshot bc3475b --output-dir /tmp/u0ar32-run2 --generate
+Sleep between runs: 2 seconds
+
+=== Result ===
+diff -rq /tmp/u0ar32-run1 /tmp/u0ar32-run2 → exit code 0
+SHA-256 of all output files: MATCH across both runs
+
+=== Verification ===
+find /tmp/u0ar32-run1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/run1.sha256
+find /tmp/u0ar32-run2 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/run2.sha256
+diff /tmp/run1.sha256 /tmp/run2.sha256 → exit code 0
+
+=== Verdict ===
+Byte-identical determinism: PASSED ✅
+datetime.now() used for generated timestamp: NO
+Timestamp from snapshot: YES
+Two-run diff: EMPTY
+Check-only exit: 0

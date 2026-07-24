@@ -1,0 +1,27 @@
+# Reconciliation Raw — Stage U0.A-R2
+
+## Generation Base SHA: 01f95d8e4865e74a07cb297550b8c905c554b470
+
+## Raw Counts
+
+| Source | Count |
+|--------|------:|
+| git ls-files | 895 |
+| FILE_CATALOG.md | 895 |
+| FILE_METADATA.csv | 895 (+1 header) |
+| FILE_HASHES.txt | 895 |
+
+## Set Equality
+
+| Comparison | Missing | Extra | Status |
+|-----------|-------:|------:|--------|
+| git ls-files vs FILE_CATALOG.md | 0 | 0 | ✅ |
+| git ls-files vs FILE_METADATA.csv | 0 | 0 | ✅ |
+| git ls-files vs FILE_HASHES.txt | 0 | 0 | ✅ |
+| FILE_CATALOG.md vs FILE_METADATA.csv | 0 | 0 | ✅ |
+| FILE_CATALOG.md vs FILE_HASHES.txt | 0 | 0 | ✅ |
+| FILE_METADATA.csv vs FILE_HASHES.txt | 0 | 0 | ✅ |
+
+## Verdict
+
+ALL PASSED — all path sets are equal.

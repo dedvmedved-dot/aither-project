@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aither-stage17-services
+  namespace: aither-inference
+  labels:
+    app.kubernetes.io/part-of: aither
+    app.kubernetes.io/component: observability
+    stage: stage17
+spec:
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - aither-identity
+          - aither-portal-backend
+          - aither-ai-platform
+          - aither-portal-frontend
+  namespaceSelector:
+    matchNames:
+      - aither-inference
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: true

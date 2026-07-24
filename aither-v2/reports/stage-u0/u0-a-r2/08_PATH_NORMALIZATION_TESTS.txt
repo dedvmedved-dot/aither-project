@@ -1,0 +1,37 @@
+# Path Normalization Tests — Stage U0.A-R2
+
+## Confirmation
+
+| Check | Result |
+|-------|--------|
+| Octal escapes in paths | 0 |
+| External quote artifacts | 0 |
+| Incorrect quoted extensions | 0 |
+| UTF-8 decode errors | 0 |
+
+## Verification Method
+
+All paths from `git -c core.quotepath=false ls-files -z` are read as raw bytes,
+decoded as UTF-8, and normalized. Any path containing backslash-escaped octets
+or quote artifacts is flagged.
+
+## Raw evidence
+
+```
+$ python3 -c "
+import subprocess
+out = subprocess.run(['git', '-c', 'core.quotepath=false', 'ls-files', '-z'],
+    capture_output=True, cwd='/root/aither-v2')
+paths = [p for p in out.stdout.decode('utf-8', errors='replace').split('\0') if p]
+issues = 0
+for p in paths:
+    if '\\\\' in p and any(c in p for c in '01234567'):
+        issues += 1
+        print(f'OCTAL: {p}')
+    if p.endswith('\"'):
+        issues += 1
+        print(f'QUOTE: {p}')
+print(f'Total issues: {issues}')
+"
+Total issues: 0
+```

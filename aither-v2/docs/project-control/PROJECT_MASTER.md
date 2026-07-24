@@ -41,7 +41,87 @@ Working directory: aither-v2/
 | Stage 07.2 | Portal UI with Auth, Token Management and Chat Access | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 08 | MVP End-to-End Runtime Acceptance | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 09 | nginx-gateway-32b Replica Health / CrashLoopBackOff Remediation | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 10 | MVP Final Acceptance / RC1 Gate | **READY FOR TASK PREPARATION / NOT STARTED** |
+| Stage 10 | MVP Final Acceptance / RC1 Gate | **FAILED / CONNECTOR VERIFIED** |
+| Stage 10A | Audit Corrections | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10B | RC2R Evidence Quarantine | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10C | Release and Governance Corrections | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10D | Governance Alignment | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10E | Governance Closeout and Markdown Repair | **FAILED / CONNECTOR VERIFIED** |
+| Stage 10F | Deterministic Markdown Structure Repair | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10G | Stage 10F Closeout and Table Repair | **IN PROGRESS / NOT YET AUDITED** |
+| Stage U1.0 | Governance и фиксация архитектуры доступа | **IN PROGRESS / AWAITING EXTERNAL AUDIT** |
+
+## Track A — User Launch
+
+Priority: **HIGHEST**
+
+### Stage U1 Audit Status
+
+```
+Track A: User Launch
+
+Stage U1.0:
+PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit:
+11b0d6482ae667da4ed9d98edbe606272838b5c6
+
+Stage U0.A:
+IN PROGRESS / AWAITING EXTERNAL AUDIT
+
+Stage U1.1:
+NOT STARTED / BLOCKED BY STAGE U0.A
+
+Internal Pilot:
+NOT YET OPEN
+
+Stage U2:
+BLOCKED BY STAGE U1
+
+Production v1.0:
+NO-GO
+
+PROD-READY-01:
+OPEN
+```
+
+### Stage 10‑10G Audit Status
+
+```
+Stage 10: FAILED / CONNECTOR VERIFIED
+Reason: mandatory stop gate violation after dirty working tree detection.
+
+Stage 10A: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 18be3d5cf5f55bef9b61c8915ec826be9ea2360e
+
+Stage 10B: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 0dd4aa72ad969fbaf6472fb1190e078ddeb75a36
+
+Stage 10C: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: f65c6ee31b4138ead364556221c78f34bb758935
+
+Stage 10D: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 8dc7e019660d2a5e2ec558e6b98ebc2ea732eb77
+Finding DOC-MD-01: corrected in Stage 10E
+
+Stage 10E: FAILED / CONNECTOR VERIFIED
+Verified commit: fae8ceea384e812d8c3bb5fa4422aeb1d6202c20
+Reason: unmatched Markdown fence remained after claimed repair.
+
+Stage 10F: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 0997db7c5da5d4d065734b9bdc36d7fe13f3a518
+DOC-MD-02: CLOSED / CONNECTOR VERIFIED
+DOC-MD-03: CLOSED / CONNECTOR VERIFIED
+DOC-MD-04: corrected in Stage 10G
+GOV-10F-01: CLOSED WITH FINDING
+
+Stage 10G: IN PROGRESS / NOT YET AUDITED
+```
+
+```
+Release classification: INTERNAL PILOT RELEASE CANDIDATE
+Production v1.0: NO-GO
+PROD-READY-01: OPEN
+```
 
 
 ## 5. Accepted Decisions
@@ -57,7 +137,7 @@ Working directory: aither-v2/
 ## 6. Current Known Risks
 
 | Risk | Status |
-|---|---|
+|------|--------|
 | Gateway previously had ImagePullBackOff pods | RESOLVED |
 | Direct 32B vLLM access may bypass gateway policy | Accepted for MVP internal scope, controlled by BFF routing |
 | TP=2 not tested | Accepted; postponed |
@@ -65,7 +145,11 @@ Working directory: aither-v2/
 | BFF valid token test not collected | VPN instability blocked kubectl secret retrieval |
 | Production readiness not achieved | Not production-ready |
 
-## 7. MVP Principle
+## 7. Repository Maintenance Rules
+
+Every Stage that changes repository structure, adds documents, or changes architecture must update the Repository Index and related inventory documents.
+
+## 8. MVP Principle
 
 The MVP is accepted only when all required stages have evidence, logs, reports, and external audit approval.
 

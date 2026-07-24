@@ -1,0 +1,62 @@
+# Commands Log — Stage U1.0
+
+[UTC: 2026-07-24]
+COMMAND:
+git fetch origin && git branch --show-current && git rev-parse HEAD && git rev-parse origin/aither-v2 && git status -sb
+
+EXIT CODE: 0
+RESULT: Branch aither-v2, HEAD=4436ddb, origin in sync
+
+---
+
+[UTC: 2026-07-24]
+COMMAND:
+find . -maxdepth 4 -type f | sort
+
+EXIT CODE: 0
+RESULT: Repository structure inventoried
+
+---
+
+[UTC: 2026-07-24]
+COMMAND:
+find . -type f ( -name "*.yaml" -o -name "*.yml" -o -name "*.json" -o -name "*.conf" -o -name "*.env.example" -o -name "Dockerfile*" ) | sort
+
+EXIT CODE: 0
+RESULT: Config/manifest files inventoried
+
+---
+
+[UTC: 2026-07-24]
+COMMAND:
+grep -RInE "fb1\.spb\.ru|130\.17\.1\.90|10\.129\.13\.78|Ingress|Gateway|HTTPRoute|api/v1|chat/completions|api-keys|register|login|health" . --exclude-dir=.git
+
+EXIT CODE: 0
+RESULT: Route/address search completed — only 10.129.13.78 found in scripts and docs
+
+---
+
+[UTC: 2026-07-24]
+COMMAND:
+kubectl config current-context; kubectl get nodes -o wide; kubectl get ingress -A -o wide; kubectl get svc -A -o wide; kubectl get endpoints -A; kubectl get deploy -A -o wide; kubectl get pods -A -o wide; kubectl get gateway -A 2>/dev/null; kubectl get networkpolicy -A
+
+EXIT CODE: 0
+RESULT: Runtime inventory collected. 0 Ingress, 0 Gateway, 0 HTTPRoute. 11 pods all Running. 1 NetworkPolicy (vllm-ingress).
+
+---
+
+[UTC: 2026-07-24]
+COMMAND:
+grep -n "route\|router\|@app\.\|\.get(\|\.post(\|\.delete(\|/health\|/login\|/register\|/token\|/chat\|/docs" services/ai-platform/app/main.py services/portal-backend/app/main.py services/identity/app/main.py
+
+EXIT CODE: 0
+RESULT: All service routes documented.
+
+---
+
+[UTC: 2026-07-24]
+COMMAND:
+git diff --check
+
+EXIT CODE: 0
+RESULT: No whitespace errors.

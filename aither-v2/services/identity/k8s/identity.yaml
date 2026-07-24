@@ -1,0 +1,103 @@
+# WARNING: Secret is defined in identity-secret.example.yaml (DO NOT COMMIT REAL VALUES).
+# Ensure the Secret exists before deploying: kubectl get secret aither-identity-secret -n aither-inference
+#
+# PersistentVolumeClaim for Identity data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aither-identity-data
+  namespace: aither-inference
+  labels:
+    app: aither-identity
+    stage: "15"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aither-identity
+  namespace: aither-inference
+  labels:
+    app: aither-identity
+    stage: "15"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aither-identity
+  template:
+    metadata:
+      labels:
+        app: aither-identity
+        stage: "15"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: identity
+          image: 10.129.13.78:5000/aither-identity:stage18a-82fe433
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - secretRef:
+                name: aither-identity-secret
+          env:
+            - name: IDENTITY_DB_PATH
+              value: "/data/identity.db"
+            - name: IDENTITY_TOKEN_TTL
+              value: "86400"
+            - name: IDENTITY_LOG_LEVEL
+              value: "INFO"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: aither-identity-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aither-identity
+  namespace: aither-inference
+  labels:
+    app: aither-identity
+    stage: "15"
+spec:
+  type: ClusterIP
+  selector:
+    app: aither-identity
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http

@@ -1,0 +1,31 @@
+# Branch Inventory — Stage U0.A
+
+## Local Branches
+
+| Branch | HEAD SHA | Type | Description |
+|--------|----------|------|-------------|
+| aither-v2 | 11b0d6482ae667da4ed9d98edbe606272838b5c6 | Active (checked out) | Main development branch — all stages, governance, evidence |
+| main | 89340ee55b476257fe1b197027b761b93fc63423 | Historical | Legacy branch with earlier content and documentation |
+
+## Remote Branches
+
+| Branch | SHA | Notes |
+|--------|-----|-------|
+| remotes/origin/HEAD -> origin/main | 89340ee | Default remote HEAD points to main |
+| remotes/origin/aither-v2 | 11b0d648... | In sync with local aither-v2 |
+| remotes/origin/main | 89340ee... | In sync with local main |
+
+## Branch Relationships
+
+- aither-v2 diverged from main at merge-base: `35c8cdffb04bfb6a1c09ccc36138019ff4b213cd`
+- main branch has 73 commits not in aither-v2 (historical content)
+- aither-v2 branch has 6 commits not in main (recent stage work)
+
+## Branch Divergence
+
+- aither-v2 → main: `git log --oneline main..aither-v2` returns 6 commits (stages 10-10G, U1.0)
+- main → aither-v2: `git log --oneline aither-v2..main` returns ~73 commits (historical portal, training manual, docs)
+
+## Tags
+
+None

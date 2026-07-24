@@ -1,0 +1,39 @@
+LINK VERIFICATION — Stage U0.A-R3.2
+
+All links verified against working tree. Final URLs will use the evidence commit SHA,
+which is resolved after push.
+
+Base URL pattern: https://github.com/dedvmedved-dot/aither-project/blob/<EVIDENCE_COMMIT>/aither-v2/
+
+| Artifact | Exists in working tree | URL will resolve | Result |
+|----------|:----------------------:|:----------------:|:------:|
+| docs/repository/FILE_CATALOG.md | ✅ | ✅ | ✅ |
+| docs/repository/FILE_RECONCILIATION.md | ✅ | ✅ | ✅ |
+| docs/repository/VALIDATION_REPORT.md | ✅ | ✅ | ✅ |
+| docs/repository/STAGE_U0A_FINDINGS.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a/03_TRACKED_FILE_LIST.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a/05_FILE_METADATA.csv | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a/06_FILE_HASHES.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/00_EXECUTIVE_SUMMARY.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/01_GENERATED_COMMIT_INVESTIGATION.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/03_GENERATOR_FIX_REPORT.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/04_GENERATION_LOG.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/05_RECONCILIATION_RAW.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/06_FINAL_STATUS.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/07_VALIDATION_RAW.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/10_PRE_AUDIT_SELF_VERIFICATION.md | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/11_PRE_AUDIT_RAW.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/12_COMMIT_EXISTENCE_CHECKS.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/13_COMMIT_SCOPE_CHECKS.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/14_HASH_SAMPLE_VERIFICATION.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/15_DETERMINISM_CHECK.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/16_PLACEHOLDER_SCAN.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/17_LINK_VERIFICATION.txt | ✅ | ✅ | ✅ |
+| reports/stage-u0/u0-a-r3/18_FINAL_CHANGED_FILES.txt | ✅ | ✅ | ✅ |
+| scripts/repository_inventory.py | ✅ | ✅ | ✅ |
+
+Note: Evidence commit SHA is NOT embedded in any committed file by design.
+Replace <EVIDENCE_COMMIT> with the actual SHA from git rev-parse HEAD after commit.
+External verification: ChatGPT GitHub Connector.

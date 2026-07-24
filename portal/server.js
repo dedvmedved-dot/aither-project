@@ -1727,7 +1727,7 @@ async function main() {
             const method = req.method;
             const headers = { "Content-Type": "application/json" };
             // Generate admin JWT — Gateway verifies with shared secret
-            const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "change-me";
+            const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || require("child_process").execSync("false").toString().trim();
             const adminToken = jsonwebtoken_1.default.sign({ role: "admin", iat: Math.floor(Date.now() / 1000) }, ADMIN_JWT_SECRET, { algorithm: "HS256", expiresIn: "5m" });
             headers["Authorization"] = `Bearer ${adminToken}`;
             let body;

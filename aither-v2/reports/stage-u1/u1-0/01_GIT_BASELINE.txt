@@ -1,0 +1,16 @@
+origin	git@github.com:dedvmedved-dot/aither-project.git (fetch)
+origin	git@github.com:dedvmedved-dot/aither-project.git (push)
+/root/aither-v2
+/root/aither-v2
+aither-v2
+ M aither-v2/docs/project-control/PROJECT_MASTER.md
+ M aither-v2/services/ai-platform/app/main.py
+ M aither-v2/services/portal-frontend/nginx.conf
+?? aither-v2/docs/user-launch/
+?? aither-v2/evidence/rc2r/
+?? aither-v2/reports/rc2r/
+?? aither-v2/reports/stage-u1/
+?? aither-v2/scripts/rc2r/
+4436ddb docs(stage10g): close stage10f audit and repair status table
+origin	git@github.com:dedvmedved-dot/aither-project.git (fetch)
+origin	git@github.com:dedvmedved-dot/aither-project.git (push)

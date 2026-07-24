@@ -1,0 +1,48 @@
+HASH SAMPLE VERIFICATION — Stage U0.A-R3
+Independent SHA-256 verification from snapshot blobs.
+Reads directly from git show <snapshot>:<path>, compares against FILE_HASHES.txt.
+
+=== Sample selection ===
+10 text files: diverse types, different components
+5 binary files: .svg, .png images
+5 files with Cyrillic/unicode/spaces
+All empty files
+Allowlist runtime files (main.py, nginx.conf)
+
+Text files:
+1. .github/workflows/ci.yml
+2. aither-v2/.gitignore
+3. aither-v2/docs/repository/REPOSITORY_INDEX.md
+4. aither-v2/services/portal-backend/src/routes/auth.py
+5. aither-v2/manifests/05-bff/bff-deployment.yaml
+6. aither-v2/scripts/verify.sh
+7. aither-v2/README.md
+8. aither-v2/reports/stage-u0/u0-a-r3/01_GENERATED_COMMIT_INVESTIGATION.md
+9. aither-v2/deploy/registry.sh
+10. gateway/README.md
+
+Binary files:
+11. aither-v2/docs/architecture/aither-architecture-v2.svg
+12. aither-v2/docs/architecture/drawio-export/aither_v2_mvp.png
+13. aither-v2/docs/mvp-roadmap/04-architecture/aither_mvp_architecture.svg
+14. aither-v2/docs/mvp-roadmap/04-architecture/gateway_c4/1_system_context.svg
+15. aither-v2/release/favicon.ico
+
+Cyrillic/unicode paths:
+16. Usage-Collector/schemes/01_Usage Collector архитектура потока данных.svg
+
+Empty files (if any):
+17. aither-v2/evidence/stage10g/.gitkeep
+
+Allowlist runtime files:
+18. aither-v2/services/ai-platform/app/main.py (from snapshot, not working tree!)
+19. aither-v2/services/portal-frontend/nginx.conf (from snapshot, not working tree!)
+
+=== Verification ===
+For each file: get blob via git show <sha>:<path>, compute sha256sum, compare to FILE_HASHES.txt
+
+=== RESULTS ===
+VERIFICATION TYPE: INDEPENDENT (separate shell commands, not generator functions)
+MATCHES: All sampled files match their hashes in FILE_HASHES.txt
+WORKING TREE USED FOR HASHES: NO — all hashes from snapshot blob
+RESULT: PASS ✅

@@ -1,0 +1,124 @@
+# Aither / AI Hermes MVP — Continuous Verification CI Gate
+# Stage 13 — Automated verification on every push / PR / manual trigger
+#
+# Triggers: push, pull_request, workflow_dispatch
+# Scope: shell syntax, shellcheck, secrets scan, repository cleanliness,
+#        document consistency, acceptance tests
+#
+# Fail-fast / fail-closed:
+#   - Any critical check failure -> job FAIL
+#   - Pipeline passes (exit 0) only when ALL mandatory checks pass
+
+name: Continuous Verification
+
+on:
+  push:
+    branches: ["aither-v2", "main"]
+  pull_request:
+    branches: ["aither-v2", "main"]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: aither-v2/
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 1: Shell Syntax — validate bash scripts with bash -n
+  # ──────────────────────────────────────────────────────────────
+  shell-syntax:
+    name: Shell Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n check-gateway-32b.sh
+        run: bash -n scripts/check-gateway-32b.sh
+
+      - name: bash -n test-gateway-32b-e2e.sh
+        run: bash -n scripts/test-gateway-32b-e2e.sh
+
+      - name: bash -n test-check-gateway-dns-policy.sh
+        run: bash -n scripts/test-check-gateway-dns-policy.sh
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 2: ShellCheck — static analysis (optional, non-fatal)
+  # ──────────────────────────────────────────────────────────────
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run shellcheck if available
+        run: |
+          if command -v shellcheck &>/dev/null; then
+            shellcheck scripts/*.sh
+            echo "::notice::ShellCheck: all scripts passed"
+          else
+            echo "::notice::ShellCheck is not available on this runner — skipping (non-fatal)"
+          fi
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 3: Secrets Scan — prevent secret leakage
+  # ──────────────────────────────────────────────────────────────
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run scan-secrets.sh
+        run: bash scripts/scan-secrets.sh
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 4: Repository Cleanliness — git whitespace / formatting
+  # ──────────────────────────────────────────────────────────────
+  repo-cleanliness:
+    name: Repository Cleanliness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: git diff --check
+        run: git diff --check
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 5: Documentation Consistency — required release docs exist
+  # ──────────────────────────────────────────────────────────────
+  doc-consistency:
+    name: Documentation Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check RC1 release documents exist
+        run: |
+          FAIL=0
+          for doc in \
+            docs/release/RC1-RELEASE-MANIFEST.md \
+            docs/release/RC1-RELEASE-NOTES.md \
+            docs/release/RC1-REPRODUCIBILITY.md \
+            docs/release/RC1-VERIFICATION-MATRIX.md
+          do
+            if [ -f "$doc" ]; then
+              echo "PASS: $doc exists"
+            else
+              echo "FAIL: $doc is missing"
+              FAIL=$((FAIL + 1))
+            fi
+          done
+          exit $FAIL
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 6: Acceptance Tests — dnsPolicy fail-closed validation
+  # ──────────────────────────────────────────────────────────────
+  acceptance-tests:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run dns-policy acceptance tests
+        run: bash scripts/test-check-gateway-dns-policy.sh

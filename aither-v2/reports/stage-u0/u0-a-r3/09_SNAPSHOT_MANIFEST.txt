@@ -1,0 +1,86 @@
+SNAPSHOT MANIFEST — Stage U0.A-R3.2
+==============================
+
+stage:
+    U0.A-R3.2
+
+baseline_sha:
+    4be97e27e17f3b263f67bba965a2f7df174922c2
+
+inventory_snapshot_sha:
+    bc3475b84a3d266f992046db125c65ed60506bd0
+
+r3_generated_inventory_commit_sha:
+    13aa44d374269e27cfa00f7f1f53c2263a57945c
+
+r3_metadata_commit_sha:
+    1db3410c01b1a16827d35ad26c592931d9b30a6d
+
+r3_1_preparation_commit_sha:
+    e91ceb5109939962c75374b86b5e941cadf45d56
+
+r3_1_finalization_commit_sha:
+    4be97e27e17f3b263f67bba965a2f7df174922c2
+
+evidence_commit_identity:
+    SELF — resolve as commit containing this manifest
+
+evidence_commit_parent_sha:
+    4be97e27e17f3b263f67bba965a2f7df174922c2
+
+post_push_remote_sha:
+    NOT STORED BY DESIGN
+
+post_push_verification:
+    REQUIRED
+
+post_push_verification_method:
+    git ls-remote plus ChatGPT GitHub Connector
+
+generator_path:
+    scripts/repository_inventory.py
+
+generator_sha256:
+    b43e3372ad628824abdb3d8ca4e4e4482414a79dcc5bc934c4e08ebb9066e44a
+
+generation_timestamp_source:
+    snapshot commit timestamp
+
+determinism_mode:
+    byte-identical
+
+determinism_result:
+    PASSED
+
+tracked_count:
+    906
+
+catalog_count:
+    906
+
+csv_count:
+    906
+
+hash_count:
+    906
+
+all_sets_equal:
+    TRUE
+
+missing_count:
+    0
+
+extra_count:
+    0
+
+duplicate_count:
+    0
+
+utf8_error_count:
+    0
+
+octal_escape_count:
+    0
+
+active_placeholder_count:
+    0

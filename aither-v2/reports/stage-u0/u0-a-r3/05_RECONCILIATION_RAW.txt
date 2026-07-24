@@ -1,0 +1,22 @@
+RECONCILIATION RAW — Stage U0.A-R3
+Snapshot: bc3475b84a3d266f992046db125c65ed60506bd0
+
+=== Counts ===
+git ls-files tracked: 906
+FILE_CATALOG.md entries: 906
+FILE_METADATA.csv entries: 906
+FILE_HASHES.txt entries: 906
+
+=== Set differences ===
+git ls-files vs FILE_CATALOG.md: missing=0, extra=0, duplicates=0
+git ls-files vs FILE_METADATA.csv: missing=0, extra=0, duplicates=0
+git ls-files vs FILE_HASHES.txt: missing=0, extra=0, duplicates=0
+FILE_CATALOG.md vs FILE_METADATA.csv: missing=0, extra=0, duplicates=0
+FILE_CATALOG.md vs FILE_HASHES.txt: missing=0, extra=0, duplicates=0
+FILE_METADATA.csv vs FILE_HASHES.txt: missing=0, extra=0, duplicates=0
+
+=== Set equality ===
+tracked == catalog == csv == hash: TRUE
+
+=== Verdict ===
+PASSED — all 4 sources have identical path sets

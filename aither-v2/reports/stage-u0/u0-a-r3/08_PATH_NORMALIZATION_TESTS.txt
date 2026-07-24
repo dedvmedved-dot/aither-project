@@ -1,0 +1,39 @@
+PATH NORMALIZATION TESTS — Stage U0.A-R3
+Verify that all paths in the inventory are properly normalized UTF-8.
+
+=== Expected counts ===
+octal escapes: 0
+external quote artifacts: 0
+incorrect quoted extensions: 0
+UTF-8 decode errors: 0
+
+=== Verification method ===
+All paths are read via `git -c core.quotepath=false ls-files -z`, split by NUL.
+Paths are then checked for:
+1. Octal escape sequences (backslash followed by digits)
+2. Leading/trailing quotes that are part of path
+3. File extension with trailing quote (e.g. '.svg"')
+4. UTF-8 decode failures
+
+=== Generator normalization logic ===
+1. Decode raw bytes as UTF-8
+2. Split by \0
+3. Remove empty entries
+4. Replace backslashes with forward slashes
+5. Sort by set (deduplicate)
+
+=== Edge cases handled ===
+- Spaces: NATIVE — NUL delimiter preserves them
+- Cyrillic: NATIVE — -c core.quotepath=false outputs raw UTF-8
+- Quotes: NATIVE — -z suppresses quoting
+- Special characters: NATIVE — raw binary output
+
+=== Results ===
+All paths from `git ls-files -z` are already normalized UTF-8.
+No normalization needed beyond split and sort.
+
+OVERALL: PASS
+- Octal escapes in path strings: 0
+- External quote artifacts: 0
+- Incorrect quoted extensions: 0
+- UTF-8 decode errors: 0

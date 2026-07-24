@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-grafana-dashboards
+  namespace: aither-inference
+  labels:
+    app.kubernetes.io/part-of: aither
+    app.kubernetes.io/component: observability
+    grafana_dashboard: "1"
+    stage: stage17
+data:
+  system-overview.json: |
+    {{ include "docs/stage17/grafana/dashboard-system-overview.json" | nindent 4 }}
+  ai-platform.json: |
+    {{ include "docs/stage17/grafana/dashboard-ai-platform.json" | nindent 4 }}
+  gateway.json: |
+    {{ include "docs/stage17/grafana/dashboard-gateway.json" | nindent 4 }}
+  identity.json: |
+    {{ include "docs/stage17/grafana/dashboard-identity.json" | nindent 4 }}
+  portal.json: |
+    {{ include "docs/stage17/grafana/dashboard-portal.json" | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-prometheus-rules
+  namespace: aither-inference
+  labels:
+    app.kubernetes.io/part-of: aither
+    app.kubernetes.io/component: observability
+    stage: stage17
+data:
+  alert-rules.yaml: |
+    {{ include "docs/stage17/prometheus/alert-rules.yaml" | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-fluentbit-config
+  namespace: aither-inference
+  labels:
+    app.kubernetes.io/part-of: aither
+    app.kubernetes.io/component: observability
+    stage: stage17
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        1
+        Log_Level    info
+        Parsers_File parsers.conf
+
+    [INPUT]
+        Name         tail
+        Path         /var/log/containers/*.log
+        Tag          kube.*
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+
+    [FILTER]
+        Name         kubernetes
+        Match        kube.*
+        Merge_Log    On
+        Keep_Log     Off
+
+    [OUTPUT]
+        Name         es
+        Match        *
+        Host         ${ES_HOST}
+        Port         ${ES_PORT}
+        Index        aither-logs-${DATE}
+        Type         _doc

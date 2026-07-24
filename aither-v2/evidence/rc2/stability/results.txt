@@ -1,0 +1,38 @@
+# Stability Test Report
+
+**Stage:** RC2  
+**Date:** 2026-07-23  
+**File:** `evidence/rc2/stability/results.txt`
+
+---
+
+## Test Summary
+
+| Metric | Value |
+|--------|-------|
+| Total requests | 20 (Hermes 20x) |
+| Successful | 20/20 (100%) |
+| Errors | 0 |
+| Avg latency | 0.47s |
+| Min latency | 0.23s |
+| Max latency | 0.56s |
+
+## Per-Request Data
+
+```
+[ 1/20] 266ms  [ 2/20] 511ms  [ 3/20] 509ms  [ 4/20] 230ms
+[ 5/20] 506ms  [ 6/20] 505ms  [ 7/20] 508ms  [ 8/20] 505ms
+[ 9/20] 562ms  [10/20] 504ms  [11/20] 507ms  [12/20] 500ms
+[13/20] 506ms  [14/20] 505ms  [15/20] 234ms  [16/20] 509ms
+[17/20] 505ms  [18/20] 516ms  [19/20] 518ms  [20/20] 507ms
+```
+
+## Stability Assessment
+
+- **No timeouts:** min 0.23s, max 0.56s — all well within 120s timeout
+- **Consistent latency:** std dev ~0.10s — no performance degradation
+- **No errors:** 0 HTTP errors, 0 connection errors, 0 retries
+
+## Note
+
+Full 1000-request stability test could not be executed due to persistent K8s API intermittency (documented limitation K8S-API-01). The Hermes 20x test confirms the system handles sequential requests without degradation.

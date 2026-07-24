@@ -1,0 +1,87 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "hideControls": false,
+  "id": null,
+  "links": [],
+  "tags": ["aither", "observability", "stage17", "ai-platform"],
+  "title": "Aither — AI Platform",
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active API Keys",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "none" }
+      },
+      "targets": [
+        {"expr": "ai_platform_active_api_keys", "legendFormat": "Active Keys"}
+      ],
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Active Conversations",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "none" }
+      },
+      "targets": [
+        {"expr": "ai_platform_active_conversations", "legendFormat": "Active Conversations"}
+      ],
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "Gateway Requests Rate (per second)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(ai_platform_gateway_requests_total[5m])", "legendFormat": "Requests"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 4 }
+    },
+    {
+      "id": 4,
+      "title": "Gateway Error Rate (per second)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(ai_platform_gateway_errors_total[5m])", "legendFormat": "Errors"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 10 }
+    },
+    {
+      "id": 5,
+      "title": "Request Latency (ms)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"ai-platform\"}[5m])) by (le))", "legendFormat": "P95"},
+        {"expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{service=\"ai-platform\"}[5m])) by (le))", "legendFormat": "P50"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "id": 6,
+      "title": "HTTP Errors by Type",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(errors_total{service=\"ai-platform\"}[5m])", "legendFormat": "{{type}}"}
+      ],
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 22 }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+COMMIT CHAIN — Stage U0.A-R3.2
+
+=== Full Stage chain (real commits) ===
+
+630885881c8e8994ab7f536df615ee52d5429de4  Baseline (U0.A-R1)
+    ↓
+b132395f7a8e9c3b25d4cf510b3edf99914fc45d  R2 metadata
+    ↓
+bc3475b84a3d266f992046db125c65ed60506bd0  R3 tooling corrective (GENERATION_BASE_SHA)
+    ↓
+13aa44d374269e27cfa00f7f1f53c2263a57945c  R3 generated inventory
+    ↓
+1db3410c01b1a16827d35ad26c592931d9b30a6d  R3 metadata finalization
+    ↓
+e91ceb5109939962c75374b86b5e941cadf45d56  R3.1 preparation
+    ↓
+4be97e27e17f3b263f67bba965a2f7df174922c2  R3.1 finalization
+    ↓
+SELF                                    R3.2 evidence commit
+
+=== SELF identity ===
+Parent: 4be97e27e17f3b263f67bba965a2f7df174922c2
+Actual SHA: Resolved after commit creation and push
+
+=== Verification ===
+Chain is linear:                        YES
+No unexpected merge commits:            YES
+No missing parents:                     YES
+No force rewrite detected:              YES
+R3.2 parent (4be97e2) verified:         YES

@@ -56,7 +56,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: ai-platform
-          image: 10.129.13.78:5000/ai-platform:u1-3-models-fix
+          image: 10.129.13.78:5000/aither-ai-platform:stage18a-82fe433
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -77,8 +77,6 @@ spec:
                 secretKeyRef:
                   name: vllm-api-key
                   key: VLLM_API_KEY
-            - name: AI_PLATFORM_14B_URL
-              value: "http://vllm-14b-instruct.aither-inference.svc:8000"
           volumeMounts:
             - name: data
               mountPath: /data
@@ -116,11 +114,10 @@ metadata:
     app: aither-ai-platform
     stage: "16"
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: aither-ai-platform
   ports:
     - port: 8000
       targetPort: 8000
       name: http
-      nodePort: 30902

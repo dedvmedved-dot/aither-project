@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aither — AI Platform</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="main-nav" style="display:none;">
+    <div class="nav-brand">Aither</div>
+    <div class="nav-links">
+      <a href="#" data-page="dashboard" class="nav-link">Dashboard</a>
+      <a href="#" data-page="models" class="nav-link">Models</a>
+      <a href="#" data-page="api-keys" class="nav-link">API Keys</a>
+      <a href="#" data-page="assistants" class="nav-link">Assistants</a>
+      <a href="#" data-page="chats" class="nav-link">Chats</a>
+      <a href="#" data-page="profile" class="nav-link">Profile</a>
+      <a href="#" data-page="status" class="nav-link">Status</a>
+    </div>
+    <div class="nav-user">
+      <span class="nav-username" id="nav-username"></span>
+      <span class="nav-role-badge" id="nav-role-badge"></span>
+      <button class="btn btn-sm btn-outline" id="btn-logout">Logout</button>
+    </div>
+  </nav>
+
+  <!-- Login Page -->
+  <div class="page active" id="page-login">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Aither</h1>
+        <p class="text-muted">AI Platform — Beta v0.9</p>
+      </div>
+      <div class="alert alert-danger" id="login-error" style="display:none;"></div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-input" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">Sign In</button>
+      </form>
+      <div class="auth-footer"><p class="text-muted">Aither v1.0.0 — Stage 16</p></div>
+    </div>
+  </div>
+
+  <!-- Dashboard Page -->
+  <div class="page" id="page-dashboard">
+    <div class="container">
+      <h1>Dashboard</h1>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-title">Account</div>
+          <div class="card-body">
+            <p>Logged in as <strong id="dash-username"></strong></p>
+            <p>Role: <span class="role-badge" id="dash-role"></span></p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">System</div>
+          <div class="card-body">
+            <p>Version: <span id="dash-version">—</span></p>
+            <p>Status: <span class="status-indicator" id="dash-status">Checking...</span></p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">AI Platform</div>
+          <div class="card-body">
+            <p><a href="#" onclick="showPage('models');return false;">Models</a></p>
+            <p><a href="#" onclick="showPage('api-keys');return false;">API Keys</a></p>
+            <p><a href="#" onclick="showPage('assistants');return false;">Assistants</a></p>
+            <p><a href="#" onclick="showPage('chats');return false;">Chats</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Models Page -->
+  <div class="page" id="page-models">
+    <div class="container">
+      <h1>Models</h1>
+      <div id="models-admin-bar" style="display:none;margin-bottom:16px;">
+        <button class="btn btn-sm btn-primary" id="btn-create-model">+ Add Model</button>
+      </div>
+      <div id="models-content"><p class="text-muted">Loading models...</p></div>
+    </div>
+  </div>
+
+  <!-- API Keys Page -->
+  <div class="page" id="page-api-keys">
+    <div class="container">
+      <h1>API Keys</h1>
+      <button class="btn btn-sm btn-primary" id="btn-create-apikey" style="margin-bottom:16px;">+ Create API Key</button>
+      <div id="apikeys-content"><p class="text-muted">Loading API Keys...</p></div>
+    </div>
+  </div>
+
+  <!-- Assistants Page -->
+  <div class="page" id="page-assistants">
+    <div class="container">
+      <h1>Assistants</h1>
+      <button class="btn btn-sm btn-primary" id="btn-create-assistant" style="margin-bottom:16px;">+ Create Assistant</button>
+      <div id="assistants-content"><p class="text-muted">Loading assistants...</p></div>
+    </div>
+  </div>
+
+  <!-- Chats Page -->
+  <div class="page" id="page-chats">
+    <div class="container">
+      <h1>Chats</h1>
+      <div style="display:flex;gap:16px;margin-bottom:16px;">
+        <button class="btn btn-sm btn-primary" id="btn-new-chat">+ New Chat</button>
+        <select id="chat-assistant-select" class="form-input" style="width:auto;flex:1;">
+          <option value="">No assistant</option>
+        </select>
+      </div>
+      <div id="chats-list" style="margin-bottom:16px;"><p class="text-muted">Loading chats...</p></div>
+      <div id="chat-messages" class="chat-messages" style="display:none;"></div>
+      <div id="chat-input-area" style="display:none;margin-top:12px;">
+        <div class="form-group" style="display:flex;gap:8px;">
+          <textarea id="chat-input" class="form-input" placeholder="Type a message..." rows="3" style="flex:1;resize:vertical;"></textarea>
+          <button class="btn btn-primary" id="btn-send-message" style="align-self:flex-end;">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Page -->
+  <div class="page" id="page-profile">
+    <div class="container">
+      <h1>Profile</h1>
+      <div class="card">
+        <div class="card-title">User Information</div>
+        <div class="card-body">
+          <div class="info-row"><span class="info-label">User ID</span><span class="info-value" id="profile-id">—</span></div>
+          <div class="info-row"><span class="info-label">Username</span><span class="info-value" id="profile-username">—</span></div>
+          <div class="info-row"><span class="info-label">Role</span><span class="info-value" id="profile-role">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Page -->
+  <div class="page" id="page-status">
+    <div class="container">
+      <h1>System Status</h1>
+      <div class="card">
+        <div class="card-title">Services</div>
+        <div class="card-body" id="status-content"><p>Loading...</p></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Version</div>
+        <div class="card-body" id="version-content"><p>Loading...</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal-overlay" id="modal-overlay" style="display:none;">
+    <div class="modal" id="modal-content"></div>
+  </div>
+
+  <div class="loading-overlay" id="loading-overlay" style="display:none;">
+    <div class="spinner"></div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
