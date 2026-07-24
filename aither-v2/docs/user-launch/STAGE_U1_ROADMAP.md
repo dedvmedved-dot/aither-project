@@ -12,7 +12,10 @@ Priority: HIGHEST
 ```
 Stage U1 — Internal Pilot Readiness
   │
-  ├── U1.0 — Governance и фиксация архитектуры доступа  ← CURRENT
+  ├── U1.0 — Governance и фиксация архитектуры доступа
+  │     ↓
+  ├── U0.A — Repository Inventory & Documentation Index  ← CURRENT
+  │     ↓
   ├── U1.1 — DNS, сеть и TLS
   ├── U1.2 — Ingress и маршрутизация
   ├── U1.3 — Web Chat и управление API Key
@@ -27,7 +30,7 @@ Stage U2 — Limited Beta
 
 ## Stage Descriptions
 
-### U1.0 — Governance и фиксация архитектуры доступа (CURRENT)
+### U1.0 — Governance и фиксация архитектуры доступа (PASSED WITH FINDINGS / CONNECTOR VERIFIED)
 
 - Define user access architecture
 - Inventory current runtime and Git state
@@ -35,6 +38,23 @@ Stage U2 — Limited Beta
 - Define security baseline
 - Document ADRs
 - Create evidence reports
+
+### U0.A — Repository Inventory & Documentation Index (CURRENT)
+
+- Full Git baseline verification
+- Branch inventory
+- Complete file inventory with categorization
+- Directory catalog
+- File metadata and duplicate scanning
+- Reference and dependency scanning
+- Source of truth identification
+- Documentation index
+- CMDB creation
+- Stale and orphan analysis
+- Markdown validation
+- Secret scan
+- Cleanup plan (proposals only)
+- Maintenance rules
 
 ### U1.1 — DNS, сеть и TLS
 
@@ -115,8 +135,9 @@ Stage U2 — Limited Beta
 
 | Stage | Status |
 |-------|--------|
-| U1.0 | AWAITING EXTERNAL AUDIT |
-| U1.1 | NOT STARTED |
+| U1.0 | PASSED WITH FINDINGS / CONNECTOR VERIFIED |
+| U0.A | IN PROGRESS / AWAITING EXTERNAL AUDIT |
+| U1.1 | NOT STARTED / BLOCKED BY U0.A |
 | U1.2 | NOT STARTED |
 | U1.3 | NOT STARTED |
 | U1.4 | NOT STARTED |

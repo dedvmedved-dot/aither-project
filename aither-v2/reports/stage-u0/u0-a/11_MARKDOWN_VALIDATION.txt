@@ -1,0 +1,27 @@
+# Markdown Validation — Stage U0.A
+Generated: 2026-07-24T02:02:57Z
+
+## All Markdown Files
+343
+
+## Orphaned fences check (unmatched ```)
+status.md:15
+
+## Double-pipe table rows (bad format)
+ROADMAP.md
+aither-v2/docs/stage16/SECURITY-NOTES.md
+aither-v2/reports/stage10g/table_repair.md
+docs/user-guide.md
+(empty = none found)
+
+## Files with breakable whitespace
+ROADMAP.md
+Usage-Collector/LOG.md
+Usage-Collector/article.md
+Usage-Collector/protocol.md
+aither-article/article.md
+aither-send/article.md
+aither-v2/03-vllm-14b-deploy/docs/api-stability-100-results.md
+aither-v2/03-vllm-14b-deploy/docs/current-status.md
+aither-v2/03-vllm-14b-deploy/docs/final-report-deployment.md
+aither-v2/03-vllm-14b-deploy/docs/honest-final-report.md

@@ -1,0 +1,68 @@
+# Git Baseline — Stage U0.A
+
+## Repository
+
+URL: https://github.com/dedvmedved-dot/aither-project
+Local path: /root/aither-v2
+Working directory: aither-v2/
+
+## Branch
+
+aither-v2 (active)
+
+## HEAD
+
+11b0d6482ae667da4ed9d98edbe606272838b5c6
+
+## HEAD Description
+
+docs(stage-u1.0): define user access architecture and governance
+
+## Upstream Status
+
+Your branch is up to date with 'origin/aither-v2'.
+
+## Total Tracked Files (git ls-files)
+
+855
+
+## File Categories (by location)
+
+- Inside aither-v2/: 563 files
+- Outside aither-v2/ (root level): 292 files
+
+## Git Status
+
+### Modified (not staged)
+
+1. aither-v2/docs/project-control/PROJECT_MASTER.md
+2. aither-v2/docs/user-launch/STAGE_U1_ROADMAP.md
+3. aither-v2/reports/stage-u1/u1-0/11_FINAL_STATUS.md
+4. aither-v2/services/ai-platform/app/main.py
+5. aither-v2/services/portal-frontend/nginx.conf
+
+### Untracked
+
+- aither-v2/evidence/rc2r/ (directory, ~50+ files)
+- aither-v2/reports/rc2r/ (directory)
+- aither-v2/scripts/rc2r/ (directory)
+- aither-v2/scripts/repository_inventory.py
+
+## Commit Chain (recent)
+
+```
+11b0d64 docs(stage-u1.0): define user access architecture and governance
+4436ddb docs(stage10g): close stage10f audit and repair status table
+0997db7 docs(stage10f): repair handover fence structure
+fae8cee docs(stage10e): close stage10d audit and repair handover markdown
+8dc7e01 docs(stage10d): align governance with stage10 audit status
+f65c6ee docs(stage10c): correct release status and rc2 claims
+0dd4aa7 docs(stage10b): classify rc2r changes and audit evidence safety
+18be3d5 docs(stage10a): correct audit summary and record governance violation
+2b1af14 docs(stage10): add execution summary
+f020aba docs(stage10): repository audit reports
+```
+
+## Tags
+
+None

@@ -1,0 +1,84 @@
+M	aither-v2/docs/project-control/PROJECT_MASTER.md
+M	aither-v2/docs/user-launch/STAGE_U1_ROADMAP.md
+M	aither-v2/reports/stage-u1/u1-0/11_FINAL_STATUS.md
+M	aither-v2/services/ai-platform/app/main.py
+M	aither-v2/services/portal-frontend/nginx.conf
+---
+ aither-v2/docs/project-control/PROJECT_MASTER.md   | 17 ++++++++++---
+ aither-v2/docs/user-launch/STAGE_U1_ROADMAP.md     | 29 +++++++++++++++++++---
+ aither-v2/reports/stage-u1/u1-0/11_FINAL_STATUS.md |  2 +-
+ aither-v2/services/ai-platform/app/main.py         | 22 +++++++++++++++-
+ aither-v2/services/portal-frontend/nginx.conf      |  9 +++++++
+ 5 files changed, 69 insertions(+), 10 deletions(-)
+---UNTRACKED---
+aither-v2/evidence/rc2r/backup-restore/backup-output.txt
+aither-v2/evidence/rc2r/backup-restore/backup-run.txt
+aither-v2/evidence/rc2r/backup-restore/restore-test.txt
+aither-v2/evidence/rc2r/environment/deployments.txt
+aither-v2/evidence/rc2r/environment/describe-n8-tail.txt
+aither-v2/evidence/rc2r/environment/describe-nodes-head.txt
+aither-v2/evidence/rc2r/environment/disk-usage.txt
+aither-v2/evidence/rc2r/environment/ingress.txt
+aither-v2/evidence/rc2r/environment/kubectl-version.txt
+aither-v2/evidence/rc2r/environment/n7-nvidia-smi.txt
+aither-v2/evidence/rc2r/environment/n8-system.txt
+aither-v2/evidence/rc2r/environment/nodes-short.txt
+aither-v2/evidence/rc2r/environment/nodes.txt
+aither-v2/evidence/rc2r/environment/nvidia-smi.txt
+aither-v2/evidence/rc2r/environment/pods.txt
+aither-v2/evidence/rc2r/environment/pv.txt
+aither-v2/evidence/rc2r/environment/pvc.txt
+aither-v2/evidence/rc2r/environment/ram-usage.txt
+aither-v2/evidence/rc2r/environment/services.txt
+aither-v2/evidence/rc2r/environment/statefulsets.txt
+aither-v2/evidence/rc2r/environment/top-nodes.txt
+aither-v2/evidence/rc2r/environment/top-pods.txt
+aither-v2/evidence/rc2r/kubernetes/apiserver-logs.txt
+aither-v2/evidence/rc2r/kubernetes/k8s-api-100.log
+aither-v2/evidence/rc2r/kubernetes/n8-kubectl-pods.txt
+aither-v2/evidence/rc2r/load/baseline-benchmark.txt
+aither-v2/evidence/rc2r/network/apiserver-livez.txt
+aither-v2/evidence/rc2r/network/apiserver-readyz.txt
+aither-v2/evidence/rc2r/network/conntrack-analysis.txt
+aither-v2/evidence/rc2r/network/ping-n7.txt
+aither-v2/evidence/rc2r/network/ping-n8.txt
+aither-v2/evidence/rc2r/network/ssh-tcp-100-n8.log
+aither-v2/evidence/rc2r/network/tcp-22-n7.txt
+aither-v2/evidence/rc2r/network/tcp-22-n8.txt
+aither-v2/evidence/rc2r/network/tcp-6443-100.log
+aither-v2/evidence/rc2r/network/tcp-6443-retry.txt
+aither-v2/evidence/rc2r/network/tcp-6443.txt
+aither-v2/evidence/rc2r/sqlite/api-key.txt
+aither-v2/evidence/rc2r/sqlite/auth-token.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-result.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-run.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-v2.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-v3.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-v4.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-v5.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-v6.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-v7.txt
+aither-v2/evidence/rc2r/sqlite/concurrency-test-v8.txt
+aither-v2/evidence/rc2r/sqlite/db-baseline.txt
+aither-v2/evidence/rc2r/sqlite/db-tables.txt
+aither-v2/evidence/rc2r/sqlite/deploy-image.txt
+aither-v2/evidence/rc2r/sqlite/pod-code-check.txt
+aither-v2/reports/rc2r/environment-baseline.md
+aither-v2/reports/rc2r/kubernetes-stability.md
+aither-v2/reports/rc2r/monitoring-alerting.md
+aither-v2/reports/rc2r/pass-fail-matrix.md
+aither-v2/reports/rc2r/production-readiness.md
+aither-v2/reports/rc2r/security-hardening.md
+aither-v2/reports/rc2r/sqlite-concurrency.md
+aither-v2/reports/stage-u0/u0-a/03_TRACKED_FILE_LIST.txt
+aither-v2/reports/stage-u0/u0-a/04_DIRECTORY_TREE.txt
+aither-v2/reports/stage-u0/u0-a/05_FILE_METADATA.csv
+aither-v2/reports/stage-u0/u0-a/06_FILE_HASHES.txt
+aither-v2/reports/stage-u0/u0-a/07_DUPLICATE_SCAN.txt
+aither-v2/reports/stage-u0/u0-a/08_REFERENCE_SCAN.txt
+aither-v2/reports/stage-u0/u0-a/13_CHANGED_FILES.txt
+aither-v2/scripts/rc2r/k8s-stability-test.sh
+aither-v2/scripts/rc2r/sequential-1000-test.py
+aither-v2/scripts/rc2r/sequential-1000-test.sh
+aither-v2/scripts/rc2r/sqlite-concurrency-test.py
+aither-v2/scripts/repository_inventory.py

@@ -14,7 +14,7 @@ aither-v2
 
 ## Commit SHA
 
-(To be added after commit)
+11b0d6482ae667da4ed9d98edbe606272838b5c6
 
 ## Runtime Access
 

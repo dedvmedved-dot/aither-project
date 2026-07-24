@@ -48,7 +48,7 @@ Working directory: aither-v2/
 | Stage 10D | Governance Alignment | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10E | Governance Closeout and Markdown Repair | **FAILED / CONNECTOR VERIFIED** |
 | Stage 10F | Deterministic Markdown Structure Repair | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-|| Stage 10G | Stage 10F Closeout and Table Repair | **IN PROGRESS / NOT YET AUDITED** |
+| Stage 10G | Stage 10F Closeout and Table Repair | **IN PROGRESS / NOT YET AUDITED** |
 | Stage U1.0 | Governance и фиксация архитектуры доступа | **IN PROGRESS / AWAITING EXTERNAL AUDIT** |
 
 ## Track A — User Launch
@@ -61,10 +61,15 @@ Priority: **HIGHEST**
 Track A: User Launch
 
 Stage U1.0:
+PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit:
+11b0d6482ae667da4ed9d98edbe606272838b5c6
+
+Stage U0.A:
 IN PROGRESS / AWAITING EXTERNAL AUDIT
 
 Stage U1.1:
-NOT STARTED
+NOT STARTED / BLOCKED BY STAGE U0.A
 
 Internal Pilot:
 NOT YET OPEN
@@ -132,7 +137,7 @@ PROD-READY-01: OPEN
 ## 6. Current Known Risks
 
 | Risk | Status |
-|---|---|
+|------|--------|
 | Gateway previously had ImagePullBackOff pods | RESOLVED |
 | Direct 32B vLLM access may bypass gateway policy | Accepted for MVP internal scope, controlled by BFF routing |
 | TP=2 not tested | Accepted; postponed |
@@ -140,7 +145,11 @@ PROD-READY-01: OPEN
 | BFF valid token test not collected | VPN instability blocked kubectl secret retrieval |
 | Production readiness not achieved | Not production-ready |
 
-## 7. MVP Principle
+## 7. Repository Maintenance Rules
+
+Every Stage that changes repository structure, adds documents, or changes architecture must update the Repository Index and related inventory documents.
+
+## 8. MVP Principle
 
 The MVP is accepted only when all required stages have evidence, logs, reports, and external audit approval.
 

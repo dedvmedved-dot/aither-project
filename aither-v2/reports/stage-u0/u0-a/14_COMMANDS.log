@@ -1,0 +1,24 @@
+14_COMMANDS.log - Stage U0.A Evidence Generation
+Generated: 2026-07-24T02:02:05Z
+Working directory: /root/aither-v2
+Branch: aither-v2
+HEAD: 11b0d6482ae667da4ed9d98edbe606272838b5c6
+
+1. git status
+2. git branch -a
+3. git ls-files > 03_TRACKED_FILE_LIST.txt
+4. find . -not -path './.git/*' -type f > 04_DIRECTORY_TREE.txt
+5. git ls-files | xargs stat > 05_FILE_METADATA.csv
+6. git ls-files | xargs sha256sum > 06_FILE_HASHES.txt
+7. Duplicate scan via sha256sum grouping
+8. Reference scan via grep for internal markdown links
+9. git log --oneline --all
+10. git diff --name-status HEAD > 13_CHANGED_FILES.txt
+11. Secret scan: grep -RIn for sensitive patterns
+12. Markdown validation: grep for common issues
+
+--- Execution Environment ---
+Host: Linux
+Kernel: 6.8.0-134-generic
+Git: git version 2.43.0
+Hermes agent: Stage U0.A repository inventory
