@@ -1,0 +1,81 @@
+# Repository Inventory — Stage U1.0
+
+## Kubernetes Manifests (User-Facing Services)
+
+| File | Component | Type | Notes |
+|------|-----------|------|-------|
+| `services/portal-frontend/k8s/portal-frontend.yaml` | Portal Frontend | Deployment + Service | nginx:stable-alpine, port 80, ClusterIP |
+| `services/portal-backend/k8s/portal-backend.yaml` | Portal Backend | Deployment + Service | FastAPI, port 8000, ClusterIP |
+| `services/ai-platform/k8s/ai-platform.yaml` | AI Platform | Deployment + Service | FastAPI + SQLite, port 8000, ClusterIP |
+| `services/identity/k8s/identity.yaml` | Identity Service | Deployment + Service | FastAPI + SQLite, port 8000, ClusterIP |
+| `services/identity/k8s/identity-secret.example.yaml` | Identity Secret | Secret (example) | Template only |
+| `manifests/mvp-roadmap/05-bff/bff-mvp.yaml` | BFF | Deployment + Service | FastAPI, auth proxy, port 8000, ClusterIP |
+| `manifests/mvp-roadmap/04-gateway/nginx-gateway-32b-hardened.yaml` | LLM Gateway | ConfigMap + Deployment + Service | nginx:alpine, port 8000, ClusterIP |
+| `manifests/mvp-roadmap/06-rate-limiting/redis-rate-limit.yaml` | Redis | Deployment + Service | redis:7-alpine, port 6379, ClusterIP |
+| `manifests/mvp-roadmap/07-portal/portal-mvp.yaml` | Portal (ConfigMap) | Inline ConfigMap | SPA code embedded in manifest |
+| `manifests/mvp-roadmap/01-cluster-gpu/gpu-runtime-test.yaml` | GPU Test | Job | Not user-facing |
+| `manifests/mvp-roadmap/02-inference-acceptance/vllm-deployment.yaml` | vLLM 14B | Deployment | (in stage manifests) |
+| `03-vllm-14b-deploy/manifests/vllm-deployment.yaml` | vLLM 14B | Deployment | Legacy path |
+| `03-vllm-14b-deploy/manifests/vllm-service.yaml` | vLLM 14B | Service | ClusterIP |
+| `03-vllm-14b-deploy/manifests/nginx-gateway-32b.yaml` | nginx Gateway (legacy) | Deployment + Service | Old gateway manifest |
+| `03-vllm-14b-deploy/manifests/nginx-gateway-32b.conf` | nginx Gateway conf | ConfigMap data | Old gateway config |
+
+## Ingress / Routing
+
+| Resource | Status | Notes |
+|----------|--------|-------|
+| Ingress | **NOT FOUND** — no Ingress resources in Git or K8s | No external entry point |
+| IngressClass | **NOT FOUND** | No Ingress controller deployed |
+| Gateway API | **NOT FOUND** | No Gateway or HTTPRoute resources |
+| NetworkPolicy | 1 found: `vllm-ingress` in `aither-inference` namespace | Only restricts vLLM access |
+
+## Service Architecture
+
+| Service | Type | ClusterIP | Port | Selector |
+|---------|------|-----------|------|----------|
+| aither-portal-frontend | ClusterIP | 10.105.195.81 | 80 | app=aither-portal-frontend |
+| aither-portal-backend | ClusterIP | 10.100.101.65 | 8000 | app=aither-portal-backend |
+| aither-ai-platform | ClusterIP | 10.107.239.156 | 8000 | app=aither-ai-platform |
+| aither-identity | ClusterIP | 10.105.189.202 | 8000 | app=aither-identity |
+| aither-bff | ClusterIP | 10.106.87.155 | 8000 | app=aither-bff |
+| aither-portal | ClusterIP | 10.100.145.83 | 80 | app=aither-portal |
+| aither-redis-rate-limit | ClusterIP | 10.105.190.101 | 6379 | app=aither-redis-rate-limit |
+| nginx-gateway-32b | ClusterIP | 10.106.31.143 | 8000 | app=nginx-gateway,model=qwen-32b-gptq |
+| vllm-14b-instruct | ClusterIP | 10.108.67.57 | 8000 | app=vllm,model=qwen-14b-instruct |
+| vllm-32b-gptq | ClusterIP | 10.99.3.103 | 8000 | app=vllm,model=qwen-32b-gptq |
+
+## nginx Configurations
+
+| File | Component | Purpose |
+|------|-----------|---------|
+| `services/portal-frontend/nginx.conf` | Portal Frontend | Static SPA + proxy /api/ → portal-backend:8000 + proxy /v1/chat/completions → ai-platform:8000 |
+| `manifests/mvp-roadmap/04-gateway/nginx-gateway-32b-hardened.yaml` | LLM Gateway (ConfigMap) | Reverse proxy to vLLM 32B with rate limiting, auth, health checks |
+| `03-vllm-14b-deploy/manifests/nginx-gateway-32b.conf` | Legacy Gateway | Old gateway config (superseded) |
+
+## Dockerfiles
+
+| File | Base Image | Notes |
+|------|-----------|-------|
+| `services/portal-frontend/Dockerfile` | nginx:stable-alpine | Static file server |
+| `services/portal-backend/Dockerfile` | python:3.11-slim | FastAPI |
+| `services/ai-platform/Dockerfile` | python:3.11-slim | FastAPI + SQLite |
+| `services/identity/Dockerfile` | python:3.11-slim | FastAPI + SQLite |
+
+## Documentation Files
+
+| File | Content |
+|------|---------|
+| `docs/user-launch/USER_ACCESS_ARCHITECTURE.md` | User access architecture (NEW — Stage U1.0) |
+| `docs/user-launch/ENDPOINT_MATRIX.md` | Endpoint matrix (NEW — Stage U1.0) |
+| `docs/user-launch/ACCESS_SECURITY_BASELINE.md` | Security baseline (NEW — Stage U1.0) |
+| `docs/user-launch/STAGE_U1_ROADMAP.md` | Stage U1 roadmap (NEW — Stage U1.0) |
+| `docs/user-launch/ADR_U1_ACCESS.md` | Architecture decisions (NEW — Stage U1.0) |
+
+## No Ingress, LoadBalancer, or NodePort Found
+
+At Stage U1.0, there is:
+- No Ingress resource in any namespace
+- No IngressClass resource
+- No Gateway API resource (Gateway, HTTPRoute)
+- No Service of type LoadBalancer
+- No Service of type NodePort for user-facing components

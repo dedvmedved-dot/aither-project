@@ -48,7 +48,36 @@ Working directory: aither-v2/
 | Stage 10D | Governance Alignment | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10E | Governance Closeout and Markdown Repair | **FAILED / CONNECTOR VERIFIED** |
 | Stage 10F | Deterministic Markdown Structure Repair | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-| Stage 10G | Stage 10F Closeout and Table Repair | **IN PROGRESS / NOT YET AUDITED** |
+|| Stage 10G | Stage 10F Closeout and Table Repair | **IN PROGRESS / NOT YET AUDITED** |
+| Stage U1.0 | Governance и фиксация архитектуры доступа | **IN PROGRESS / AWAITING EXTERNAL AUDIT** |
+
+## Track A — User Launch
+
+Priority: **HIGHEST**
+
+### Stage U1 Audit Status
+
+```
+Track A: User Launch
+
+Stage U1.0:
+IN PROGRESS / AWAITING EXTERNAL AUDIT
+
+Stage U1.1:
+NOT STARTED
+
+Internal Pilot:
+NOT YET OPEN
+
+Stage U2:
+BLOCKED BY STAGE U1
+
+Production v1.0:
+NO-GO
+
+PROD-READY-01:
+OPEN
+```
 
 ### Stage 10‑10G Audit Status
 
