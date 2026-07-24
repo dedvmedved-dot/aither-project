@@ -1,0 +1,15 @@
+# Snapshot Manifest — Stage U0.A-R2
+
+| Field | Value |
+|-------|-------|
+| generation_base_sha | 01f95d8e4865e74a07cb297550b8c905c554b470 |
+| generated_commit_sha | (to be filled after commit) |
+| generator_sha256 | (to be filled) |
+| tracked_count | 895 |
+| catalog_count | 895 |
+| csv_count | 895 (+1 header) |
+| hash_count | 895 |
+| generation timestamp | 2026-07-24T04:12:40+00:00 |
+| Python version | 3.11.15 |
+| Git version | (system git) |
+| locale | UTF-8 |

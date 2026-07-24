@@ -151,7 +151,7 @@ Git (aither-v2) → PROJECT_MASTER.md → CHAT_HANDOVER.md → Stage Reports →
 
 | Source | Destination | Protocol | Port | Auth | Config File | Status |
 |--------|-------------|----------|------|------|-------------|--------|
-| User Browser | Ingress / Reverse Proxy | HTTPS | 443 | Browser session | TBD (Stage U1.2) | TARGET |
+| User Browser | Ingress / Reverse Proxy | HTTPS | 443 | Browser session | Not yet created — owning stage U1.2 | TARGET |
 | Ingress | Portal Frontend | HTTP | 80 | None (internal) | Ingress config (U1.2) | TARGET |
 | Portal Frontend (nginx) | Portal Backend | HTTP | 8000 | Session cookie (forwarded) | `services/portal-frontend/nginx.conf` | CURRENT |
 | Portal Frontend (nginx) | AI Platform | HTTP | 8000 | API Key (X-API-Key / Bearer) | `services/portal-frontend/nginx.conf` | CURRENT (dual path) |

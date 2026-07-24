@@ -1,0 +1,33 @@
+# Validation Raw — Stage U0.A-R2
+
+## Generation Base SHA: 01f95d8e4865e74a07cb297550b8c905c554b470
+
+## Pattern Search Results
+
+| Pattern | Found | Allowed | Unregistered | Status |
+|---------|------:|-------:|------------:|--------|
+| plus others | 0 | 0 | 0 | ✅ |
+| various | 0 | 0 | 0 | ✅ |
+| ... | 0 | 0 | 0 | ✅ |
+| TBD | 0 | 0 | 0 | ✅ |
+| TODO | 0 | 0 | 0 | ✅ |
+| CHANGEME | 0 | 0 | 0 | ✅ |
+| FIXME | 0 | 0 | 0 | ✅ |
+| To be added | 0 | 0 | 0 | ✅ |
+| Octal escape in path | 0 | 0 | 0 | ✅ |
+| Quoted extension | 0 | 0 | 0 | ✅ |
+| UTF-8 decode error | 0 | 0 | 0 | ✅ |
+
+## Catalog Completeness
+
+- Total entries: 895
+- Missing/invalid purpose fields: 0
+- Aggregation patterns in catalog: 0
+
+## UTF-8 Normalization
+
+- Paths with normalization issues: 0
+
+## Verdict
+
+PASSED

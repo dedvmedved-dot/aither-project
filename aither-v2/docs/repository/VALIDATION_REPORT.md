@@ -1,61 +1,37 @@
-# Validation Report — Stage U0.A-R1
+# Validation Report
 
-## Finding U0A-VAL-001 (continued)
+**Snapshot SHA:** 01f95d8e4865e74a07cb297550b8c905c554b470
+**Generated at:** 2026-07-24T04:12:40.836946+00:00
 
-### 1. Aggregation Check
+## Pattern Validation
 
-Search for forbidden aggregation patterns in FILE_CATALOG.md:
+| Pattern | Found | Allowed | Unregistered | Status |
+|---------|------:|-------:|------------:|--------|
+| `CHANGEME` | 0 | 0 | 0 | ✅ |
+| `FIXME` | 0 | 0 | 0 | ✅ |
+| `TBD` | 0 | 0 | 0 | ✅ |
+| `TODO` | 0 | 0 | 0 | ✅ |
+| `To be added` | 0 | 0 | 0 | ✅ |
+| `\\.\\.\\.` | 0 | 0 | 0 | ✅ |
+| `plus \d+ others` | 0 | 0 | 0 | ✅ |
+| `plus others` | 0 | 0 | 0 | ✅ |
+| `various` | 0 | 0 | 0 | ✅ |
 
-| Pattern | Occurrences | Status |
-|---------|-------------|--------|
-| `plus *other` | 0 | ✅ PASSED |
-| `various` | 0 | ✅ PASSED |
-| `...` (as content) | 0 | ✅ PASSED |
-| `plus N other` | 0 | ✅ PASSED |
+## Field Completeness
 
-**Verdict: PASSED** — No aggregated entries found. Every tracked file has its own row.
+**Total entries:** 895
+**Missing/invalid purpose fields:** 0
 
-### 2. Placeholder Check
 
-Search for placeholder patterns across `docs/repository/` and `reports/stage-u0/`:
+## UTF-8 Normalization
 
-| Pattern | Occurrences | Status |
-|---------|-------------|--------|
-| `TBD` | 1 (ACCESS_SECURITY_BASELINE.md — documented finding U1.2) | ✅ ACCEPTED |
-| `TODO` | 0 | ✅ PASSED |
-| `TO BE ADDED` | 0 | ✅ PASSED |
-| `CHANGEME` | 0 | ✅ PASSED |
-| `FIXME` | 0 | ✅ PASSED |
+**Paths with normalization issues:** 0
+**Total UTF-8 errors:** 0
 
-### 3. Tracked File Completeness
 
-| Check | Result |
-|-------|--------|
-| Every `git ls-files` path represented in FILE_CATALOG | ✅ |
-| Every FILE_CATALOG entry corresponds to a real tracked file | ✅ |
-| No missing files | ✅ |
-| No phantom files | ✅ |
+## Aggregation Check
 
-### 4. SHA Consistency
+**Catalog entries with aggregation patterns:** 0
 
-| Check | Result |
-|-------|--------|
-| Metadata commit exists in repo | ✅ (SHA: `704bb2dcc658b8aeab698e08819c53c28f26e0a2`) |
-| Metadata commit pushed to origin | ✅ |
-| HEAD matches origin/aither-v2 | ✅ |
+**Verdict:** PASSED
 
-### 5. Reported SHA Correction
-
-The Stage U0.A final report contained an incorrect full SHA for the metadata commit:
-
-- **Reported:** `704bb2d253a3dfb5ac4e9e0a8c72e0e7de41c13b` (does not exist)
-- **Actual:** `704bb2dcc658b8aeab698e08819c53c28f26e0a2` (exists and pushed)
-
-The error was a typo in the 40-character SHA. Both SHAs share the same 7-char prefix `704bb2d`.
-
-**Corrected in:** `reports/stage-u0/u0-a-r1/METADATA_COMMIT_INVESTIGATION.md`
-**Corrected in:** `reports/stage-u0/u0-a/16_FINAL_STATUS.md` (this file will be updated)
-
-### Final Verdict
-
-All validation checks: **PASSED**

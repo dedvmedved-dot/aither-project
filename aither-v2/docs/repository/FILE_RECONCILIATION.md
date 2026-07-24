@@ -1,42 +1,21 @@
 # File Reconciliation Report
 
-## Finding U0A-VAL-001
+**Snapshot SHA:** 01f95d8e4865e74a07cb297550b8c905c554b470
+**Generated at:** 2026-07-24T04:12:40.826544+00:00
 
-### Count Verification
+## Path Set Comparison
 
-| Source | Count | Status |
-|--------|-------|--------|
-| `git ls-files` | 887 | — |
-| FILE_CATALOG.md entries | 887 | ✅ MATCH |
-| FILE_METADATA.csv lines (incl header) | 888 (1 header + 887 data) | ✅ MATCH |
-| FILE_HASHES.txt lines | 887 | ✅ MATCH |
+| Source | Count | Unique | Missing | Extra | Duplicates | Status |
+|--------|------:|-------:|-------:|------:|-----------:|--------|
+| git ls-files vs FILE_CATALOG.md | 895 / 895 | 895 / 895 | 0 | 0 | 0 | ✅ |
+| git ls-files vs FILE_METADATA.csv | 895 / 895 | 895 / 895 | 0 | 0 | 0 | ✅ |
+| git ls-files vs FILE_HASHES.txt | 895 / 895 | 895 / 895 | 0 | 0 | 0 | ✅ |
+| FILE_CATALOG.md vs FILE_METADATA.csv | 895 / 895 | 895 / 895 | 0 | 0 | 0 | ✅ |
+| FILE_CATALOG.md vs FILE_HASHES.txt | 895 / 895 | 895 / 895 | 0 | 0 | 0 | ✅ |
+| FILE_METADATA.csv vs FILE_HASHES.txt | 895 / 895 | 895 / 895 | 0 | 0 | 0 | ✅ |
 
-### Verification Method
+**Snapshot SHA:** 01f95d8e4865e74a07cb297550b8c905c554b470
+**All path sets equal:** YES
+**All hashes present:** YES
+**Verdict:** PASSED
 
-```bash
-# git ls-files count
-git ls-files | wc -l
-
-# FILE_CATALOG.md — count table rows (lines starting with "| `")
-grep -c '^| `' docs/repository/FILE_CATALOG.md
-
-# FILE_METADATA.csv — count data rows (exclude header)
-tail -n +2 reports/stage-u0/u0-a/05_FILE_METADATA.csv | wc -l
-
-# FILE_HASHES.txt — count lines
-wc -l < reports/stage-u0/u0-a/06_FILE_HASHES.txt
-```
-
-### Detailed File Count Breakdown
-
-| Category | Count |
-|----------|-------|
-| Total tracked (git ls-files) | 887 |
-| Within aither-v2/ | 595 |
-| Outside aither-v2/ (root level) | 292 |
-
-### Result
-
-All four sources are **reconciled** with 887 entries each.
-
-**Verdict: PASSED**
