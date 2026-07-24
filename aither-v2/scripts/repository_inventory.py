@@ -23,7 +23,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from collections import defaultdict
 
-SCRIPT_VERSION = "u0.a-r3-1.0"
+SCRIPT_VERSION = "u0.a-r3.2-1.0"
 UTF8_ERRORS = 0
 
 
@@ -78,15 +78,40 @@ def get_blob_size(repo_root, path, snapshot_sha):
         raise RuntimeError(f"Invalid blob size output for {snapshot_sha}:{path}: {out}")
 
 
+def get_snapshot_timestamp(repo_root, snapshot_sha):
+    """Get commit timestamp in ISO-8601 format from snapshot commit.
+    Returns stable timestamp for deterministic generation."""
+    out, err, rc = git_run(repo_root, "show", "-s", "--format=%cI", snapshot_sha)
+    if rc != 0 or not out.strip():
+        print(f"FATAL: Cannot get timestamp from snapshot {snapshot_sha}", file=sys.stderr)
+        sys.exit(1)
+    return out.decode("utf-8", errors="replace").strip()
+
+
 def get_tracked_paths(repo_root):
-    """Get all tracked file paths as UTF-8 strings using NUL delimiter."""
+    """Get all tracked file paths as UTF-8 strings using NUL delimiter.
+    Reads from working tree index (all tracked files)."""
     out, err, rc = git_run(repo_root, "ls-files", "-z")
     if rc != 0:
         print(f"FATAL: git ls-files failed: {err.decode('utf-8', errors='replace')}", file=sys.stderr)
         sys.exit(1)
     raw = out.decode("utf-8", errors="replace")
     paths = [p for p in raw.split("\0") if p]
-    # Normalize: remove leading ./, ensure /
+    paths = [p.replace("\\", "/") for p in paths]
+    paths = sorted(set(paths))
+    return paths
+
+
+def get_tree_paths(repo_root, tree_sha):
+    """Get all file paths from a specific tree/commit using git ls-tree.
+    This reads paths from a commit snapshot, not from the working tree.
+    Ensures that inventory is always based on the same snapshot state."""
+    out, err, rc = git_run(repo_root, "ls-tree", "-r", "--name-only", "-z", tree_sha)
+    if rc != 0:
+        print(f"FATAL: git ls-tree failed for {tree_sha}: {err.decode('utf-8', errors='replace')}", file=sys.stderr)
+        sys.exit(1)
+    raw = out.decode("utf-8", errors="replace")
+    paths = [p for p in raw.split("\0") if p]
     paths = [p.replace("\\", "/") for p in paths]
     paths = sorted(set(paths))
     return paths
@@ -421,14 +446,20 @@ def check_utf8_normalization(path_str):
 
 # ── Main Generator ───────────────────────────────────────────────────
 
-def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_path, tracked_path, rec_path, val_path, check_only=False):
-    """Main generation function. Snapshot-only: never reads working tree for tracked files."""
+def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_path, tracked_path, rec_path, val_path, check_only=False, generated_at=None):
+    """Main generation function. Snapshot-only: never reads working tree for tracked files.
+    If generated_at is None, timestamp is read from snapshot commit."""
     global UTF8_ERRORS
     UTF8_ERRORS = 0
+    
+    # Determine generation timestamp from snapshot commit (stable)
+    if generated_at is None:
+        generated_at = get_snapshot_timestamp(repo_root, snapshot_sha)
+    
     log = []
     log.append(f"# Generation Log")
     log.append(f"Snapshot: {snapshot_sha}")
-    log.append(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    log.append(f"Timestamp: {generated_at}")
     log.append(f"")
 
     # Verify snapshot commit
@@ -440,11 +471,11 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
     log.append(f"TIME: {t1-t0:.2f}s")
     log.append(f"")
 
-    # Get tracked paths
+    # Get paths from snapshot commit tree (not working tree)
     t0 = time.time()
-    paths = get_tracked_paths(repo_root)
+    paths = get_tree_paths(repo_root, snapshot_sha)
     t1 = time.time()
-    log.append(f"COMMAND: git ls-files -z")
+    log.append(f"COMMAND: git ls-tree -r --name-only -z {snapshot_sha}")
     log.append(f"EXIT: 0")
     log.append(f"FILES: {len(paths)}")
     log.append(f"TIME: {t1-t0:.2f}s")
@@ -553,7 +584,7 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
         f"# File Catalog \u2014 Complete ({count} files)",
         "",
         f"**Snapshot SHA:** {snapshot_sha}",
-        f"**Generated at:** {datetime.now(timezone.utc).isoformat()}",
+        f"**Generated at:** {generated_at}",
         f"**Generator version:** {SCRIPT_VERSION}",
         f"**Tracked file count:** {count}",
         "",
@@ -586,11 +617,11 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
     write_file(hash_path, hash_content, log)
 
     # Write FILE_RECONCILIATION.md
-    rec_content = generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_sha, count)
+    rec_content = generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_sha, count, generated_at)
     write_file(rec_path, rec_content, log)
 
     # Write VALIDATION_REPORT.md
-    val_content = generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sha, count)
+    val_content = generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sha, count, generated_at)
     write_file(val_path, val_content, log)
 
     return 0
@@ -604,7 +635,7 @@ def write_file(path, content, log):
     log.append(f"")
 
 
-def generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_sha, count):
+def generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_sha, count, generated_at):
     catalog_paths = set(r["path"] for r in catalog_rows)
     csv_paths = set(r["path"] for r in csv_rows)
     hash_paths = set()
@@ -644,7 +675,7 @@ def generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_
         f"# File Reconciliation Report",
         "",
         f"**Snapshot SHA:** {snapshot_sha}",
-        f"**Generated at:** {datetime.now(timezone.utc).isoformat()}",
+        f"**Generated at:** {generated_at}",
         "",
         "## Path Set Comparison",
         "",
@@ -683,7 +714,7 @@ def generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_
     return "\n".join(lines) + "\n"
 
 
-def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sha, count):
+def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sha, count, generated_at):
     patterns = {
         "plus others": 0,
         "plus \\d+ others": 0,
@@ -738,7 +769,7 @@ def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sh
         f"# Validation Report",
         "",
         f"**Snapshot SHA:** {snapshot_sha}",
-        f"**Generated at:** {datetime.now(timezone.utc).isoformat()}",
+        f"**Generated at:** {generated_at}",
         "",
         "## Pattern Validation",
         "",
@@ -800,13 +831,18 @@ def main():
     parser.add_argument("--generate", action="store_true", help="Generate all inventory outputs")
     parser.add_argument("--check-only", action="store_true", help="Validate only, no file writes")
     parser.add_argument("--validate", action="store_true", help="Alias for --check-only")
+    parser.add_argument("--generated-at", default=None, help="Stable timestamp for deterministic generation (ISO-8601)")
+    parser.add_argument("--output-dir", default=None, help="Override output directory for inventory files")
     args = parser.parse_args()
 
     repo_root = os.path.abspath(args.repo_root)
     snapshot_sha = args.snapshot
     aither_dir = os.path.join(repo_root, "aither-v2")
 
-    output_dir = os.path.join(aither_dir, "reports", "stage-u0", "u0-a")
+    if args.output_dir:
+        output_dir = os.path.abspath(args.output_dir)
+    else:
+        output_dir = os.path.join(aither_dir, "reports", "stage-u0", "u0-a")
     r2_dir = os.path.join(aither_dir, "reports", "stage-u0", "u0-a-r2")
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(r2_dir, exist_ok=True)
@@ -823,7 +859,7 @@ def main():
         sys.exit(0)
 
     rc = generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_path,
-                  tracked_path, rec_path, val_path, check_only=args.check_only)
+                  tracked_path, rec_path, val_path, check_only=args.check_only, generated_at=args.generated_at)
     sys.exit(rc)
 
 

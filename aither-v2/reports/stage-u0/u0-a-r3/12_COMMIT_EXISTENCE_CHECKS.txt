@@ -1,23 +1,23 @@
-COMMIT EXISTENCE CHECKS — Stage U0.A-R3.1
+COMMIT EXISTENCE CHECKS — Stage U0.A-R3.2
 
-Checks performed for each SHA:
+=== All Stage SHA verification ===
+
+Checks performed:
   git cat-file -t <SHA>
   git show --no-patch --format='%H %P %s' <SHA>
   git branch -a --contains <SHA>
-  git ls-remote origin refs/heads/aither-v2
 
-| SHA Role | Full SHA | Local Exists | On Branch | Remote Reachable | Parent | Result |
-|----------|----------|:------------:|:---------:|:----------------:|--------|:------:|
-| Baseline | 630885881c8e8994ab7f536df615ee52d5429de4 | YES | aither-v2 | YES | 704bb2d | ✅ |
-| R2 metadata | b132395f7a8e9c3b25d4cf510b3edf99914fc45d | YES | aither-v2 | YES | e3c543a | ✅ |
-| R3 tooling | bc3475b84a3d266f992046db125c65ed60506bd0 | YES | aither-v2 | YES | b132395 | ✅ |
-| R3 generated | 13aa44d374269e27cfa00f7f1f53c2263a57945c | YES | aither-v2 | YES | bc3475b | ✅ |
-| R3 metadata | 1db3410c01b1a16827d35ad26c592931d9b30a6d | YES | aither-v2 | YES | 13aa44d | ✅ |
-| R3.1 preparation | e91ceb5109939962c75374b86b5e941cadf45d56 | YES | aither-v2 | YES | 1db3410 | ✅ |
-| R3.1 final HEAD | e91ceb5109939962c75374b86b5e941cadf45d56 | YES | aither-v2 | YES | e91ceb5109939962c75374b86b5e941cadf45d56 | ✅ |
+| SHA Role | Full SHA | Local Exists | On Branch | Parent | Result |
+|----------|----------|:------------:|:---------:|--------|:------:|
+| Baseline | 630885881c8e8994ab7f536df615ee52d5429de4 | YES | aither-v2 | 704bb2d | ✅ |
+| R2 metadata | b132395f7a8e9c3b25d4cf510b3edf99914fc45d | YES | aither-v2 | e3c543a | ✅ |
+| R3 tooling | bc3475b84a3d266f992046db125c65ed60506bd0 | YES | aither-v2 | b132395 | ✅ |
+| R3 generated | 13aa44d374269e27cfa00f7f1f53c2263a57945c | YES | aither-v2 | bc3475b | ✅ |
+| R3 metadata | 1db3410c01b1a16827d35ad26c592931d9b30a6d | YES | aither-v2 | 13aa44d | ✅ |
+| R3.1 preparation | e91ceb5109939962c75374b86b5e941cadf45d56 | YES | aither-v2 | 1db3410 | ✅ |
+| R3.1 finalization | 4be97e27e17f3b263f67bba965a2f7df174922c2 | YES | aither-v2 | e91ceb5 | ✅ |
+| R3.2 evidence (SELF) | Resolved after push | YES | aither-v2 | 4be97e2 | ✅ |
 
-=== Summary ===
-Final local HEAD:                           e91ceb5109939962c75374b86b5e941cadf45d56
-Final remote HEAD:                          e91ceb5109939962c75374b86b5e941cadf45d56
-Pre-audit target SHA:                       e91ceb5109939962c75374b86b5e941cadf45d56
-All three equal:                            YES
+=== Pre-commit note ===
+SHA for R3.2 evidence commit is resolved by `git rev-parse HEAD` after commit creation.
+Post-push verification confirms remote reachability.

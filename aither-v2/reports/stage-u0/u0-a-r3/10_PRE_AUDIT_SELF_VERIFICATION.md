@@ -1,65 +1,89 @@
-# Pre-Audit Self Verification — Stage U0.A-R3.1
+# Pre-Commit Evidence Validation — Stage U0.A-R3.2
 
-## Pre-audit target SHA
+## Scope
+
+This document validates the working tree contents BEFORE committing.
+
+Post-push remote verification is performed separately and is NOT committed.
+
+## 1. Evidence Identity Model
 
 ```
-e91ceb5109939962c75374b86b5e941cadf45d56
+evidence_commit_identity:   SELF — resolve as commit containing this manifest
+evidence_commit_parent_sha: 4be97e27e17f3b263f67bba965a2f7df174922c2
+post_push_remote_sha:       NOT STORED BY DESIGN
+post_push_verification:     REQUIRED (external — ChatGPT GitHub Connector)
 ```
 
-## Identity verification
+## 2. No False Claims
 
-| Property | Value |
-|----------|-------|
-| Local HEAD | `e91ceb5109939962c75374b86b5e941cadf45d56` |
-| Remote HEAD | `e91ceb5109939962c75374b86b5e941cadf45d56` |
-| Manifest final_head_sha | `e91ceb5109939962c75374b86b5e941cadf45d56` |
-| Final Status final_head_sha | `e91ceb5109939962c75374b86b5e941cadf45d56` |
-| All equal | `YES` |
+```
+Manifest does NOT claim parent commit as final HEAD:       ✅
+Final Status does NOT claim parent commit as final HEAD:   ✅
+Preparation and finalization commits are distinct:         YES (e91ceb5 ≠ 4be97e2)
+No self-parent commit records:                             ✅
+No <PLACEHOLDER> or undefined symbolic SHA fields:         ✅
+```
 
-## 1. Commit Existence
+## 3. Placeholder Scan
 
-All Stage SHAs including R3.1 preparation and final HEAD are verified.
+Scanned files:
+- reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt
+- reports/stage-u0/u0-a-r3/06_FINAL_STATUS.md
+- reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt
+- reports/stage-u0/u0-a-r3/12_COMMIT_EXISTENCE_CHECKS.txt
+- reports/stage-u0/u0-a-r3/15_DETERMINISM_CHECK.txt
+- reports/stage-u0/u0-a-r3/17_LINK_VERIFICATION.txt
+- docs/repository/STAGE_U0A_FINDINGS.md
 
-## 2. Commit Scope
+Patterns searched:
+- <FINAL_HEAD>, <REMOTE_HEAD>, <PREP_COMMIT_SHA>, <ALL_EQUAL>, <TIMESTAMP>
+- TBD, TODO, FIXME, CHANGEME, to be filled
 
-Commit A (preparation): only R3.1 reports, findings, status — no inventory, no runtime.
-Commit B (final): only manifest placeholders filled — no inventory, no runtime.
+Allowed semantic constants:
+- "SELF — resolve as commit containing this file"
+- "NOT STORED BY DESIGN"
+- "RESOLVED AFTER PUSH"
 
-## 3. Inventory Reconciliation
+Active unregistered placeholders: 0 ✅
 
-From snapshot bc3475b — unchanged since R3. 906 = 906 = 906 = 906. Set equality: YES.
+## 4. Determinism Verification
 
-## 4. Placeholder Scan
+```
+Mode:               byte-identical
+Timestamp source:   snapshot commit timestamp
+Two-run diff:       EMPTY (diff exit 0)
+Byte-identical:     PASSED
+Generator version:  u0.a-r3.2-1.0
+```
 
-Active unregistered placeholders: 0
+## 5. Inventory Reconciliation
 
-## 5. Hash Sample Verification
+```
+Snapshot:           bc3475b84a3d266f992046db125c65ed60506bd0
+Tracked (ls-tree):  906
+Catalog:            906
+CSV:                906
+Hashes:             906
+Set equality:       TRUE
+Missing:            0
+Extra:              0
+Duplicates:         0
+UTF-8 errors:       0
+Octal escapes:      0
+```
 
-Independent git show <sha>:<path> | sha256sum — all match FILE_HASHES.txt. Working tree NOT used.
+## 6. Scope (pre-commit)
 
-## 6. Determinism
-
-Mode: byte-identical (stable timestamp from snapshot commit).
-Byte-identical determinism: PASSED.
-
-## 7. Manifest Completeness
-
-All fields populated. No N/A, TBD, TODO, or placeholder values in final version.
-final_head_sha == remote_branch_sha == preaudit_target_sha: YES.
-
-## 8. Link Verification
-
-All referenced artifacts exist in their respective commits.
-
-## 9. Allowlist Integrity
-
-Pre-stage and post-stage SHA-256 match for both modified files. No new dirty paths.
+Only allowed paths changed. No runtime files. No allowlist changes.
 
 ## VERDICT
 
 ```
-PRE-AUDIT PASSED
+PRE-COMMIT VALIDATION PASSED
+Evidence identity model:    CORRECT
+Placeholders:               0 active
+Determinism:                byte-identical PASSED
+Inventory:                  906 = 906 = 906 = 906
+Scope:                      clean
 ```
-
-Pre-audit performed AFTER push of FINAL_HEAD.
-No commits created after this pre-audit.

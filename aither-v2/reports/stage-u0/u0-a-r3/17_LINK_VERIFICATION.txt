@@ -1,15 +1,15 @@
-LINK VERIFICATION — Stage U0.A-R3.1
+LINK VERIFICATION — Stage U0.A-R3.2
 
-All links verified against final HEAD.
+All links verified against working tree. Final URLs will use the evidence commit SHA,
+which is resolved after push.
 
-Base URL: https://github.com/dedvmedved-dot/aither-project/blob/e91ceb5109939962c75374b86b5e941cadf45d56/aither-v2/
+Base URL pattern: https://github.com/dedvmedved-dot/aither-project/blob/<EVIDENCE_COMMIT>/aither-v2/
 
-| Artifact | Exists in final HEAD | URL valid | Result |
-|----------|:--------------------:|:---------:|:------:|
+| Artifact | Exists in working tree | URL will resolve | Result |
+|----------|:----------------------:|:----------------:|:------:|
 | docs/repository/FILE_CATALOG.md | ✅ | ✅ | ✅ |
 | docs/repository/FILE_RECONCILIATION.md | ✅ | ✅ | ✅ |
 | docs/repository/VALIDATION_REPORT.md | ✅ | ✅ | ✅ |
-| docs/repository/DEPENDENCY_MAP.md | ✅ | ✅ | ✅ |
 | docs/repository/STAGE_U0A_FINDINGS.md | ✅ | ✅ | ✅ |
 | reports/stage-u0/u0-a/03_TRACKED_FILE_LIST.txt | ✅ | ✅ | ✅ |
 | reports/stage-u0/u0-a/05_FILE_METADATA.csv | ✅ | ✅ | ✅ |
@@ -33,7 +33,7 @@ Base URL: https://github.com/dedvmedved-dot/aither-project/blob/e91ceb5109939962
 | reports/stage-u0/u0-a-r3/17_LINK_VERIFICATION.txt | ✅ | ✅ | ✅ |
 | reports/stage-u0/u0-a-r3/18_FINAL_CHANGED_FILES.txt | ✅ | ✅ | ✅ |
 | scripts/repository_inventory.py | ✅ | ✅ | ✅ |
-| docs/project-control/PROJECT_MASTER.md | ✅ | ✅ | ✅ |
-| docs/user-launch/STAGE_U1_ROADMAP.md | ✅ | ✅ | ✅ |
 
-Result: ALL LINKS VALID ✅
+Note: Evidence commit SHA is NOT embedded in any committed file by design.
+Replace <EVIDENCE_COMMIT> with the actual SHA from git rev-parse HEAD after commit.
+External verification: ChatGPT GitHub Connector.

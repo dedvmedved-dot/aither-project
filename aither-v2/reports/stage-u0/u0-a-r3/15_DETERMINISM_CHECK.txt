@@ -1,33 +1,29 @@
-DETERMINISM CHECK — Stage U0.A-R3.1
+DETERMINISM CHECK — Stage U0.A-R3.2
+=====================================
 
 === Mode ===
-Byte-identical determinism.
+byte-identical
 
-=== Timestamp strategy ===
-Generator uses snapshot commit timestamp as stable generation timestamp.
-Using --generated-at parameter or fixed reference timestamp.
-Volatile datetime.now(timezone.utc) is NOT present in output files.
+=== Timestamp source ===
+Snapshot commit timestamp (git show -s --format=%cI <snapshot_sha>)
 
-=== Procedure ===
-1. python3 scripts/repository_inventory.py --repo-root /root/aither-v2 --snapshot bc3475b --generate
-2. python3 scripts/repository_inventory.py --repo-root /root/aither-v2 --snapshot bc3475b --check-only
-3. Repeat step 1 → diff all outputs
+=== Procedure (two-run diff) ===
+Run 1: python3 scripts/repository_inventory.py --snapshot bc3475b --output-dir /tmp/u0ar32-run1 --generate
+Run 2: python3 scripts/repository_inventory.py --snapshot bc3475b --output-dir /tmp/u0ar32-run2 --generate
+Sleep between runs: 2 seconds
 
-=== Timestamp handling in R3.1 ===
-Generator still uses datetime.now() in its current version.
-Byte-identical determinism requires generator modification to use stable timestamp.
-Until generator is updated:
-  - Byte-identical determinism: NO (timestamps differ between runs)
-  - Canonical determinism: YES (content excluding volatile timestamps is identical)
-  - Check-only exit code: 0 (same logical result)
+=== Result ===
+diff -rq /tmp/u0ar32-run1 /tmp/u0ar32-run2 → exit code 0
+SHA-256 of all output files: MATCH across both runs
 
-=== Correction plan for strict byte-identical ===
-To achieve byte-identical determinism, the generator should:
-1. Accept --generated-at <ISO_TIMESTAMP> parameter
-2. When not provided, default to snapshot commit author time
-3. All output timestamps use this single value
+=== Verification ===
+find /tmp/u0ar32-run1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/run1.sha256
+find /tmp/u0ar32-run2 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/run2.sha256
+diff /tmp/run1.sha256 /tmp/run2.sha256 → exit code 0
 
-=== Current verdict ===
-Byte-identical:     NOT YET (timestamps volatile)
-Canonical:          YES (paths, hashes, counts, fields all deterministic)
-Check-only exit:    0
+=== Verdict ===
+Byte-identical determinism: PASSED ✅
+datetime.now() used for generated timestamp: NO
+Timestamp from snapshot: YES
+Two-run diff: EMPTY
+Check-only exit: 0

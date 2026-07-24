@@ -300,3 +300,73 @@
 ---
 
 ## Summary (Updated — Stage U0.A-R3.1)
+## Stage U0.A-R3.2 Findings
+
+### U0AR31-MAN-001 — Manifest References Incorrect Metadata SHA (R3.1 correction)
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: Stage R3.1 Manifest assigned `final_head_sha = e91ceb5` (preparation commit) instead of the actual final commit. Violated rule that no committed file should claim parent commit as final HEAD.
+**Root cause**: Manifest attempted to embed SHA of not-yet-created commit — fundamental self-reference problem.
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Evidence identity model redefined: `evidence_commit_identity: SELF` + `post_push_remote_sha: NOT STORED BY DESIGN`. Parent commit SHA stored as `evidence_commit_parent_sha`. Actual evidence commit SHA resolved after push.
+**Corrective commit**: SELF — Stage U0.A-R3.2 evidence commit
+**Evidence**: `reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt`
+**Residual risk**: NONE — model is honest and verifiable
+
+### U0AR31-STATUS-001 — Final Status Contradicts SHA Evidence (R3.1 correction)
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: R3.1 Final Status claimed `final_head_sha = e91ceb5` (parent) while actual remote HEAD was `4be97e2`.
+**Root cause**: Same self-reference issue as U0AR31-MAN-001.
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Final Status now has two sections: Committed Evidence Identity (with SELF) + Post-Push Verification (resolved after push, not stored).
+**Corrective commit**: SELF — Stage U0.A-R3.2 evidence commit
+**Evidence**: `reports/stage-u0/u0-a-r3/06_FINAL_STATUS.md`
+**Residual risk**: NONE
+
+### U0AR31-TRACE-001 — Commit Chain Contains Self-Parent Record (R3.1 correction)
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: R3.1 Commit Chain showed `<SHA> <same SHA> <message>` — commit listed as its own parent.
+**Root cause**: Attempt to fill final SHA before commit was created.
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Chain now shows real commits up to `4be97e2` + `SELF` for R3.2. Parent verified (`4be97e2`). Actual SHA resolved after push.
+**Corrective commit**: SELF — Stage U0.A-R3.2 evidence commit
+**Evidence**: `reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt`
+**Residual risk**: NONE
+
+### U0AR31-AUD-001 — Pre-Audit Committed Instead of Post-Push (R3.1 correction)
+**Severity**: HIGH
+**Category**: Governance
+**Description**: R3.1 committed pre-audit claimed to have verified final HEAD, but was itself included in a commit that was not the final HEAD.
+**Root cause**: Pre-audit executed mid-stage; verification committed.
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Renamed to PRE-COMMIT VALIDATION. Post-push verification performed separately and NOT committed. Final report (outside Git) contains post-push results.
+**Corrective commit**: SELF — Stage U0.A-R3.2 evidence commit
+**Evidence**: `reports/stage-u0/u0-a-r3/10_PRE_AUDIT_SELF_VERIFICATION.md`
+**Residual risk**: NONE
+
+### U0AR31-DET-001 — Determinism Mode Ambiguity (R3.1 correction)
+**Severity**: LOW
+**Category**: Quality
+**Description**: R3.1 determinism check used "modulo timestamps" without mode specification. Generator used `datetime.now()` causing volatile timestamps.
+**Root cause**: Generator implementation choice.
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Generator now uses snapshot commit timestamp. Byte-identical determinism verified via two-run diff (exit 0). `--generated-at` CLI option available for manual override.
+**Corrective commit**: SELF — Stage U0.A-R3.2 evidence commit
+**Evidence**: `reports/stage-u0/u0-a-r3/15_DETERMINISM_CHECK.txt`, `scripts/repository_inventory.py`
+**Residual risk**: NONE — byte-identical determinism PASSED
+
+---
+
+## Summary (Updated — Stage U0.A-R3.2)
+
+| Severity | Count | Key Items |
+|----------|-------|-----------|
+| 🔴 CRITICAL | 0 | — |
+| 🟡 HIGH | 5 | U0A-CAT-001, U0A-VAL-001, U0AR2-GEN-001, U0AR2-TRACE-001, U0AR31-AUD-001 |
+| 🟢 MEDIUM | 9 | U0A-FIND-03, U0A-FIND-04, U0A-FIND-05, U0A-FIND-07, U0AR2-GIT-001, U0AR2-MAN-001, U0AR31-MAN-001, U0AR31-STATUS-001, U0AR31-TRACE-001 |
+| ℹ️ LOW | 6 | U0A-GOV-001 (CLOSED WITH FINDING), U0A-GIT-002, U0A-DEP-001, U0A-CLN-001, U0AR2-VAL-001, U0AR31-DET-001 |
+| ℹ️ INFO | 4 | U0A-FIND-01, U0A-FIND-08, U0A-FIND-09, U0A-FIND-10 |
+
+**Stage U0.A-R3.2 findings**: 5 new R3.1 findings — all CORRECTED / AWAITING EXTERNAL VERIFICATION
