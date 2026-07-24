@@ -1,0 +1,38 @@
+# Preflight — Stage U0.A-R2
+
+## Commands
+
+```
+$ git branch --show-current
+aither-v2
+
+$ git rev-parse HEAD
+630885881c8e8994ab7f536df615ee52d5429de4
+
+$ git status --short
+ M aither-v2/services/ai-platform/app/main.py
+ M aither-v2/services/portal-frontend/nginx.conf
+?? aither-v2/evidence/rc2r/
+?? aither-v2/reports/rc2r/
+?? aither-v2/scripts/rc2r/
+
+$ git status --branch
+On branch aither-v2
+Your branch is up to date with 'origin/aither-v2'.
+```
+
+## Allowlist
+
+Pre-existing dirty paths (allowed, unchanged, excluded from commit):
+- aither-v2/services/ai-platform/app/main.py
+- aither-v2/services/portal-frontend/nginx.conf
+- aither-v2/evidence/rc2r/
+- aither-v2/reports/rc2r/
+- aither-v2/scripts/rc2r/
+
+## Verification
+
+- Branch: aither-v2 ✅
+- HEAD matches expected baseline: 630885881c8e8994ab7f536df615ee52d5429de4 ✅
+- No new dirty paths outside allowlist ✅
+- origin/aither-v2 in sync ✅

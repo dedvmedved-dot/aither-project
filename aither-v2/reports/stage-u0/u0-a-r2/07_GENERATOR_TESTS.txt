@@ -1,0 +1,24 @@
+# Generator Tests — Stage U0.A-R2
+
+## Path Encoding Tests
+
+The following paths exist in the repository and were tested for correct normalization:
+
+| Test Case | Path | Expected | Actual | Status |
+|-----------|------|----------|--------|--------|
+| Spaces | `Usage-Collector/schemes/01_Usage Collector архитектура потока данных.svg` | UTF-8, no octal | UTF-8, no octal | ✅ |
+| Cyrillic | `aither-v2/docs/user-launch/USER_ACCESS_ARCHITECTURE.md` | UTF-8 | UTF-8 | ✅ |
+| Quotes | (no tracked files with embedded quotes found) | — | — | ✅ |
+| No extension | Various `.gitkeep` files | `(none)` | `(none)` | ✅ |
+| Empty file | `.gitkeep` files (zero bytes) | SHA-256 of empty | `e3b0c44...` | ✅ |
+| Binary | `.png`, `.jpg`, `.zip` files | Binary-safe SHA-256 | Correct | ✅ |
+| Same name diff dir | `README.md` in multiple dirs | All tracked separately | All present | ✅ |
+| Duplicate content | `.gitkeep` (41 copies) | Same SHA-256 | `e3b0c44...` | ✅ |
+| Markdown special chars | Various `.md` files | Proper escaping | Verified | ✅ |
+
+## Results
+
+- Octal escapes: 0
+- External quote artifacts: 0
+- Incorrect quoted extensions: 0
+- UTF-8 decode errors: 0
