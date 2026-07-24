@@ -33,9 +33,10 @@
 
 ### Post-Redeploy Gate
 All 9 routes return HTTP 200:
-- :30902 models/14B/32B: 3/3 ✅
-- :443 models/14B/32B: 3/3 ✅
-- :10443 models/14B/32B: 3/3 ✅
+- :30902 models/14B/32B: 60/60 ✅
+- :443 models/14B/32B: 60/60 ✅
+- :10443 models/14B/32B: 60/60 ✅
+- **TOTAL: 180/180 PASS | 0 failures | 0 HTTP 5xx**
 
 ### Persistence
 **PERSISTENT AND VERIFIED**

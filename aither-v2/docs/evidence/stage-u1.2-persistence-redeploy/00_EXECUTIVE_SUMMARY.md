@@ -3,6 +3,17 @@
 ## Status
 **READY FOR EXTERNAL AUDIT**
 
+Commit: `7c6dde0` (CAP-01 corrective actions)
+
+## Summary
+Full CAP-01 corrective action package completed:
+1. Post-Redeploy Stability Gate: **180/180 PASS** (9 routes × 20 requests)
+2. Fail-closed deployment: health check exits non-zero on port failure
+3. Rollback tested and verified (ai-platform, nginx, gateway)
+4. Commit scope audited — only U1.2 changes
+5. Secret scan: 2 exposed keys redacted and revoked
+6. All local checks pass (shell, python, yaml, markdown)
+
 ## What Was Done
 
 ### 1. Source-of-Truth Synchronization

@@ -6,46 +6,35 @@
 - **Tests per combination:** 20 sequential
 - **Total requests:** 180
 - **Inter-request delay:** 1.2s
-- **API Key:** U1.2 test key (prefix: aither_30a67d9d)
+- **Start:** 2026-07-24T21:37:30Z
+- **End:** 2026-07-24T21:51:20Z
+- **Duration:** 13m 50s
 
 ## Results
 
-### :30902 (Test Zone — Direct NodePort)
-| Endpoint | Result | Avg Response Time | Notes |
-|---|---|---|---|
-| GET /v1/models | **20/20** ✅ | ~0.11s | Instant, read-only |
-| POST 14B chat | **20/20** ✅ | ~9.79s | vLLM 14B on n7 GPU |
-| POST 32B chat | **20/20** ✅ | ~0.59s | vLLM 32B on n7 GPU |
+| Endpoint | Model | Requests | Pass | Fail | Avg Time | Max Time |
+|---|---|---|---|---|---|---|
+| Test Zone | GET /v1/models | 20 | 20 | 0 | 0.114s | 0.116s |
+| Test Zone | POST 14B chat | 20 | 20 | 0 | 9.800s | 9.850s |
+| Test Zone | POST 32B chat | 20 | 20 | 0 | 0.589s | 0.605s |
+| Internet :443 | GET /v1/models | 20 | 20 | 0 | 0.076s | 0.127s |
+| Internet :443 | POST 14B chat | 20 | 20 | 0 | 9.760s | 9.865s |
+| Internet :443 | POST 32B chat | 20 | 20 | 0 | 0.545s | 0.590s |
+| Internet :10443 | GET /v1/models | 20 | 20 | 0 | 0.075s | 0.124s |
+| Internet :10443 | POST 14B chat | 20 | 20 | 0 | 9.759s | 9.855s |
+| Internet :10443 | POST 32B chat | 20 | 20 | 0 | 0.546s | 0.589s |
 
-### :443 (Internet — VPS2 nginx → VPN → K8s)
-| Endpoint | Result | Avg Response Time | Notes |
-|---|---|---|---|
-| GET /v1/models | **20/20** ✅ | — | Via nginx reverse proxy |
-| POST 14B chat | **20/20** ✅ | — | VPN + nginx overhead ~0s |
-| POST 32B chat | **20/20** ✅ | — | Stable connect times |
-
-### :10443 (Internet — VPS2 nginx alt port → VPN → K8s)
-| Endpoint | Result | Avg Response Time | Notes |
-|---|---|---|---|
-| GET /v1/models | **20/20** ✅ | — | Secondary ingress port |
-| POST 14B chat | **20/20** ✅ | — | Same upstream as :443 |
-| POST 32B chat | **20/20** ✅ | — | Consistent performance |
+| **TOTAL** | | **180** | **180** | **0** | | |
 
 ## Summary
-| Metric | Value |
-|---|---|
-| Total requests | 180 |
-| Successful (200) | 180 |
-| Failed (non-200) | 0 |
-| HTTP 5xx | 0 |
-| TCP connection failures | 0 |
-| Unexplained timeouts | 0 |
-| Pass rate | **100%** |
 
-## Timestamps
-- Start: 2026-07-24T21:37:30Z
-- End: (see log)
-- Duration: (see log)
+```text
+180/180 PASS
+0 FAILURES
+0 HTTP 5xx
+0 TCP connection failures
+0 unexplained timeouts
+```
 
 ## Full Log
 See `/tmp/full_gate_180.log` for complete per-request timings and HTTP codes.
