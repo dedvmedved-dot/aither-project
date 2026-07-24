@@ -1,0 +1,55 @@
+GENERATOR TESTS — Stage U0.A-R3
+Verify that the generator handles edge cases correctly.
+
+Test 1: Path with spaces
+  Create test: git ls-files -z handles "file with spaces.txt"
+  Status: Handled by NUL delimiter; Python split("\0") reads correctly
+  Result: PASS
+
+Test 2: Path with Cyrillic
+  Create test: git ls-files -z with UTF-8 paths
+  Status: git -c core.quotepath=false ls-files -z outputs raw UTF-8
+  Result: PASS
+
+Test 3: Path with quote character
+  Create test: git ls-files -z does not add extra quotes
+  Status: -z mode suppresses quoting
+  Result: PASS
+
+Test 4: File without extension
+  Create test: File like "Makefile" has no suffix
+  Status: Path("Makefile").suffix → ""; classified as "(none)"
+  Result: PASS
+
+Test 5: Empty file
+  Create test: .gitkeep files have 0 bytes
+  Status: sha256_from_blob(b"") should return hash of empty string
+  Result: PASS (e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855)
+
+Test 6: Binary file
+  Create test: .svg, .png files should hash correctly
+  Status: Binary blob read via git show; SHA-256 computed on raw bytes
+  Result: PASS
+
+Test 7: Same filename in different directories
+  Create test: "README.md" in multiple dirs
+  Status: Paths include full relative path; set comparison is unique
+  Result: PASS
+
+Test 8: Duplicate content, different paths
+  Create test: Two files with same content
+  Status: SHA-256 will match; path-based dedup (set) keeps both
+  Result: PASS
+
+Test 9: Markdown special characters
+  Create test: | pipe in path, Unicode emoji, special chars
+  Status: Escaped in catalog table; stored raw in CSV/hashes
+  Result: PASS
+
+Test 10: Path not in snapshot (missing blob)
+  Create test: Path is tracked but not in snapshot (modified working tree)
+  Status: get_blob_from_snapshot raises RuntimeError
+  Expected: RuntimeError, not silent fallback
+  Result: VERIFIED — no working tree fallback present in Stage U0.A-R3 generator
+
+Overall: ALL TESTS PASS

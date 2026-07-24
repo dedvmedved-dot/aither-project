@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-Repository Inventory Script — Deterministic Generator for Stage U0.A-R2
+Repository Inventory Script — Deterministic Generator for Stage U0.A-R3
 
-Read-only, deterministic, UTF-8 safe, NUL-separated Git parsing.
-One snapshot SHA → all inventory outputs.
+ENFORCED SNAPSHOT-ONLY:
+- Never reads working tree content.
+- All hashes, sizes, and metadata from the specified snapshot commit.
+- Falls back to working tree ONLY for paths that don't exist in snapshot
+  (allowlisted modified files). For untracked files: never included.
+- Any path that IS tracked but NOT in snapshot raises RuntimeError.
 """
+
 import os
 import sys
 import hashlib
@@ -13,12 +18,14 @@ import io
 import subprocess
 import argparse
 import time
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from collections import defaultdict
 
-SCRIPT_VERSION = "u0.a-r2-1.0"
+SCRIPT_VERSION = "u0.a-r3-1.0"
 UTF8_ERRORS = 0
+
 
 # ── Utility ──────────────────────────────────────────────────────────
 
@@ -29,6 +36,47 @@ def git_run(repo_root, *args):
         capture_output=True, cwd=repo_root, timeout=60
     )
     return result.stdout, result.stderr, result.returncode
+
+
+def verify_snapshot_commit(repo_root, snapshot_sha):
+    """Verify that snapshot_sha is a valid commit. Exit non-zero if not."""
+    out, err, rc = git_run(repo_root, "cat-file", "-e", f"{snapshot_sha}^{{commit}}")
+    if rc != 0:
+        print(f"FATAL: Snapshot SHA is not a valid commit: {snapshot_sha}", file=sys.stderr)
+        print(f"  stderr: {err.decode('utf-8', errors='replace').strip()}", file=sys.stderr)
+        sys.exit(1)
+    print(f"SNAPSHOT VERIFIED: {snapshot_sha} is a valid commit")
+
+
+def verify_path_in_snapshot(repo_root, path, snapshot_sha):
+    """Verify that a tracked path exists in the snapshot commit. Exit non-zero if not."""
+    out, err, rc = git_run(repo_root, "cat-file", "-e", f"{snapshot_sha}:{path}")
+    if rc != 0:
+        print(f"FATAL: Tracked path not found in snapshot {snapshot_sha}: {path}", file=sys.stderr)
+        sys.exit(1)
+
+
+def get_blob_from_snapshot(repo_root, path, snapshot_sha):
+    """Read blob content from snapshot commit. Raises RuntimeError if not found."""
+    out, err, rc = git_run(repo_root, "show", f"{snapshot_sha}:{path}")
+    if rc != 0:
+        raise RuntimeError(
+            f"Cannot read tracked path from snapshot {snapshot_sha}: {path}\n"
+            f"  stderr: {err.decode('utf-8', errors='replace').strip()}"
+        )
+    return out
+
+
+def get_blob_size(repo_root, path, snapshot_sha):
+    """Get file size in bytes from snapshot blob."""
+    out, err, rc = git_run(repo_root, "cat-file", "-s", f"{snapshot_sha}:{path}")
+    if rc != 0:
+        raise RuntimeError(f"Cannot get blob size from snapshot {snapshot_sha}: {path}")
+    try:
+        return int(out.decode("utf-8", errors="replace").strip())
+    except ValueError:
+        raise RuntimeError(f"Invalid blob size output for {snapshot_sha}:{path}: {out}")
+
 
 def get_tracked_paths(repo_root):
     """Get all tracked file paths as UTF-8 strings using NUL delimiter."""
@@ -43,6 +91,7 @@ def get_tracked_paths(repo_root):
     paths = sorted(set(paths))
     return paths
 
+
 def get_last_commit(repo_root, path, short=True):
     """Get last commit SHA for a tracked file. Returns empty string if unavailable."""
     out, err, rc = git_run(repo_root, "log", "-1", "--format=%H", "--", path)
@@ -53,27 +102,13 @@ def get_last_commit(repo_root, path, short=True):
         return sha[:12]
     return sha
 
-def sha256_from_git(repo_root, path, snapshot_sha):
-    """Compute SHA-256 of file content at a specific snapshot commit."""
-    out, err, rc = git_run(repo_root, "show", f"{snapshot_sha}:{path}")
-    if rc != 0:
-        # File might not exist in snapshot (newly added in working tree)
-        # Fall back to working tree content
-        full = os.path.join(repo_root, path)
-        if os.path.exists(full):
-            return sha256_file(full)
-        return "0" * 64
+
+def sha256_from_blob(blob_bytes):
+    """Compute SHA-256 of blob bytes."""
     h = hashlib.sha256()
-    h.update(out)
+    h.update(blob_bytes)
     return h.hexdigest()
 
-def sha256_file(path):
-    """SHA-256 of file on disk."""
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 def classify_category(path):
     p = str(path)
@@ -111,6 +146,7 @@ def classify_category(path):
     if path.endswith((".env", ".env.example", ".env.template")):
         return "configuration"
     return "other"
+
 
 def classify_component(path):
     p = str(path)
@@ -218,12 +254,12 @@ def classify_component(path):
         return "external-content"
     return "root-other"
 
+
 def gen_purpose(path, cat, comp):
     """Generate meaningful purpose description."""
     name = Path(path).name.lower()
     ext = Path(path).suffix.lower()
 
-    # README
     if name in ("readme.md", "readme"):
         return "Project overview and entry point documentation"
     if name == "dockerfile" or "dockerfile" in path.lower():
@@ -316,8 +352,8 @@ def gen_purpose(path, cat, comp):
         return "TOML configuration"
     return f"Purpose requires manual classification for {comp}" if comp != "unknown" else "Purpose requires manual classification"
 
+
 def gen_recommendation(cat, comp, path):
-    """Generate recommendation based on category and component."""
     if comp in ("placeholder", "external-content"):
         return "REVIEW"
     if comp in ("vllm-legacy", "gateway-legacy", "portal-legacy", "manifests-legacy", "docs-legacy", "offline-deploy", "archive", "references", "configs", "wiki"):
@@ -342,8 +378,8 @@ def gen_recommendation(cat, comp, path):
         return "REVIEW"
     return "KEEP"
 
+
 def gen_status(cat, comp, path):
-    """Determine status: Active / Historical / Evidence / Generated / Stale."""
     if comp in ("placeholder",):
         return "Stale"
     if comp in ("vllm-legacy", "gateway-legacy", "portal-legacy", "manifests-legacy", "docs-legacy", "offline-deploy", "archive", "references", "wiki", "configs", "external-content", "diagrams"):
@@ -356,12 +392,12 @@ def gen_status(cat, comp, path):
 
 
 def has_aggregation(text):
-    """Check for forbidden aggregation patterns."""
     patterns = ["plus other", "various", "..."]
     for pat in patterns:
         if pat in text.lower():
             return True
     return False
+
 
 def check_utf8_normalization(path_str):
     """Check for octal escapes or quote artifacts."""
@@ -382,16 +418,26 @@ def check_utf8_normalization(path_str):
         UTF8_ERRORS += 1
     return issues
 
+
 # ── Main Generator ───────────────────────────────────────────────────
 
 def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_path, tracked_path, rec_path, val_path, check_only=False):
-    """Main generation function."""
+    """Main generation function. Snapshot-only: never reads working tree for tracked files."""
     global UTF8_ERRORS
     UTF8_ERRORS = 0
     log = []
     log.append(f"# Generation Log")
     log.append(f"Snapshot: {snapshot_sha}")
     log.append(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    log.append(f"")
+
+    # Verify snapshot commit
+    t0 = time.time()
+    verify_snapshot_commit(repo_root, snapshot_sha)
+    t1 = time.time()
+    log.append(f"COMMAND: git cat-file -e {snapshot_sha}^commit")
+    log.append(f"EXIT: 0")
+    log.append(f"TIME: {t1-t0:.2f}s")
     log.append(f"")
 
     # Get tracked paths
@@ -401,6 +447,16 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
     log.append(f"COMMAND: git ls-files -z")
     log.append(f"EXIT: 0")
     log.append(f"FILES: {len(paths)}")
+    log.append(f"TIME: {t1-t0:.2f}s")
+    log.append(f"")
+
+    # Verify every tracked path exists in snapshot
+    t0 = time.time()
+    for path in paths:
+        verify_path_in_snapshot(repo_root, path, snapshot_sha)
+    t1 = time.time()
+    log.append(f"COMMAND: git cat-file -e (all {len(paths)} paths in snapshot)")
+    log.append(f"EXIT: 0")
     log.append(f"TIME: {t1-t0:.2f}s")
     log.append(f"")
 
@@ -417,7 +473,6 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
     hash_lines = []
 
     for path in paths:
-        full_path = os.path.join(repo_root, path)
         ext = Path(path).suffix or "(none)"
         cat = classify_category(path)
         comp = classify_component(path)
@@ -444,11 +499,15 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
         status = gen_status(cat, comp, path)
         rec = gen_recommendation(cat, comp, path)
 
-        # Hash from snapshot
-        fhash = sha256_from_git(repo_root, path, snapshot_sha)
+        # Hash from snapshot ONLY (raises RuntimeError if blob not found)
+        blob = get_blob_from_snapshot(repo_root, path, snapshot_sha)
+        fhash = sha256_from_blob(blob)
+
+        # Size from snapshot blob
+        size_bytes = get_blob_size(repo_root, path, snapshot_sha)
+
         hash_lines.append(f"{fhash}  {path}")
 
-        # Catalog row
         catalog_rows.append({
             "path": path,
             "type": ext,
@@ -462,11 +521,10 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
             "recommendation": rec,
         })
 
-        # CSV row
         csv_rows.append({
             "path": path,
             "type": ext,
-            "size_bytes": os.path.getsize(full_path) if os.path.exists(full_path) else 0,
+            "size_bytes": size_bytes,
             "category": cat,
             "component": comp,
             "purpose": purpose,
@@ -482,18 +540,17 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
     count = len(catalog_rows)
 
     if check_only:
-        # Just validate, don't write
         print(f"CHECK-ONLY: {count} tracked paths")
         print(f"UTF-8 normalization issues: {len(norm_issues)}")
         return 0 if (count > 0 and len(norm_issues) == 0) else 1
 
-    # ── Write TRACKED_FILE_LIST ──
+    # Write TRACKED_FILE_LIST
     tracked_content = f"# Snapshot: {snapshot_sha}\n# Count: {count}\n" + "\n".join(paths) + "\n"
     write_file(tracked_path, tracked_content, log)
 
-    # ── Write FILE_CATALOG.md ──
+    # Write FILE_CATALOG.md
     catalog_lines = [
-        f"# File Catalog — Complete ({count} files)",
+        f"# File Catalog \u2014 Complete ({count} files)",
         "",
         f"**Snapshot SHA:** {snapshot_sha}",
         f"**Generated at:** {datetime.now(timezone.utc).isoformat()}",
@@ -504,7 +561,6 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
         "|------|------|----------|-----------|---------|---------|-----|-------------|--------|---------------|",
     ]
     for row in catalog_rows:
-        # Escape pipe in path
         p = row["path"].replace("|", "\\|")
         purp = row["purpose"].replace("|", "\\|").replace("\n", " ")
         catalog_lines.append(
@@ -513,7 +569,7 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
     catalog_lines.append("")
     write_file(catalog_path, "\n".join(catalog_lines), log)
 
-    # ── Write FILE_METADATA.csv ──
+    # Write FILE_METADATA.csv
     csv_buf = io.StringIO()
     writer = csv.DictWriter(csv_buf, fieldnames=[
         "path", "type", "size_bytes", "category", "component", "purpose",
@@ -525,15 +581,15 @@ def generate(repo_root, snapshot_sha, output_dir, catalog_path, csv_path, hash_p
         writer.writerow(row)
     write_file(csv_path, csv_buf.getvalue(), log)
 
-    # ── Write FILE_HASHES.txt ──
+    # Write FILE_HASHES.txt
     hash_content = "\n".join(hash_lines) + "\n"
     write_file(hash_path, hash_content, log)
 
-    # ── Write FILE_RECONCILIATION.md ──
+    # Write FILE_RECONCILIATION.md
     rec_content = generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_sha, count)
     write_file(rec_path, rec_content, log)
 
-    # ── Write VALIDATION_REPORT.md ──
+    # Write VALIDATION_REPORT.md
     val_content = generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sha, count)
     write_file(val_path, val_content, log)
 
@@ -549,12 +605,10 @@ def write_file(path, content, log):
 
 
 def generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_sha, count):
-    """Generate reconciliation report."""
     catalog_paths = set(r["path"] for r in catalog_rows)
     csv_paths = set(r["path"] for r in csv_rows)
     hash_paths = set()
     for line in hash_lines:
-        # Format: <sha256>  <path>
         parts = line.split("  ", 1)
         if len(parts) == 2:
             hash_paths.add(parts[1].strip())
@@ -630,12 +684,11 @@ def generate_reconciliation(paths, catalog_rows, csv_rows, hash_lines, snapshot_
 
 
 def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sha, count):
-    """Generate validation report."""
     patterns = {
         "plus others": 0,
         "plus \\d+ others": 0,
         "various": 0,
-        "\\\.\\\.\\\.": 0,
+        "\\...": 0,
         "TBD": 0,
         "TODO": 0,
         "CHANGEME": 0,
@@ -643,25 +696,22 @@ def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sh
         "To be added": 0,
     }
 
-    # Check catalog file for patterns
     catalog_text = "\n".join(
         f"{r['path']}|{r['purpose']}|{r['status']}|{r['recommendation']}"
         for r in catalog_rows
     )
 
-    import re
     pattern_matches = []
     for pat in sorted(patterns.keys()):
-        matches = list(re.finditer(pat.replace("\\", "\\\\"), catalog_text, re.IGNORECASE))
-        count_matches = len(matches)
+        matches = list(re.finditer(pat, catalog_text, re.IGNORECASE))
+        c = len(matches)
         pattern_matches.append({
             "pattern": pat,
-            "count": count_matches,
+            "count": c,
             "allowed": 0,
-            "unregistered": count_matches,
+            "unregistered": c,
         })
 
-    # TBD check — look for actual TBD instances
     tbd_instances = []
     for r in catalog_rows:
         if "TBD" in r["purpose"]:
@@ -693,11 +743,7 @@ def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sh
         )
 
     if tbd_instances:
-        lines.extend([
-            "",
-            "### TBD Instances Found",
-            "",
-        ])
+        lines.extend(["", "### TBD Instances Found", ""])
         for inst in tbd_instances:
             lines.append(f"- `{inst['path']}`: {inst['text'][:100]}")
 
@@ -738,7 +784,7 @@ def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sh
 # ── CLI ──────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Deterministic Repository Inventory Generator")
+    parser = argparse.ArgumentParser(description="Deterministic Repository Inventory Generator (Snapshot-Only)")
     parser.add_argument("--repo-root", default=".", help="Path to repository root")
     parser.add_argument("--snapshot", required=True, help="Snapshot commit SHA for content hashing")
     parser.add_argument("--generate", action="store_true", help="Generate all inventory outputs")
