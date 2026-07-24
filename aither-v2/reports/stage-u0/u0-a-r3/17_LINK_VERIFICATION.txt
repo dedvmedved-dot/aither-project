@@ -2,7 +2,7 @@ LINK VERIFICATION — Stage U0.A-R3.1
 
 All links verified against final HEAD.
 
-Base URL: https://github.com/dedvmedved-dot/aither-project/blob/<FINAL_HEAD>/aither-v2/
+Base URL: https://github.com/dedvmedved-dot/aither-project/blob/e91ceb5109939962c75374b86b5e941cadf45d56/aither-v2/
 
 | Artifact | Exists in final HEAD | URL valid | Result |
 |----------|:--------------------:|:---------:|:------:|

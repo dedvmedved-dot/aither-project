@@ -3,18 +3,18 @@
 ## Pre-audit target SHA
 
 ```
-<FINAL_HEAD>
+e91ceb5109939962c75374b86b5e941cadf45d56
 ```
 
 ## Identity verification
 
 | Property | Value |
 |----------|-------|
-| Local HEAD | `<FINAL_HEAD>` |
-| Remote HEAD | `<REMOTE_HEAD>` |
-| Manifest final_head_sha | `<FINAL_HEAD>` |
-| Final Status final_head_sha | `<FINAL_HEAD>` |
-| All equal | `<ALL_EQUAL>` |
+| Local HEAD | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| Remote HEAD | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| Manifest final_head_sha | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| Final Status final_head_sha | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| All equal | `YES` |
 
 ## 1. Commit Existence
 

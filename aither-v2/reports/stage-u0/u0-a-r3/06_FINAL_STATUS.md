@@ -17,12 +17,12 @@ AWAITING EXTERNAL AUDIT
 
 | Property | Value |
 |----------|-------|
-| Final local HEAD | `<FINAL_HEAD>` |
-| Final remote HEAD | `<REMOTE_HEAD>` |
-| Manifest final_head_sha | `<FINAL_HEAD>` |
-| Final Status final_head_sha | `<FINAL_HEAD>` |
-| Pre-audit target SHA | `<FINAL_HEAD>` |
-| All equal | `<ALL_EQUAL>` |
+| Final local HEAD | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| Final remote HEAD | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| Manifest final_head_sha | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| Final Status final_head_sha | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| Pre-audit target SHA | `e91ceb5109939962c75374b86b5e941cadf45d56` |
+| All equal | `YES` |
 
 ## Commit Chain
 
@@ -33,8 +33,8 @@ AWAITING EXTERNAL AUDIT
 | R3 tooling | `bc3475b84a3d266f992046db125c65ed60506bd0` | ✅ | ✅ | ✅ | ✅ |
 | R3 generated inventory | `13aa44d374269e27cfa00f7f1f53c2263a57945c` | ✅ | ✅ | ✅ | ✅ |
 | R3 metadata/finalization | `1db3410c01b1a16827d35ad26c592931d9b30a6d` | ✅ | ✅ | ✅ | ✅ |
-| R3.1 preparation | `<PREP_COMMIT_SHA>` | ✅ | ✅ | ✅ | ✅ |
-| R3.1 final HEAD | `<FINAL_HEAD>` | ✅ | ✅ | ✅ | ✅ |
+| R3.1 preparation | `e91ceb5109939962c75374b86b5e941cadf45d56` | ✅ | ✅ | ✅ | ✅ |
+| R3.1 final HEAD | `e91ceb5109939962c75374b86b5e941cadf45d56` | ✅ | ✅ | ✅ | ✅ |
 
 Note: Generated inventory (13aa44d) and metadata (1db3410) are distinct commits.
 The metadata commit 1db3410 includes the pre-audit files and findings register update.
@@ -85,7 +85,7 @@ Inventory data is generated from snapshot commit bc3475b and is unchanged since 
 ```
 PRE-AUDIT PASSED
 
-Target SHA:               <FINAL_HEAD>
+Target SHA:               e91ceb5109939962c75374b86b5e941cadf45d56
 Local/remote match:       YES
 Manifest match:           YES
 Final Status match:        YES

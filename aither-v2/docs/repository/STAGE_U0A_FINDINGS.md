@@ -244,9 +244,9 @@
 **Root cause**: Manifest was created during Commit 2 but not updated after Commit 3 (the actual metadata commit).
 **Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
 **Corrective action**: Manifest rewritten with full chain: r3_metadata_commit_sha = 1db3410 + R3.1 fields
-**Corrective commit**: `<FINAL_HEAD>`
+**Corrective commit**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Evidence**: `reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt`
-**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Final pre-audit target SHA**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Residual risk**: LOW — cosmetic only, no functional impact
 
 ### U0AR3-AUD-001 — Pre-Audit Verification Referenced Wrong HEAD
@@ -256,9 +256,9 @@
 **Root cause**: Pre-audit created mid-Stage before metadata commit, then never re-executed.
 **Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
 **Corrective action**: Pre-audit rewritten with FINAL_HEAD as target, executed AFTER push of final commit
-**Corrective commit**: `<FINAL_HEAD>`
+**Corrective commit**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Evidence**: `reports/stage-u0/u0-a-r3/10_PRE_AUDIT_SELF_VERIFICATION.md`, `reports/stage-u0/u0-a-r3/11_PRE_AUDIT_RAW.txt`
-**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Final pre-audit target SHA**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Residual risk**: LOW — corrected, verification now targets final HEAD
 
 ### U0AR3-TRACE-001 — Commit Existence Evidence Missing Final HEAD
@@ -268,9 +268,9 @@
 **Root cause**: Evidence created before full commit chain complete.
 **Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
 **Corrective action**: All 7 SHAs now included with local/remote/parent verification
-**Corrective commit**: `<FINAL_HEAD>`
+**Corrective commit**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Evidence**: `reports/stage-u0/u0-a-r3/12_COMMIT_EXISTENCE_CHECKS.txt`, `reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt`
-**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Final pre-audit target SHA**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Residual risk**: LOW
 
 ### U0AR3-STATUS-001 — Final Status Contains Duplicated SHA
@@ -280,9 +280,9 @@
 **Root cause**: Generated and metadata commits were conflated in chain table.
 **Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
 **Corrective action**: Final Status rewritten with complete 7-commit chain, metadata SHA corrected
-**Corrective commit**: `<FINAL_HEAD>`
+**Corrective commit**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Evidence**: `reports/stage-u0/u0-a-r3/06_FINAL_STATUS.md`
-**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Final pre-audit target SHA**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Residual risk**: LOW
 
 ### U0AR3-DET-001 — Determinism Mode Not Specified
@@ -292,9 +292,9 @@
 **Root cause**: Generator uses datetime.now() creating volatile timestamps.
 **Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
 **Corrective action**: Mode explicitly documented: byte-identical NOT YET, canonical YES. Generator modification deferred to avoid unnecessary regeneration. Byte-identical achievable by passing --generated-at parameter with commit timestamp.
-**Corrective commit**: `<FINAL_HEAD>`
+**Corrective commit**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Evidence**: `reports/stage-u0/u0-a-r3/15_DETERMINISM_CHECK.txt`
-**Final pre-audit target SHA**: `<FINAL_HEAD>`
+**Final pre-audit target SHA**: `e91ceb5109939962c75374b86b5e941cadf45d56`
 **Residual risk**: LOW — canonical determinism verified. Strict byte-identical requires generator CLI option.
 
 ---

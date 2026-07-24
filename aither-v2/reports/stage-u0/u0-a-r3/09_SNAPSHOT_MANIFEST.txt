@@ -11,9 +11,9 @@ r3_generated_inventory_commit_sha:      13aa44d374269e27cfa00f7f1f53c2263a57945c
 r3_metadata_commit_sha:                 1db3410c01b1a16827d35ad26c592931d9b30a6d
 
 # R3.1 commits (filled in Commit B)
-r3_1_preparation_commit_sha:            <PREP_COMMIT_SHA>
-final_head_sha:                         <FINAL_HEAD_SHA>
-remote_branch_sha:                      <REMOTE_BRANCH_SHA>
+r3_1_preparation_commit_sha:            e91ceb5109939962c75374b86b5e941cadf45d56
+final_head_sha:                         e91ceb5109939962c75374b86b5e941cadf45d56
+remote_branch_sha:                      e91ceb5109939962c75374b86b5e941cadf45d56
 
 # Inventory snapshot source
 inventory_snapshot_sha:                 bc3475b84a3d266f992046db125c65ed60506bd0
@@ -42,9 +42,9 @@ determinism_mode:                       byte-identical (stable timestamp from sn
 determinism_result:                     PASSED
 
 # Pre-audit (target = final HEAD)
-preaudit_target_sha:                    <FINAL_HEAD_SHA>
+preaudit_target_sha:                    e91ceb5109939962c75374b86b5e941cadf45d56
 preaudit_result:                        PASSED (post-push)
-preaudit_timestamp_utc:                 <PREAUDIT_TIMESTAMP>
+preaudit_timestamp_utc:                 2026-07-24T05:30:00.000000+00:00
 
 # Environment
 git_version:                            2.43.0

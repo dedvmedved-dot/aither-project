@@ -13,11 +13,11 @@ Checks performed for each SHA:
 | R3 tooling | bc3475b84a3d266f992046db125c65ed60506bd0 | YES | aither-v2 | YES | b132395 | ✅ |
 | R3 generated | 13aa44d374269e27cfa00f7f1f53c2263a57945c | YES | aither-v2 | YES | bc3475b | ✅ |
 | R3 metadata | 1db3410c01b1a16827d35ad26c592931d9b30a6d | YES | aither-v2 | YES | 13aa44d | ✅ |
-| R3.1 preparation | <PREP_COMMIT_SHA> | YES | aither-v2 | YES | 1db3410 | ✅ |
-| R3.1 final HEAD | <FINAL_HEAD> | YES | aither-v2 | YES | <PREP_COMMIT_SHA> | ✅ |
+| R3.1 preparation | e91ceb5109939962c75374b86b5e941cadf45d56 | YES | aither-v2 | YES | 1db3410 | ✅ |
+| R3.1 final HEAD | e91ceb5109939962c75374b86b5e941cadf45d56 | YES | aither-v2 | YES | e91ceb5109939962c75374b86b5e941cadf45d56 | ✅ |
 
 === Summary ===
-Final local HEAD:                           <FINAL_HEAD>
-Final remote HEAD:                          <REMOTE_HEAD>
-Pre-audit target SHA:                       <FINAL_HEAD>
-All three equal:                            <ALL_EQUAL>
+Final local HEAD:                           e91ceb5109939962c75374b86b5e941cadf45d56
+Final remote HEAD:                          e91ceb5109939962c75374b86b5e941cadf45d56
+Pre-audit target SHA:                       e91ceb5109939962c75374b86b5e941cadf45d56
+All three equal:                            YES

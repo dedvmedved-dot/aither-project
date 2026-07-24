@@ -12,16 +12,16 @@ bc3475b84a3d266f992046db125c65ed60506bd0  R3 tooling corrective ← GENERATION_B
     ↓
 1db3410c01b1a16827d35ad26c592931d9b30a6d  R3 metadata finalization
     ↓
-<PREP_COMMIT_SHA>                          R3.1 preparation
+e91ceb5109939962c75374b86b5e941cadf45d56                          R3.1 preparation
     ↓
-<FINAL_HEAD>                               R3.1 final HEAD ← FINAL_HEAD
+e91ceb5109939962c75374b86b5e941cadf45d56                               R3.1 final HEAD ← FINAL_HEAD
 
 === Chain verification (1db3410..HEAD) ===
-<PREP_COMMIT_LOG_LINE>
-<FINAL_HEAD_LOG_LINE>
+e91ceb5109939962c75374b86b5e941cadf45d56 1db3410c01b1a16827d35ad26c592931d9b30a6d docs(stage-u0.a-r3.1): prepare final-head audit repair
+e91ceb5109939962c75374b86b5e941cadf45d56 e91ceb5109939962c75374b86b5e941cadf45d56 docs(stage-u0.a-r3.1): finalize head-bound audit evidence
 
 === Checks ===
 No unexpected merge commits:     YES
 No missing parents:              YES
 No force rewrite detected:       YES
-Final HEAD is descendant of 1db3410: <DESCENDANT_CHECK>
+Final HEAD is descendant of 1db3410: YES
