@@ -10,14 +10,14 @@ data:
         server_name _;
         client_max_body_size 4m;
 
-        # Rate limiting
-        limit_req_zone $binary_remote_addr zone=completions:10m rate=30r/m;
+        # Rate limiting — internal gateway, allow reasonable concurrency
+        limit_req_zone $binary_remote_addr zone=completions:10m rate=300r/m;
 
         location = /v1/chat/completions {
             return 422 '{"error":"qwen-32b-base does not support chat"}';
         }
         location /v1/completions {
-            limit_req zone=completions burst=5 nodelay;
+            limit_req zone=completions burst=20 nodelay;
             proxy_pass http://vllm-32b-gptq.aither-inference.svc:8000;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;

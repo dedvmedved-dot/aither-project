@@ -1,0 +1,41 @@
+# VPS2 Edge Deployment
+#
+# Prerequisites:
+#   - OPENCONNECT_PASSWORD env var
+#   - OPENCONNECT_GROUP env var
+#   - SSL cert at /root/ssl-cert/cert.pem
+#   - SSL key at /root/ssl-cert/key.pem
+#   - nginx-failover-vps2.conf in same dir
+#   - vpn-cisco-entrypoint.sh in same dir
+#
+# Secret management: credentials via environment only — never in Git.
+
+version: '3.8'
+services:
+  vpn-cisco:
+    image: vpn-cisco-o
+    container_name: vpn-cisco
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    volumes:
+      - ./vpn-cisco-entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      - OPENCONNECT_PASSWORD
+      - OPENCONNECT_GROUP
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
+
+  failover-nginx:
+    image: nginx:alpine
+    container_name: aither-failover-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "10443:10443"
+      - "30901:30901"
+    volumes:
+      - ./nginx-failover-vps2.conf:/etc/nginx/conf.d/default.conf:ro
+      - /root/ssl-cert:/etc/nginx/ssl:ro
+    depends_on:
+      - vpn-cisco

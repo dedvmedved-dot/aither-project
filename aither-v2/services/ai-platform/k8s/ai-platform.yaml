@@ -1,0 +1,126 @@
+# Aither AI Platform — Secret template
+# Replace REPLACE_ME before applying.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aither-ai-platform-secret
+  namespace: aither-inference
+  labels:
+    app: aither-ai-platform
+    stage: "16"
+type: Opaque
+stringData:
+  # No secrets required for Stage 16 AI Platform
+  # (API Key validation uses Identity, Gateway has its own auth)
+  AI_PLATFORM_LOG_LEVEL: "INFO"
+---
+# PersistentVolumeClaim for AI Platform data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aither-ai-platform-data
+  namespace: aither-inference
+  labels:
+    app: aither-ai-platform
+    stage: "16"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aither-ai-platform
+  namespace: aither-inference
+  labels:
+    app: aither-ai-platform
+    stage: "16"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aither-ai-platform
+  template:
+    metadata:
+      labels:
+        app: aither-ai-platform
+        stage: "16"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: ai-platform
+          image: 10.129.13.78:5000/ai-platform:u1-3-models-fix
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: AI_PLATFORM_DB_PATH
+              value: "/data/ai-platform.db"
+            - name: AI_PLATFORM_IDENTITY_URL
+              value: "http://aither-identity:8000"
+            - name: AI_PLATFORM_GATEWAY_URL
+              value: "http://nginx-gateway-32b.aither-inference.svc:8000"
+            - name: AI_PLATFORM_LOG_LEVEL
+              value: "INFO"
+            - name: AI_PLATFORM_CORS_ORIGIN
+              value: "http://localhost:3000"
+            - name: AI_PLATFORM_GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
+            - name: AI_PLATFORM_14B_URL
+              value: "http://vllm-14b-instruct.aither-inference.svc:8000"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: aither-ai-platform-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aither-ai-platform
+  namespace: aither-inference
+  labels:
+    app: aither-ai-platform
+    stage: "16"
+spec:
+  type: NodePort
+  selector:
+    app: aither-ai-platform
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+      nodePort: 30902
