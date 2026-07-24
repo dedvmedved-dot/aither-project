@@ -1,7 +1,7 @@
 # File Catalog — Complete (906 files)
 
 **Snapshot SHA:** bc3475b84a3d266f992046db125c65ed60506bd0
-**Generated at:** 2026-07-24T05:05:16.689268+00:00
+**Generated at:** 2026-07-24T05:08:51.343483+00:00
 **Generator version:** u0.a-r3-1.0
 **Tracked file count:** 906
 
@@ -382,8 +382,8 @@
 | `aither-v2/docs/repository/DIRECTORY_CATALOG.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 748f417aa604 | Generated | KEEP |
 | `aither-v2/docs/repository/DOCUMENTATION_INDEX.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 748f417aa604 | Generated | KEEP |
 | `aither-v2/docs/repository/DUPLICATE_ANALYSIS.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 748f417aa604 | Generated | KEEP |
-| `aither-v2/docs/repository/FILE_CATALOG.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | e3c543ac55c3 | Generated | KEEP |
-| `aither-v2/docs/repository/FILE_RECONCILIATION.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | e3c543ac55c3 | Generated | KEEP |
+| `aither-v2/docs/repository/FILE_CATALOG.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 13aa44d37426 | Generated | KEEP |
+| `aither-v2/docs/repository/FILE_RECONCILIATION.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 13aa44d37426 | Generated | KEEP |
 | `aither-v2/docs/repository/MAINTENANCE_RULES.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 748f417aa604 | Generated | KEEP |
 | `aither-v2/docs/repository/README.md` | .md | documentation | repository-catalog | Project overview and entry point documentation | NO | YES | 748f417aa604 | Generated | KEEP |
 | `aither-v2/docs/repository/REPOSITORY_CMDB.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 748f417aa604 | Generated | KEEP |
@@ -391,7 +391,7 @@
 | `aither-v2/docs/repository/SOURCE_OF_TRUTH_MATRIX.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 748f417aa604 | Generated | KEEP |
 | `aither-v2/docs/repository/STAGE_U0A_FINDINGS.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 630885881c8e | Generated | KEEP |
 | `aither-v2/docs/repository/STALE_AND_ORPHAN_ANALYSIS.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 748f417aa604 | Generated | KEEP |
-| `aither-v2/docs/repository/VALIDATION_REPORT.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | e3c543ac55c3 | Generated | KEEP |
+| `aither-v2/docs/repository/VALIDATION_REPORT.md` | .md | documentation | repository-catalog | Documentation: Repository Catalog | NO | YES | 13aa44d37426 | Generated | KEEP |
 | `aither-v2/docs/roadmap.md` | .md | documentation | stage-docs | Documentation: Stage Docs | NO | NO | fb5e605cef3c | Active | KEEP |
 | `aither-v2/docs/stage10/RC1-READINESS-CHECKLIST.md` | .md | documentation | stage-docs | Documentation: Stage Docs | NO | NO | db7781a9f327 | Active | KEEP |
 | `aither-v2/docs/stage10/implementation/PART1-EVIDENCE.md` | .md | documentation | stage-docs | Documentation: Stage Docs | NO | NO | e1fadc516b44 | Active | KEEP |
@@ -564,10 +564,10 @@
 | `aither-v2/reports/stage-u0/u0-a/00_EXECUTIVE_SUMMARY.md` | .md | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 748f417aa604 | Evidence | KEEP |
 | `aither-v2/reports/stage-u0/u0-a/01_GIT_BASELINE.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 748f417aa604 | Evidence | KEEP |
 | `aither-v2/reports/stage-u0/u0-a/02_BRANCH_INVENTORY.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 748f417aa604 | Evidence | KEEP |
-| `aither-v2/reports/stage-u0/u0-a/03_TRACKED_FILE_LIST.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | e3c543ac55c3 | Evidence | KEEP |
+| `aither-v2/reports/stage-u0/u0-a/03_TRACKED_FILE_LIST.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 13aa44d37426 | Evidence | KEEP |
 | `aither-v2/reports/stage-u0/u0-a/04_DIRECTORY_TREE.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 748f417aa604 | Evidence | KEEP |
-| `aither-v2/reports/stage-u0/u0-a/05_FILE_METADATA.csv` | .csv | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | e3c543ac55c3 | Evidence | KEEP |
-| `aither-v2/reports/stage-u0/u0-a/06_FILE_HASHES.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | e3c543ac55c3 | Evidence | KEEP |
+| `aither-v2/reports/stage-u0/u0-a/05_FILE_METADATA.csv` | .csv | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 13aa44d37426 | Evidence | KEEP |
+| `aither-v2/reports/stage-u0/u0-a/06_FILE_HASHES.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 13aa44d37426 | Evidence | KEEP |
 | `aither-v2/reports/stage-u0/u0-a/07_DUPLICATE_SCAN.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 748f417aa604 | Evidence | KEEP |
 | `aither-v2/reports/stage-u0/u0-a/08_REFERENCE_SCAN.txt` | .txt | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 748f417aa604 | Evidence | KEEP |
 | `aither-v2/reports/stage-u0/u0-a/09_SOURCE_OF_TRUTH_EVIDENCE.md` | .md | evidence | stage-u-reports | Stage evidence: preserves raw or analytical output | NO | NO | 748f417aa604 | Evidence | KEEP |

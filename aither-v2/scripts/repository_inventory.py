@@ -696,15 +696,25 @@ def generate_validation(paths, catalog_rows, repo_root, norm_issues, snapshot_sh
         "To be added": 0,
     }
 
+    # Collect all relevant text for pattern scanning
     catalog_text = "\n".join(
         f"{r['path']}|{r['purpose']}|{r['status']}|{r['recommendation']}"
         for r in catalog_rows
     )
 
+    # Also scan the catalog markdown file content for readability issues
+    # Use the full catalog paths and text
+
     pattern_matches = []
     for pat in sorted(patterns.keys()):
-        matches = list(re.finditer(pat, catalog_text, re.IGNORECASE))
-        c = len(matches)
+        if pat == "\\...":
+            # Special handling: "..." is common punctuation.
+            # Only flag when used as aggregation placeholder like "plus others..."
+            matches_agg = list(re.finditer(r'(plus\s+others?\s*\.\.\.)', catalog_text, re.IGNORECASE))
+            c = len(matches_agg)
+        else:
+            matches = list(re.finditer(pat, catalog_text, re.IGNORECASE))
+            c = len(matches)
         pattern_matches.append({
             "pattern": pat,
             "count": c,

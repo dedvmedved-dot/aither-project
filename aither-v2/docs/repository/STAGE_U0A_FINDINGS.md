@@ -125,16 +125,109 @@
 **Status**: CORRECTED
 **Evidence**: `docs/repository/CLEANUP_PLAN.md`
 
+|---
+
+## Stage U0.A-R2 Findings
+
+### U0AR2-GIT-001 — Generated Commit SHA Error in Report
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: The Stage U0.A-R2 final report claimed SHA `e3c543a7f8390b8aad3c3fe1dce840ba7e88b2bb` which is invalid (47 chars, non-existent object). The actual generated commit SHA is `e3c543ac55c364f2abe968b4f8e5fc2a98645561`. The commit exists both locally and on remote with valid chain.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Investigation documented; actual SHA confirmed
+**Corrective commit**: `bc3475b84a3d266f992046db125c65ed60506bd0`
+**Evidence**: `reports/stage-u0/u0-a-r3/01_GENERATED_COMMIT_INVESTIGATION.md`
+**Self-audit**: PASSED
+
+### U0AR2-MAN-001 — Snapshot Manifest Incomplete
+**Severity**: MEDIUM
+**Category**: Documentation
+**Description**: The Snapshot Manifest (09_SNAPSHOT_MANIFEST.txt) was incomplete with minimal fields in Stage U0.A-R2.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Full 24-field manifest created with all required values
+**Corrective commit**: `13aa44d374269e27cfa00f7f1f53c2263a57945c`
+**Evidence**: `reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt`
+**Self-audit**: PASSED
+
+### U0AR2-VAL-001 — False Positive in Validation
+**Severity**: LOW
+**Category**: Quality
+**Description**: The `...` pattern incorrectly flagged 909 instances of common punctuation as aggregation placeholders.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Pattern `...` now only flags aggregation contexts ("plus others...")
+**Corrective commit**: `13aa44d374269e27cfa00f7f1f53c2263a57945c`
+**Evidence**: `reports/stage-u0/u0-a-r3/07_VALIDATION_RAW.txt`
+**Self-audit**: PASSED
+
+### U0AR2-GEN-001 — Working Tree Fallback in Generator
+**Severity**: HIGH
+**Category**: Integrity
+**Description**: Generator had silent fallback to working tree content when `git show` failed for a path. Hashes could be computed from modified files, not snapshot.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Removed `sha256_file()` fallback; generator now raises RuntimeError on any snapshot read failure
+**Corrective commit**: `bc3475b84a3d266f992046db125c65ed60506bd0`
+**Evidence**: `reports/stage-u0/u0-a-r3/03_GENERATOR_FIX_REPORT.md`
+**Self-audit**: PASSED
+
+### U0AR2-TRACE-001 — Commit Traceability Gap
+**Severity**: HIGH
+**Category**: Governance
+**Description**: Report SHA did not match actual commits. Generated commit SHA in R2 report was incorrect.
+**Status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Corrective action**: Full commit chain documented, all SHAs verified locally and remotely
+**Corrective commit**: `13aa44d374269e27cfa00f7f1f53c2263a57945c`
+**Evidence**: `reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt`, `reports/stage-u0/u0-a-r3/12_COMMIT_EXISTENCE_CHECKS.txt`
+**Self-audit**: PASSED
+
 ---
 
-## Summary (Updated — Stage U0.A-R1)
+## Pre-Audit Summary (Stage U0.A-R3)
+
+### U0A-CAT-001 — File Catalog Incompleteness
+**Previous status**: CORRECTED (R1)
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Self-audit**: PASSED — 906 individual entries, 0 aggregations, all 10 fields populated
+
+### U0A-VAL-001 — Validation and Reconciliation
+**Previous status**: CORRECTED (R1)
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Self-audit**: PASSED — all 6 reconciliation checks pass, set equality verified, validation patterns clean
+
+### U0AR1-VAL-001 — R1 Validation Completeness
+**Previous status**: CORRECTED (R1)
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Self-audit**: PASSED — check-only exit 0, deterministic regeneration confirmed
+
+### U0AR1-CAT-001 — R1 Catalog Field Completeness
+**Previous status**: CORRECTED (R1)
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Self-audit**: PASSED — 10-field catalog with Purpose, Last Commit, Recommendation
+
+### U0AR1-CAT-002 — R1 CSV Completeness
+**Previous status**: CORRECTED (R1)
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Self-audit**: PASSED — 13 columns, sha256 + snapshot_sha present
+
+### U0AR1-CAT-003 — R1 Hash Integrity
+**Previous status**: CORRECTED (R1)
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Self-audit**: PASSED — all hashes from snapshot blob, independent sample verified
+
+### U0AR1-VAL-002 — R1 Placeholder Validation
+**Previous status**: CORRECTED (R1)
+**Current status**: CORRECTED / AWAITING EXTERNAL VERIFICATION
+**Self-audit**: PASSED — TBD replaced, placeholder scan clean
+
+---
+
+## Summary (Updated — Stage U0.A-R3)
 
 | Severity | Count | Key Items |
 |----------|-------|-----------|
 | 🔴 CRITICAL | 0 | — |
-| 🟡 HIGH | 2 | U0A-CAT-001 (CORRECTED), U0A-VAL-001 (CORRECTED) |
-| 🟢 MEDIUM | 5 | U0A-FIND-03, U0A-FIND-04, U0A-FIND-05, U0A-FIND-07, U0A-GIT-001 (CORRECTED) |
-| ℹ️ LOW | 4 | U0A-GOV-001 (CLOSED WITH FINDING), U0A-GIT-002 (CORRECTED), U0A-DEP-001 (CORRECTED), U0A-CLN-001 (CORRECTED) |
+| 🟡 HIGH | 4 | U0A-CAT-001, U0A-VAL-001, U0AR2-GEN-001, U0AR2-TRACE-001 |
+| 🟢 MEDIUM | 6 | U0A-FIND-03, U0A-FIND-04, U0A-FIND-05, U0A-FIND-07, U0AR2-GIT-001, U0AR2-MAN-001 |
+| ℹ️ LOW | 5 | U0A-GOV-001 (CLOSED WITH FINDING), U0A-GIT-002, U0A-DEP-001, U0A-CLN-001, U0AR2-VAL-001 |
 | ℹ️ INFO | 4 | U0A-FIND-01, U0A-FIND-08, U0A-FIND-09, U0A-FIND-10 |
 
-**Stage U0.A-R1 findings**: 6 closed (1 procedural, 5 corrected), 1 CLOSED WITH FINDING
+**Stage U0.A-R3 findings**: 5 new R2 findings + 7 legacy findings verified — all CORRECTED / AWAITING EXTERNAL VERIFICATION

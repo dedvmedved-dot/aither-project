@@ -1,0 +1,23 @@
+COMMIT CHAIN — Stage U0.A-R3
+
+Baseline (R1 final):
+  630885881c8e8994ab7f536df615ee52d5429de4
+
+Chain:
+  6308858 (baseline)
+    ↓ parent
+  b132395 (R2 metadata commit — previous HEAD before R3)
+    ↓ parent  
+  bc3475b (Commit 1 — tooling corrective) ← GENERATION_BASE_SHA
+    ↓ parent
+  13aa44d (Commit 2 — generated inventory) ← GENERATED_COMMIT_SHA
+
+Chain verification (b132395..HEAD):
+b132395f7a8e9c3b25d4cf510b3edf99914fc45d (parent)
+bc3475b84a3d266f992046db125c65ed60506bd0 (commit 1)  parent: b132395
+13aa44d374269e27cfa00f7f1f53c2263a57945c (commit 2)  parent: bc3475b
+
+Chain is linear: YES
+Unexpected commits: NONE
+Merge commits: NONE
+Force rewrite: NO

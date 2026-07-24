@@ -1,0 +1,38 @@
+CHANGED FILES — Stage U0.A-R3
+
+Commit 1 (bc3475b84a3d266f992046db125c65ed60506bd0):
+  M scripts/repository_inventory.py
+  A reports/stage-u0/u0-a-r3/01_GENERATED_COMMIT_INVESTIGATION.md
+  A reports/stage-u0/u0-a-r3/02_PREFLIGHT.txt
+  A reports/stage-u0/u0-a-r3/07_GENERATOR_TESTS.txt
+  A reports/stage-u0/u0-a-r3/08_PATH_NORMALIZATION_TESTS.txt
+
+Commit 2 (13aa44d374269e27cfa00f7f1f53c2263a57945c):
+  M docs/repository/FILE_CATALOG.md
+  M docs/repository/FILE_RECONCILIATION.md
+  M docs/repository/VALIDATION_REPORT.md
+  M reports/stage-u0/u0-a/03_TRACKED_FILE_LIST.txt
+  M reports/stage-u0/u0-a/05_FILE_METADATA.csv
+  M reports/stage-u0/u0-a/06_FILE_HASHES.txt
+
+Commit 3 (will create — metadata finalization):
+  A reports/stage-u0/u0-a-r3/00_EXECUTIVE_SUMMARY.md
+  A reports/stage-u0/u0-a-r3/03_GENERATOR_FIX_REPORT.md
+  A reports/stage-u0/u0-a-r3/04_GENERATION_LOG.txt
+  A reports/stage-u0/u0-a-r3/05_RECONCILIATION_RAW.txt
+  A reports/stage-u0/u0-a-r3/06_FINAL_STATUS.md
+  A reports/stage-u0/u0-a-r3/07_VALIDATION_RAW.txt
+  A reports/stage-u0/u0-a-r3/08_COMMIT_CHAIN.txt
+  A reports/stage-u0/u0-a-r3/09_SNAPSHOT_MANIFEST.txt
+  A reports/stage-u0/u0-a-r3/10_PRE_AUDIT_SELF_VERIFICATION.md
+  A reports/stage-u0/u0-a-r3/11_PRE_AUDIT_RAW.txt
+  A reports/stage-u0/u0-a-r3/12_COMMIT_EXISTENCE_CHECKS.txt
+  A reports/stage-u0/u0-a-r3/13_COMMIT_SCOPE_CHECKS.txt
+  A reports/stage-u0/u0-a-r3/14_HASH_SAMPLE_VERIFICATION.txt
+  A reports/stage-u0/u0-a-r3/15_DETERMINISM_CHECK.txt
+  A reports/stage-u0/u0-a-r3/16_PLACEHOLDER_SCAN.txt
+  A reports/stage-u0/u0-a-r3/17_LINK_VERIFICATION.txt
+  A reports/stage-u0/u0-a-r3/18_FINAL_CHANGED_FILES.txt
+  M docs/repository/STAGE_U0A_FINDINGS.md
+
+No runtime files in any commit. No force push used.

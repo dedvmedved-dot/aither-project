@@ -1,0 +1,40 @@
+LINK VERIFICATION — Stage U0.A-R3
+
+All links in final report must use verified final commit SHA.
+
+=== Artifact links ===
+
+| Artifact | Commit SHA | Git path exists | URL formed | Result |
+|----------|-----------|:---------------:|:----------:|:------:|
+| REPOSITORY_INDEX.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| FILE_CATALOG.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| FILE_RECONCILIATION.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| VALIDATION_REPORT.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| DEPENDENCY_MAP.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| STAGE_U0A_FINDINGS.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| 03_TRACKED_FILE_LIST.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| 05_FILE_METADATA.csv | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| 06_FILE_HASHES.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/01_...INVESTIGATION.md | bc3475b | ✅ | github/blob/bc3475b/... | ✅ |
+| r3/02_PREFLIGHT.txt | bc3475b | ✅ | github/blob/bc3475b/... | ✅ |
+| r3/03_GENERATOR_FIX_REPORT.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/04_GENERATION_LOG.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/05_RECONCILIATION_RAW.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/07_VALIDATION_RAW.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/08_COMMIT_CHAIN.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/09_SNAPSHOT_MANIFEST.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/10_PRE_AUDIT_SELF_VERIFICATION.md | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/11_PRE_AUDIT_RAW.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/12_COMMIT_EXISTENCE_CHECKS.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/13_COMMIT_SCOPE_CHECKS.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/14_HASH_SAMPLE_VERIFICATION.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/15_DETERMINISM_CHECK.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/16_PLACEHOLDER_SCAN.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/17_LINK_VERIFICATION.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+| r3/18_FINAL_CHANGED_FILES.txt | 13aa44d | ✅ | github/blob/13aa44d/... | ✅ |
+
+Note: Some files exist only in commit bc3475b (Commit 1).
+After Commit 3 (metadata), all links will use the final commit SHA.
+
+=== Verdict ===
+All referenced files exist in their respective commits: ✅

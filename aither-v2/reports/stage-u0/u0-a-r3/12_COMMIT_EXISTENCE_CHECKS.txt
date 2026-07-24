@@ -1,0 +1,27 @@
+COMMIT EXISTENCE CHECKS — Stage U0.A-R3
+
+=== Check all declared SHAs ===
+
+Checks performed:
+  git cat-file -t <SHA>
+  git show --no-patch --format='%H %P %s' <SHA>
+  git branch -a --contains <SHA>
+  git ls-remote origin refs/heads/aither-v2
+
+| SHA Role | Full SHA | Local Exists | On Branch | Remote Exists | Parent | Result |
+|----------|----------|:------------:|:---------:|:-------------:|--------|:------:|
+| Baseline | 630885881c8e8994ab7f536df615ee52d5429de4 | YES | aither-v2 | YES | 704bb2d | ✅ |
+| R2 metadata | b132395f7a8e9c3b25d4cf510b3edf99914fc45d | YES | aither-v2 | YES | e3c543a | ✅ |
+| Tooling (C1) | bc3475b84a3d266f992046db125c65ed60506bd0 | YES | aither-v2 | YES | b132395 | ✅ |
+| Generated (C2) | 13aa44d374269e27cfa00f7f1f53c2263a57945c | YES | aither-v2 | YES | bc3475b | ✅ |
+
+Remote HEAD: 13aa44d374269e27cfa00f7f1f53c2263a57945c
+Local HEAD:  13aa44d374269e27cfa00f7f1f53c2263a57945c
+Match: YES
+
+=== Final verdict ===
+All commits exist locally: YES
+All commits exist on remote: YES
+All commits on correct branch: YES
+Chain valid: YES
+Remote HEAD matches local HEAD: YES

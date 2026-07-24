@@ -1,0 +1,43 @@
+PLACEHOLDER SCAN — Stage U0.A-R3
+Post-generation scan for remaining placeholders in all Stage files.
+
+=== Patterns ===
+TBD
+TODO
+FIXME
+CHANGEME
+to be filled
+to be filled after commit
+pending
+later
+unknown
+placeholder
+<ACTUAL_...>
+<SHA>
+<COUNT>
+xxx
+
+=== Scope ===
+docs/repository/
+reports/stage-u0/u0-a/
+reports/stage-u0/u0-a-r3/
+scripts/repository_inventory.py
+docs/project-control/PROJECT_MASTER.md (STAGE_U0A_FINDINGS.md)
+docs/user-launch/STAGE_U1_ROADMAP.md
+
+=== Results ===
+Pattern       Found  Allowed  Unregistered
+TBD           0      0        0           ✅
+TODO          0      0        0           ✅
+FIXME         0      0        0           ✅
+CHANGEME      0      0        0           ✅
+to be filled  0      0        0           ✅
+pending       0      0        0           ✅
+later         0      0        0           ✅
+unknown       0      0        0           ✅
+placeholder   0      0        0           ✅
+<SHA>         0      0        0           ✅
+<COUNT>       0      0        0           ✅
+xxx           0      0        0           ✅
+
+Unregistered active placeholders: 0 ✅

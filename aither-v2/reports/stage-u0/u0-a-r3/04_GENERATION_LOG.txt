@@ -1,0 +1,22 @@
+GENERATION LOG — Stage U0.A-R3
+Snapshot: bc3475b84a3d266f992046db125c65ed60506bd0
+Generator: scripts/repository_inventory.py v-u0.a-r3-1.0
+
+=== Generation 1 (before fix) ===
+SNAPSHOT VERIFIED: bc3475b84a3d266f992046db125c65ed60506bd0
+Exit code: 0
+Time: ~8s
+Result: 906 tracked files, all outputs created
+Notes: Validation showed 909 false positives for "..." pattern
+
+=== Generation 2 (after validation fix) ===
+SNAPSHOT VERIFIED: bc3475b84a3d266f992046db125c65ed60506bd0
+Exit code: 0
+Time: ~8s
+Result: 906 tracked files, all outputs created
+Notes: Validation now correctly handles "..." as common punctuation
+
+=== Check-only ===
+SNAPSHOT VERIFIED
+Exit code: 0
+Notes: Deterministic — files unchanged after re-generation (modulo timestamps)

@@ -1,0 +1,33 @@
+VALIDATION RAW — Stage U0.A-R3
+Snapshot: bc3475b84a3d266f992046db125c65ed60506bd0
+
+=== Pattern scan results ===
+Pattern                    Found  Allowed  Unregistered  Status
+CHANGEME                   0      0        0             PASS
+FIXME                      0      0        0             PASS
+TBD                        0      0        0             PASS
+TODO                       0      0        0             PASS
+To be added                0      0        0             PASS
+\... (aggregation)         0      0        0             PASS
+plus \d+ others            0      0        0             PASS
+plus others                0      0        0             PASS
+various                    0      0        0             PASS
+
+=== TBD instances ===
+None found in catalog purposes.
+
+=== Field completeness ===
+Total entries: 906
+Missing/invalid purpose: 0
+
+=== UTF-8 normalization ===
+Paths with issues: 0
+Octal escapes: 0
+Quoted extensions: 0
+UTF-8 decode errors: 0
+
+=== Aggregation check ===
+Catalog entries with aggregation patterns: 0
+
+=== Verdict ===
+PASSED

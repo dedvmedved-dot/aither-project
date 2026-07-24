@@ -1,0 +1,34 @@
+SNAPSHOT MANIFEST — Stage U0.A-R3
+==============================
+
+stage:                                  U0.A-R3
+baseline_sha:                           630885881c8e8994ab7f536df615ee52d5429de4
+tooling_corrective_commit_sha:          bc3475b84a3d266f992046db125c65ed60506bd0
+generation_base_sha:                    bc3475b84a3d266f992046db125c65ed60506bd0
+generated_inventory_commit_sha:         13aa44d374269e27cfa00f7f1f53c2263a57945c
+metadata_commit_sha:                    13aa44d374269e27cfa00f7f1f53c2263a57945c
+generator_path:                         scripts/repository_inventory.py
+generator_blob_sha:                     bc3475b84a3d266f992046db125c65ed60506bd0:scripts/repository_inventory.py
+generator_sha256:                       0eed7c418635ed4ce1b61775a08d3e652db199f686b27c4ed2e5c6c865da6f12
+tracked_count:                          906
+catalog_count:                          906
+catalog_unique_count:                   906
+csv_count:                              906
+csv_unique_count:                       906
+hash_count:                             906
+hash_unique_count:                      906
+all_sets_equal:                         TRUE
+missing_count:                          0
+extra_count:                            0
+duplicate_count:                        0
+utf8_error_count:                       0
+octal_escape_count:                     0
+placeholder_count:                      0
+generation_timestamp_utc:               2026-07-24T05:08:13.000000+00:00
+validation_timestamp_utc:               2026-07-24T05:08:43.000000+00:00
+preaudit_timestamp_utc:                 2026-07-24T05:13:53.000000+00:00
+python_version:                         3.11.15
+git_version:                            2.43.0
+locale:                                 en_US.UTF-8
+branch:                                 aither-v2
+remote_branch_sha:                      13aa44d374269e27cfa00f7f1f53c2263a57945c
