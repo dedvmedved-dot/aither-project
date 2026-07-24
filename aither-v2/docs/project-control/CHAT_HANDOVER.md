@@ -135,7 +135,7 @@ Hermes behavior rules:
 
 ---
 
-## Stage 10–10F Update
+## Stage 10–10G Update
 
 ```
 Stage 10: FAILED / CONNECTOR VERIFIED
@@ -158,7 +158,14 @@ Stage 10E: FAILED / CONNECTOR VERIFIED
 Verified commit: fae8ceea384e812d8c3bb5fa4422aeb1d6202c20
 Reason: unmatched Markdown fence remained after claimed repair.
 
-Stage 10F: IN PROGRESS / NOT YET AUDITED
+Stage 10F: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 0997db7c5da5d4d065734b9bdc36d7fe13f3a518
+DOC-MD-02: CLOSED / CONNECTOR VERIFIED
+DOC-MD-03: CLOSED / CONNECTOR VERIFIED
+DOC-MD-04: corrected in Stage 10G
+GOV-10F-01: CLOSED WITH FINDING
+
+Stage 10G: IN PROGRESS / NOT YET AUDITED
 ```
 
 ```

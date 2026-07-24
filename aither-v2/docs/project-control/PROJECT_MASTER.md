@@ -46,10 +46,11 @@ Working directory: aither-v2/
 | Stage 10B | RC2R Evidence Quarantine | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10C | Release and Governance Corrections | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
 | Stage 10D | Governance Alignment | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
-|| Stage 10E | Governance Closeout and Markdown Repair | **FAILED / CONNECTOR VERIFIED** |
-|| Stage 10F | Deterministic Markdown Structure Repair | **IN PROGRESS / NOT YET AUDITED** |
+| Stage 10E | Governance Closeout and Markdown Repair | **FAILED / CONNECTOR VERIFIED** |
+| Stage 10F | Deterministic Markdown Structure Repair | **PASSED WITH FINDINGS / CONNECTOR VERIFIED** |
+| Stage 10G | Stage 10F Closeout and Table Repair | **IN PROGRESS / NOT YET AUDITED** |
 
-### Stage 10‑10F Audit Status
+### Stage 10‑10G Audit Status
 
 ```
 Stage 10: FAILED / CONNECTOR VERIFIED
@@ -72,7 +73,14 @@ Stage 10E: FAILED / CONNECTOR VERIFIED
 Verified commit: fae8ceea384e812d8c3bb5fa4422aeb1d6202c20
 Reason: unmatched Markdown fence remained after claimed repair.
 
-Stage 10F: IN PROGRESS / NOT YET AUDITED
+Stage 10F: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+Verified commit: 0997db7c5da5d4d065734b9bdc36d7fe13f3a518
+DOC-MD-02: CLOSED / CONNECTOR VERIFIED
+DOC-MD-03: CLOSED / CONNECTOR VERIFIED
+DOC-MD-04: corrected in Stage 10G
+GOV-10F-01: CLOSED WITH FINDING
+
+Stage 10G: IN PROGRESS / NOT YET AUDITED
 ```
 
 ```

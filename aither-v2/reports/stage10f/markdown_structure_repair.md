@@ -83,3 +83,20 @@ Release classification: INTERNAL PILOT RELEASE CANDIDATE
 Production v1.0: NO-GO
 PROD-READY-01: OPEN
 ```
+
+---
+
+## External Audit Result
+
+```
+Stage 10F: PASSED WITH FINDINGS / CONNECTOR VERIFIED
+
+Verified commit:
+0997db7c5da5d4d065734b9bdc36d7fe13f3a518
+
+DOC-MD-02: CLOSED
+DOC-MD-03: CLOSED
+DOC-MD-04: corrected in Stage 10G
+
+GOV-10F-01: CLOSED WITH FINDING
+```
