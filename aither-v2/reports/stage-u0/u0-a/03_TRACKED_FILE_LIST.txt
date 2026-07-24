@@ -1,5 +1,5 @@
-# Snapshot: 01f95d8e4865e74a07cb297550b8c905c554b470
-# Count: 895
+# Snapshot: bc3475b84a3d266f992046db125c65ed60506bd0
+# Count: 906
 .github/workflows/ci.yml
 .github/workflows/continuous-verification.yml
 .github/workflows/deploy.yml
@@ -540,9 +540,20 @@ aither-v2/reports/rc1/summary.md
 aither-v2/reports/rc2/openai-compatibility.md
 aither-v2/reports/rc2/production-readiness.md
 aither-v2/reports/stage-u0/u0-a-r1/METADATA_COMMIT_INVESTIGATION.md
+aither-v2/reports/stage-u0/u0-a-r2/00_EXECUTIVE_SUMMARY.md
 aither-v2/reports/stage-u0/u0-a-r2/01_PREFLIGHT.txt
+aither-v2/reports/stage-u0/u0-a-r2/02_GENERATION_LOG.txt
+aither-v2/reports/stage-u0/u0-a-r2/03_RECONCILIATION_RAW.txt
+aither-v2/reports/stage-u0/u0-a-r2/04_VALIDATION_RAW.txt
+aither-v2/reports/stage-u0/u0-a-r2/05_CHANGED_FILES.txt
+aither-v2/reports/stage-u0/u0-a-r2/06_FINAL_STATUS.md
 aither-v2/reports/stage-u0/u0-a-r2/07_GENERATOR_TESTS.txt
 aither-v2/reports/stage-u0/u0-a-r2/08_PATH_NORMALIZATION_TESTS.txt
+aither-v2/reports/stage-u0/u0-a-r2/09_SNAPSHOT_MANIFEST.txt
+aither-v2/reports/stage-u0/u0-a-r3/01_GENERATED_COMMIT_INVESTIGATION.md
+aither-v2/reports/stage-u0/u0-a-r3/02_PREFLIGHT.txt
+aither-v2/reports/stage-u0/u0-a-r3/07_GENERATOR_TESTS.txt
+aither-v2/reports/stage-u0/u0-a-r3/08_PATH_NORMALIZATION_TESTS.txt
 aither-v2/reports/stage-u0/u0-a/00_EXECUTIVE_SUMMARY.md
 aither-v2/reports/stage-u0/u0-a/01_GIT_BASELINE.txt
 aither-v2/reports/stage-u0/u0-a/02_BRANCH_INVENTORY.txt

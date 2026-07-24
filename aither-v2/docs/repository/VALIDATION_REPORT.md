@@ -1,7 +1,7 @@
 # Validation Report
 
-**Snapshot SHA:** 01f95d8e4865e74a07cb297550b8c905c554b470
-**Generated at:** 2026-07-24T04:12:40.836946+00:00
+**Snapshot SHA:** bc3475b84a3d266f992046db125c65ed60506bd0
+**Generated at:** 2026-07-24T05:05:16.705394+00:00
 
 ## Pattern Validation
 
@@ -12,14 +12,14 @@
 | `TBD` | 0 | 0 | 0 | ✅ |
 | `TODO` | 0 | 0 | 0 | ✅ |
 | `To be added` | 0 | 0 | 0 | ✅ |
-| `\\.\\.\\.` | 0 | 0 | 0 | ✅ |
+| `\...` | 909 | 0 | 909 | ⚠️ |
 | `plus \d+ others` | 0 | 0 | 0 | ✅ |
 | `plus others` | 0 | 0 | 0 | ✅ |
 | `various` | 0 | 0 | 0 | ✅ |
 
 ## Field Completeness
 
-**Total entries:** 895
+**Total entries:** 906
 **Missing/invalid purpose fields:** 0
 
 
