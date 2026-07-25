@@ -1118,14 +1118,8 @@ function main() {
                     }); });
                     fs = require("fs");
                     DELEGATION_PRIVATE_KEY = (function () {
-                        try {
-                            return fs.readFileSync("/app/delegation/private.pem", "utf8");
-                        }
-                        catch (_a) { }
-                        try {
-                            return fs.readFileSync("./delegation/private.pem", "utf8");
-                        }
-                        catch (_b) { }
+                        // PRIVATE KEY MUST be provided via environment variable (K8s Secret).
+                        // File-based loading removed after security incident INC-2026-TRACK-A-PRIVATE-KEY.
                         return process.env.DELEGATION_PRIVATE_KEY || "";
                     })();
                     app.post("/api/v1/orgs/:orgId/delegate", function (req, reply) { return __awaiter(_this, void 0, void 0, function () {

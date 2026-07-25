@@ -832,14 +832,8 @@ async function main() {
     // ==================== DELEGATION ====================
     const fs = require("fs");
     const DELEGATION_PRIVATE_KEY = (() => {
-        try {
-            return fs.readFileSync("/app/delegation/private.pem", "utf8");
-        }
-        catch { }
-        try {
-            return fs.readFileSync("./delegation/private.pem", "utf8");
-        }
-        catch { }
+        // PRIVATE KEY MUST be provided via environment variable (K8s Secret).
+        // File-based loading removed after security incident INC-2026-TRACK-A-PRIVATE-KEY.
         return process.env.DELEGATION_PRIVATE_KEY || "";
     })();
     app.post("/api/v1/orgs/:orgId/delegate", async (req, reply) => {
