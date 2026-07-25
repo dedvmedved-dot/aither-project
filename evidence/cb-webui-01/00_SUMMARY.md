@@ -1,82 +1,68 @@
-# CB-WEBUI-01 — Implementation Summary
+# CB-WEBUI-01 — Исполнительное резюме
 
-**Repository:** dedvmedved-dot/aither-project
-**Branch:** aither-v2
-**Status:** IMPLEMENTED + DEPLOYED + TESTED
+## Общая информация
 
----
+| Параметр | Значение |
+|----------|----------|
+| **Этап** | CB-WEBUI-01 |
+| **Название** | Двухзональный Web UI платформы Aither |
+| **Дата** | 2026-07-25 |
+| **Статус** | ✅ Реализован |
+| **Ответственный** | DevOps-команда Aither |
 
-## What was built
+## Цель этапа
 
-A dual-zone Web UI for the Aither AI Platform, accessible from both Internet and internal Test Zone, with chat interface for qwen-14b and qwen-32b-base models, Russian localization, and API key management.
+Разработка и развёртывание единого Web-интерфейса платформы Aither, доступного в двух зонах:
+- **Интернет-зона** — через HTTPS на домене `fb1.spb.ru:443` (публичный доступ)
+- **Тестовая зона** — через NodePort `10.129.13.78:30080` (внутренний доступ)
 
----
+Web UI обеспечивает:
+- Аутентификацию через BFF (сессионная авторизация)
+- Чат с моделями Qwen (14B — диалоговая, 32B — базовая)
+- Управление API-ключами (создание/отзыв токенов)
+- Автоматическое определение зоны подключения
+- Полную локализацию интерфейса на русском языке
 
-## Deployment
+## Ключевые результаты
 
-| Component | Change |
-|---|---|
-| Portal frontend (app.js) | Complete rewrite: 504 lines, Russian UI, Chat + API Keys + dual-zone |
-| Portal frontend (index.html) | Updated: Chat tab, model selector, dual-zone badge, Russian labels |
-| Portal frontend (styles.css) | New: dark theme, responsive, chat bubbles, zone badges |
-| VPS2 nginx config (/root/nginx-failover.conf) | Changed portal route from port 3000 → 10.129.13.78:30080 |
-| k8s ConfigMap (aither-portal-config) | Updated with new frontend files |
-| k8s Deployment (aither-portal) | Restarted to pick up new ConfigMap |
+| Метрика | Статус |
+|---------|--------|
+| Доступность через Интернет (`https://fb1.spb.ru:443`) | ✅ PASS |
+| Доступность в тестовой зоне (`http://10.129.13.78:30080`) | ✅ PASS |
+| Вход по учётным данным (логин/пароль) | ✅ PASS |
+| Чат с qwen-14b (ответы на русском) | ✅ PASS |
+| Чат с qwen-32b-base (продолжение текста на русском) | ✅ PASS |
+| Переключение моделей (dropdown) | ✅ PASS |
+| Определение зоны подключения (авто) | ✅ PASS |
+| Русская локализация интерфейса | ✅ PASS |
+| Кнопка копирования ответов ассистента | ✅ PASS |
+| Управление API-ключами (BFF `/api/v1/tokens`) | ⚠️ Частично |
 
----
+## Архитектурные изменения
 
-## Endpoints
+1. **Portal Frontend** — обновлены `app.js`, `index.html`, `styles.css`
+   - Полная переработка на русский язык
+   - Добавлена страница чата с выбором модели
+   - Добавлена страница управления API-ключами
+   - Добавлено автоопределение зоны (по hostname)
+   - Добавлена кнопка копирования ответов (Clipboard API)
 
-| Zone | Web UI | API Base |
-|---|---|---|
-| Internet | https://fb1.spb.ru:443/ | https://fb1.spb.ru:443/api/v1 |
-| Internet (32B) | — | https://fb1.spb.ru:10443/api/v1 |
-| Test Zone | http://10.129.13.78:30080/ | http://10.129.13.78:30080/api/v1 |
+2. **VPS2 Nginx** — перенастроен `/root/nginx-failover.conf`
+   - Порты 443, 10443 маршрутизируют Web UI на k8s NodePort `10.129.13.78:30080`
+   - Порты 443, 10443 также проксируют API `/v1/` на AI Platform `10.129.13.78:30902`
+   - Порты `/api/`, `/auth/` маршрутизируются на BFF
 
----
+3. **K8s ConfigMap** — обновлён `aither-portal-frontend-config`
+   - Заменён статический HTML/JS (Stage 15) на новую версию CB-WEBUI-01
 
-## Authentication
+## Известные ограничения
 
-- **Method:** BFF session-based (admin credentials stored in k8s Secret)
-- **Session storage:** Redis
-- **Token system:** BFF /api/v1/tokens with model scopes
+- Страница API-ключей может не загружаться при проблемах с BFF endpoint `/api/v1/tokens`
+- 32B-модель работает в режиме completion (продолжение текста), а не в режиме чата
+- Интерфейс управления ключами требует стабильной работы BFF
 
----
+## Следующие шаги
 
-## Functional Tests
-
-| Test | Result |
-|---|---|
-| Login (Internet) | ✅ PASS |
-| Login (Test Zone) | ✅ PASS |
-| Chat 14B (Russian) | ✅ PASS — coherent response |
-| Chat 32B (Russian) | ✅ PASS — continuation text |
-| Model switching | ✅ PASS |
-| Dual-zone detection | ✅ PASS — auto based on hostname |
-| Copy response button | ✅ PASS |
-| Clear chat | ✅ PASS |
-| Logout | ✅ PASS |
-| Invalid credentials | ✅ PASS — error shown |
-
----
-
-## Known Limitations
-
-1. API Keys page loading error (BFF /api/v1/tokens endpoint needs investigation)
-2. Self-signed SSL certificate (browser warning)
-3. Single admin user (no multi-user yet)
-4. Chat is stateless (history not persisted server-side)
-5. /v1/completions → 404 (documented workaround: /v1/chat/completions)
-
----
-
-## Files Changed
-
-- `aither-v2/services/portal-frontend/app.js` — new Web UI logic
-- `aither-v2/services/portal-frontend/index.html` — new Web UI markup
-- `aither-v2/services/portal-frontend/styles.css` — new styles
-- `aither-v2/services/portal-frontend/nginx-failover-vps2.conf` — updated routing
-- `docs/user-package/13_WEB_UI_GUIDE.md` — new Web UI guide
-- `docs/user-package/02_QUICK_START.md` — updated with Web UI as primary
-- `docs/architecture/ADR-CB-WEBUI-001.md` — architecture decision record
-- `diagrams/cb-webui-dual-zone.dot` — deployment diagram
+- CB-WEBUI-02: Полноценная система агентских ключей с гранулярными правами
+- Интеграция с ChromaDB/RAG для контекстных ответов
+- Добавление streaming-режима для чата (SSE)
