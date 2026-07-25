@@ -1,0 +1,13 @@
+# U1.3-WUI-R1 — PLACEHOLDER SCAN
+
+**Patterns searched:**
+- `<set at next push>`
+- `PLACEHOLDER`
+- `TODO.*commit`
+- `FIXME`
+
+**Scope:** All .md files under evidence/u1.3-wui-r1/
+
+**Result: 0 placeholders found.**
+
+All evidence files are self-contained with actual SHA values and run IDs.

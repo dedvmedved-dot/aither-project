@@ -1,0 +1,3 @@
+ portal/static/index.html             | 28 +++++++++++++++++++++++++
+ tests/e2e/test_u13_complete_webui.py | 40 ++++++++++++++++++------------------
+ 2 files changed, 48 insertions(+), 20 deletions(-)

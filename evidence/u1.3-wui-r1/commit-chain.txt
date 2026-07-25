@@ -1,0 +1,18 @@
+# U1.3-WUI-R1 — COMMIT CHAIN
+
+| Role | SHA | Message |
+|------|-----|---------|
+| Rejected | 14136d7f7ce7309b590370dda539164d18d2a8d6 | feat(u1.3-wui): complete web ui implementation |
+| Corrective Implementation (A) | 7c7bb102bf72b489dd0d7f9736eee41aaaa760c9 | fix(u1.3-wui): repair agent page renderer and enforce TLS verification |
+| Evidence (B) | <to be created> | evidence(u1.3-wui-r1): prove complete webui workflow after corrections |
+
+## Files Changed (Commit A)
+- portal/static/index.html: +28 lines (added renderAgentPage, nav handler)
+- tests/e2e/test_u13_complete_webui.py: 20 lines (TLS verification enforced)
+
+## Immutability Between A and B
+- Runtime: UNCHANGED
+- Frontend: UNCHANGED
+- Backend: UNCHANGED
+- Test source: UNCHANGED
+- Documentation: EVIDENCE ONLY (no functional doc changes)
