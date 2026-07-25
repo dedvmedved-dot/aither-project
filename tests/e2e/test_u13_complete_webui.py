@@ -81,7 +81,7 @@ def create_key_via_ui(page, key_name, model_value):
     session_cookie = {c["name"]: c["value"] for c in cookies if c["name"] == "session_id"}
     list_r = requests.get(
         f"{page.url.rstrip('/').replace('/index.html','').replace('#','')}/api/v1/tokens",
-        cookies=session_cookie, timeout=15, verify=False
+        cookies=session_cookie, timeout=15, verify=True
     )
     token_id = ""
     if list_r.status_code == 200:
@@ -181,7 +181,7 @@ class TestApiKeys:
                 f"{api_base}/chat",
                 headers={"Authorization": f"Bearer {full_secret}"},
                 json={"model": MODEL_A, "messages": [{"role": "user", "content": "OK"}], "max_tokens": 3},
-                timeout=60, verify=False
+                timeout=60, verify=True
             )
             assert r.status_code == 200, f"KEY_A should access MODEL_A, got {r.status_code}"
 
@@ -189,7 +189,7 @@ class TestApiKeys:
             if token_id:
                 cookies = ctx.cookies()
                 sc = {c["name"]: c["value"] for c in cookies if c["name"] == "session_id"}
-                requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=sc, timeout=15, verify=False)
+                requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=sc, timeout=15, verify=True)
 
             ctx.close()
             browser.close()
@@ -211,7 +211,7 @@ class TestApiKeys:
                 f"{api_base}/chat",
                 headers={"Authorization": f"Bearer {full_secret}"},
                 json={"model": MODEL_B, "messages": [{"role": "user", "content": "AI is"}], "max_tokens": 3},
-                timeout=120, verify=False
+                timeout=120, verify=True
             )
             assert r.status_code == 200, f"KEY_B should access MODEL_B, got {r.status_code}"
 
@@ -219,7 +219,7 @@ class TestApiKeys:
             if token_id:
                 cookies = ctx.cookies()
                 sc = {c["name"]: c["value"] for c in cookies if c["name"] == "session_id"}
-                requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=sc, timeout=15, verify=False)
+                requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=sc, timeout=15, verify=True)
 
             ctx.close()
             browser.close()
@@ -245,7 +245,7 @@ class TestApiKeys:
             if token_id:
                 cookies = ctx.cookies()
                 sc = {c["name"]: c["value"] for c in cookies if c["name"] == "session_id"}
-                requests.delete(f"{ZONES['Internet']}/api/v1/tokens/{token_id}", cookies=sc, timeout=15, verify=False)
+                requests.delete(f"{ZONES['Internet']}/api/v1/tokens/{token_id}", cookies=sc, timeout=15, verify=True)
 
             ctx.close()
             browser.close()
@@ -267,7 +267,7 @@ class TestApiKeys:
             # Revoke
             r = requests.delete(
                 f"{ZONES['Internet']}/api/v1/tokens/{token_id}",
-                cookies=sc, timeout=15, verify=False
+                cookies=sc, timeout=15, verify=True
             )
             assert r.status_code == 200, f"Revoke failed: {r.status_code}"
 
@@ -275,7 +275,7 @@ class TestApiKeys:
             r2 = requests.get(
                 f"{ZONES['Internet']}/api/v1/models",
                 headers={"Authorization": f"Bearer {full_secret}"},
-                timeout=10, verify=False
+                timeout=10, verify=True
             )
             assert r2.status_code in (401, 403), f"Revoked key must return 401/403, got {r2.status_code}"
 
@@ -298,14 +298,14 @@ class TestAgent:
         # Create key via API
         login_r = requests.post(f"{target_url}/api/v1/auth/login", json={
             "username": BETA01_USER, "password": BETA01_PASS
-        }, timeout=15, verify=False)
+        }, timeout=15, verify=True)
         assert login_r.status_code == 200
         session_id = login_r.json().get("session_id")
         cookies = {"session_id": session_id}
 
         create_r = requests.post(f"{target_url}/api/v1/tokens", json={
             "name": "U13-AGENT-A", "scopes": ["model:14b:chat"]
-        }, cookies=cookies, timeout=15, verify=False)
+        }, cookies=cookies, timeout=15, verify=True)
         assert create_r.status_code == 200
         key = create_r.json().get("token")
         token_id = create_r.json().get("token_id")
@@ -313,12 +313,12 @@ class TestAgent:
         # Agent request to MODEL_A
         r = requests.post(f"{api_base}/chat", headers={
             "Authorization": f"Bearer {key}", "Content-Type": "application/json"
-        }, json={"model": MODEL_A, "messages": [{"role": "user", "content": "Say: OK"}], "max_tokens": 5}, timeout=60, verify=False)
+        }, json={"model": MODEL_A, "messages": [{"role": "user", "content": "Say: OK"}], "max_tokens": 5}, timeout=60, verify=True)
         assert r.status_code == 200, f"Agent MODEL_A failed: {r.status_code}"
         assert "choices" in r.json()
 
         # Cleanup
-        requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=cookies, timeout=15, verify=False)
+        requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=cookies, timeout=15, verify=True)
 
     @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
     def test_agent_model_b(self, zone_name, target_url):
@@ -327,47 +327,47 @@ class TestAgent:
 
         login_r = requests.post(f"{target_url}/api/v1/auth/login", json={
             "username": BETA02_USER, "password": BETA02_PASS
-        }, timeout=15, verify=False)
+        }, timeout=15, verify=True)
         assert login_r.status_code == 200
         session_id = login_r.json().get("session_id")
         cookies = {"session_id": session_id}
 
         create_r = requests.post(f"{target_url}/api/v1/tokens", json={
             "name": "U13-AGENT-B", "scopes": ["model:32b:chat-adapter"]
-        }, cookies=cookies, timeout=15, verify=False)
+        }, cookies=cookies, timeout=15, verify=True)
         assert create_r.status_code == 200
         key = create_r.json().get("token")
         token_id = create_r.json().get("token_id")
 
         r = requests.post(f"{api_base}/chat", headers={
             "Authorization": f"Bearer {key}", "Content-Type": "application/json"
-        }, json={"model": MODEL_B, "messages": [{"role": "user", "content": "AI is"}], "max_tokens": 5}, timeout=120, verify=False)
+        }, json={"model": MODEL_B, "messages": [{"role": "user", "content": "AI is"}], "max_tokens": 5}, timeout=120, verify=True)
         assert r.status_code == 200, f"Agent MODEL_B failed: {r.status_code}"
 
-        requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=cookies, timeout=15, verify=False)
+        requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=cookies, timeout=15, verify=True)
 
     @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
     def test_agent_revoked_denial(self, zone_name, target_url):
         """Revoked agent key returns 401/403"""
         login_r = requests.post(f"{target_url}/api/v1/auth/login", json={
             "username": BETA01_USER, "password": BETA01_PASS
-        }, timeout=15, verify=False)
+        }, timeout=15, verify=True)
         session_id = login_r.json().get("session_id")
         cookies = {"session_id": session_id}
 
         create_r = requests.post(f"{target_url}/api/v1/tokens", json={
             "name": "U13-AGENT-REVOKE", "scopes": ["model:14b:chat"]
-        }, cookies=cookies, timeout=15, verify=False)
+        }, cookies=cookies, timeout=15, verify=True)
         key = create_r.json().get("token")
         token_id = create_r.json().get("token_id")
 
         # Revoke
-        requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=cookies, timeout=15, verify=False)
+        requests.delete(f"{target_url}/api/v1/tokens/{token_id}", cookies=cookies, timeout=15, verify=True)
 
         # Should be denied
         r = requests.get(f"{target_url.rstrip('/')}/api/v1/models", headers={
             "Authorization": f"Bearer {key}"
-        }, timeout=10, verify=False)
+        }, timeout=10, verify=True)
         assert r.status_code in (401, 403), f"Revoked agent key must return 401/403, got {r.status_code}"
 
 

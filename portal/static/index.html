@@ -1004,6 +1004,33 @@ code {
         setLoading(false);
     }
 
+    // ── Agent Page ─────────────────────────────────────────────
+    async function renderAgentPage() {
+        // Set API base URL for current zone
+        const apiUrl = window.location.origin + '/api/v1';
+        const el = document.getElementById('agent-api-url');
+        if (el) el.textContent = apiUrl;
+
+        // Load model list
+        const modelsEl = document.getElementById('agent-models');
+        if (modelsEl) {
+            try {
+                const res = await api('/models');
+                if (res.ok && res.data) {
+                    const models = res.data.data || res.data;
+                    let html = '<ul style="list-style:none;padding:0;">';
+                    for (const m of (Array.isArray(models) ? models : [])) {
+                        const name = m.id || m.name;
+                        const desc = name === 'qwen-14b' ? 'Чат-модель' : 'Базовая модель';
+                        html += `<li style="padding:4px 0;">✦ <strong>${escHtml(name)}</strong> — <span class="text-muted">${desc}</span></li>`;
+                    }
+                    html += '</ul>';
+                    modelsEl.innerHTML = html || '<p class="text-muted">Модели не найдены</p>';
+                }
+            } catch { modelsEl.innerHTML = '<p class="text-muted">Не удалось загрузить модели</p>'; }
+        }
+    }
+
     // ── Profile ────────────────────────────────────────────────
     async function loadProfile() {
         if (!currentUser) return;
@@ -1066,6 +1093,7 @@ code {
                 if (page === 'api-keys') loadApiKeys();
                 if (page === 'status') loadStatusPage();
                 if (page === 'profile') loadProfile();
+                if (page === 'agent') renderAgentPage();
             });
         });
 
