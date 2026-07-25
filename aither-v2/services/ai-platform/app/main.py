@@ -303,7 +303,7 @@ async def get_user_from_api_key(request: Request) -> Optional[dict]:
     elif x_api_key:
         key_value = x_api_key
 
-    if key_value and key_value.startswith("aither_"):
+    if key_value and (key_value.startswith("aither_") or key_value.startswith("athr_")):
         return await authenticate_api_key(key_value)
 
     # Fall back to Bearer token auth

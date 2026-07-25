@@ -14,3 +14,5 @@ secrets/
 !delegation/public.pem
 # Audit artifacts (generated, not committed)
 audit-report.md
+*.pem
+delegation-private.pem

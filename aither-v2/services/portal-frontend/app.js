@@ -318,7 +318,7 @@
                 let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Модели</th><th>Создан</th><th>Статус</th><th>Действия</th></tr>';
                 for (const k of tokens) {
                     const revoked = k.revoked;
-                    const prefix = (k.token_id || k.id || '—').substring(0, 12);
+                    const prefix = (k.token_id || k.id || '—');
                     const scopes = (k.scopes || []).map(s => s.replace('model:', '').replace(':chat-adapter',':chat').replace(':chat','')).join(', ') || 'все';
                     html += `<tr>
                         <td>${escHtml(k.name || 'Без названия')}</td>

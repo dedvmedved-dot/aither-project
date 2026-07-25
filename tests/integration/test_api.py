@@ -32,8 +32,7 @@ class TestAuth:
 
     def test_login_invalid(self):
         r = requests.post(f"{BASE}/auth/login",
-                         json={"username": "wrong", "password": "wrong"},
-                         verify=False)
+                         json={"username": "wrong", "password": "wrong"})
         assert r.status_code == 401
 
     def test_models_no_auth(self):
@@ -80,8 +79,7 @@ class TestKeyLifecycle:
 
         # Use the token
         r = requests.get(f"{BASE}/models",
-                        headers={"Authorization": f"Bearer {beta_token['token']}"},
-                        verify=False)
+                        headers={"Authorization": f"Bearer {beta_token['token']}"})
         assert r.status_code == 200
 
     def test_revoke(self, session, beta_token):
@@ -91,8 +89,7 @@ class TestKeyLifecycle:
 
         # Verify revoked
         r = requests.get(f"{BASE}/models",
-                        headers={"Authorization": f"Bearer {beta_token['token']}"},
-                        verify=False)
+                        headers={"Authorization": f"Bearer {beta_token['token']}"})
         assert r.status_code == 401
 
 
