@@ -151,12 +151,29 @@
 
 ---
 
-## Итоговая статистика E2E теста
+## Playwright-артефакты (TRACK-A-R2)
+
+Реальные артефакты автоматизированных браузерных тестов:
+
+```text
+tests/e2e/videos/
+tests/e2e/traces/
+tests/e2e/screenshots/
+```
+
+Логи выполнения:
+```text
+tests/e2e/test_r2_user_acceptance.py — полный E2E BETA-USER-01 (23 шага)
+Тестовая команда: python3 -m pytest tests/e2e/test_r2_user_acceptance.py -v --tb=short
+```
 
 | Метрика | Значение |
 |---------|----------|
-| Общее время выполнения | ~26 секунд |
-| Шагов выполнено | 9 |
+| Internet Chromium | ✅ PASS (12.7s) |
+| Internet Firefox | ✅ PASS |
+| Test Zone Chromium | ✅ PASS |
+| Test Zone Firefox | ✅ PASS |
+| Всего тестов | 4/4 PASS (42.4s) |
 | API вызовов | 5 (login, models, chat×2, logout) |
 | Ошибок | 0 |
 | Статус | ✅ PASS |
