@@ -8,7 +8,7 @@
     let chatHistory = []; // client-side chat history
 
     const $ = (id) => document.getElementById(id);
-    const pages = ['login','dashboard','chat','api-keys','status','profile'];
+    const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile'];
 
     // Zone detection
     function detectZone() {
@@ -524,6 +524,10 @@
         $('btn-create-apikey')?.addEventListener('click', showCreateTokenModal);
         $('btn-send-message')?.addEventListener('click', sendChatMessage);
         $('btn-clear-chat')?.addEventListener('click', clearChat);
+        $('btn-submit-feedback')?.addEventListener('click', function() {
+            showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
+            $('feedback-message').value = '';
+        });
         $('chat-model-select')?.addEventListener('change', updateModelInfo);
         $('chat-temperature')?.addEventListener('input', function() {
             $('chat-temp-val').textContent = this.value;

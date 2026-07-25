@@ -1,10 +1,8 @@
 """Integration tests for Aither BFF API."""
 import pytest
 import requests
-import urllib3
-urllib3.disable_warnings()
 
-BASE = "https://localhost:443/api/v1"
+BASE = "https://fb1.spb.ru:443/api/v1"
 ADMIN = {"username": "admin", "password": "admin"}
 
 
@@ -29,7 +27,7 @@ def beta_token(session):
 
 class TestAuth:
     def test_login_success(self, session):
-        r = requests.post(f"{BASE}/auth/login", json=ADMIN, verify=False)
+        r = requests.post(f"{BASE}/auth/login", json=ADMIN)
         assert r.status_code == 200
 
     def test_login_invalid(self):
@@ -39,7 +37,7 @@ class TestAuth:
         assert r.status_code == 401
 
     def test_models_no_auth(self):
-        r = requests.get(f"{BASE}/models", verify=False)
+        r = requests.get(f"{BASE}/models")
         assert r.status_code == 401
 
 
@@ -100,7 +98,7 @@ class TestKeyLifecycle:
 
 class TestEndpoints:
     def test_internet_endpoint(self):
-        r = requests.get("https://localhost:443/", verify=False)
+        r = requests.get("https://localhost:443/")
         assert r.status_code == 200
 
     def test_testzone_endpoint(self):

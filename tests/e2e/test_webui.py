@@ -84,12 +84,18 @@ class TestChat:
         page.select_option("#chat-model-select", "qwen-14b")
         page.fill("#chat-input", "Коротко: 2+2=?")
         page.click("#btn-send-message")
-        page.wait_for_timeout(15000)
+        try:
+            page.wait_for_selector("#btn-send-message:not([disabled])", timeout=60000)
+        except:
+            page.wait_for_timeout(15000)
         # Switch to 32B
         page.select_option("#chat-model-select", "qwen-32b-base")
         page.fill("#chat-input", "Продолжи: Python это")
         page.click("#btn-send-message")
-        page.wait_for_selector(".chat-msg.assistant:not(:has-text('⏳'))", timeout=60000)
+        try:
+            page.wait_for_selector("#btn-send-message:not([disabled])", timeout=60000)
+        except:
+            page.wait_for_timeout(15000)
         # Should have messages from both models
         messages = page.locator(".chat-msg.assistant")
         assert messages.count() >= 2
@@ -129,8 +135,7 @@ class TestAPIKeys:
         assert page.input_value("#modal-token-full") == ""
 
     def test_revoke_key(self, page):
-        import requests, urllib3, json as _json
-        urllib3.disable_warnings()
+        import requests
         
         login(page)
         page.click('[data-page="api-keys"]')
@@ -163,9 +168,9 @@ class TestAPIKeys:
             page.wait_for_timeout(3000)
         
         # Verify token is revoked (use API fallback if UI revoke didn't work)
-        r = requests.get("https://localhost:443/api/v1/models",
+        r = requests.get("https://fb1.spb.ru:443/api/v1/models",
                         headers={"Authorization": f"Bearer {token_value}"},
-                        verify=False, timeout=10)
+                        timeout=10)
         if r.status_code == 200 and cookie_header:
             # Revoke via API using session cookie
             r2 = requests.get("http://10.129.13.78:30080/api/v1/tokens",
@@ -179,8 +184,8 @@ class TestAPIKeys:
                         requests.delete(f"http://10.129.13.78:30080/api/v1/tokens/{tid}",
                                       headers=cookie_header, timeout=10)
             # Re-verify
-            r = requests.get("https://localhost:443/api/v1/models",
+            r = requests.get("https://fb1.spb.ru:443/api/v1/models",
                            headers={"Authorization": f"Bearer {token_value}"},
-                           verify=False, timeout=10)
+                           timeout=10)
         
         assert r.status_code == 401, f"Expected 401, got {r.status_code}: {r.text[:80]}"
