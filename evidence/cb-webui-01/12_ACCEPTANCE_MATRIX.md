@@ -105,3 +105,40 @@ CB-WEBUI-01 **принимается** без оговорок. Все 52 при
 **Решение:** ПРИНЯТО ✅
 **Дата приёмки:** 2026-07-25
 **Подпись:** DevOps-команда Aither
+
+---
+
+## TRACK-A-R3.1 — Reproducibility Verification (2026-07-25)
+
+Commit: `1ed95001ffa817fb5c774a2ed5ebf58d810be759`
+
+| Run | Tests | Result | Exit Code | JUnit XML |
+|-----|-------|--------|-----------|-----------|
+| Individual BETA01 | 4/4 | ✅ PASS | 0 | beta01.xml |
+| Individual BETA02 | 2/2 | ✅ PASS | 0 | beta02.xml |
+| Individual OWNER01 | 2/2 | ✅ PASS | 0 | owner.xml |
+| Individual Agent | 2/2 | ✅ PASS | 0 | agent.xml |
+| Full Run 1 | 10/10 | ✅ PASS | 0 | full-r3-run-1.xml |
+| Full Run 2 | 10/10 | ✅ PASS | 0 | full-r3-run-2.xml |
+| Fresh Clone | 10/10 | ✅ PASS | 0 | fresh-clone-r3.xml |
+| **Combined** | **40/40** | ✅ | **0** | |
+
+| Verification | Result |
+|--------------|--------|
+| closeModal in test | 0 references |
+| Test file hash match (working-tree vs HEAD) | YES |
+| Working tree CLEAN | YES |
+| Git local/remote match | YES |
+| No admin substitution | YES |
+| Internet 32B stability (10/10) | ✅ |
+| Security evidence (7/7) | ✅ |
+
+### Test Sources (F-21—F-31)
+
+All F-21 through F-31 criteria verified by `tests/e2e/test_r3_identities.py`:
+- `TestBETA01::test_full_scenario[zone-browser]` — 4 parametrized tests
+- `TestBETA02::test_isolation[zone]` — 2 parametrized tests
+- `TestOWNER01::test_rbac[zone]` — 2 parametrized tests
+- `TestAgent::test_agent_api[zone]` — 2 parametrized tests
+
+Evidence: `evidence/track-a-r3.1/` (full inventory in 00_SUMMARY.md)

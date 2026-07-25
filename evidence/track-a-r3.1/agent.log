@@ -1,0 +1,13 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/lib/hermes-agent/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /root/aither-project
+plugins: httpx-0.36.2, base-url-2.1.0, playwright-0.8.0, anyio-4.12.1
+collecting ... collected 2 items
+
+tests/e2e/test_r3_identities.py::TestAgent::test_agent_api[Internet-https://fb1.spb.ru:443] PASSED
+tests/e2e/test_r3_identities.py::TestAgent::test_agent_api[Test Zone-http://10.129.13.78:30080] PASSED
+
+--- generated xml file: /root/aither-project/evidence/track-a-r3.1/agent.xml ---
+============================== 2 passed in 43.86s ==============================
+EXIT_CODE=0

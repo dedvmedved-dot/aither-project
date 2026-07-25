@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/lib/hermes-agent/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /root/aither-project
+plugins: httpx-0.36.2, base-url-2.1.0, playwright-0.8.0, anyio-4.12.1
+collecting ... collected 10 items
+
+tests/e2e/test_r3_identities.py::TestBETA01::test_full_scenario[Internet-https://fb1.spb.ru:443-chromium] PASSED
+tests/e2e/test_r3_identities.py::TestBETA01::test_full_scenario[Internet-https://fb1.spb.ru:443-firefox] PASSED
+tests/e2e/test_r3_identities.py::TestBETA01::test_full_scenario[Test Zone-http://10.129.13.78:30080-chromium] PASSED
+tests/e2e/test_r3_identities.py::TestBETA01::test_full_scenario[Test Zone-http://10.129.13.78:30080-firefox] PASSED
+tests/e2e/test_r3_identities.py::TestBETA02::test_isolation[Internet-https://fb1.spb.ru:443] PASSED
+tests/e2e/test_r3_identities.py::TestBETA02::test_isolation[Test Zone-http://10.129.13.78:30080] PASSED
+tests/e2e/test_r3_identities.py::TestOWNER01::test_rbac[Internet-https://fb1.spb.ru:443] PASSED
+tests/e2e/test_r3_identities.py::TestOWNER01::test_rbac[Test Zone-http://10.129.13.78:30080] PASSED
+tests/e2e/test_r3_identities.py::TestAgent::test_agent_api[Internet-https://fb1.spb.ru:443] PASSED
+tests/e2e/test_r3_identities.py::TestAgent::test_agent_api[Test Zone-http://10.129.13.78:30080] PASSED
+
+- generated xml file: /root/aither-project/evidence/track-a-r3.1/full-r3-run-2.xml -
+======================== 10 passed in 226.61s (0:03:46) ========================
+EXIT_CODE=0
