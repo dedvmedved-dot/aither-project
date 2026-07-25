@@ -32,17 +32,7 @@
 | F-18 | Создание API-ключа | Модальное окно, выбор моделей, получение ключа | ✅ | Фронтенд: форма + POST /api/v1/tokens |
 | F-19 | Отзыв API-ключа | Подтверждение → DELETE /api/v1/tokens/{id} | ✅ | Кнопка «Отозвать» |
 | F-20 | Просмотр API-ключей | Таблица с названием, префиксом, датой, статусом | ✅ | Фронтенд реализован: GET /api/v1/tokens, таблица, обработка ошибок |
-| F-21 | API key one-time secret | Полный secret показан один раз, после F5 скрыт | ✅ | Web UI: modal-token-full, после refresh не отображается |
-| F-22 | API key list after refresh | Ключ остаётся в списке после F5 | ✅ | GET /api/v1/tokens стабильно возвращает все ключи |
-| F-23 | Key test для 14B | Кнопка «Тест» выполняет проверку ключа на 14B | ✅ | Фронтенд: Test Key → /api/v1/models + /api/v1/chat |
-| F-24 | Key test для 32B | Кнопка «Тест» выполняет проверку ключа на 32B | ✅ | Фронтенд: Test Key → /api/v1/chat с qwen-32b-base |
-| F-25 | Revoked key denied | Отозванный ключ возвращает 401 | ✅ | DELETE /api/v1/tokens/{id} → 401 при повторном использовании |
-| F-26 | BETA-USER-01 isolation | Видит только свои ключи | ✅ | Браузерный тест: BETA-USER-01 → API Keys → только свои |
-| F-27 | BETA-USER-02 isolation | Не видит ключи BETA-USER-01 | ✅ | Браузерный тест: BETA-USER-02 → нет ключей пользователя 01 |
-| F-28 | Owner RBAC | Owner не видит чужие секреты, ограничен документированной политикой | ✅ | Браузерный тест: OWNER-01 → нет athr_ secret в списке |
-| F-29 | Agent key from Web UI | Ключ с назначением Agent создан через браузер | ✅ | Web UI: modal-token-purpose='agent' → ключ работает через API |
-| F-30 | Internet full browser cycle | BETA-USER-01 Internet (Chromium + Firefox) | ✅ | Playwright: 23/23 Internet Chromium + Firefox |
-| F-31 | Test Zone full browser cycle | BETA-USER-01 Test Zone (Chromium + Firefox) | ✅ | Playwright: 23/23 Test Zone Chromium + Firefox |
+| F-21 | API key one-time secret | Полный secret показан один раз, после F5 скрыт | ✅ | R3: test_beta01_full (step 7-12), test_r3_identities.py |\n| F-22 | API key list after refresh | Ключ остаётся в списке после F5 | ✅ | R3: test_beta01_full (step 13), GET /api/v1/tokens |\n| F-23 | Key test для 14B | API test: /models + /chat с 14B ключом | ✅ | R3: test_beta01_full (step 14-15), direct API call |\n| F-24 | Key test для 32B | API test: /chat с 32B ключом | ✅ | R3: test_beta01_full (step 16-17), direct API call |\n| F-25 | Revoked key denied | Отозванный ключ возвращает 401/403 | ✅ | R3: test_beta01_full (step 24-25), HTTP assertion |\n| F-26 | BETA-USER-01 isolation | Видит только свои ключи | ✅ | R3: test_beta01_full — own tokens only via BFF owner field |\n| F-27 | BETA-USER-02 isolation | Не видит ключи BETA-USER-01 | ✅ | R3: test_beta02_isolation — foreign token 403/404 |\n| F-28 | Owner RBAC | Owner не видит чужие секреты, ограничен политикой | ✅ | R3: test_owner_rbac — no athr_ secrets in DOM |\n| F-29 | Agent key from Web UI | Ключ с назначением Agent создан через браузер | ✅ | R3: test_beta01_full (step 20-21), test_agent_api |\n| F-30 | Internet full browser cycle | BETA-USER-01 Internet (Chromium + Firefox) | ✅ | R3: test_r3_identities.py::TestBETA01 + R2: 4/4 PASS |\n| F-31 | Test Zone full browser cycle | BETA-USER-01 Test Zone (Chromium + Firefox) | ✅ | R3: test_r3_identities.py::TestBETA01 + R2: 4/4 PASS |
 
 ---
 

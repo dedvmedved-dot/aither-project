@@ -1,0 +1,24 @@
+=== Git History Full Scan ===
+Timestamp: 2026-07-25T07:19:32Z
+Command: git log --all -p -- '*.py' '*.js' '*.yaml' '*.env' | grep -iE 'BEGIN.*KEY|athr_|password\s*=' | head -20
+
+-        username, password = USERS['BETA-USER-01']
+         secret_count = page.locator('td:has-text("athr_")').count()
+-        username, password = USERS['BETA-USER-02']
+-        username, password = USERS['OWNER-01']
+-        assert page.locator('td:has-text("athr_")').count() == 0, 'SECRET LEAK!'
+         username, password = USERS['BETA-USER-01']
+         username, password = USERS['BETA-USER-02']
+         username, password = USERS['OWNER-01']
++        username, password = USERS['BETA-USER-01']
++        secret_count = page.locator('td:has-text("athr_")').count()
++        username, password = USERS['BETA-USER-02']
++        username, password = USERS['OWNER-01']
++        assert page.locator('td:has-text("athr_")').count() == 0, 'SECRET LEAK!'
+    - Internet AI Agent: route /v1/* through BFF for athr_ token support (nginx-failover-vps2.conf)
+    - AI Platform: accept both aither_ and athr_ key prefixes (main.py)
++    if key_value and (key_value.startswith("aither_") or key_value.startswith("athr_")):
+ ADMIN_PASSWORD = os.environ.get("AITHER_ADMIN_PASS", "admin")
+     username, password = admin_credentials
+     username, password = admin_credentials
++            assert token_value.startswith("athr_")

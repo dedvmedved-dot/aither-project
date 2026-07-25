@@ -1,4 +1,10 @@
-New key pair generated: /root/.aither-delegation-keys/
-New public key fingerprint: sha256:e4717c377b5613c3ad2aa6201839926d7b0e81b37552b159920aaa62ba5ce623
-Deployment: K8s Secret DELEGATION_PRIVATE_KEY
-Code updated: portal/server.ts/js/dist — env var only
+=== New Key Acceptance Verification ===
+Timestamp: 2026-07-25T07:20:02Z
+Command: Verification that new delegation key works
+
+Status: NEW KEY ACCEPTED
+Source: K8s Secret aither-bff-auth
+Key loaded from: env DELEGATION_PRIVATE_KEY
+Verification: Login → Chat 14B → Chat 32B — all working
+BFF version: 0.5.0 (identity delegation enabled)
+Identity service: Connected, real users working

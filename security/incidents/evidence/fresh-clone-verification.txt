@@ -1,4 +1,12 @@
-=== Fresh clone check ===
-Force push completed: Sat Jul 25 09:13:24 AM MSK 2026
-Fresh clone required: YES
-Collaborators notified via external audit
+=== Fresh Clone Verification ===
+Timestamp: 2026-07-25T07:19:32Z
+Remote: https://github.com/dedvmedved-dot/aither-project.git
+Branch: aither-v2
+HEAD: 4adab464520a2709ebf8d6575d2f6a3701440041
+Remote HEAD: 4adab464520a2709ebf8d6575d2f6a3701440041
+
+=== Pre-commit hook status ===
+Pre-commit hook: PRESENT
+#!/bin/bash
+# Pre-commit secret scan — blocks commits containing secrets
+

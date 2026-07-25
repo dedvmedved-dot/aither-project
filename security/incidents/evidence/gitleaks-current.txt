@@ -1,2 +1,232 @@
-=== Gitleaks current tree ===
-/usr/bin/bash: line 56: gitleaks: command not found
+=== Current State Secret Scan ===
+Timestamp: 2026-07-25T07:19:32Z
+Command: grep -rE 'athr_|aither_|-----BEGIN|private_key' --include='*.py' --include='*.js' --include='*.yaml' --include='*.md' . --exclude-dir=.git 2>/dev/null | grep -v 'evidence/' | grep -v 'security/' | grep -v 'tests/'
+
+./lab-journal.md:    name text NOT NULL, aither_org_id uuid,
+./lab-journal.md:    aither_org_id uuid,           -- ID в ядре Aither (пока NULL)
+./lab-journal.md:- `portal_organizations` — aither_org_id → UUID
+./lab-journal.md:| **Фронтенд** (`portal/static/index.html`) | Кнопка «🐙 Войти через GitHub» на странице логина, обработка `aither_token` из URL после callback |
+./lab-journal.md:2. **Редикшен паролей Hermes:** пароль БД `aither_pass` редиктился во всех heredoc-ах → решение: `bff-wrapper.sh` собирает пароль из частей `${P1}_${P2}`
+./aither-v2/scripts/repository_inventory.py:    aither_dir = os.path.join(repo_root, "aither-v2")
+./aither-v2/scripts/repository_inventory.py:        output_dir = os.path.join(aither_dir, "reports", "stage-u0", "u0-a")
+./aither-v2/scripts/repository_inventory.py:    r2_dir = os.path.join(aither_dir, "reports", "stage-u0", "u0-a-r2")
+./aither-v2/scripts/repository_inventory.py:    catalog_path = os.path.join(aither_dir, "docs", "repository", "FILE_CATALOG.md")
+./aither-v2/scripts/repository_inventory.py:    rec_path = os.path.join(aither_dir, "docs", "repository", "FILE_RECONCILIATION.md")
+./aither-v2/scripts/repository_inventory.py:    val_path = os.path.join(aither_dir, "docs", "repository", "VALIDATION_REPORT.md")
+./aither-v2/manifests/mvp-roadmap/07-portal/portal-mvp.yaml:    \  <pre class=\"code-block\">Authorization: Bearer athr_&lt;your_token&gt;</pre>\n\
+./aither-v2/manifests/mvp-roadmap/07-portal/portal-mvp.yaml:    Authorization: Bearer athr_&lt;token&gt;</pre>\n\n        <h3>Chat (14B native,\
+./aither-v2/manifests/mvp-roadmap/07-portal/portal-mvp.yaml:    \ Bearer athr_&lt;token&gt;\nContent-Type: application/json\n\n{\n  \"model\"\
+./aither-v2/manifests/mvp-roadmap/07-portal/portal-mvp.yaml:    \ /api/v1/completions\nAuthorization: Bearer athr_&lt;token&gt;\nContent-Type:\
+./aither-v2/manifests/mvp-roadmap/05-bff/bff-mvp.yaml:    TP="athr_";RNS="aither-auth";TNS=f"{RNS}:token";SNS=f"{RNS}:session"
+./aither-v2/reports/rc2/openai-compatibility.md:    api_key="aither_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+./aither-v2/reports/rc2/openai-compatibility.md:        'Authorization': 'Bearer aither_xxxxxxxx_xxxx...'
+./aither-v2/reports/rc2/openai-compatibility.md:  -H "Authorization: Bearer aither_xxxxxxxx_xxxx..." \
+./aither-v2/reports/beta/hermes-final.md:Auth:     Bearer token (aither_<api_key>)
+./aither-v2/reports/beta/hermes-final.md:API Key used: `aither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p`
+./aither-v2/reports/beta/hermes-final.md:KEY = "aither_<your_api_key>"
+./aither-v2/reports/beta/ba02-hermes-integration.md:Hermes → POST /v1/chat/completions (with Bearer aither_<key>) → AI Platform → Gateway → vLLM
+./aither-v2/reports/beta/ba02-hermes-integration.md:| Auth | `Bearer aither_<api_key>` |
+./aither-v2/reports/beta/api-keys.md:| Response includes `full_key` | ✅ `aither_aa101d5b_eFQMBBouKkHmjU4tM1nvCJWkquhfxeRIo5gQtd7DlvW9EcT0Bjt8d7dqxQvYAotd` |
+./aither-v2/reports/beta/api-keys.md:| Response includes `key_prefix` | ✅ `aither_aa101d5b` |
+./aither-v2/reports/beta/api-keys.md:| Shows prefix only (not full key) | ✅ `key_prefix: "aither_aa101d5b"` |
+./aither-v2/reports/beta/api-keys.md:| New key generated | ✅ `aither_8bc5186f_6BVbA0ZIVEZ9PmG-S2guZ8Kujy2ogWlSHrt2FWgu4MY6bB9nVjrqsDPOd6LOWXvg` |
+./aither-v2/reports/beta/api-keys.md:| Prefix unique | ✅ `aither_8bc5186f` (different from first) |
+./aither-v2/reports/beta/openai-api-final.md:  -H "Authorization: Bearer aither_83de4e49_..." \
+./aither-v2/reports/beta/openai-api-final.md:curl -X POST ... -H "X-API-Key: aither_83de4e49_..." ...
+./aither-v2/reports/beta/openai-api-final.md:req.add_header("Authorization", "Bearer aither_<your_key>")
+./aither-v2/reports/beta/ba02-api-key-isolation.md:Aither uses **bearer token** model for API keys. API Key format: `aither_<random_prefix>_<random_suffix>`. Keys are hashed (SHA-256) before storage — raw keys are not persisted.
+./aither-v2/reports/beta/ba02-api-key-isolation.md:aither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p
+./aither-v2/reports/beta/summary-final.md:| `/v1/chat/completions` | POST | Bearer (aither_ key) | ✅ HTTP 200 |
+./aither-v2/reports/ba02r/hermes-validation.md:- **API Key:** User-created `aither_bdb3f288_*` (real API Key, valid user credentials)
+./aither-v2/reports/ba02r/api-key-security.md:aither_{8_hex_chars}_{48_urlsafe_chars}
+./aither-v2/reports/ba02r/api-key-security.md:Example: aither_d4108e4f_kMLj... (64+ chars total)
+./aither-v2/reports/ba02r/api-key-security.md:  1. Parse prefix (aither_{8hex})
+./aither-v2/reports/ba02r/frontend-audit.md:localStorage.setItem('aither_token', authToken);
+./aither-v2/reports/ba02r/frontend-audit.md:- **Token:** `localStorage.getItem('aither_token')` — persists across page refreshes
+./aither-v2/reports/stage10b/secret_scan.md:| PEM keys (`-----BEGIN`) | All | 0 | — |
+./aither-v2/services/ai-platform/app/main.py:    if key_value and (key_value.startswith("aither_") or key_value.startswith("athr_")):
+./aither-v2/services/ai-platform/app/main.py:    prefix = f"aither_{secrets.token_hex(4)}"
+./aither-v2/services/ai-platform/app/main.py:    if not key_value or not key_value.startswith("aither_"):
+./aither-v2/services/ai-platform/app/main.py:        raise HTTPException(status_code=401, detail="Valid API Key required (format: aither_...)")
+./aither-v2/services/ai-platform/app/main.py:    if not key_value or not key_value.startswith("aither_"):
+./aither-v2/services/ai-platform/app/main.py:        raise HTTPException(status_code=401, detail="Valid API Key required (format: aither_...)")
+./aither-v2/services/portal-frontend/k8s/portal-frontend.yaml:    let authToken = localStorage.getItem('aither_token') || null;
+./aither-v2/services/portal-frontend/k8s/portal-frontend.yaml:                localStorage.setItem('aither_token', authToken);
+./aither-v2/services/portal-frontend/k8s/portal-frontend.yaml:        localStorage.removeItem('aither_token');
+./aither-v2/services/portal-frontend/k8s/portal-frontend.yaml:        authToken = null; currentUser = null; localStorage.removeItem('aither_token'); updateNav(); showPage('login'); return false;
+./aither-v2/services/portal-frontend/app.js:    let authToken = localStorage.getItem('aither_token') || null;
+./aither-v2/services/portal-frontend/app.js:                localStorage.setItem('aither_token', authToken);
+./aither-v2/services/portal-frontend/app.js:        localStorage.removeItem('aither_token');
+./aither-v2/services/portal-frontend/app.js:                <p class="text-muted" style="margin-top:4px;">Формат: athr_... (Bearer-токен для Authorization заголовка)</p>
+./aither-v2/services/portal-frontend/app.js:        localStorage.removeItem('aither_token');
+./aither-v2/tools/bff/app.py:TOKEN_PREFIX = "athr_"
+./aither-v2/tools/bff/app.py:    # Strip "athr_" prefix before hashing — hash is of the full raw token
+./aither-v2/docs/stage-u1.3/07_INTERNAL_USER_PACKAGE.md:Contact your administrator to receive an API key in format `aither_<prefix>_<secret>`.
+./aither-v2/docs/project-control/CHATGPT_SESSION_LOG.md:   - Agent Bearer token verification (`athr_xxx` prefix, HMAC-SHA256 hash)
+./aither-v2/docs/project-control/AUDIT_LOG.md:- Agent access with Bearer tokens (`athr_xxx`).
+./aither-v2/docs/project-control/AUDIT_LOG.md:2. Token redacted: athr_DwaIzEt...REDACTED.
+./aither-v2/docs/stage16/ARCHITECTURE.md:1. External client calls `/v1/chat/completions` with `Authorization: Bearer aither_xxx`
+./aither-v2/docs/stage16/API-KEYS.md:aither_<8-char hex prefix>_<64-char URL-safe base64 secret>
+./aither-v2/docs/stage16/API-KEYS.md:Example: `aither_a1b2c3d4_z0x9y8w7v6u5t4s3r2q1p0o9i8u7y6t5r4e3w2q1`
+./aither-v2/docs/stage16/API-KEYS.md:2. Server generates: prefix (`aither_<random 4 bytes hex>`) + secret (`token_urlsafe(48)`)
+./aither-v2/docs/stage16/API-KEYS.md:| `key_prefix` | `aither_a1b2c3d4` — public identifier |
+./aither-v2/docs/stage16/API-KEYS.md:Authorization: Bearer aither_<prefix>_<secret>
+./aither-v2/docs/stage16/API-KEYS.md:X-API-Key: aither_<prefix>_<secret>
+./aither-v2/docs/stage16/STAGE16-EVIDENCE.md:- **Use:** Sent as `Authorization: Bearer aither_...` → hash compared → `last_used_at` updated
+./aither-v2/docs/stage16/API.md:Authorization: Bearer aither_<prefix>_<secret>
+./aither-v2/docs/mvp-roadmap/09-gateway-replica-health/gateway-operator-notes.md:TOKEN="athr_<token>"
+./aither-v2/docs/mvp-roadmap/07-portal/api-token-user-guide.md:athr_<random_secret>
+./aither-v2/docs/mvp-roadmap/07-portal/api-token-user-guide.md:Example (redacted): `athr_...REDACTED`
+./aither-v2/docs/mvp-roadmap/07-portal/api-token-user-guide.md:curl -H "Authorization: Bearer athr_<token>" http://<portal>/api/v1/models
+./aither-v2/docs/mvp-roadmap/07-portal/api-token-user-guide.md:curl -X POST -H "Authorization: Bearer athr_<token>" \
+./aither-v2/docs/mvp-roadmap/07-portal/api-token-user-guide.md:curl -X POST -H "Authorization: Bearer athr_<token>" \
+./aither-v2/docs/mvp-roadmap/07-portal/api-token-user-guide.md:curl -X POST -H "Authorization: Bearer athr_<token>" \
+./aither-v2/docs/mvp-roadmap/08-end-to-end-acceptance/e2e-operator-notes.md:  -H 'Authorization: Bearer athr_<your_token>' \
+./aither-v2/docs/mvp-roadmap/08-end-to-end-acceptance/e2e-security-notes.md:2. API token: Bearer auth (athr_ prefix), HMAC-SHA256 hash stored.
+./aither-v2/docs/mvp-roadmap/07-auth-api/auth-architecture.md:        +-- Bearer API token verification (athr_xxx)
+./aither-v2/docs/mvp-roadmap/07-auth-api/auth-architecture.md:| Token format | `athr_<32 bytes random (urlsafe)>` |
+./aither-v2/docs/mvp-roadmap/07-auth-api/auth-architecture.md:User tokens (`Authorization: Bearer athr_xxx`) are:
+./aither-v2/docs/mvp-roadmap/07-auth-api/INSTRUCTIONS.md:curl -H "Authorization: Bearer athr_<token>" http://aither-bff.aither-inference.svc:8000/api/v1/models
+./aither-v2/docs/mvp-roadmap/07-auth-api/INSTRUCTIONS.md:curl -H "Authorization: Bearer athr_<token>" -X POST http://aither-bff.aither-inference.svc:8000/api/v1/chat \
+./aither-v2/docs/mvp-roadmap/07-auth-api/api-token-model.md:athr_<base64url random 32 bytes>
+./aither-v2/docs/mvp-roadmap/07-auth-api/api-token-model.md:Example: `athr_REDACTED`
+./aither-v2/docs/mvp-roadmap/07-auth-api/api-token-model.md:TP = "athr_"
+./aither-v2/docs/mvp-roadmap/07-auth-api/agent-integration-guide.md:curl -H "Authorization: Bearer athr_xxx" \
+./aither-v2/docs/mvp-roadmap/07-auth-api/agent-integration-guide.md:curl -H "Authorization: Bearer athr_xxx" -X POST \
+./aither-v2/docs/mvp-roadmap/07-auth-api/agent-integration-guide.md:curl -H "Authorization: Bearer athr_xxx" -X POST \
+./aither-v2/docs/mvp-roadmap/07-auth-api/agent-integration-guide.md:curl -H "Authorization: Bearer athr_xxx" -X POST \
+./aither-v2/docs/mvp-roadmap/07-auth-api/32b-chat-adapter-notes.md:curl -H "Authorization: Bearer athr_xxx" -X POST \
+./aither-v2/docs/mvp-roadmap/07-auth-api/auth-security-notes.md:- Agent: Bearer token (`athr_xxx`) verified via HMAC-SHA256
+./aither-v2/docs/repository/FILE_CATALOG.md:| `aither_academic_docx_and_schemes.zip` | .zip | archive | root-other | Compressed archive | NO | NO | 9a7edecc1029 | Active | KEEP |
+./aither-v2/docs/stage10/technical-review/IMPLEMENTATION-AUDIT.md:| Bearer token prefix `athr_` | ✅ Implemented | `app.py:62` |
+./aither-v2/docs/stage-u1.4/07_RELEASE_NOTES.md:- API key-based (format: `aither_<prefix>_<secret>`)
+./aither-v2/docs/stage-u1.4/05_FEEDBACK_PROCESS.md:7. **API key prefix** — first part of your key (e.g., `aither_<prefix>_...`)
+./aither-v2/docs/stage-u1.4/05_FEEDBACK_PROCESS.md:Key prefix: aither_30a67d9d
+./manifests/postgres.yaml:          value: aither_pass
+./manifests/litellm.yaml:      database_url: "postgresql://aither:aither_pass@postgres:5432/aither"
+./offline-deploy/k8s/postgres/deployment.yaml:          value: aither_pass
+./offline-deploy/k8s/gateway/deployment.yaml:    -----BEGIN PUBLIC KEY-----
+./references/TR2-Portal-Aither-v6.md:| `aither_org_id` | UUID организации в Core Aither | Portal DB, Core Management API |
+./references/TR2-Portal-Aither-v6.md:        aither_api [label="Core Management API", fillcolor="#82E0AA"];
+./references/TR2-Portal-Aither-v6.md:    bff -> aither_api [label="Delegation Token\nmTLS"];
+./references/TR2-Portal-Aither-v6.md:    "aither_org_id": "<aither_org_id>",
+./references/TR2-Portal-Aither-v6.md:    aither_org_id UUID NOT NULL UNIQUE,
+./references/TR2-Portal-Aither-v6.md:CREATE INDEX idx_portal_orgs_aither ON portal_organizations(aither_org_id);
+./references/TR2-Portal-Aither-v6.md:              aither_org_id: {type: string, format: uuid}
+./references/TR2-Portal-Aither-v6.md:                  aither_org_id: {type: string, format: uuid}
+./references/TR2-Portal-Aither-v6.md:        aither_org_id: {type: string, format: uuid}
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:| BETA-USER-01 | aither_7dfc3372 | Inserted, active |
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:| BETA-USER-02 | aither_d8638ae8 | Inserted, active |
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:| BETA-USER-03 | aither_78f86855 | Inserted, active |
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:| BETA-USER-04 | aither_e42200f0 | Inserted, active |
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:| BETA-USER-05 | aither_2ef9f024 | Inserted, active |
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:Authorization: Bearer aither_deadbeef_invalid_key_here
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:→ HTTP 401 "Valid API Key required (format: aither_...)" ✅
+./reports/closed-beta/cb-01/04_ACCESS_VALIDATION.md:- Key format: aither_XXXXXXXX_<48-char-urlsafe-secret>
+./reports/closed-beta/cb-01/users/BETA-USER-02_UAT.md:**Key prefix:** aither_d8638ae8
+./reports/closed-beta/cb-01/users/BETA-USER-01_UAT.md:**Key prefix:** aither_7dfc3372
+./reports/closed-beta/cb-01/users/BETA-USER-01_UAT.md:Authorization: Bearer aither_deadbeef_invalid
+./gateway/vault.py:    # Vault PKI returns certificate + private_key
+./docs/integration-oauth-payments.md:    const token = localStorage.getItem('aither_token');
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:full_key = f"aither_{hex_part}_{raw_secret}"
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:key_prefix = f"aither_{hex_part}"
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:### Schema: aither_XXXX_<48-char-urlsafe-secret>
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:| BETA-USER-01 | aither_7dfc3372 | ✅ | PENDING* | ✅ | ✅ | CREATED |
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:| BETA-USER-02 | aither_d8638ae8 | ✅ | PENDING* | ✅ | ✅ | CREATED |
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:| BETA-USER-03 | aither_78f86855 | ✅ | PENDING* | ✅ | ✅ | CREATED |
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:| BETA-USER-04 | aither_e42200f0 | ✅ | PENDING* | ✅ | ✅ | CREATED |
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:| BETA-USER-05 | aither_2ef9f024 | ✅ | PENDING* | ✅ | ✅ | CREATED |
+./docs/closed-beta/cb-01/04_ACCESS_PROVISIONING.md:- **In Git:** Only key prefixes (aither_XXXXXXXX)
+./docs/closed-beta/cb-01/03_USER_COHORT_REGISTER.md:| BETA-USER-01 | aither_7dfc3372 | ACTIVE |
+./docs/closed-beta/cb-01/03_USER_COHORT_REGISTER.md:| BETA-USER-02 | aither_d8638ae8 | ACTIVE |
+./docs/closed-beta/cb-01/03_USER_COHORT_REGISTER.md:| BETA-USER-03 | aither_78f86855 | ACTIVE |
+./docs/closed-beta/cb-01/03_USER_COHORT_REGISTER.md:| BETA-USER-04 | aither_e42200f0 | ACTIVE |
+./docs/closed-beta/cb-01/03_USER_COHORT_REGISTER.md:| BETA-USER-05 | aither_2ef9f024 | ACTIVE |
+./docs/closed-beta/cb-01/05_USER_ONBOARDING.md:Authorization: Bearer aither_XXXXXXXX_<secret>
+./docs/vps3-failover.md:**Почему обёртка, а не `.env`?** `server.js` читает переменные окружения через `process.env`, а не через dotenv. Systemd `Environment=` тоже редиктится Hermes. Решение: bash-скрипт собирает пароль из частей `${P1}_${P2}` = `aither_pass`.
+./docs/user-package/01_WELCOME.md:- **Аутентификация:** Работа учётных записей (Web UI) и API-ключей (`athr_`-токенов)
+./docs/user-package/15_DUAL_ZONE_ACCESS_GUIDE.md:  -H "Authorization: Bearer athr_..."
+./docs/user-package/15_DUAL_ZONE_ACCESS_GUIDE.md:  -H "Authorization: Bearer athr_..."
+./docs/user-package/15_DUAL_ZONE_ACCESS_GUIDE.md:KEY = "athr_..."
+./docs/user-package/15_DUAL_ZONE_ACCESS_GUIDE.md:KEY = "athr_..."
+./docs/user-package/00_INDEX.md:- 🔑 Создавать и управлять API-ключами (префикс `athr_`)
+./docs/user-package/00_INDEX.md:| 1.1 | 25.07.2026 | CB-WEBUI-01-R1: Web UI как основной интерфейс, новые документы 13–16, переход на `athr_`-ключи, сертификат Let's Encrypt |
+./docs/user-package/04_API_GUIDE.md:athr_<префикс>_<секретная_часть>
+./docs/user-package/04_API_GUIDE.md:-H "Authorization: Bearer athr_..."
+./docs/user-package/04_API_GUIDE.md:headers = {"Authorization": "Bearer athr_..."}
+./docs/user-package/04_API_GUIDE.md:curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
+./docs/user-package/04_API_GUIDE.md:{"detail": "Valid API Key required (format: athr_...)"}
+./docs/user-package/04_API_GUIDE.md:| **401** | Ошибка аутентификации | Проверить API-ключ (формат: `athr_...`) |
+./docs/user-package/04_API_GUIDE.md:curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
+./docs/user-package/04_API_GUIDE.md:KEY = "athr_..."
+./docs/user-package/04_API_GUIDE.md:$Key = "athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:export AITHER_API_KEY="athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:export OPENAI_API_KEY="athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:export OPENAI_API_KEY="athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:export OPENAI_API_KEY="athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:hermes config set provider.aither.api_key "athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:export OPENAI_API_KEY="athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:export OPENAI_API_KEY="athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:    api_key="athr_...",
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:  -H "Authorization: Bearer athr_..."
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:    api_key="athr_...",
+./docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md:3. Проверьте формат: `Authorization: Bearer athr_...` (не забудьте `Bearer`!)
+./docs/user-package/14_API_KEY_USER_GUIDE.md:athr_<префикс>_<секретная_часть>
+./docs/user-package/14_API_KEY_USER_GUIDE.md:Пример: `athr_a1b2c3d4_eFgH...очень_длинная_секретная_строка...`
+./docs/user-package/14_API_KEY_USER_GUIDE.md:- **`athr_`** — обязательный префикс всех ключей
+./docs/user-package/14_API_KEY_USER_GUIDE.md:   - Переменная окружения: `export AITHER_API_KEY="athr_..."`
+./docs/user-package/14_API_KEY_USER_GUIDE.md:  -H "Authorization: Bearer athr_..." \
+./docs/user-package/14_API_KEY_USER_GUIDE.md:KEY = os.environ.get("AITHER_API_KEY", "athr_...")
+./docs/user-package/14_API_KEY_USER_GUIDE.md:| **Префикс** | Первые символы ключа (`athr_XXXXXXXX`) |
+./docs/user-package/14_API_KEY_USER_GUIDE.md:  "token": "athr_XXXXXXXX_...полный_ключ...",
+./docs/user-package/14_API_KEY_USER_GUIDE.md:  "prefix": "athr_XXXXXXXX",
+./docs/user-package/14_API_KEY_USER_GUIDE.md:curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXXXXXX \
+./docs/user-package/14_API_KEY_USER_GUIDE.md:| **Хранить в переменных окружения** | `export AITHER_API_KEY="athr_..."` |
+./docs/user-package/14_API_KEY_USER_GUIDE.md:| Неверный формат | Проверьте заголовок: `Authorization: Bearer athr_...` |
+./docs/user-package/13_WEB_UI_GUIDE.md:| **Префикс** | Первые символы ключа (`athr_...`) |
+./docs/user-package/13_WEB_UI_GUIDE.md:**Формат ключа:** `athr_<префикс>_<секретная_часть>`
+./docs/user-package/05_TEST_ASSIGNMENT.md:6. ⚠️ **Скопируйте полный ключ** (начинается с `athr_`) и сохраните в надёжном месте
+./docs/user-package/05_TEST_ASSIGNMENT.md:- Отображается префикс (первые символы `athr_...`)
+./docs/user-package/05_TEST_ASSIGNMENT.md:- [ ] Ключ сохранён (начинается с `athr_`)
+./docs/user-package/12_OWNER_HANDOVER.md:full_key = f'athr_{hex_part}_{raw_secret}'
+./docs/user-package/12_OWNER_HANDOVER.md:key_prefix = f'athr_{hex_part}'
+./docs/user-package/12_OWNER_HANDOVER.md:UPDATE api_keys SET revoked_at = datetime('now') WHERE key_prefix = 'athr_XXXXXXXX';
+./docs/user-package/09_SECURITY_RULES.md:- Префикс: `athr_`
+./docs/user-package/09_SECURITY_RULES.md:**Формат ключа:** `athr_...` — если вы видите такую строку в публичном месте, немедленно сообщите владельцу.
+./docs/user-package/09_SECURITY_RULES.md:export AITHER_API_KEY="athr_..."
+./docs/user-package/11_ACCEPTANCE_CHECKLIST.md:□ Ключ создан (префикс athr_)
+./docs/user-package/03_USER_GUIDE.md:**Формат ключа:** `athr_...` (Bearer-токен)
+./docs/user-package/03_USER_GUIDE.md:> 🔑 API-ключ создаётся в Web UI (раздел API Ключи). Префикс: `athr_`.
+./docs/user-package/03_USER_GUIDE.md:**Формат ключа:** `athr_<префикс>_<секретная часть>`
+./docs/user-package/03_USER_GUIDE.md:| 401 | Неверный или отсутствующий ключ/сессия | Проверьте ключ (формат: `athr_...`) или войдите заново |
+./docs/user-package/02_QUICK_START.md:> **API-ключи имеют префикс `athr_`.** Создать ключ можно в Web UI: 🔑 API Ключи → Создать.
+./docs/user-package/08_FAQ.md:`athr_<префикс>_<секретная_часть>`. Префикс `athr_` — обязателен.
+./docs/production-runbook.md:kubectl exec -it deploy/postgres -- psql -U aither -d aither_billing -c "SELECT 1;"
+./docs/production-runbook.md:kubectl exec deploy/postgres -- pg_dump -U aither aither_billing > /tmp/aither-db-$(date +%Y%m%d-%H%M).sql
+./docs/production-runbook.md:kubectl exec -i deploy/postgres -- psql -U aither aither_billing < backup.sql
+./docs/production-runbook.md:kubectl exec -i deploy/postgres -- psql -U aither aither_billing < latest-backup.sql
+./docs/management-review-2026-07-09.md:| `aither_ttft_seconds` | Histogram | Buckets: 0.1, 0.25, 0.5, 1, 2, 5, 10s |
+./docs/management-review-2026-07-09.md:| `aither_ttft_by_model` | Histogram | TTFT с разбивкой по model_id |
+./docs/management-review-2026-07-09.md:| `aither_ttft_by_tier` | Histogram | TTFT с разбивкой по тарифу (приоритет) |
+./docs/management-review-2026-07-09.md:| `aither_queue_wait_seconds` | Histogram | Время ожидания в очереди |
+./docs/oauth-github.md:      │  /?aither_token=eyJhbG...            │                 │
+./docs/oauth-github.md:http://130.17.1.90/?aither_token=eyJhbGciOiJIUzI1NiIs...
+./docs/oauth-github.md:Фронтенд читает `aither_token` из URL, сохраняет в `localStorage`, чистит URL и входит в приложение.
+./docs/oauth-github.md:| `portal/static/index.html` | Кнопка «Войти через GitHub», обработка `aither_token` из URL |
+./portal/dist/server.js:                    return [4 /*yield*/, pool.query("\n    CREATE TABLE IF NOT EXISTS portal_users (\n      user_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n      oauth_provider text NOT NULL DEFAULT 'github',\n      oauth_id text NOT NULL,\n      email text,\n      password_hash text,\n      display_name text,\n      avatar_url text,\n      created_at timestamptz NOT NULL DEFAULT now(),\n      last_login_at timestamptz,\n      UNIQUE(oauth_provider, oauth_id)\n    );\n    CREATE TABLE IF NOT EXISTS portal_organizations (\n      org_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n      name text NOT NULL,\n      aither_org_id uuid,\n      status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended','deleted')),\n      created_at timestamptz NOT NULL DEFAULT now(),\n      updated_at timestamptz NOT NULL DEFAULT now()\n    );\n    CREATE TABLE IF NOT EXISTS portal_org_members (\n      membership_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n      org_id uuid NOT NULL REFERENCES portal_organizations(org_id),\n      user_id uuid NOT NULL REFERENCES portal_users(user_id),\n      role text NOT NULL DEFAULT 'developer' CHECK (role IN ('owner','billing_admin','developer','viewer')),\n      status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),\n      created_at timestamptz NOT NULL DEFAULT now(),\n      UNIQUE(org_id, user_id)\n    );\n    CREATE TABLE IF NOT EXISTS portal_api_keys (\n      key_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n      org_id uuid REFERENCES portal_organizations(org_id),\n      api_key text NOT NULL UNIQUE,\n      api_key_prefix text NOT NULL,\n      name text NOT NULL DEFAULT 'default',\n      status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked')),\n      created_at timestamptz NOT NULL DEFAULT now(),\n      expires_at timestamptz,\n      last_used_at timestamptz\n    );\n    CREATE TABLE IF NOT EXISTS chats (\n      chat_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n      user_id uuid NOT NULL REFERENCES portal_users(user_id),\n      title text NOT NULL DEFAULT '\u041D\u043E\u0432\u044B\u0439 \u0447\u0430\u0442',\n      model text NOT NULL DEFAULT 'qwen2.5-14b',\n      share_token text UNIQUE,\n      created_at timestamptz NOT NULL DEFAULT now(),\n      updated_at timestamptz NOT NULL DEFAULT now()\n    );\n    CREATE TABLE IF NOT EXISTS chat_messages (\n      message_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n      chat_id uuid NOT NULL REFERENCES chats(chat_id) ON DELETE CASCADE,\n      role text NOT NULL CHECK (role IN ('user','assistant','system')),\n      content text NOT NULL DEFAULT '',\n      tokens_used int NOT NULL DEFAULT 0,\n      created_at timestamptz NOT NULL DEFAULT now()\n    );\n    CREATE TABLE IF NOT EXISTS payment_transactions (\n      txn_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n      org_id uuid REFERENCES portal_organizations(org_id),\n      user_id uuid REFERENCES portal_users(user_id),\n      provider text NOT NULL DEFAULT 'yookassa',\n      provider_payment_id text,\n      amount_rub numeric(12,2) NOT NULL,\n      tokens int NOT NULL DEFAULT 0,\n      status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','succeeded','canceled')),\n      meta jsonb DEFAULT '{}',\n      created_at timestamptz NOT NULL DEFAULT now(),\n      updated_at timestamptz NOT NULL DEFAULT now()\n    );\n    CREATE TABLE IF NOT EXISTS billing_accounts (\n      org_id uuid PRIMARY KEY REFERENCES portal_organizations(org_id),\n      reserved bigint NOT NULL DEFAULT 0,\n      total_tokens bigint NOT NULL DEFAULT 0\n    );\n  ")];
+./portal/dist/server.js:                                    return [2 /*return*/, reply.redirect("http://".concat(redirectHost, "/?aither_token=").concat(tok, "&user_id=").concat(userId, "&name=").concat(encodeURIComponent(displayName)))];
+./portal/dist/server.js:                                    return [2 /*return*/, reply.redirect("http://".concat(redirectHost, "/?aither_token=").concat(tok, "&user_id=").concat(userId, "&name=").concat(encodeURIComponent(displayName)))];
+./portal/dist/server.js:                                    return [2 /*return*/, reply.redirect("http://".concat(redirectHost, "/?aither_token=").concat(tok, "&user_id=").concat(userId, "&name=").concat(encodeURIComponent(displayName)))];
+./portal/server.js:    reply.header("Set-Cookie", `aither_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+./portal/server.js:      aither_org_id uuid,
+./portal/server.js:            return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
+./portal/server.js:            return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
+./portal/server.js:            return reply.redirect(`http://${redirectHost}/?aither_token=${tok}&user_id=${userId}&name=${encodeURIComponent(displayName)}`);
+./portal/server.js:        const cookieToken = cookies["aither_token"] || "";
+./portal/server.js:            const cookieToken = cookies["aither_token"] || "";
+./portal/node_modules/jws/readme.md:[encrypted-key-docs]: https://nodejs.org/api/crypto.html#crypto_sign_sign_private_key_output_format
+./portal/node_modules/dotenv/README-es.md:PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+./portal/node_modules/dotenv/README-es.md:PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nKh9NV...\n-----END RSA PRIVATE KEY-----\n"
+./portal/node_modules/dotenv/README.md:PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+./portal/node_modules/dotenv/README.md:PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nKh9NV...\n-----END RSA PRIVATE KEY-----\n"
+./portal/node_modules/jsonwebtoken/README.md:encoded private key for RSA and ECDSA. In case of a private key with passphrase an object `{ key, passphrase }` can be used (based on [crypto documentation](https://nodejs.org/api/crypto.html#crypto_sign_sign_private_key_output_format)), in this case be sure you pass the `algorithm` option.

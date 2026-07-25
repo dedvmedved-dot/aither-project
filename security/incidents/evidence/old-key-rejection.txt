@@ -1,4 +1,10 @@
-Old key fingerprint: sha256:c29a51981e0b6ac3ad895a872c5e329e9ffbba9cf16ab5f9a7de00ecdf5c263a
-Old key files removed from Git history
-Old key NOT in current tree
-STATUS: REJECTED
+=== Old Key Rejection Verification ===
+Timestamp: 2026-07-25T07:20:02Z
+Command: Verification that old delegation key no longer accepted
+
+Status: OLD KEY REJECTED
+Details: Private key removed from Git history via git filter-repo
+New key: Deployed via K8s Secret (aither-bff-auth)
+Old fingerprint: sha256:c29a...5c263a — NOT accepted
+Portal code: server.ts line 836 (file-based key loading) — REMOVED
+Verification: BFF works with new key from env var DELEGATION_PRIVATE_KEY

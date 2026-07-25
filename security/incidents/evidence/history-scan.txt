@@ -1,4 +1,23 @@
-=== History Scan ===
-(should be empty)
-RESULT: 0
-0 private key blobs
+=== Git History Secret Scan ===
+Timestamp: 2026-07-25T07:19:32Z
+Commit: 4adab464520a2709ebf8d6575d2f6a3701440041
+Command: git log --all --oneline | grep -iE 'key|secret|token|password|credential'
+
+5f79ab8 fix(e2e): use Enter key instead of chat-send button, fix chat input
+0639022 security(inc-2026-track-a): remediate private key exposure in Git history
+e05fb92 fix(ai-platform): add GATEWAY_API_KEY forwarding to enable OpenAI compatibility
+75b5b84 fix(stage10): remove hardcoded portal secrets
+ffb6c4b feat(mvp-roadmap): add stage 07 auth api token baseline
+e0d2255 fix: add delegation token to chat requests + forward API key to Gateway
+ec7785e fix: forward API key to Gateway as Authorization header
+d1b2dda #30: External API Gateway — OpenAI-compatible + API-key auth + Swagger
+596d8a0 lab: день 1 — fix org_id (Gateway K8s pod + public key)
+50d2c59 Gate 6: Delegation Token (JWT RS256)
+aabebb4 Gate 5: Аутентификация — dev login, JWT (jsonwebtoken), защищённые эндпоинты
+
+=== Checking for deleted secrets in history ===
++Deployment: K8s Secret DELEGATION_PRIVATE_KEY
++- Portal использует `DELEGATION_PRIVATE_KEY` из переменной окружения (K8s Secret)
++    '-----BEGIN RSA PRIVATE KEY-----'
++    '-----BEGIN PRIVATE KEY-----'
++    '-----BEGIN EC PRIVATE KEY-----'
