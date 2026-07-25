@@ -1,0 +1,4 @@
+Old key fingerprint: sha256:c29a51981e0b6ac3ad895a872c5e329e9ffbba9cf16ab5f9a7de00ecdf5c263a
+Old key files removed from Git history
+Old key NOT in current tree
+STATUS: REJECTED

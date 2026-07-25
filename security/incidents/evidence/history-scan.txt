@@ -1,0 +1,4 @@
+=== History Scan ===
+(should be empty)
+RESULT: 0
+0 private key blobs

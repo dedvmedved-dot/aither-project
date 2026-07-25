@@ -1,0 +1,2 @@
+=== Gitleaks current tree ===
+/usr/bin/bash: line 56: gitleaks: command not found

@@ -1,0 +1,4 @@
+New key pair generated: /root/.aither-delegation-keys/
+New public key fingerprint: sha256:e4717c377b5613c3ad2aa6201839926d7b0e81b37552b159920aaa62ba5ce623
+Deployment: K8s Secret DELEGATION_PRIVATE_KEY
+Code updated: portal/server.ts/js/dist — env var only
