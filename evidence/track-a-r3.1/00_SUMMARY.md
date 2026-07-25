@@ -3,12 +3,30 @@
 
 Repository:  dedvmedved-dot/aither-project
 Branch:      aither-v2
-Rejected commit:  62783811a8dece59f5f8062f586dd183a2b72e8f
-Final commit:      1ed95001ffa817fb5c774a2ed5ebf58d810be759
-Remote HEAD:       1ed95001ffa817fb5c774a2ed5ebf58d810be759
+
+Rejected commit:      62783811a8dece59f5f8062f586dd183a2b72e8f
+
+Implementation commit: 1ed95001ffa817fb5c774a2ed5ebf58d810be759
+  Contains: test_r3_identities.py fix (pytest._r3_agent_keys removal),
+            close-modal investigation
+
+Tested commit:         1ed95001ffa817fb5c774a2ed5ebf58d810be759
+  All 40/40 test runs executed on this exact commit
+
+Evidence commit:       bb224c4b01a8602252f9b154dd9b650715259cc6
+  Adds: JUnit XMLs, logs, acceptance matrix update
+  Parent: 1ed95001ffa817fb5c774a2ed5ebf58d810be759
+  No test code changes — only evidence files
+
+Final documentation commit: <set at next push>
+
+Current Remote HEAD:   bb224c4b01a8602252f9b154dd9b650715259cc6
+
+Test source SHA-256:   963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1
+Test source unchanged between tested and evidence commits: YES
+
 Local/Remote match: YES
 Working tree before tests: CLEAN
-Working tree after push: CLEAN
 
 ## closeModal Root Cause
 closeModal was referenced in an intermediate UNCOMMITTED version of

@@ -1,0 +1,10 @@
+agent.xml: tests=2 (expected=2), errors=0, failures=0, skipped=0 [OK]
+beta01.xml: tests=4 (expected=4), errors=0, failures=0, skipped=0 [OK]
+beta02.xml: tests=2 (expected=2), errors=0, failures=0, skipped=0 [OK]
+fresh-clone-r3.xml: tests=10 (expected=10), errors=0, failures=0, skipped=0 [OK]
+full-r3-run-1.xml: tests=10 (expected=10), errors=0, failures=0, skipped=0 [OK]
+full-r3-run-2.xml: tests=10 (expected=10), errors=0, failures=0, skipped=0 [OK]
+owner.xml: tests=2 (expected=2), errors=0, failures=0, skipped=0 [OK]
+
+TOTAL: 40 tests, 0 errors, 0 failures, 0 skipped
+VERIFICATION: PASS

@@ -1,0 +1,68 @@
+TRACK-A-R3.1 COMMIT CHAIN VERIFICATION
+
+Timestamp: 2026-07-25T22:30:00+03:00
+
+Repository: dedvmedved-dot/aither-project
+Branch: aither-v2
+
+Implementation commit: 1ed95001ffa817fb5c774a2ed5ebf58d810be759
+  Contains: test_r3_identities.py fix, close-modal investigation
+
+Tested commit: 1ed95001ffa817fb5c774a2ed5ebf58d810be759
+  All 40/40 test runs executed on this exact commit
+
+Evidence commit: bb224c4b01a8602252f9b154dd9b650715259cc6
+  Adds: JUnit XMLs, logs, acceptance matrix, 00_SUMMARY.md, source-hashes.txt,
+        git-state-before-test.txt, internet-32b-stability.txt
+
+Parent of evidence commit: 1ed95001ffa817fb5c774a2ed5ebf58d810be759
+
+Current final documentation commit: <set at next push>
+
+Remote HEAD: bb224c4b01a8602252f9b154dd9b650715259cc6
+
+Test file SHA-256 at tested commit:   963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1
+Test file SHA-256 at evidence commit: 963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1
+
+Test source unchanged: YES
+
+Test results belong to tested commit: YES
+
+Evidence files added by evidence commit: YES
+  - git diff 1ed9500 bb224c4 shows 19 new/changed files, all in evidence/ directory
+  - No changes to tests/e2e/, portal/, deploy/ between commits
+
+Conclusion:
+  Commit 1ed9500 is the implementation + tested commit where all 40/40 tests ran.
+  Commit bb224c4 is the evidence commit that only adds test artifact files
+  (XML, logs, text reports) and updates acceptance matrix. The test source
+  (tests/e2e/test_r3_identities.py) is bit-identical between both commits.
+  The chain is: 6278381 (rejected) -> 1ed9500 (impl+tested) -> bb224c4 (evidence).
+
+--- git log ---
+* bb224c4 (HEAD -> aither-v2, origin/aither-v2) evidence(r3.1): prove reproducible identity acceptance from clean clone
+* 1ed9500 test(r3.1): make identity acceptance reproducible from clean commit
+* 6278381 feat(r3): TRACK-A-R3 — real identities, key lifecycle, agent acceptance
+* 4adab46 test(r2): TRACK-A-R2 — Playwright E2E fix, 4/4 PASS (Chromium+Firefox, Internet+Test Zone)
+
+--- git diff --stat 1ed9500 bb224c4 ---
+evidence/cb-webui-01/12_ACCEPTANCE_MATRIX.md     | 37 +++
+evidence/track-a-r3.1/00_SUMMARY.md              | 71 +++++
+evidence/track-a-r3.1/agent.log                  | 13 +
+evidence/track-a-r3.1/agent.xml                  |  1 +
+evidence/track-a-r3.1/beta01.log                 | 15 +
+evidence/track-a-r3.1/beta01.xml                 |  1 +
+evidence/track-a-r3.1/beta02.log                 | 13 +
+evidence/track-a-r3.1/beta02.xml                 |  1 +
+evidence/track-a-r3.1/fresh-clone-r3.log         | 21 +
+evidence/track-a-r3.1/fresh-clone-r3.xml         |  1 +
+evidence/track-a-r3.1/full-r3-run-1.log          | 21 +
+evidence/track-a-r3.1/full-r3-run-1.xml          |  1 +
+evidence/track-a-r3.1/full-r3-run-2.log          | 21 +
+evidence/track-a-r3.1/full-r3-run-2.xml          |  1 +
+evidence/track-a-r3.1/git-state-before-test.txt  |  6 +
+evidence/track-a-r3.1/internet-32b-stability.txt | 17 +
+evidence/track-a-r3.1/owner.log                  | 13 +
+evidence/track-a-r3.1/owner.xml                  |  1 +
+evidence/track-a-r3.1/source-hashes.txt          |  6 +
+19 files changed, 261 insertions(+)

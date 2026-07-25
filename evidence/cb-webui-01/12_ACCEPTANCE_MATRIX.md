@@ -110,7 +110,24 @@ CB-WEBUI-01 **принимается** без оговорок. Все 52 при
 
 ## TRACK-A-R3.1 — Reproducibility Verification (2026-07-25)
 
-Commit: `1ed95001ffa817fb5c774a2ed5ebf58d810be759`
+TRACK-A-R3.1 verification chain:
+
+Implementation commit:
+`1ed95001ffa817fb5c774a2ed5ebf58d810be759`
+
+Tested commit:
+`1ed95001ffa817fb5c774a2ed5ebf58d810be759`
+
+Evidence commit:
+`bb224c4b01a8602252f9b154dd9b650715259cc6`
+
+Final documentation commit:
+`<set at next push>`
+
+Test source SHA-256:
+`963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1`
+
+Test source unchanged between tested and evidence commits: YES
 
 | Run | Tests | Result | Exit Code | JUnit XML |
 |-----|-------|--------|-----------|-----------|
