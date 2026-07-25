@@ -33,20 +33,22 @@ const ZONE = detectZone();
 
 - **Аутентификация**: вход через `POST /api/v1/auth/login` с сессионной cookie
 - **Чат**: отправка сообщений через `POST /api/v1/chat` с выбором модели
-- **API-ключи**: управление через `GET/POST/DELETE /api/v1/tokens`
+- **API-ключи**: управление через `GET/POST/DELETE /api/v1/tokens` (префикс `athr_`, stable)
+- **AI Agent API**: `/v1/models` (GET) + `/v1/chat/completions` (POST, OpenAI-совместимый)
 - **Локализация**: все сообщения и интерфейс на русском языке
 - **Копирование**: кнопка «📋 Копировать» на ответах ассистента через Clipboard API
 
-### Страницы SPA
+### Страницы SPA (7 страниц)
 
-| Страница | ID | Назначение |
-|----------|-----|------------|
-| Вход | `page-login` | Форма аутентификации |
-| Панель | `page-dashboard` | Сводка: пользователь, система, модели |
-| Чат | `page-chat` | Выбор модели + диалог |
-| API Ключи | `page-api-keys` | Создание/отзыв токенов |
-| Статус | `page-status` | Состояние системы и версия |
-| Профиль | `page-profile` | Информация о пользователе |
+| # | Страница | ID | Назначение |
+|---|----------|-----|------------|
+| 1 | Вход | `page-login` | Форма аутентификации |
+| 2 | Панель | `page-dashboard` | Сводка: пользователь, система, модели |
+| 3 | Чат | `page-chat` | Выбор модели + диалог |
+| 4 | API Ключи | `page-api-keys` | Создание/отзыв токенов `athr_` |
+| 5 | Статус | `page-status` | Состояние системы и версия |
+| 6 | Профиль | `page-profile` | Информация о пользователе |
+| 7 | Обратная связь | `page-feedback` | Форма обратной связи |
 
 ### Выбор модели
 
@@ -56,6 +58,15 @@ const ZONE = detectZone();
     <option value="qwen-32b-base">qwen-32b-base (Базовая)</option>
 </select>
 ```
+
+### AI Agent API (OpenAI SDK-совместимый)
+
+| Эндпоинт | Метод | Назначение |
+|----------|-------|------------|
+| `/v1/models` | GET | Список доступных моделей |
+| `/v1/chat/completions` | POST | Чат с моделями (совместим с OpenAI SDK) |
+
+Оба эндпоинта доступны через VPS2 nginx (порт 443 и 10443) с маршрутизацией на K8s AI Platform (`10.129.13.78:30902`).
 
 ## 2. VPS2 Nginx
 
@@ -73,7 +84,11 @@ server {
     listen 443 ssl;
     server_name fb1.spb.ru;
 
-    location /v1/  { proxy_pass http://ai_platform; }         # AI Platform API
+    # TLS: Let's Encrypt
+    ssl_certificate     /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+
+    location /v1/  { proxy_pass http://ai_platform; }         # AI Agent API (models, chat/completions)
     location /api/ { proxy_pass http://10.129.13.78:30080; }  # Portal BFF
     location /auth/{ proxy_pass http://10.129.13.78:30080; }  # Portal Auth
     location /     { proxy_pass http://10.129.13.78:30080; }  # Portal Web UI
@@ -84,7 +99,11 @@ server {
     listen 10443 ssl;
     server_name fb1.spb.ru;
 
-    location /v1/  { proxy_pass http://ai_platform; }         # AI Platform (32B)
+    # TLS: Let's Encrypt (тот же сертификат)
+    ssl_certificate     /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+
+    location /v1/  { proxy_pass http://ai_platform; }         # AI Agent API (32B)
     location /     { proxy_pass http://10.129.13.78:30080; }  # Portal Web UI
 }
 
@@ -96,6 +115,16 @@ server {
     location /     { proxy_pass http://10.129.13.78:30901; }
 }
 ```
+
+### TLS (Let's Encrypt)
+
+| Параметр | Значение |
+|----------|----------|
+| Сертификат | Let's Encrypt, валидный |
+| Issuer | ISRG Root X2 |
+| Автообновление | Включено (стандартный механизм Let's Encrypt) |
+| Порты с TLS | 443, 10443, 30901 |
+| CN | `fb1.spb.ru` |
 
 ### Upstream
 
@@ -153,6 +182,17 @@ kubectl rollout restart deployment/aither-portal-frontend -n aither-inference
 4. Обновление nginx-конфигурации на VPS2 (`/root/nginx-failover.conf`)
 5. Перезагрузка nginx на VPS2 (`nginx -s reload`)
 6. Проверка доступности через оба endpoint'а
+7. Верификация AI Agent API (`/v1/models`, `/v1/chat/completions`)
+8. Верификация TLS-сертификата (Let's Encrypt)
+
+## Результаты тестирования развёртывания
+
+| Тип тестов | Количество | Статус |
+|------------|------------|--------|
+| Unit-тесты | 69 | ✅ PASS |
+| Интеграционные тесты | 15 | ✅ PASS |
+| Негативные тесты | 8 | ✅ PASS |
+| **Всего** | **92** | ✅ PASS |
 
 ## Результат
 
@@ -160,3 +200,5 @@ kubectl rollout restart deployment/aither-portal-frontend -n aither-inference
 - Через Интернет: `https://fb1.spb.ru:443/`
 - В тестовой зоне: `http://10.129.13.78:30080/`
 - Выделенный порт 32B: `https://fb1.spb.ru:10443/`
+- AI Agent API: `https://fb1.spb.ru:443/v1/models` + `https://fb1.spb.ru:443/v1/chat/completions`
+- TLS: Let's Encrypt (валидный, автообновление)
