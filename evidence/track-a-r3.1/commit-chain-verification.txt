@@ -17,9 +17,17 @@ Evidence commit: bb224c4b01a8602252f9b154dd9b650715259cc6
 
 Parent of evidence commit: 1ed95001ffa817fb5c774a2ed5ebf58d810be759
 
-Current final documentation commit: <set at next push>
+Documentation reconciliation baseline:
+  76df023778f83ea0c1b83ad57181dedc825ae065
 
-Remote HEAD: bb224c4b01a8602252f9b154dd9b650715259cc6
+Final consistency revision:
+  the commit containing this file
+
+Authoritative branch:
+  refs/heads/aither-v2
+
+Remote branch equality:
+  verified after push
 
 Test file SHA-256 at tested commit:   963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1
 Test file SHA-256 at evidence commit: 963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1
@@ -33,11 +41,18 @@ Evidence files added by evidence commit: YES
   - No changes to tests/e2e/, portal/, deploy/ between commits
 
 Conclusion:
-  Commit 1ed9500 is the implementation + tested commit where all 40/40 tests ran.
-  Commit bb224c4 is the evidence commit that only adds test artifact files
-  (XML, logs, text reports) and updates acceptance matrix. The test source
-  (tests/e2e/test_r3_identities.py) is bit-identical between both commits.
-  The chain is: 6278381 (rejected) -> 1ed9500 (impl+tested) -> bb224c4 (evidence).
+  Commit chain:
+    6278381 — rejected R3 implementation
+    1ed9500 — implementation and tested commit (all 40/40 runs)
+    bb224c4 — evidence commit (JUnit XMLs, logs, acceptance matrix)
+    76df023 — documentation reconciliation baseline (R3.2)
+    current file revision — final consistency correction (R3.3)
+
+  Test source (tests/e2e/test_r3_identities.py) is bit-identical
+  across implementation, evidence, and documentation commits:
+    963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1
+
+  No code changes after tested commit — only evidence and documentation.
 
 --- git log ---
 * bb224c4 (HEAD -> aither-v2, origin/aither-v2) evidence(r3.1): prove reproducible identity acceptance from clean clone

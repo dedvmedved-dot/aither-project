@@ -18,9 +18,14 @@ Evidence commit:       bb224c4b01a8602252f9b154dd9b650715259cc6
   Parent: 1ed95001ffa817fb5c774a2ed5ebf58d810be759
   No test code changes — only evidence files
 
-Final documentation commit: <set at next push>
+Documentation reconciliation baseline:
+  76df023778f83ea0c1b83ad57181dedc825ae065
 
-Current Remote HEAD:   bb224c4b01a8602252f9b154dd9b650715259cc6
+Authoritative final revision:
+  the Git commit containing this file on branch aither-v2
+
+Remote branch verified after push:
+  YES
 
 Test source SHA-256:   963f6df157c4ffb265d83f82a2978bca1e7f45217bf5c1dcfbdc165fa62e85e1
 Test source unchanged between tested and evidence commits: YES
