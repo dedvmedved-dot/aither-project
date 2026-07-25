@@ -411,10 +411,6 @@ class TestBETA01:
     def test_full_scenario(self, bn, zone_name, target_url):
         agent_key = run_beta01_full(bn, target_url)
         assert agent_key is not None
-        # Store for agent test
-        if not hasattr(pytest, "_r3_agent_keys"):
-            pytest._r3_agent_keys = {}
-        pytest._r3_agent_keys[f"{zone_name}-{bn}"] = (agent_key, target_url)
 
 
 class TestBETA02:

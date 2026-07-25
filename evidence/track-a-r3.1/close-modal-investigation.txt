@@ -1,0 +1,33 @@
+# closeModal Investigation — TRACK-A-R3.1
+Command:  grep -Rni --exclude-dir=.git -E 'closeModal' tests/e2e/
+Timestamp: 2026-07-25
+Exit code: 0
+Matches in test_r3_identities.py: 0
+
+closeModal references in tests/e2e/:
+  - tests/e2e/test_webui.py:128 (comment only — mentions closeModal is in IIFE, not global)
+
+closeModal in committed test_r3_identities.py: NONE
+
+Root cause:
+  The "closeModal is not defined" error was from an intermediate uncommitted
+  version of test_r3_identities.py that used standalone functions with
+  page.evaluate("closeModal()"). This version was NEVER committed.
+
+  The committed version (62783811a8dece59f5f8062f586dd183a2b72e8f) uses
+  class-based tests with:
+    page.locator("#modal-overlay").click(position={"x": 1, "y": 1})
+    expect(page.locator("#modal-overlay")).to_be_hidden(timeout=5000)
+
+  No closeModal call exists in the committed test_r3_identities.py.
+
+Corrective action:
+  None required — committed code already uses correct DOM-based modal closure.
+
+  Additional fix applied for R3.1:
+  - Removed pytest._r3_agent_keys hidden state (lines 415-418)
+    Tests are now fully independent; no inter-test state sharing.
+
+Final grep confirmation:
+  grep -Rni --exclude-dir=.git -E 'closeModal' tests/e2e/test_r3_identities.py
+  Expected: NO MATCHES
