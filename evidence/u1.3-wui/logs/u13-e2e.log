@@ -1,0 +1,230 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/lib/hermes-agent/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /root/aither-project
+plugins: httpx-0.36.2, base-url-2.1.0, playwright-0.8.0, anyio-4.12.1
+collecting ... collected 28 items
+
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Internet-https://fb1.spb.ru:443-chromium] PASSED [  3%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Internet-https://fb1.spb.ru:443-firefox] PASSED [  7%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Test Zone-http://10.129.13.78:30080-chromium] PASSED [ 10%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Test Zone-http://10.129.13.78:30080-firefox] PASSED [ 14%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Internet-https://fb1.spb.ru:443-chromium] PASSED [ 17%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Internet-https://fb1.spb.ru:443-firefox] PASSED [ 21%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Test Zone-http://10.129.13.78:30080-chromium] PASSED [ 25%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Test Zone-http://10.129.13.78:30080-firefox] PASSED [ 28%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-chromium] PASSED [ 32%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-firefox] PASSED [ 35%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-chromium] PASSED [ 39%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-firefox] PASSED [ 42%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_a_creation[Internet-https://fb1.spb.ru:443] FAILED [ 46%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_a_creation[Test Zone-http://10.129.13.78:30080] FAILED [ 50%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_b_creation[Internet-https://fb1.spb.ru:443] FAILED [ 53%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_b_creation[Test Zone-http://10.129.13.78:30080] FAILED [ 57%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_one_time_secret FAILED [ 60%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_revoke_denial PASSED [ 64%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_a[Internet-https://fb1.spb.ru:443] PASSED [ 67%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_a[Test Zone-http://10.129.13.78:30080] PASSED [ 71%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_b[Internet-https://fb1.spb.ru:443] PASSED [ 75%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_b[Test Zone-http://10.129.13.78:30080] PASSED [ 78%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_revoked_denial[Internet-https://fb1.spb.ru:443] PASSED [ 82%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_revoked_denial[Test Zone-http://10.129.13.78:30080] PASSED [ 85%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_agent_page_accessible[Internet-https://fb1.spb.ru:443] PASSED [ 89%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_agent_page_accessible[Test Zone-http://10.129.13.78:30080] PASSED [ 92%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_dashboard_populated[Internet-https://fb1.spb.ru:443] PASSED [ 96%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_dashboard_populated[Test Zone-http://10.129.13.78:30080] PASSED [100%]
+
+=================================== FAILURES ===================================
+_______ TestApiKeys.test_key_a_creation[Internet-https://fb1.spb.ru:443] _______
+tests/e2e/test_u13_complete_webui.py:176: in test_key_a_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-A-{zone_name[:4]}", "14b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to <select class="form-input" id="modal-token-models">…</select>
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       59 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms
+_____ TestApiKeys.test_key_a_creation[Test Zone-http://10.129.13.78:30080] _____
+tests/e2e/test_u13_complete_webui.py:176: in test_key_a_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-A-{zone_name[:4]}", "14b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to <select class="form-input" id="modal-token-models">…</select>
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       60 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms
+_______ TestApiKeys.test_key_b_creation[Internet-https://fb1.spb.ru:443] _______
+tests/e2e/test_u13_complete_webui.py:206: in test_key_b_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-B-{zone_name[:4]}", "32b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to <select class="form-input" id="modal-token-models">…</select>
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       60 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms
+_____ TestApiKeys.test_key_b_creation[Test Zone-http://10.129.13.78:30080] _____
+tests/e2e/test_u13_complete_webui.py:206: in test_key_b_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-B-{zone_name[:4]}", "32b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to <select class="form-input" id="modal-token-models">…</select>
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       59 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms
+E       - waiting for element to be visible and enabled
+_______________________ TestApiKeys.test_one_time_secret _______________________
+tests/e2e/test_u13_complete_webui.py:235: in test_one_time_secret
+    full_secret, token_id = create_key_via_ui(page, "U13-ONETIME", "14b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to <select class="form-input" id="modal-token-models">…</select>
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       60 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms
+=============================== warnings summary ===============================
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_revoke_denial
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_a[Internet-https://fb1.spb.ru:443]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_b[Internet-https://fb1.spb.ru:443]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_revoked_denial[Internet-https://fb1.spb.ru:443]
+  /usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/urllib3/connectionpool.py:1110: InsecureRequestWarning: Unverified HTTPS request is being made to host 'fb1.spb.ru'. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.io/en/latest/advanced-usage.html#tls-warnings
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /root/aither-project/evidence/u1.3-wui/junit/u13-e2e.xml -
+=========================== short test summary info ============================
+FAILED tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_a_creation[Internet-https://fb1.spb.ru:443]
+FAILED tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_a_creation[Test Zone-http://10.129.13.78:30080]
+FAILED tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_b_creation[Internet-https://fb1.spb.ru:443]
+FAILED tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_b_creation[Test Zone-http://10.129.13.78:30080]
+FAILED tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_one_time_secret
+============= 5 failed, 23 passed, 4 warnings in 386.01s (0:06:26) =============

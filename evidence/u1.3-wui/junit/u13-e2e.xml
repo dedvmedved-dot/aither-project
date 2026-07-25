@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="28" time="386.003" timestamp="2026-07-26T00:16:42.912137+03:00" hostname="330133.fornex.cloud"><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_a[Internet-https://fb1.spb.ru:443-chromium]" time="8.834" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_a[Internet-https://fb1.spb.ru:443-firefox]" time="10.064" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_a[Test Zone-http://10.129.13.78:30080-chromium]" time="3.793" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_a[Test Zone-http://10.129.13.78:30080-firefox]" time="4.908" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_b[Internet-https://fb1.spb.ru:443-chromium]" time="8.831" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_b[Internet-https://fb1.spb.ru:443-firefox]" time="9.990" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_b[Test Zone-http://10.129.13.78:30080-chromium]" time="3.789" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_chat_model_b[Test Zone-http://10.129.13.78:30080-firefox]" time="4.881" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_model_switch[Internet-https://fb1.spb.ru:443-chromium]" time="8.922" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_model_switch[Internet-https://fb1.spb.ru:443-firefox]" time="10.026" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_model_switch[Test Zone-http://10.129.13.78:30080-chromium]" time="3.873" /><testcase classname="tests.e2e.test_u13_complete_webui.TestChat" name="test_model_switch[Test Zone-http://10.129.13.78:30080-firefox]" time="5.084" /><testcase classname="tests.e2e.test_u13_complete_webui.TestApiKeys" name="test_key_a_creation[Internet-https://fb1.spb.ru:443]" time="38.259"><failure message="playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#modal-token-models&quot;)&#10;    - locator resolved to &lt;select class=&quot;form-input&quot; id=&quot;modal-token-models&quot;&gt;…&lt;/select&gt;&#10;  - attempting select option action&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;    - waiting 20ms&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;      - waiting 100ms&#10;    59 × waiting for element to be visible and enabled&#10;       - did not find some options&#10;     - retrying select option action&#10;       - waiting 500ms">tests/e2e/test_u13_complete_webui.py:176: in test_key_a_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-A-{zone_name[:4]}", "14b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to &lt;select class="form-input" id="modal-token-models"&gt;…&lt;/select&gt;
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       59 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms</failure></testcase><testcase classname="tests.e2e.test_u13_complete_webui.TestApiKeys" name="test_key_a_creation[Test Zone-http://10.129.13.78:30080]" time="33.273"><failure message="playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#modal-token-models&quot;)&#10;    - locator resolved to &lt;select class=&quot;form-input&quot; id=&quot;modal-token-models&quot;&gt;…&lt;/select&gt;&#10;  - attempting select option action&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;    - waiting 20ms&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;      - waiting 100ms&#10;    60 × waiting for element to be visible and enabled&#10;       - did not find some options&#10;     - retrying select option action&#10;       - waiting 500ms">tests/e2e/test_u13_complete_webui.py:176: in test_key_a_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-A-{zone_name[:4]}", "14b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to &lt;select class="form-input" id="modal-token-models"&gt;…&lt;/select&gt;
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       60 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms</failure></testcase><testcase classname="tests.e2e.test_u13_complete_webui.TestApiKeys" name="test_key_b_creation[Internet-https://fb1.spb.ru:443]" time="38.229"><failure message="playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#modal-token-models&quot;)&#10;    - locator resolved to &lt;select class=&quot;form-input&quot; id=&quot;modal-token-models&quot;&gt;…&lt;/select&gt;&#10;  - attempting select option action&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;    - waiting 20ms&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;      - waiting 100ms&#10;    60 × waiting for element to be visible and enabled&#10;       - did not find some options&#10;     - retrying select option action&#10;       - waiting 500ms">tests/e2e/test_u13_complete_webui.py:206: in test_key_b_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-B-{zone_name[:4]}", "32b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to &lt;select class="form-input" id="modal-token-models"&gt;…&lt;/select&gt;
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       60 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms</failure></testcase><testcase classname="tests.e2e.test_u13_complete_webui.TestApiKeys" name="test_key_b_creation[Test Zone-http://10.129.13.78:30080]" time="33.244"><failure message="playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#modal-token-models&quot;)&#10;    - locator resolved to &lt;select class=&quot;form-input&quot; id=&quot;modal-token-models&quot;&gt;…&lt;/select&gt;&#10;  - attempting select option action&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;    - waiting 20ms&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;      - waiting 100ms&#10;    59 × waiting for element to be visible and enabled&#10;       - did not find some options&#10;     - retrying select option action&#10;       - waiting 500ms&#10;    - waiting for element to be visible and enabled">tests/e2e/test_u13_complete_webui.py:206: in test_key_b_creation
+    full_secret, token_id = create_key_via_ui(page, f"U13-KEY-B-{zone_name[:4]}", "32b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to &lt;select class="form-input" id="modal-token-models"&gt;…&lt;/select&gt;
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       59 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms
+E       - waiting for element to be visible and enabled</failure></testcase><testcase classname="tests.e2e.test_u13_complete_webui.TestApiKeys" name="test_one_time_secret" time="38.323"><failure message="playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;#modal-token-models&quot;)&#10;    - locator resolved to &lt;select class=&quot;form-input&quot; id=&quot;modal-token-models&quot;&gt;…&lt;/select&gt;&#10;  - attempting select option action&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;    - waiting 20ms&#10;    2 × waiting for element to be visible and enabled&#10;      - did not find some options&#10;    - retrying select option action&#10;      - waiting 100ms&#10;    60 × waiting for element to be visible and enabled&#10;       - did not find some options&#10;     - retrying select option action&#10;       - waiting 500ms">tests/e2e/test_u13_complete_webui.py:235: in test_one_time_secret
+    full_secret, token_id = create_key_via_ui(page, "U13-ONETIME", "14b")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_u13_complete_webui.py:71: in create_key_via_ui
+    page.select_option("#modal-token-models", model_value)
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/sync_api/_generated.py:12132: in select_option
+    self._sync(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_page.py:1068: in select_option
+    return await self._main_frame.select_option(**params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_frame.py:808: in select_option
+    return await self._channel.send("selectOption", self._timeout, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+/usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/playwright/_impl/_connection.py:563: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.select_option: Timeout 30000ms exceeded.
+E   Call log:
+E     - waiting for locator("#modal-token-models")
+E       - locator resolved to &lt;select class="form-input" id="modal-token-models"&gt;…&lt;/select&gt;
+E     - attempting select option action
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E       - waiting 20ms
+E       2 × waiting for element to be visible and enabled
+E         - did not find some options
+E       - retrying select option action
+E         - waiting 100ms
+E       60 × waiting for element to be visible and enabled
+E          - did not find some options
+E        - retrying select option action
+E          - waiting 500ms</failure></testcase><testcase classname="tests.e2e.test_u13_complete_webui.TestApiKeys" name="test_revoke_denial" time="24.700" /><testcase classname="tests.e2e.test_u13_complete_webui.TestAgent" name="test_agent_model_a[Internet-https://fb1.spb.ru:443]" time="23.695" /><testcase classname="tests.e2e.test_u13_complete_webui.TestAgent" name="test_agent_model_a[Test Zone-http://10.129.13.78:30080]" time="3.426" /><testcase classname="tests.e2e.test_u13_complete_webui.TestAgent" name="test_agent_model_b[Internet-https://fb1.spb.ru:443]" time="21.725" /><testcase classname="tests.e2e.test_u13_complete_webui.TestAgent" name="test_agent_model_b[Test Zone-http://10.129.13.78:30080]" time="1.540" /><testcase classname="tests.e2e.test_u13_complete_webui.TestAgent" name="test_agent_revoked_denial[Internet-https://fb1.spb.ru:443]" time="21.485" /><testcase classname="tests.e2e.test_u13_complete_webui.TestAgent" name="test_agent_revoked_denial[Test Zone-http://10.129.13.78:30080]" time="1.401" /><testcase classname="tests.e2e.test_u13_complete_webui.TestUISanity" name="test_agent_page_accessible[Internet-https://fb1.spb.ru:443]" time="8.728" /><testcase classname="tests.e2e.test_u13_complete_webui.TestUISanity" name="test_agent_page_accessible[Test Zone-http://10.129.13.78:30080]" time="3.693" /><testcase classname="tests.e2e.test_u13_complete_webui.TestUISanity" name="test_dashboard_populated[Internet-https://fb1.spb.ru:443]" time="7.716" /><testcase classname="tests.e2e.test_u13_complete_webui.TestUISanity" name="test_dashboard_populated[Test Zone-http://10.129.13.78:30080]" time="2.683" /></testsuite></testsuites>
