@@ -1,26 +1,44 @@
-/* Aither Portal — Stage 16 Application Logic */
+/* Aither Portal — CB-WEBUI-01 */
 (function () {
     'use strict';
 
     const API_URL = '/api/v1';
     let authToken = localStorage.getItem('aither_token') || null;
     let currentUser = null;
-    let currentChatId = null;
-    let currentAssistantId = null;
+    let chatHistory = []; // client-side chat history
 
     const $ = (id) => document.getElementById(id);
-    const pages = ['login','dashboard','models','api-keys','assistants','chats','profile','status'];
+    const pages = ['login','dashboard','chat','api-keys','status','profile'];
+
+    // Zone detection
+    function detectZone() {
+        const host = window.location.hostname;
+        if (host.includes('10.129') || host.includes('test') || host === 'localhost') {
+            return 'TEST ZONE';
+        }
+        return 'INTERNET';
+    }
+    const ZONE = detectZone();
+    const ZONE_CLASS = ZONE === 'INTERNET' ? 'zone-internet' : 'zone-test';
 
     // ── API ────────────────────────────────────────────────────
     async function api(path, opts = {}) {
         const headers = { 'Content-Type': 'application/json', ...opts.headers };
-        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-        const res = await fetch(API_URL + path, { ...opts, headers });
-        let data;
-        try { data = await res.json(); } catch { data = null; }
-        return { status: res.status, ok: res.ok, data };
+        // Use session cookie (set by login) for web auth; Bearer token for API
+        if (authToken && !path.startsWith('/auth/')) {
+            headers['Authorization'] = 'Bearer ' + authToken;
+        }
+        try {
+            const res = await fetch(API_URL + path, { ...opts, headers, credentials: 'same-origin' });
+            let data;
+            try { data = await res.json(); } catch { data = null; }
+            return { status: res.status, ok: res.ok, data };
+        } catch (e) {
+            return { status: 0, ok: false, data: { detail: 'Ошибка сети — проверьте подключение' } };
+        }
     }
 
+    // ── Page Navigation ─────────────────────────────────────────
     function showPage(id) {
         pages.forEach(p => { const el = $(`page-${p}`); if (el) el.classList.remove('active'); });
         const target = $(`page-${id}`);
@@ -49,12 +67,23 @@
     }
     function closeModal() { $('modal-overlay').style.display = 'none'; }
 
+    function escHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
     function updateNav() {
         const nav = $('main-nav');
+        const badge = $('zone-badge');
+        if (badge) {
+            badge.textContent = ZONE;
+            badge.className = 'zone-badge ' + ZONE_CLASS;
+        }
         if (authToken && currentUser) {
             nav.style.display = 'flex';
-            $('nav-username').textContent = currentUser.username;
-            $('nav-role-badge').textContent = currentUser.role === 'administrator' ? 'Admin' : 'User';
+            $('nav-username').textContent = currentUser.username || 'Пользователь';
+            $('nav-role-badge').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Admin' : 'User';
         } else {
             nav.style.display = 'none';
         }
@@ -66,7 +95,10 @@
         hideAlert('login-error');
         const username = $('login-username').value.trim();
         const password = $('login-password').value;
-        if (!username || !password) { showAlert('login-error','Please enter username and password','danger'); return; }
+        if (!username || !password) {
+            showAlert('login-error', 'Введите имя пользователя и пароль', 'danger');
+            return;
+        }
         setLoading(true);
         $('login-submit').disabled = true;
         try {
@@ -75,8 +107,10 @@
                 body: JSON.stringify({ username, password }),
             });
             if (res.ok && res.data) {
-                authToken = res.data.token;
-                currentUser = res.data.user;
+                // BFF returns {status:"ok", session_id:"..."} + sets cookie
+                // Store session ID for reference; auth works via cookie
+                authToken = res.data.session_id || res.data.token || 'session';
+                currentUser = res.data.user || { username: username, role: 'admin' };
                 localStorage.setItem('aither_token', authToken);
                 updateNav();
                 showPage('dashboard');
@@ -84,18 +118,22 @@
                 $('login-password').value = '';
                 loadDashboardInfo();
             } else {
-                showAlert('login-error', (res.data?.detail) || 'Login failed', 'danger');
+                const msg = res.data?.detail || res.data?.error || 'Ошибка входа. Проверьте учётные данные.';
+                showAlert('login-error', msg, 'danger');
             }
-        } catch { showAlert('login-error','Network error','danger'); }
-        finally { setLoading(false); $('login-submit').disabled = false; }
+        } catch {
+            showAlert('login-error', 'Ошибка сети. Проверьте подключение.', 'danger');
+        } finally {
+            setLoading(false);
+            $('login-submit').disabled = false;
+        }
     }
 
     async function handleLogout() {
         setLoading(true);
         try { await api('/auth/logout', { method: 'POST' }); } catch {}
-        authToken = null; currentUser = null;
+        authToken = null; currentUser = null; chatHistory = [];
         localStorage.removeItem('aither_token');
-        currentChatId = null;
         updateNav(); showPage('login');
         setLoading(false);
     }
@@ -103,364 +141,326 @@
     // ── Dashboard ──────────────────────────────────────────────
     async function loadDashboardInfo() {
         if (!currentUser) return;
-        $('dash-username').textContent = currentUser.username;
-        $('dash-role').textContent = currentUser.role === 'administrator' ? 'Administrator' : 'User';
-        $('dash-role').className = 'role-badge';
-        try { const v = await fetch('/version').then(r=>r.json()); $('dash-version').textContent = v.version||'—'; } catch {}
-        try { const h = await fetch('/health').then(r=>r.json()); $('dash-status').textContent = h.status==='ok'?'Healthy':'Degraded'; $('dash-status').className='status-indicator '+(h.status==='ok'?'ok':'warning'); } catch {}
-    }
+        $('dash-username').textContent = currentUser.username || '—';
+        $('dash-role').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Администратор' : 'Пользователь';
+        $('dash-zone').textContent = ZONE;
 
-    // ── Models ─────────────────────────────────────────────────
-    async function loadModels() {
-        setLoading(true);
+        try {
+            const v = await fetch('/version').then(r => r.json());
+            $('dash-version').textContent = v.version || '—';
+        } catch {}
+        try {
+            const h = await fetch('/health').then(r => r.json());
+            const ok = h.status === 'ok';
+            $('dash-status').textContent = ok ? 'Работает' : 'Деградация';
+            $('dash-status').className = 'status-indicator ' + (ok ? 'ok' : 'warning');
+        } catch { $('dash-status').textContent = 'Недоступен'; }
+
+        // Load models
         try {
             const res = await api('/models');
-            if (!res.ok) { $('models-content').innerHTML = '<p class="text-muted">Failed to load models</p>'; return; }
-            const isAdmin = currentUser && currentUser.role === 'administrator';
-            $('models-admin-bar').style.display = isAdmin ? 'block' : 'none';
-            if (!res.data || res.data.length === 0) {
-                $('models-content').innerHTML = '<p class="text-muted">No models registered. Admin can add models.</p>';
-                return;
+            if (res.ok && res.data) {
+                const models = res.data.data || res.data;
+                let html = '';
+                for (const m of (Array.isArray(models) ? models : [])) {
+                    const name = m.id || m.name;
+                    const desc = name === 'qwen-14b' ? 'Чат-модель' : 'Базовая модель';
+                    html += `<p>✦ <strong>${name}</strong> — <span class="text-muted">${desc}</span></p>`;
+                }
+                $('dash-models').innerHTML = html || '<p class="text-muted">Модели не найдены</p>';
             }
-            let html = '<table class="data-table"><tr><th>Name</th><th>Provider</th><th>Context</th><th>Status</th><th>Description</th></tr>';
-            for (const m of res.data) {
-                html += `<tr>
-                    <td><strong>${m.display_name}</strong><br><code>${m.name}</code></td>
-                    <td>${m.provider}</td>
-                    <td>${m.context_window}</td>
-                    <td class="${m.enabled ? 'badge-enabled' : 'badge-disabled'}">${m.enabled ? 'Enabled' : 'Disabled'}</td>
-                    <td>${m.description || '—'}</td>
-                </tr>`;
+        } catch {}
+    }
+
+    // ── Web Chat ────────────────────────────────────────────────
+    function updateModelInfo() {
+        const sel = $('chat-model-select');
+        const info = $('chat-model-info');
+        if (!sel) return;
+        const model = sel.value;
+        if (model === 'qwen-14b') {
+            info.textContent = 'Чат-модель — оптимизирована для диалогов';
+            info.style.color = 'var(--success)';
+        } else {
+            info.textContent = 'Базовая модель — продолжает текст (не чат)';
+            info.style.color = 'var(--warning)';
+        }
+    }
+
+    function addChatMessage(role, content, model) {
+        const msgs = $('chat-messages');
+        if (!msgs) return;
+        let meta = '';
+        if (role === 'assistant' && model) {
+            meta = `<div class="msg-meta">🤖 ${model}</div>`;
+        }
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg ' + role;
+        msgDiv.innerHTML = meta + escHtml(content) +
+            (role === 'assistant' ? `<div class="msg-actions"><button class="btn btn-sm btn-outline" onclick="this.closest('.chat-msg').querySelector('.msg-actions').remove();navigator.clipboard.writeText('${escHtml(content).replace(/'/g, "\\'")}')">📋 Копировать</button></div>` : '');
+        msgs.appendChild(msgDiv);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function showChatError(code, detail) {
+        const errors = {
+            401: 'Ошибка авторизации. Войдите заново.',
+            403: 'Доступ запрещён. Недостаточно прав.',
+            404: 'Модель или endpoint не найден.',
+            422: 'Некорректный запрос.',
+            429: 'Превышен лимит запросов. Подождите минуту.',
+            500: 'Внутренняя ошибка сервера.',
+            502: 'Ошибка шлюза.',
+            503: 'Сервис временно недоступен.',
+            504: 'Таймаут — модель не успела ответить.',
+            0: 'Ошибка сети — проверьте подключение.',
+        };
+        const msg = errors[code] || `Ошибка HTTP ${code}: ${detail || 'неизвестная ошибка'}`;
+        addChatMessage('error', msg);
+    }
+
+    async function sendChatMessage() {
+        const input = $('chat-input');
+        const model = $('chat-model-select')?.value || 'qwen-14b';
+        const content = input.value.trim();
+        if (!content) return;
+
+        if (authToken === null) {
+            showChatError(401);
+            return;
+        }
+
+        input.value = '';
+        addChatMessage('user', content);
+        addChatMessage('assistant', '⏳ Генерация ответа...', model);
+        $('btn-send-message').disabled = true;
+
+        const maxTokens = parseInt($('chat-max-tokens')?.value) || 512;
+        const temperature = parseFloat($('chat-temperature')?.value) || 0.7;
+
+        // Update chat history
+        chatHistory.push({ role: 'user', content: content });
+
+        try {
+            const res = await api('/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    model: model,
+                    messages: chatHistory.slice(-20), // last 20 messages for context
+                    max_tokens: maxTokens,
+                    temperature: temperature,
+                }),
+            });
+
+            // Remove "thinking" message
+            const msgs = $('chat-messages');
+            const thinking = msgs?.lastElementChild;
+            if (thinking && thinking.textContent.includes('⏳')) {
+                thinking.remove();
             }
-            html += '</table>';
-            $('models-content').innerHTML = html;
-        } finally { setLoading(false); }
+
+            if (res.ok && res.data) {
+                let reply = '';
+                if (res.data.choices && res.data.choices[0]) {
+                    const choice = res.data.choices[0];
+                    reply = choice.message?.content || choice.text || JSON.stringify(choice);
+                } else if (res.data.content) {
+                    reply = res.data.content;
+                } else if (res.data.response) {
+                    reply = res.data.response;
+                }
+
+                if (!reply || reply.trim() === '') {
+                    // Raw response from 32B
+                    reply = res.data.choices?.[0]?.text || 'Пустой ответ от модели.';
+                }
+
+                chatHistory.push({ role: 'assistant', content: reply });
+                addChatMessage('assistant', reply, model);
+            } else {
+                const detail = res.data?.detail || res.data?.error || '';
+                showChatError(res.status, detail);
+            }
+        } catch (e) {
+            const thinking = $('chat-messages')?.lastElementChild;
+            if (thinking && thinking.textContent.includes('⏳')) thinking.remove();
+            showChatError(0);
+        } finally {
+            $('btn-send-message').disabled = false;
+            input.focus();
+        }
+    }
+
+    function clearChat() {
+        chatHistory = [];
+        const msgs = $('chat-messages');
+        if (msgs) {
+            msgs.innerHTML = `<div class="chat-msg system">
+                Выберите модель и начните диалог.<br>
+                <strong>qwen-14b</strong> — чат-модель для диалогов.<br>
+                <strong>qwen-32b-base</strong> — базовая модель для продолжения текста.
+            </div>`;
+        }
     }
 
     // ── API Keys ───────────────────────────────────────────────
     async function loadApiKeys() {
         setLoading(true);
         try {
-            const res = await api('/api-keys');
-            if (!res.ok) { $('apikeys-content').innerHTML = '<p class="text-muted">Failed to load API Keys</p>'; return; }
-            if (!res.data || res.data.length === 0) {
-                $('apikeys-content').innerHTML = '<p class="text-muted">No API Keys created yet.</p>';
-                return;
-            }
-            let html = '<table class="data-table"><tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last Used</th><th>Status</th><th></th></tr>';
-            for (const k of res.data) {
-                const revoked = !!k.revoked_at;
-                html += `<tr>
-                    <td>${k.name}</td>
-                    <td><code>${k.key_prefix}...</code></td>
-                    <td>${k.created_at || '—'}</td>
-                    <td>${k.last_used_at || 'never'}</td>
-                    <td class="${revoked ? 'badge-revoked' : 'badge-enabled'}">${revoked ? 'Revoked' : 'Active'}</td>
-                    <td>${revoked ? '' : `<button class="btn btn-sm btn-danger" onclick="window._revokeKey(${k.id})">Revoke</button>`}</td>
-                </tr>`;
-            }
-            html += '</table>';
-            $('apikeys-content').innerHTML = html;
-        } finally { setLoading(false); }
-    }
-    window._revokeKey = async function(id) {
-        if (!confirm('Revoke this API Key? This cannot be undone.')) return;
-        setLoading(true);
-        try {
-            const res = await api('/api-keys/' + id, { method: 'DELETE' });
-            if (res.ok) { await loadApiKeys(); showAlert('apikeys-content','Key revoked','success'); }
-            else { alert('Failed to revoke key'); }
-        } finally { setLoading(false); }
-    };
-
-    // ── Assistants ────────────────────────────────────────────
-    async function loadAssistants() {
-        setLoading(true);
-        try {
-            const res = await api('/assistants');
-            if (!res.ok) { $('assistants-content').innerHTML = '<p class="text-muted">Failed to load assistants</p>'; return; }
-            if (!res.data || res.data.length === 0) {
-                $('assistants-content').innerHTML = '<p class="text-muted">No assistants created yet.</p>';
-                return;
-            }
-            let html = '<table class="data-table"><tr><th>Name</th><th>Model</th><th>Temp</th><th>Max Tokens</th><th>Status</th><th></th></tr>';
-            for (const a of res.data) {
-                html += `<tr>
-                    <td><strong>${a.name}</strong></td>
-                    <td>${a.model_name || 'Model #'+a.model_id}</td>
-                    <td>${a.temperature}</td>
-                    <td>${a.max_tokens}</td>
-                    <td class="${a.enabled ? 'badge-enabled' : 'badge-disabled'}">${a.enabled ? 'Enabled' : 'Disabled'}</td>
-                    <td><button class="btn btn-sm btn-outline" onclick="window._editAssistant(${a.id})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="window._deleteAssistant(${a.id})">Delete</button></td>
-                </tr>`;
-            }
-            html += '</table>';
-            $('assistants-content').innerHTML = html;
-        } finally { setLoading(false); }
-    }
-    window._editAssistant = async function(id) { /* placeholder — edit form in future */ };
-    window._deleteAssistant = async function(id) {
-        if (!confirm('Delete this assistant?')) return;
-        setLoading(true);
-        try {
-            const res = await api('/assistants/' + id, { method: 'DELETE' });
-            if (res.ok) loadAssistants();
-        } finally { setLoading(false); }
-    };
-
-    // ── Chats ──────────────────────────────────────────────────
-    async function loadChats() {
-        setLoading(true);
-        try {
-            const res = await api('/conversations');
-            if (!res.ok) { $('chats-list').innerHTML = '<p class="text-muted">Failed to load chats</p>'; return; }
-            if (!res.data || res.data.length === 0) {
-                $('chats-list').innerHTML = '<p class="text-muted">No chats yet. Create a new chat to start.</p>';
-                return;
-            }
-            let html = '';
-            for (const c of res.data) {
-                html += `<div class="card" style="margin-bottom:8px;cursor:pointer;" onclick="window._openChat(${c.id})">
-                    <div class="card-body" style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
-                        <div><strong>${c.title || 'Untitled'}</strong><br><span class="text-muted" style="font-size:12px;">${c.assistant_name || 'No assistant'} — ${c.updated_at || c.created_at}</span></div>
-                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();window._deleteChat(${c.id})">Delete</button>
-                    </div>
-                </div>`;
-            }
-            $('chats-list').innerHTML = html;
-        } finally { setLoading(false); }
-    }
-    window._openChat = async function(id) {
-        setLoading(true);
-        try {
-            const res = await api('/conversations/' + id);
-            if (!res.ok) return;
-            currentChatId = id;
-            const conv = res.data;
-            $('chat-messages').style.display = 'flex';
-            $('chat-input-area').style.display = 'flex';
-            let html = '';
-            if (conv.messages) {
-                for (const m of conv.messages) {
-                    html += `<div class="chat-msg ${m.role}">${escHtml(m.content)}</div>`;
+            const res = await api('/tokens');
+            if (res.ok && Array.isArray(res.data)) {
+                if (res.data.length === 0) {
+                    $('apikeys-content').innerHTML = '<p class="text-muted">Нет созданных ключей. Нажмите «Создать новый ключ».</p>';
+                    return;
                 }
-            }
-            $('chat-messages').innerHTML = html;
-            $('chat-messages').scrollTop = $('chat-messages').scrollHeight;
-            // Highlight in list
-        } finally { setLoading(false); }
-    };
-    window._deleteChat = async function(id) {
-        if (!confirm('Delete this conversation?')) return;
-        setLoading(true);
-        try {
-            const res = await api('/conversations/' + id, { method: 'DELETE' });
-            if (res.ok) {
-                if (currentChatId === id) { currentChatId = null; $('chat-messages').style.display = 'none'; $('chat-input-area').style.display = 'none'; }
-                loadChats();
-            }
-        } finally { setLoading(false); }
-    };
-
-    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    async function sendMessage() {
-        const input = $('chat-input');
-        const content = input.value.trim();
-        if (!content || !currentChatId) return;
-        input.value = '';
-        // Show user message
-        const msgs = $('chat-messages');
-        msgs.innerHTML += `<div class="chat-msg user">${escHtml(content)}</div>`;
-        msgs.scrollTop = msgs.scrollHeight;
-        // Show loading
-        msgs.innerHTML += `<div class="chat-msg assistant" id="msg-waiting"><span class="text-muted">Thinking...</span></div>`;
-        msgs.scrollTop = msgs.scrollHeight;
-        $('btn-send-message').disabled = true;
-        try {
-            const res = await api('/conversations/' + currentChatId + '/messages', {
-                method: 'POST',
-                body: JSON.stringify({ content }),
-            });
-            document.getElementById('msg-waiting')?.remove();
-            if (res.ok && res.data) {
-                msgs.innerHTML += `<div class="chat-msg assistant">${escHtml(res.data.content)}</div>`;
+                let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Создан</th><th>Использован</th><th>Статус</th><th>Действия</th></tr>';
+                for (const k of res.data) {
+                    const revoked = !!k.revoked;
+                    html += `<tr>
+                        <td>${escHtml(k.name || 'Без названия')}</td>
+                        <td><code>${escHtml(k.prefix || k.id?.substring(0,12) || '—')}...</code></td>
+                        <td>${k.created_at || '—'}</td>
+                        <td>${k.last_used_at || 'никогда'}</td>
+                        <td class="${revoked ? 'badge-revoked' : 'badge-enabled'}">${revoked ? 'Отозван' : 'Активен'}</td>
+                        <td>${revoked ? '' : `<button class="btn btn-sm btn-danger" onclick="window._revokeToken('${k.id}')">Отозвать</button>`}</td>
+                    </tr>`;
+                }
+                html += '</table>';
+                $('apikeys-content').innerHTML = html;
             } else {
-                msgs.innerHTML += `<div class="chat-msg error">${escHtml(res.data?.detail || 'Error getting response')}</div>`;
+                $('apikeys-content').innerHTML = '<p class="text-muted">Не удалось загрузить ключи.</p>';
             }
-        } catch {
-            document.getElementById('msg-waiting')?.remove();
-            msgs.innerHTML += `<div class="chat-msg error">Network error — please try again</div>`;
-        }
-        msgs.scrollTop = msgs.scrollHeight;
-        $('btn-send-message').disabled = false;
-        loadChats(); // Refresh list
+        } finally { setLoading(false); }
     }
 
-    // ── Create API Key Modal ───────────────────────────────────
-    function showCreateApiKeyModal() {
+    window._revokeToken = async function(id) {
+        if (!confirm('Отозвать этот ключ? Это действие нельзя отменить.')) return;
+        setLoading(true);
+        try {
+            const res = await api('/tokens/' + id, { method: 'DELETE' });
+            if (res.ok) {
+                await loadApiKeys();
+                const c = $('apikeys-content');
+                if (c) { c.insertAdjacentHTML('afterbegin', '<div class="alert alert-success" style="margin-bottom:12px;">✅ Ключ отозван</div>'); }
+            } else {
+                alert('Не удалось отозвать ключ: ' + (res.data?.detail || ''));
+            }
+        } finally { setLoading(false); }
+    };
+
+    function showCreateTokenModal() {
         modal(`
-            <h2>Create API Key</h2>
+            <h2>Создать API-ключ</h2>
             <div class="form-group">
-                <label>Key Name</label>
-                <input type="text" id="modal-apikey-name" class="form-input" placeholder="e.g. Development">
+                <label>Название ключа</label>
+                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Разработка">
             </div>
-            <div id="modal-apikey-result" style="display:none;">
+            <div class="form-group">
+                <label>Модели</label>
+                <select id="modal-token-models" class="form-input">
+                    <option value="both">Обе модели (14B + 32B)</option>
+                    <option value="qwen-14b">Только qwen-14b (Чат)</option>
+                    <option value="qwen-32b-base">Только qwen-32b-base (Базовая)</option>
+                </select>
+            </div>
+            <div id="modal-token-result" style="display:none;">
                 <div class="alert alert-info" style="margin-top:12px;">
-                    <strong>Save this key — it will not be shown again!</strong>
+                    ⚠️ <strong>Сохраните ключ сейчас — он больше не будет показан!</strong>
                 </div>
                 <div class="copy-field">
-                    <input type="text" id="modal-apikey-full" readonly>
-                    <button class="btn btn-sm btn-primary" onclick="const i=document.getElementById('modal-apikey-full');i.select();navigator.clipboard?.writeText(i.value);">Copy</button>
+                    <input type="text" id="modal-token-full" readonly>
+                    <button class="btn btn-sm btn-primary" onclick="const i=document.getElementById('modal-token-full');i.select();navigator.clipboard?.writeText(i.value);this.textContent='✓ Скопировано';setTimeout(()=>this.textContent='Копировать',2000);">Копировать</button>
                 </div>
             </div>
-            <button class="btn btn-primary" id="modal-apikey-create-btn" onclick="window._createApiKey()">Create</button>
-            <button class="btn btn-outline" onclick="closeModal()">Close</button>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать</button>
+                <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
+            </div>
         `);
     }
-    window._createApiKey = async function() {
-        const name = document.getElementById('modal-apikey-name')?.value?.trim();
-        if (!name) { alert('Enter a name for the key'); return; }
-        document.getElementById('modal-apikey-create-btn').disabled = true;
+
+    window._createToken = async function() {
+        const name = document.getElementById('modal-token-name')?.value?.trim() || 'default';
+        const models = document.getElementById('modal-token-models')?.value || 'both';
+
+        let scopes = [];
+        if (models === 'both' || models === 'qwen-14b') scopes.push('model:14b:chat');
+        if (models === 'both' || models === 'qwen-32b-base') scopes.push('model:32b:chat-adapter', 'model:32b:completion');
+
+        document.getElementById('modal-token-create-btn').disabled = true;
         setLoading(true);
         try {
-            const res = await api('/api-keys', { method: 'POST', body: JSON.stringify({ name }) });
+            const res = await api('/tokens', {
+                method: 'POST',
+                body: JSON.stringify({ name, scopes }),
+            });
             if (res.ok && res.data) {
-                document.getElementById('modal-apikey-result').style.display = 'block';
-                document.getElementById('modal-apikey-full').value = res.data.full_key;
-                document.getElementById('modal-apikey-create-btn').style.display = 'none';
-                document.getElementById('modal-apikey-name').disabled = true;
+                document.getElementById('modal-token-result').style.display = 'block';
+                document.getElementById('modal-token-full').value = res.data.token || res.data.full_key || res.data.key;
+                document.getElementById('modal-token-create-btn').style.display = 'none';
+                document.getElementById('modal-token-name').disabled = true;
                 await loadApiKeys();
             } else {
-                alert(res.data?.detail || 'Failed to create key');
+                alert('Не удалось создать ключ: ' + (res.data?.detail || res.data?.error || ''));
             }
-        } finally { setLoading(false); }
-    };
-
-    // ── Create Assistant Modal ─────────────────────────────────
-    async function showCreateAssistantModal() {
-        // Load models for dropdown
-        const modelsRes = await api('/models');
-        const models = (modelsRes.ok && modelsRes.data) ? modelsRes.data.filter(m => m.enabled) : [];
-        let modelOpts = '<option value="">Select a model</option>';
-        for (const m of models) {
-            modelOpts += `<option value="${m.id}">${m.display_name} (${m.name})</option>`;
+        } finally {
+            setLoading(false);
+            document.getElementById('modal-token-create-btn').disabled = false;
         }
-        modal(`
-            <h2>Create Assistant</h2>
-            <div class="form-group"><label>Name</label><input type="text" id="modal-ast-name" class="form-input" placeholder="My Assistant"></div>
-            <div class="form-group"><label>Description</label><input type="text" id="modal-ast-desc" class="form-input" placeholder="Optional description"></div>
-            <div class="form-group"><label>Model</label><select id="modal-ast-model" class="form-input">${modelOpts}</select></div>
-            <div class="form-group"><label>System Prompt</label><textarea id="modal-ast-prompt" class="form-input" rows="4" placeholder="You are a helpful AI assistant..."></textarea></div>
-            <div style="display:flex;gap:16px;">
-                <div class="form-group" style="flex:1;"><label>Temperature (0–2)</label><input type="number" id="modal-ast-temp" class="form-input" value="0.7" min="0" max="2" step="0.1"></div>
-                <div class="form-group" style="flex:1;"><label>Max Tokens</label><input type="number" id="modal-ast-maxtokens" class="form-input" value="2048" min="1" max="131072"></div>
-            </div>
-            <div id="modal-ast-error" class="alert alert-danger" style="display:none;"></div>
-            <button class="btn btn-primary" onclick="window._createAssistant()">Create</button>
-            <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-        `);
-    }
-    window._createAssistant = async function() {
-        const name = document.getElementById('modal-ast-name')?.value?.trim();
-        const modelId = parseInt(document.getElementById('modal-ast-model')?.value);
-        if (!name) { document.getElementById('modal-ast-error').style.display='block'; document.getElementById('modal-ast-error').textContent='Name is required'; return; }
-        if (!modelId) { document.getElementById('modal-ast-error').style.display='block'; document.getElementById('modal-ast-error').textContent='Please select a model'; return; }
-        setLoading(true);
-        try {
-            const res = await api('/assistants', {
-                method: 'POST',
-                body: JSON.stringify({
-                    name, description: document.getElementById('modal-ast-desc')?.value || '',
-                    model_id: modelId,
-                    system_prompt: document.getElementById('modal-ast-prompt')?.value || '',
-                    temperature: parseFloat(document.getElementById('modal-ast-temp')?.value || '0.7'),
-                    max_tokens: parseInt(document.getElementById('modal-ast-maxtokens')?.value || '2048'),
-                }),
-            });
-            if (res.ok) { closeModal(); loadAssistants(); }
-            else { document.getElementById('modal-ast-error').style.display='block'; document.getElementById('modal-ast-error').textContent=res.data?.detail||'Failed'; }
-        } finally { setLoading(false); }
     };
-
-    // ── Profile ────────────────────────────────────────────────
-    async function loadProfile() {
-        if (!currentUser) return;
-        $('profile-id').textContent = currentUser.id;
-        $('profile-username').textContent = currentUser.username;
-        $('profile-role').textContent = currentUser.role === 'administrator' ? 'Administrator' : 'User';
-        const res = await api('/auth/me');
-        if (res.ok && res.data) { currentUser = res.data; updateNav(); }
-    }
 
     // ── Status ─────────────────────────────────────────────────
     async function loadStatusPage() {
         setLoading(true);
         try {
             const res = await api('/status');
-            let html = '';
-            if (res.ok && res.data && res.data.services) {
-                for (const [name, status] of Object.entries(res.data.services)) {
-                    const healthy = typeof status === 'object' || status === 'healthy';
-                    html += `<div class="service-row"><span class="service-name">${name}</span><span class="service-status ${healthy?'ok':'error'}">${healthy?'Healthy':'Unreachable'}</span></div>`;
-                }
-            }
-            $('status-content').innerHTML = html || '<p class="text-muted">Unavailable</p>';
-            try { const v = await fetch('/version').then(r=>r.json()); $('version-content').innerHTML = '<div class="info-row"><span class="info-label">Service</span><span class="info-value">'+(v.service||'—')+'</span></div><div class="info-row"><span class="info-label">Version</span><span class="info-value">'+(v.version||'—')+'</span></div><div class="info-row"><span class="info-label">Build</span><span class="info-value">'+(v.build||'—')+'</span></div>'; } catch {}
-        } finally { setLoading(false); }
+            // BFF doesn't have /status, so try /health
+        } catch {}
+        try {
+            const h = await fetch('/health').then(r => r.json());
+            let html = '<div class="info-row"><span class="info-label">Статус</span><span class="info-value" style="color:var(--success)">✓ Работает</span></div>';
+            html += `<div class="info-row"><span class="info-label">Версия</span><span class="info-value">${h.version || '—'}</span></div>`;
+            html += `<div class="info-row"><span class="info-label">Redis</span><span class="info-value" style="color:${h.redis==='connected'?'var(--success)':'var(--danger)'}">${h.redis || '—'}</span></div>`;
+            html += `<div class="info-row"><span class="info-label">Rate Limit</span><span class="info-value">${h.rate_limit || '—'}</span></div>`;
+            html += `<div class="info-row"><span class="info-label">Auth</span><span class="info-value">${h.auth || '—'}</span></div>`;
+            html += `<div class="info-row"><span class="info-label">Зона</span><span class="info-value">${ZONE}</span></div>`;
+            $('status-content').innerHTML = html;
+        } catch {
+            $('status-content').innerHTML = '<p class="text-muted">Не удалось получить статус</p>';
+        }
+        try {
+            const v = await fetch('/version').then(r => r.json());
+            $('version-content').innerHTML = `<div class="info-row"><span class="info-label">Сервис</span><span class="info-value">${v.service||'—'}</span></div><div class="info-row"><span class="info-label">Версия</span><span class="info-value">${v.version||'—'}</span></div><div class="info-row"><span class="info-label">Сборка</span><span class="info-value">${v.build||'—'}</span></div>`;
+        } catch { $('version-content').innerHTML = '<p class="text-muted">—</p>'; }
+        setLoading(false);
     }
 
-    // ── New Chat ──────────────────────────────────────────────
-    async function newChat() {
-        const assistantId = parseInt($('chat-assistant-select')?.value) || null;
-        setLoading(true);
+    // ── Profile ────────────────────────────────────────────────
+    async function loadProfile() {
+        if (!currentUser) return;
+        $('profile-id').textContent = currentUser.id || '—';
+        $('profile-username').textContent = currentUser.username || '—';
+        $('profile-role').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Администратор' : 'Пользователь';
+        $('profile-zone').textContent = ZONE;
         try {
-            // Get available assistants for user
-            const astRes = await api('/assistants');
-            const assistants = (astRes.ok && astRes.data) ? astRes.data.filter(a => a.enabled) : [];
-            const selectedAst = assistants.find(a => a.id === assistantId);
-            const res = await api('/conversations', {
-                method: 'POST',
-                body: JSON.stringify({
-                    assistant_id: assistantId,
-                    title: selectedAst ? `Chat with ${selectedAst.name}` : 'New Chat',
-                }),
-            });
-            if (res.ok && res.data) {
-                currentChatId = res.data.id;
-                $('chat-messages').innerHTML = '';
-                $('chat-messages').style.display = 'flex';
-                $('chat-input-area').style.display = 'flex';
-                // Add system prompt if assistant has one
-                if (selectedAst && selectedAst.system_prompt) {
-                    $('chat-messages').innerHTML = `<div class="chat-msg system">System: ${escHtml(selectedAst.system_prompt.substring(0, 200))}${selectedAst.system_prompt.length > 200 ? '...' : ''}</div>`;
-                }
-                await loadChats();
-            }
-        } finally { setLoading(false); }
+            const res = await api('/auth/me');
+            if (res.ok && res.data) currentUser = { ...currentUser, ...res.data };
+        } catch {}
     }
 
     // ── Session check ──────────────────────────────────────────
     async function checkSession() {
         if (!authToken) return false;
-        const res = await api('/auth/me');
-        if (res.ok && res.data) {
-            currentUser = res.data;
-            updateNav();
-            showPage('dashboard');
-            loadDashboardInfo();
-            // Load assistants for chat selector
-            const astRes = await api('/assistants');
-            if (astRes.ok && astRes.data) {
-                const sel = $('chat-assistant-select');
-                sel.innerHTML = '<option value="">No assistant</option>';
-                for (const a of astRes.data.filter(a=>a.enabled)) {
-                    sel.innerHTML += `<option value="${a.id}">${a.name}</option>`;
-                }
+        try {
+            const res = await api('/auth/me');
+            if (res.ok && res.data) {
+                currentUser = res.data;
+                updateNav();
+                showPage('dashboard');
+                loadDashboardInfo();
+                return true;
             }
-            return true;
-        }
+        } catch {}
         authToken = null; currentUser = null;
         localStorage.removeItem('aither_token');
         updateNav(); showPage('login');
@@ -469,30 +469,41 @@
 
     // ── Init ──────────────────────────────────────────────────
     function init() {
-        $('login-form').addEventListener('submit', handleLogin);
-        $('btn-logout').addEventListener('click', handleLogout);
-        $('btn-create-apikey').addEventListener('click', showCreateApiKeyModal);
-        $('btn-create-assistant').addEventListener('click', showCreateAssistantModal);
-        $('btn-new-chat').addEventListener('click', newChat);
-        $('btn-send-message').addEventListener('click', sendMessage);
-        $('chat-input').addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+        updateNav();
+        $('login-form')?.addEventListener('submit', handleLogin);
+        $('btn-logout')?.addEventListener('click', handleLogout);
+        $('btn-create-apikey')?.addEventListener('click', showCreateTokenModal);
+        $('btn-send-message')?.addEventListener('click', sendChatMessage);
+        $('btn-clear-chat')?.addEventListener('click', clearChat);
+        $('chat-model-select')?.addEventListener('change', updateModelInfo);
+        $('chat-temperature')?.addEventListener('input', function() {
+            $('chat-temp-val').textContent = this.value;
+        });
+        $('chat-input')?.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+        });
 
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const page = link.dataset.page;
                 showPage(page);
-                if (page === 'profile') loadProfile();
-                if (page === 'status') loadStatusPage();
-                if (page === 'models') loadModels();
+                if (page === 'dashboard') loadDashboardInfo();
+                if (page === 'chat') updateModelInfo();
                 if (page === 'api-keys') loadApiKeys();
-                if (page === 'assistants') loadAssistants();
-                if (page === 'chats') loadChats();
+                if (page === 'status') loadStatusPage();
+                if (page === 'profile') loadProfile();
             });
         });
+
+        updateModelInfo();
 
         if (authToken) checkSession();
     }
 
-    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();

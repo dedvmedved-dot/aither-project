@@ -1,28 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aither — AI Platform</title>
+<title>Aither — AI Platform Beta</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <!-- Navigation -->
   <nav class="nav" id="main-nav" style="display:none;">
-    <div class="nav-brand">Aither</div>
+    <div class="nav-brand">✦ Aither</div>
     <div class="nav-links">
-      <a href="#" data-page="dashboard" class="nav-link">Dashboard</a>
-      <a href="#" data-page="models" class="nav-link">Models</a>
-      <a href="#" data-page="api-keys" class="nav-link">API Keys</a>
-      <a href="#" data-page="assistants" class="nav-link">Assistants</a>
-      <a href="#" data-page="chats" class="nav-link">Chats</a>
-      <a href="#" data-page="profile" class="nav-link">Profile</a>
-      <a href="#" data-page="status" class="nav-link">Status</a>
+      <a href="#" data-page="dashboard" class="nav-link">Панель</a>
+      <a href="#" data-page="chat" class="nav-link">💬 Чат</a>
+      <a href="#" data-page="api-keys" class="nav-link">🔑 API Ключи</a>
+      <a href="#" data-page="status" class="nav-link">Статус</a>
+      <a href="#" data-page="profile" class="nav-link">Профиль</a>
     </div>
     <div class="nav-user">
+      <span class="zone-badge zone-internet" id="zone-badge" title="Зона подключения">INTERNET</span>
       <span class="nav-username" id="nav-username"></span>
       <span class="nav-role-badge" id="nav-role-badge"></span>
-      <button class="btn btn-sm btn-outline" id="btn-logout">Logout</button>
+      <button class="btn btn-sm btn-outline" id="btn-logout">Выход</button>
     </div>
   </nav>
 
@@ -30,103 +29,121 @@
   <div class="page active" id="page-login">
     <div class="auth-card">
       <div class="auth-header">
-        <h1>Aither</h1>
-        <p class="text-muted">AI Platform — Beta v0.9</p>
+        <h1>✦ Aither</h1>
+        <p class="text-muted">AI Platform — Closed Beta</p>
       </div>
       <div class="alert alert-danger" id="login-error" style="display:none;"></div>
       <form id="login-form">
         <div class="form-group">
-          <label for="login-username">Username</label>
-          <input type="text" id="login-username" class="form-input" required>
+          <label for="login-username">Имя пользователя</label>
+          <input type="text" id="login-username" class="form-input" required autocomplete="username">
         </div>
         <div class="form-group">
-          <label for="login-password">Password</label>
-          <input type="password" id="login-password" class="form-input" required>
+          <label for="login-password">Пароль</label>
+          <input type="password" id="login-password" class="form-input" required autocomplete="current-password">
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="login-submit">Sign In</button>
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">Войти</button>
       </form>
-      <div class="auth-footer"><p class="text-muted">Aither v1.0.0 — Stage 16</p></div>
+      <div class="auth-footer">
+        <p class="text-muted">Версия 2.0 — CB-WEBUI-01</p>
+        <p class="text-muted" style="margin-top:4px;">Требуется учётная запись. Обратитесь к администратору.</p>
+      </div>
     </div>
   </div>
 
-  <!-- Dashboard Page -->
+  <!-- Dashboard -->
   <div class="page" id="page-dashboard">
     <div class="container">
-      <h1>Dashboard</h1>
+      <h1>Панель управления</h1>
       <div class="cards-grid">
         <div class="card">
-          <div class="card-title">Account</div>
+          <div class="card-title">Аккаунт</div>
           <div class="card-body">
-            <p>Logged in as <strong id="dash-username"></strong></p>
-            <p>Role: <span class="role-badge" id="dash-role"></span></p>
+            <p>Пользователь: <strong id="dash-username"></strong></p>
+            <p>Роль: <span class="role-badge" id="dash-role"></span></p>
+            <p>Зона: <span id="dash-zone"></span></p>
           </div>
         </div>
         <div class="card">
-          <div class="card-title">System</div>
+          <div class="card-title">Система</div>
           <div class="card-body">
-            <p>Version: <span id="dash-version">—</span></p>
-            <p>Status: <span class="status-indicator" id="dash-status">Checking...</span></p>
+            <p>Версия: <span id="dash-version">—</span></p>
+            <p>Статус: <span class="status-indicator" id="dash-status">Проверка...</span></p>
           </div>
         </div>
         <div class="card">
-          <div class="card-title">AI Platform</div>
+          <div class="card-title">Модели</div>
+          <div class="card-body" id="dash-models">Загрузка...</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Быстрые действия</div>
           <div class="card-body">
-            <p><a href="#" onclick="showPage('models');return false;">Models</a></p>
-            <p><a href="#" onclick="showPage('api-keys');return false;">API Keys</a></p>
-            <p><a href="#" onclick="showPage('assistants');return false;">Assistants</a></p>
-            <p><a href="#" onclick="showPage('chats');return false;">Chats</a></p>
+            <p><a href="#" onclick="showPage('chat');return false;">💬 Открыть чат</a></p>
+            <p><a href="#" onclick="showPage('api-keys');return false;">🔑 Управление ключами</a></p>
+            <p><a href="/docs/user-package/00_INDEX.md" target="_blank">📖 Документация</a></p>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Models Page -->
-  <div class="page" id="page-models">
-    <div class="container">
-      <h1>Models</h1>
-      <div id="models-admin-bar" style="display:none;margin-bottom:16px;">
-        <button class="btn btn-sm btn-primary" id="btn-create-model">+ Add Model</button>
+  <!-- Chat Page -->
+  <div class="page" id="page-chat">
+    <div class="chat-container">
+      <div class="chat-controls">
+        <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Модель:</label>
+        <select id="chat-model-select" class="form-input">
+          <option value="qwen-14b">qwen-14b (Чат)</option>
+          <option value="qwen-32b-base">qwen-32b-base (Базовая)</option>
+        </select>
+        <span id="chat-model-info" class="text-muted"></span>
+        <button class="btn btn-sm btn-outline" id="btn-clear-chat" style="margin-left:auto;">Очистить</button>
       </div>
-      <div id="models-content"><p class="text-muted">Loading models...</p></div>
+      <div class="chat-options" id="chat-options" style="display:none;">
+        <div class="opt-group">
+          <label>max_tokens:</label>
+          <input type="number" id="chat-max-tokens" class="form-input" value="512" min="1" max="4096" style="width:80px;">
+        </div>
+        <div class="opt-group">
+          <label>temperature:</label>
+          <input type="range" id="chat-temperature" min="0" max="2" step="0.1" value="0.7" style="width:100px;">
+          <span id="chat-temp-val" style="font-size:11px;">0.7</span>
+        </div>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-msg system">
+          Выберите модель и начните диалог.<br>
+          <strong>qwen-14b</strong> — чат-модель для диалогов.<br>
+          <strong>qwen-32b-base</strong> — базовая модель для продолжения текста.
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <textarea id="chat-input" class="form-input" placeholder="Введите сообщение... (Enter — отправить, Shift+Enter — новая строка)" rows="2"></textarea>
+        <button class="btn btn-primary" id="btn-send-message" style="align-self:flex-end;">▶ Отправить</button>
+      </div>
     </div>
   </div>
 
   <!-- API Keys Page -->
   <div class="page" id="page-api-keys">
     <div class="container">
-      <h1>API Keys</h1>
-      <button class="btn btn-sm btn-primary" id="btn-create-apikey" style="margin-bottom:16px;">+ Create API Key</button>
-      <div id="apikeys-content"><p class="text-muted">Loading API Keys...</p></div>
+      <h1>🔑 API Ключи</h1>
+      <button class="btn btn-primary" id="btn-create-apikey" style="margin-bottom:16px;">+ Создать новый ключ</button>
+      <div id="apikeys-content"><p class="text-muted">Загрузка ключей...</p></div>
     </div>
   </div>
 
-  <!-- Assistants Page -->
-  <div class="page" id="page-assistants">
+  <!-- Status Page -->
+  <div class="page" id="page-status">
     <div class="container">
-      <h1>Assistants</h1>
-      <button class="btn btn-sm btn-primary" id="btn-create-assistant" style="margin-bottom:16px;">+ Create Assistant</button>
-      <div id="assistants-content"><p class="text-muted">Loading assistants...</p></div>
-    </div>
-  </div>
-
-  <!-- Chats Page -->
-  <div class="page" id="page-chats">
-    <div class="container">
-      <h1>Chats</h1>
-      <div style="display:flex;gap:16px;margin-bottom:16px;">
-        <button class="btn btn-sm btn-primary" id="btn-new-chat">+ New Chat</button>
-        <select id="chat-assistant-select" class="form-input" style="width:auto;flex:1;">
-          <option value="">No assistant</option>
-        </select>
+      <h1>Статус системы</h1>
+      <div class="card">
+        <div class="card-title">Сервисы</div>
+        <div class="card-body" id="status-content"><p>Загрузка...</p></div>
       </div>
-      <div id="chats-list" style="margin-bottom:16px;"><p class="text-muted">Loading chats...</p></div>
-      <div id="chat-messages" class="chat-messages" style="display:none;"></div>
-      <div id="chat-input-area" style="display:none;margin-top:12px;">
-        <div class="form-group" style="display:flex;gap:8px;">
-          <textarea id="chat-input" class="form-input" placeholder="Type a message..." rows="3" style="flex:1;resize:vertical;"></textarea>
-          <button class="btn btn-primary" id="btn-send-message" style="align-self:flex-end;">Send</button>
-        </div>
+      <div class="card">
+        <div class="card-title">Версия</div>
+        <div class="card-body" id="version-content"><p>Загрузка...</p></div>
       </div>
     </div>
   </div>
@@ -134,29 +151,15 @@
   <!-- Profile Page -->
   <div class="page" id="page-profile">
     <div class="container">
-      <h1>Profile</h1>
+      <h1>Профиль</h1>
       <div class="card">
-        <div class="card-title">User Information</div>
+        <div class="card-title">Информация о пользователе</div>
         <div class="card-body">
-          <div class="info-row"><span class="info-label">User ID</span><span class="info-value" id="profile-id">—</span></div>
-          <div class="info-row"><span class="info-label">Username</span><span class="info-value" id="profile-username">—</span></div>
-          <div class="info-row"><span class="info-label">Role</span><span class="info-value" id="profile-role">—</span></div>
+          <div class="info-row"><span class="info-label">ID</span><span class="info-value" id="profile-id">—</span></div>
+          <div class="info-row"><span class="info-label">Имя пользователя</span><span class="info-value" id="profile-username">—</span></div>
+          <div class="info-row"><span class="info-label">Роль</span><span class="info-value" id="profile-role">—</span></div>
+          <div class="info-row"><span class="info-label">Зона подключения</span><span class="info-value" id="profile-zone">—</span></div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Status Page -->
-  <div class="page" id="page-status">
-    <div class="container">
-      <h1>System Status</h1>
-      <div class="card">
-        <div class="card-title">Services</div>
-        <div class="card-body" id="status-content"><p>Loading...</p></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Version</div>
-        <div class="card-body" id="version-content"><p>Loading...</p></div>
       </div>
     </div>
   </div>
@@ -170,6 +173,6 @@
     <div class="spinner"></div>
   </div>
 
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
