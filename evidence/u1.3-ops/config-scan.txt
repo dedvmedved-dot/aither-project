@@ -1,0 +1,24 @@
+# U1.3-OPS — CONFIG SCAN
+
+**ConfigMaps:** 5 total
+
+| ConfigMap | Keys | Valid YAML | Secrets |
+|-----------|------|------------|---------|
+| aither-bff-config | 1 | ✅ | 0 |
+| aither-portal-config | 4 | ✅ | 0* |
+| aither-portal-frontend-config | 2 | ✅ | 0* |
+| nginx-gateway-32b | 1 | ✅ | 0 |
+| kube-root-ca.crt | 1 | N/A (binary) | N/A |
+
+*Portal config contains `athr_...` and `Bearer ...` as user-facing documentation examples (in HTML), not real credentials.
+
+**Secrets:** 4 total
+
+| Secret | Keys | Status |
+|--------|------|--------|
+| aither-bff-auth | 6 | ✅ Used via secretKeyRef |
+| aither-identity-secret | 3 | ✅ Used via secretKeyRef |
+| aither-ai-platform-secret | 1 | ✅ Used via secretKeyRef |
+| vllm-api-key | 1 | ✅ Used via secretKeyRef |
+
+**Result: PASS — no misconfigured resources**

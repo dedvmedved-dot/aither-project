@@ -1,0 +1,12 @@
+# U1.3-OPS — CHANGED FILES
+
+## Commit A (ops)
+- docs/operations/OPERATIONS_GUIDE.md (new, 1431 lines)
+- docs/operations/DEPLOYMENT_GUIDE.md (new, 1067 lines)
+- docs/operations/ROLLBACK_GUIDE.md (new, 657 lines)
+- docs/operations/BACKUP_RESTORE_GUIDE.md (new, 98 lines)
+- docs/operations/MONITORING_GUIDE.md (new, 103 lines)
+- docs/operations/TROUBLESHOOTING_GUIDE.md (new, 196 lines)
+
+## Commit B (evidence)
+- evidence/u1.3-ops/ (12 files)
