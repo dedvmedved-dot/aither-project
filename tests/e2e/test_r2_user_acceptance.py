@@ -90,7 +90,7 @@ def run_e2e(browser_name, target_url, steps):
         ok('8. Chat page')
         
         page.fill('#chat-input', 'Привет!')
-        page.click('#chat-send')
+        page.press('#chat-input', 'Enter')
         page.wait_for_selector('.chat-message.assistant', timeout=60000)
         ok('9. Chat 14B')
         
@@ -103,7 +103,7 @@ def run_e2e(browser_name, target_url, steps):
             except Exception:
                 pass
         page.fill('#chat-input', 'AI is')
-        page.click('#chat-send')
+        page.press('#chat-input', 'Enter')
         page.wait_for_selector('.chat-message.assistant', timeout=120000)
         ok('10. Chat 32B')
         
