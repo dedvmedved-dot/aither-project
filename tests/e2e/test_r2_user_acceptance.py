@@ -34,12 +34,14 @@ def browser_page(request):
         browser.close()
 
 
-def login(page, base_url, username, password):
-    page.goto(base_url, wait_until='networkidle', timeout=30000)
+def login(page, target_url, username, password):
+    page.goto(target_url, wait_until='networkidle', timeout=30000)
     page.fill('#login-username', username)
     page.fill('#login-password', password)
     page.click('#login-submit')
-    page.wait_for_selector('#page-dashboard.active', timeout=15000)
+    # Wait for dashboard — increased timeout for Internet zone
+    page.wait_for_timeout(2000)
+    page.wait_for_selector('#page-dashboard.active', timeout=30000)
 
 
 def navigate(page, tab):
@@ -54,9 +56,9 @@ def wait_chat_response(page, timeout=60000):
 # ====================================================================
 
 class TestBETAUSER01:
-    @pytest.mark.parametrize('zone_name,base_url', list(ZONES.items()))
+    @pytest.mark.parametrize('zone_name,target_url', list(ZONES.items()))
     @pytest.mark.parametrize('browser_page', ['chromium', 'firefox'], indirect=True)
-    def test_full_scenario(self, browser_page, zone_name, base_url):
+    def test_full_scenario(self, browser_page, zone_name, target_url):
         page, bn = browser_page
         username, password = USERS['BETA-USER-01']
         results = []
@@ -65,7 +67,7 @@ class TestBETAUSER01:
             results.append(f'PASS: {msg}')
 
         # 1-2
-        login(page, base_url, username, password)
+        login(page, target_url, username, password)
         ok('1-2. Open + Login')
 
         role = page.text_content('#nav-role-badge') or ''
@@ -156,9 +158,9 @@ class TestBETAUSER01:
 
 
 class TestBETAUSER02:
-    @pytest.mark.parametrize('zone_name,base_url', list(ZONES.items()))
+    @pytest.mark.parametrize('zone_name,target_url', list(ZONES.items()))
     @pytest.mark.parametrize('browser_page', ['chromium', 'firefox'], indirect=True)
-    def test_isolation(self, browser_page, zone_name, base_url):
+    def test_isolation(self, browser_page, zone_name, target_url):
         page, bn = browser_page
         username, password = USERS['BETA-USER-02']
         results = []
@@ -166,7 +168,7 @@ class TestBETAUSER02:
         def ok(msg):
             results.append(f'PASS: {msg}')
 
-        login(page, base_url, username, password)
+        login(page, target_url, username, password)
         ok('1. Login BETA-USER-02')
 
         navigate(page, 'api-keys')
@@ -194,9 +196,9 @@ class TestBETAUSER02:
 
 
 class TestOWNER01:
-    @pytest.mark.parametrize('zone_name,base_url', list(ZONES.items()))
+    @pytest.mark.parametrize('zone_name,target_url', list(ZONES.items()))
     @pytest.mark.parametrize('browser_page', ['chromium', 'firefox'], indirect=True)
-    def test_rbac(self, browser_page, zone_name, base_url):
+    def test_rbac(self, browser_page, zone_name, target_url):
         page, bn = browser_page
         username, password = USERS['OWNER-01']
         results = []
@@ -204,7 +206,7 @@ class TestOWNER01:
         def ok(msg):
             results.append(f'PASS: {msg}')
 
-        login(page, base_url, username, password)
+        login(page, target_url, username, password)
         ok('1. Login OWNER-01')
 
         role = page.text_content('#nav-role-badge') or ''
