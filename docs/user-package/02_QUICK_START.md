@@ -1,7 +1,7 @@
 # Aither — Быстрый старт
 
 **Время на выполнение:** 5 минут
-**Что нужно:** учётная запись (получите у администратора)
+**Что нужно:** учётная запись Web UI (получите у администратора)
 
 ---
 
@@ -21,7 +21,7 @@
 **Internet:** `https://fb1.spb.ru:443/`
 **Test Zone:** `http://10.129.13.78:30080/`
 
-> При предупреждении о сертификате — нажмите «Дополнительно» → «Перейти на сайт».
+> Сертификат HTTPS — доверенный (Let's Encrypt). Предупреждений браузера быть не должно.
 
 ### Шаг 2: Войдите
 
@@ -63,15 +63,14 @@
 
 ### curl (Linux / macOS / WSL)
 ```bash
-curl -k https://fb1.spb.ru:443/v1/models \
+curl https://fb1.spb.ru:443/v1/models \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
 ### PowerShell (Windows)
 ```powershell
 Invoke-RestMethod -Uri "https://fb1.spb.ru:443/v1/models" `
-  -Headers @{"Authorization"="Bearer ВАШ_API_КЛЮЧ"} `
-  -SkipCertificateCheck
+  -Headers @{"Authorization"="Bearer ВАШ_API_КЛЮЧ"}
 ```
 
 ### Python
@@ -79,8 +78,7 @@ Invoke-RestMethod -Uri "https://fb1.spb.ru:443/v1/models" `
 import requests
 response = requests.get(
     "https://fb1.spb.ru:443/v1/models",
-    headers={"Authorization": "Bearer ВАШ_API_КЛЮЧ"},
-    verify=False
+    headers={"Authorization": "Bearer ВАШ_API_КЛЮЧ"}
 )
 print(response.json())
 ```
@@ -96,7 +94,8 @@ print(response.json())
 }
 ```
 
-> Если получили ошибку `401` — проверьте API-ключ. Если `000` или таймаут — проверьте подключение к интернету.
+> Если получили ошибку `401` — проверьте API-ключ. Если таймаут — проверьте подключение к интернету.
+> **API-ключи имеют префикс `athr_`.** Создать ключ можно в Web UI: 🔑 API Ключи → Создать.
 
 ---
 
@@ -115,7 +114,7 @@ print(response.json())
 
 ### curl
 ```bash
-curl -k https://fb1.spb.ru:443/v1/chat/completions \
+curl https://fb1.spb.ru:443/v1/chat/completions \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
   -d '{
@@ -123,21 +122,6 @@ curl -k https://fb1.spb.ru:443/v1/chat/completions \
     "messages": [{"role": "user", "content": "Привет! Расскажи, что ты умеешь."}],
     "max_tokens": 200
   }'
-```
-
-### PowerShell
-```powershell
-$body = @{
-    model = "qwen-14b"
-    messages = @(@{role="user"; content="Привет! Расскажи, что ты умеешь."})
-    max_tokens = 200
-} | ConvertTo-Json -Depth 3
-
-Invoke-RestMethod -Uri "https://fb1.spb.ru:443/v1/chat/completions" `
-  -Method Post `
-  -Headers @{"Authorization"="Bearer ВАШ_API_КЛЮЧ"; "Content-Type"="application/json"} `
-  -Body $body `
-  -SkipCertificateCheck
 ```
 
 ### Python
@@ -150,8 +134,7 @@ response = requests.post(
         "model": "qwen-14b",
         "messages": [{"role": "user", "content": "Привет! Расскажи, что ты умеешь."}],
         "max_tokens": 200
-    },
-    verify=False
+    }
 )
 print(response.json()["choices"][0]["message"]["content"])
 ```
@@ -166,7 +149,7 @@ print(response.json()["choices"][0]["message"]["content"])
 
 ### curl
 ```bash
-curl -k https://fb1.spb.ru:443/v1/chat/completions \
+curl https://fb1.spb.ru:443/v1/chat/completions \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
   -d '{
@@ -185,8 +168,7 @@ response = requests.post(
         "model": "qwen-32b-base",
         "messages": [{"role": "user", "content": "Продолжи: Однажды в студёную зимнюю пору"}],
         "max_tokens": 100
-    },
-    verify=False
+    }
 )
 print(response.json()["choices"][0]["message"]["content"])
 ```
@@ -198,20 +180,8 @@ print(response.json()["choices"][0]["message"]["content"])
 ## Что дальше?
 
 - ✅ **Вы выполнили первый запрос!** Система работает.
-- 📖 Переходите к [USER GUIDE](03_USER_GUIDE.md) — полное описание возможностей.
+- 🌐 **Web UI** — основной интерфейс. Откройте `https://fb1.spb.ru:443/`.
+- 📖 Переходите к [WEB UI GUIDE](13_WEB_UI_GUIDE.md) — полное описание Web UI.
 - 🧪 Выполните [TEST ASSIGNMENT](05_TEST_ASSIGNMENT.md) — обязательные задания.
+- 🔑 Создайте API-ключ для автоматизации: [API KEY USER GUIDE](14_API_KEY_USER_GUIDE.md).
 - 🐛 Если что-то не работает — заполните [BUG REPORT](06_BUG_REPORT_TEMPLATE.md).
-
----
-
-## Быстрая проверка (всё в одном)
-
-```bash
-# Замените ВАШ_API_КЛЮЧ на реальный ключ
-KEY="ВАШ_API_КЛЮЧ"
-ENDPOINT="https://fb1.spb.ru:443"
-
-echo "1. Модели:" && curl -sk "$ENDPOINT/v1/models" -H "Authorization: Bearer $KEY" | python3 -m json.tool
-echo "2. Чат 14B:" && curl -sk "$ENDPOINT/v1/chat/completions" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"model":"qwen-14b","messages":[{"role":"user","content":"Привет"}],"max_tokens":50}' | python3 -m json.tool
-echo "3. Готово!"
-```

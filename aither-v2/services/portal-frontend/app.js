@@ -308,21 +308,26 @@
         setLoading(true);
         try {
             const res = await api('/tokens');
-            if (res.ok && Array.isArray(res.data)) {
-                if (res.data.length === 0) {
+            // BFF returns {tokens: [...]}
+            const tokens = res.data?.tokens || (Array.isArray(res.data) ? res.data : []);
+            if (res.ok) {
+                if (tokens.length === 0) {
                     $('apikeys-content').innerHTML = '<p class="text-muted">Нет созданных ключей. Нажмите «Создать новый ключ».</p>';
                     return;
                 }
-                let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Создан</th><th>Использован</th><th>Статус</th><th>Действия</th></tr>';
-                for (const k of res.data) {
-                    const revoked = !!k.revoked;
+                let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Модели</th><th>Создан</th><th>Статус</th><th>Действия</th></tr>';
+                for (const k of tokens) {
+                    const revoked = k.revoked;
+                    const prefix = (k.token_id || k.id || '—').substring(0, 12);
+                    const scopes = (k.scopes || []).map(s => s.replace('model:', '').replace(':chat-adapter',':chat').replace(':chat','')).join(', ') || 'все';
                     html += `<tr>
                         <td>${escHtml(k.name || 'Без названия')}</td>
-                        <td><code>${escHtml(k.prefix || k.id?.substring(0,12) || '—')}...</code></td>
-                        <td>${k.created_at || '—'}</td>
-                        <td>${k.last_used_at || 'никогда'}</td>
+                        <td><code>${escHtml(prefix)}...</code></td>
+                        <td><span style="font-size:11px;">${escHtml(scopes)}</span></td>
+                        <td>${(k.created_at || '').substring(0, 16) || '—'}</td>
                         <td class="${revoked ? 'badge-revoked' : 'badge-enabled'}">${revoked ? 'Отозван' : 'Активен'}</td>
-                        <td>${revoked ? '' : `<button class="btn btn-sm btn-danger" onclick="window._revokeToken('${k.id}')">Отозвать</button>`}</td>
+                        <td>${revoked ? '' : `<button class="btn btn-sm btn-danger" onclick="window._revokeToken('${k.token_id || k.id}')">Отозвать</button>
+                            <button class="btn btn-sm btn-outline" onclick="window._testToken('${k.token_id || k.id}')" style="margin-left:4px;">Тест</button>`}</td>
                     </tr>`;
                 }
                 html += '</table>';
@@ -343,8 +348,40 @@
                 const c = $('apikeys-content');
                 if (c) { c.insertAdjacentHTML('afterbegin', '<div class="alert alert-success" style="margin-bottom:12px;">✅ Ключ отозван</div>'); }
             } else {
-                alert('Не удалось отозвать ключ: ' + (res.data?.detail || ''));
+                alert('Не удалось отозвать ключ: ' + (res.data?.detail || res.data?.error || ''));
             }
+        } finally { setLoading(false); }
+    };
+
+    window._testToken = async function(id) {
+        setLoading(true);
+        try {
+            // Get token info to find the actual token value for testing
+            const res = await api('/tokens');
+            const tokens = res.data?.tokens || [];
+            const token = tokens.find(t => (t.token_id || t.id) === id);
+            if (!token || !token.token) {
+                alert('Не удалось найти ключ для тестирования.');
+                setLoading(false);
+                return;
+            }
+            // Test the key against /v1/models
+            const testRes = await fetch('/api/v1/models', {
+                headers: { 'Authorization': 'Bearer ' + token.token, 'Content-Type': 'application/json' }
+            });
+            // Note: we don't store the full key, just test it
+            let resultHtml = '';
+            if (testRes.ok) {
+                const data = await testRes.json();
+                const models = data.data || [];
+                resultHtml = `<div class="alert alert-success">✅ Ключ работает. Модели: ${models.map(m => m.id).join(', ')}</div>`;
+            } else {
+                resultHtml = `<div class="alert alert-danger">❌ Ошибка HTTP ${testRes.status}</div>`;
+            }
+            const c = $('apikeys-content');
+            if (c) { c.insertAdjacentHTML('afterbegin', resultHtml); }
+        } catch (e) {
+            alert('Ошибка при тестировании ключа.');
         } finally { setLoading(false); }
     };
 
@@ -354,6 +391,14 @@
             <div class="form-group">
                 <label>Название ключа</label>
                 <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Разработка">
+            </div>
+            <div class="form-group">
+                <label>Назначение</label>
+                <select id="modal-token-purpose" class="form-input">
+                    <option value="api">API / Web тестирование</option>
+                    <option value="agent">AI Agent</option>
+                    <option value="other">Другое</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>Модели</label>
@@ -371,6 +416,7 @@
                     <input type="text" id="modal-token-full" readonly>
                     <button class="btn btn-sm btn-primary" onclick="const i=document.getElementById('modal-token-full');i.select();navigator.clipboard?.writeText(i.value);this.textContent='✓ Скопировано';setTimeout(()=>this.textContent='Копировать',2000);">Копировать</button>
                 </div>
+                <p class="text-muted" style="margin-top:4px;">Формат: athr_... (Bearer-токен для Authorization заголовка)</p>
             </div>
             <div style="display:flex;gap:8px;margin-top:16px;">
                 <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать</button>
@@ -395,17 +441,20 @@
                 body: JSON.stringify({ name, scopes }),
             });
             if (res.ok && res.data) {
+                // BFF returns {token_id, token, name, scopes, created_at}
+                const fullKey = res.data.token || res.data.key || '';
                 document.getElementById('modal-token-result').style.display = 'block';
-                document.getElementById('modal-token-full').value = res.data.token || res.data.full_key || res.data.key;
+                document.getElementById('modal-token-full').value = fullKey;
                 document.getElementById('modal-token-create-btn').style.display = 'none';
                 document.getElementById('modal-token-name').disabled = true;
+                if (document.getElementById('modal-token-models')) document.getElementById('modal-token-models').disabled = true;
+                if (document.getElementById('modal-token-purpose')) document.getElementById('modal-token-purpose').disabled = true;
                 await loadApiKeys();
             } else {
-                alert('Не удалось создать ключ: ' + (res.data?.detail || res.data?.error || ''));
+                alert('Не удалось создать ключ: ' + (res.data?.detail || res.data?.error || JSON.stringify(res.data)));
             }
         } finally {
             setLoading(false);
-            document.getElementById('modal-token-create-btn').disabled = false;
         }
     };
 

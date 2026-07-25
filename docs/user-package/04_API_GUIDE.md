@@ -1,6 +1,6 @@
 # Aither — Руководство по API
 
-**Версия:** Beta RC · **Дата:** 25 июля 2026
+**Версия:** CB-WEBUI-01-R1 · **Дата:** 25 июля 2026
 
 ---
 
@@ -8,11 +8,12 @@
 
 1. [Общая информация](#общая-информация)
 2. [Аутентификация](#аутентификация)
-3. [GET /v1/models — Список моделей](#get-v1models--список-моделей)
-4. [POST /v1/chat/completions — Чат и completion](#post-v1chatcompletions--чат-и-completion)
-5. [Коды ответов](#коды-ответов)
-6. [Ограничения](#ограничения-rate-limiting)
-7. [Примеры на разных языках](#примеры-на-разных-языках)
+3. [Создание API-ключа](#создание-api-ключа)
+4. [GET /v1/models — Список моделей](#get-v1models--список-моделей)
+5. [POST /v1/chat/completions — Чат и completion](#post-v1chatcompletions--чат-и-completion)
+6. [Коды ответов](#коды-ответов)
+7. [Ограничения](#ограничения-rate-limiting)
+8. [Примеры на разных языках](#примеры-на-разных-языках)
 
 ---
 
@@ -24,7 +25,7 @@
 | **Формат данных** | JSON |
 | **Метод аутентификации** | Bearer token (API Key) |
 | **Content-Type** | `application/json` |
-| **TLS** | Самоподписанный сертификат (требуется `-k` / `verify=False`) |
+| **TLS** | Доверенный сертификат Let's Encrypt (флаг `-k` не требуется) |
 
 ---
 
@@ -33,25 +34,65 @@
 **Каждый** запрос должен содержать заголовок:
 
 ```
-Authorization: Bearer ВАШ_API_КЛЮЧ
+Authorization: Bearer ***
 ```
 
 **Формат ключа:**
 ```
-aither_XXXXXXXX_<секретная_часть>
+athr_<префикс>_<секретная_часть>
 ```
+
+API-ключи создаются через **Web UI** (раздел 🔑 API Ключи) или выдаются администратором.
 
 **Пример заголовка в curl:**
 ```bash
--H "Authorization: Bearer aither_XXXXXXXX_..."
+-H "Authorization: Bearer athr_..."
 ```
 
 **Пример в Python:**
 ```python
-headers = {"Authorization": "Bearer YOUR_KEY"}
+headers = {"Authorization": "Bearer athr_..."}
 ```
 
 > 🔐 **API-ключ чувствителен к регистру.** Не добавляйте лишних пробелов.
+
+---
+
+## Создание API-ключа
+
+API-ключи создаются через **Web UI** — это основной способ:
+
+### В Web UI
+
+1. Войдите в Web UI: `https://fb1.spb.ru:443/`
+2. Перейдите в раздел **🔑 API Ключи**
+3. Нажмите **«+ Создать новый ключ»**
+4. Введите название ключа
+5. Выберите доступные модели: обе / только 14B / только 32B
+6. Нажмите **«Создать»**
+7. ⚠️ **Скопируйте полный ключ немедленно!** Он отображается только один раз.
+
+### Через BFF API
+
+```bash
+# Создание токена через BFF
+curl https://fb1.spb.ru:443/api/v1/tokens \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Мой токен", "models": ["qwen-14b", "qwen-32b-base"]}'
+```
+
+### Отзыв ключа
+
+В Web UI: найдите ключ в таблице → нажмите **«Отозвать»** → подтвердите.
+
+Через BFF API:
+```bash
+curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
+```
+
+Подробнее: [API KEY USER GUIDE](14_API_KEY_USER_GUIDE.md).
 
 ---
 
@@ -62,7 +103,7 @@ headers = {"Authorization": "Bearer YOUR_KEY"}
 ### Запрос
 
 ```bash
-curl -k https://fb1.spb.ru:443/v1/models \
+curl https://fb1.spb.ru:443/v1/models \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
@@ -91,7 +132,7 @@ curl -k https://fb1.spb.ru:443/v1/models \
 ### Без аутентификации (HTTP 401)
 
 ```json
-{"detail": "Valid API Key required (format: aither_...)"}
+{"detail": "Valid API Key required (format: athr_...)"}
 ```
 
 ---
@@ -138,7 +179,7 @@ curl -k https://fb1.spb.ru:443/v1/models \
 | Код | Значение | Действие |
 |---|---|---|
 | **200** | Успех | Ответ получен |
-| **401** | Ошибка аутентификации | Проверить API-ключ |
+| **401** | Ошибка аутентификации | Проверить API-ключ (формат: `athr_...`) |
 | **404** | Модель не найдена | Проверить `model` |
 | **422** | Неверный формат | Проверить JSON |
 | **429** | Rate limit | Подождать минуту |
@@ -165,35 +206,43 @@ curl -k https://fb1.spb.ru:443/v1/models \
 
 ```bash
 # Список моделей
-curl -k https://fb1.spb.ru:443/v1/models \
-  -H "Authorization: Bearer $AITHER_KEY"
+curl https://fb1.spb.ru:443/v1/models \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 
 # Чат с 14B
-curl -k https://fb1.spb.ru:443/v1/chat/completions \
-  -H "Authorization: Bearer $AITHER_KEY" \
+curl https://fb1.spb.ru:443/v1/chat/completions \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
   -d '{"model":"qwen-14b","messages":[{"role":"user","content":"Привет!"}],"max_tokens":100}'
 
 # Completion с 32B
-curl -k https://fb1.spb.ru:443/v1/chat/completions \
-  -H "Authorization: Bearer $AITHER_KEY" \
+curl https://fb1.spb.ru:443/v1/chat/completions \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
   -d '{"model":"qwen-32b-base","messages":[{"role":"user","content":"Продолжи: В начале было"}],"max_tokens":50}'
+
+# Создание токена через BFF
+curl https://fb1.spb.ru:443/api/v1/tokens \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Мой токен","models":["qwen-14b","qwen-32b-base"]}'
+
+# Отзыв токена
+curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
+  -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
 ### Python
 
 ```python
 import requests
-import urllib3
-urllib3.disable_warnings()
 
-KEY = "ВАШ_API_КЛЮЧ"
+KEY = "athr_..."
 BASE = "https://fb1.spb.ru:443"
 HEADERS = {"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"}
 
 # Список моделей
-r = requests.get(f"{BASE}/v1/models", headers=HEADERS, verify=False)
+r = requests.get(f"{BASE}/v1/models", headers=HEADERS)
 print("Модели:", [m["id"] for m in r.json()["data"]])
 
 # Чат с 14B
@@ -201,7 +250,7 @@ r = requests.post(f"{BASE}/v1/chat/completions", headers=HEADERS, json={
     "model": "qwen-14b",
     "messages": [{"role": "user", "content": "Привет! Как дела?"}],
     "max_tokens": 100
-}, verify=False)
+})
 print("14B:", r.json()["choices"][0]["message"]["content"])
 
 # Completion с 32B
@@ -209,8 +258,15 @@ r = requests.post(f"{BASE}/v1/chat/completions", headers=HEADERS, json={
     "model": "qwen-32b-base",
     "messages": [{"role": "user", "content": "Продолжи: Искусственный интеллект"}],
     "max_tokens": 50
-}, verify=False)
+})
 print("32B:", r.json()["choices"][0]["message"]["content"])
+
+# Создание токена
+r = requests.post(f"{BASE}/api/v1/tokens", headers=HEADERS, json={
+    "name": "Мой токен",
+    "models": ["qwen-14b", "qwen-32b-base"]
+})
+print("Новый ключ:", r.json())
 
 # Обработка ошибок
 if r.status_code != 200:
@@ -220,15 +276,12 @@ if r.status_code != 200:
 ### PowerShell (Windows)
 
 ```powershell
-$Key = "ВАШ_API_КЛЮЧ"
+$Key = "athr_..."
 $Base = "https://fb1.spb.ru:443"
 $Headers = @{
     "Authorization" = "Bearer $Key"
     "Content-Type" = "application/json"
 }
-
-# Отключаем проверку сертификата
-[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 
 # Список моделей
 $models = Invoke-RestMethod -Uri "$Base/v1/models" -Headers $Headers
@@ -262,6 +315,9 @@ Write-Host "32B: $($response.choices[0].message.content)"
 ## Связанные документы
 
 - [USER GUIDE](03_USER_GUIDE.md) — полное руководство
+- [WEB UI GUIDE](13_WEB_UI_GUIDE.md) — основной интерфейс
 - [QUICK START](02_QUICK_START.md) — быстрый старт
+- [API KEY USER GUIDE](14_API_KEY_USER_GUIDE.md) — управление API-ключами
+- [AI AGENT CONNECTION PRIMER](16_AI_AGENT_CONNECTION_PRIMER.md) — подключение агентов
 - [KNOWN LIMITATIONS](10_KNOWN_LIMITATIONS.md) — ограничения
 - [FAQ](08_FAQ.md) — частые вопросы
