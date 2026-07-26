@@ -1,0 +1,57 @@
+
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T02:13:14Z
+COMMAND: DNS and endpoint preflight
+
+--- PROBE 1 ---
+2026-07-26T02:13:14Z
+internet_http=200 total=5.161839s
+test_http=200 total=0.106336s
+
+--- PROBE 2 ---
+2026-07-26T02:13:20Z
+internet_http=200 total=5.280180s
+test_http=200 total=0.106513s
+
+--- PROBE 3 ---
+2026-07-26T02:13:27Z
+internet_http=200 total=5.157663s
+test_http=200 total=0.106765s
+
+--- PROBE 4 ---
+2026-07-26T02:13:33Z
+internet_http=200 total=5.186794s
+test_http=200 total=0.106276s
+
+--- PROBE 5 ---
+2026-07-26T02:13:39Z
+internet_http=200 total=5.157546s
+test_http=200 total=0.106399s
+
+--- PROBE 6 ---
+2026-07-26T02:13:46Z
+internet_http=200 total=5.157975s
+test_http=200 total=0.107019s
+
+--- PROBE 7 ---
+2026-07-26T02:13:52Z
+internet_http=200 total=5.154801s
+test_http=200 total=0.107051s
+
+--- PROBE 8 ---
+2026-07-26T02:13:58Z
+internet_http=200 total=5.133194s
+test_http=200 total=0.107115s
+
+--- PROBE 9 ---
+2026-07-26T02:14:05Z
+internet_http=200 total=5.158041s
+test_http=200 total=0.106347s
+
+--- PROBE 10 ---
+2026-07-26T02:14:11Z
+internet_http=200 total=5.156316s
+test_http=200 total=0.106466s
+
+EXIT_CODE=0
+COMMAND END

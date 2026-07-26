@@ -1,0 +1,404 @@
+
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T02:15:09Z
+COMMAND: log scan for error patterns
+
+
+=== POD: aither-ai-platform-84c478c874-75plb ===
+RESTART_COUNT: 0
+
+--- CONTAINER: ai-platform ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: aither-bff-64cb8c55b4-fz9s7 ===
+RESTART_COUNT: 0
+
+--- CONTAINER: bff ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: aither-bff-64cb8c55b4-tv4h7 ===
+RESTART_COUNT: 0
+
+--- CONTAINER: bff ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: aither-identity-67b5994997-2jdvd ===
+RESTART_COUNT: 0
+
+--- CONTAINER: identity ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: aither-portal-6c445cc9f-44dzd ===
+RESTART_COUNT: 0
+
+--- CONTAINER: nginx ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: aither-portal-backend-559754567d-599kk ===
+RESTART_COUNT: 0
+
+--- CONTAINER: portal-backend ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: aither-portal-frontend-5cc6d99997-btksr ===
+RESTART_COUNT: 0
+
+--- CONTAINER: portal-frontend ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: aither-redis-rate-limit-754cdd9784-stnl6 ===
+RESTART_COUNT: 0
+
+--- CONTAINER: redis ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: nginx-gateway-32b-65786797-k8skw ===
+RESTART_COUNT: 0
+
+--- CONTAINER: nginx ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: nginx-gateway-32b-65786797-px4rz ===
+RESTART_COUNT: 0
+
+--- CONTAINER: nginx ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: vllm-14b-instruct-7f6f784dcb-g2h5d ===
+RESTART_COUNT: 0
+
+--- CONTAINER: vllm ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+=== POD: vllm-32b-gptq-7d6dc7c64-r82nh ===
+RESTART_COUNT: 0
+
+--- CONTAINER: vllm ---
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+bash: [: 0
+0: integer expression expected
+
+EXIT_CODE=0
+COMMAND END

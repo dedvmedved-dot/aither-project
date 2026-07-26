@@ -1,0 +1,126 @@
+UTC: 2026-07-26T02:07:20Z
+=== REPLICAS ===
+1
+=== STRATEGY ===
+Recreate
+=== maxUnavailable ===
+
+=== maxSurge ===
+
+=== minReadySeconds ===
+
+=== READINESS PROBE ===
+{"failureThreshold":3,"httpGet":{"path":"/health","port":"http","scheme":"HTTP"},"initialDelaySeconds":10,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":1}
+=== LIVENESS PROBE ===
+{"failureThreshold":3,"httpGet":{"path":"/health","port":"http","scheme":"HTTP"},"initialDelaySeconds":30,"periodSeconds":30,"successThreshold":1,"timeoutSeconds":1}
+=== PDB ===
+No resources found in aither-inference namespace.
+=== ENDPOINTS ===
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+10.244.0.61
+=== ENDPOINTSLICE ===
+["10.244.0.61"]
+=== LIVE PODS ===
+NAME                          READY   STATUS    RESTARTS   AGE   IP            NODE                         NOMINATED NODE   READINESS GATES
+aither-bff-64cb8c55b4-fz9s7   1/1     Running   0          33m   10.244.0.61   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+=== DEPLOYMENT YAML (trimmed) ===
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "19"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"aither-bff"},"name":"aither-bff","namespace":"aither-inference"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"aither-bff"}},"strategy":{"type":"Recreate"},"template":{"metadata":{"labels":{"app":"aither-bff"}},"spec":{"containers":[{"command":["/bin/sh","-c","export HOME=/tmp \u0026\u0026 pip install -q --user fastapi uvicorn httpx pydantic redis 2\u003e\u00261 \u0026\u0026 exec python /app/app.py 2\u003e\u00261\n"],"env":[{"name":"RATE_LIMIT_ENABLED","value":"true"},{"name":"REDIS_URL","value":"redis://aither-redis-rate-limit.aither-inference.svc:6379/0"},{"name":"RATE_LIMIT_WINDOW_SECONDS","value":"60"},{"name":"RATE_LIMIT_MAX_REQUESTS","value":"10"},{"name":"BFF_14B_BASE_URL","value":"http://vllm-14b-instruct.aither-inference.svc:8000"},{"name":"BFF_32B_GATEWAY_URL","value":"http://nginx-gateway-32b.aither-inference.svc:8000"},{"name":"BFF_REQUEST_TIMEOUT_SECONDS","value":"300"},{"name":"ADMIN_USERNAME","valueFrom":{"secretKeyRef":{"key":"ADMIN_USERNAME","name":"aither-bff-auth"}}},{"name":"ADMIN_PASSWORD_HASH","valueFrom":{"secretKeyRef":{"key":"ADMIN_PASSWORD_HASH","name":"aither-bff-auth"}}},{"name":"SESSION_SECRET","valueFrom":{"secretKeyRef":{"key":"SESSION_SECRET","name":"aither-bff-auth"}}},{"name":"AUTH_TOKEN_HASH_SECRET","valueFrom":{"secretKeyRef":{"key":"AUTH_TOKEN_HASH_SECRET","name":"aither-bff-auth"}}},{"name":"BFF_14B_UPSTREAM_AUTH_TOKEN","valueFrom":{"secretKeyRef":{"key":"BFF_14B_UPSTREAM_AUTH_TOKEN","name":"aither-bff-auth"}}},{"name":"BFF_32B_GATEWAY_AUTH_TOKEN","valueFrom":{"secretKeyRef":{"key":"BFF_32B_GATEWAY_AUTH_TOKEN","name":"aither-bff-auth"}}}],"image":"python:3.11-slim","livenessProbe":{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"initialDelaySeconds":30,"periodSeconds":30},"name":"bff","ports":[{"containerPort":8000,"name":"http"}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"initialDelaySeconds":10,"periodSeconds":10},"resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"200m","memory":"256Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000},"startupProbe":{"failureThreshold":30,"httpGet":{"path":"/health","port":"http"},"initialDelaySeconds":30,"periodSeconds":5},"volumeMounts":[{"mountPath":"/app","name":"app","readOnly":true}]}],"volumes":[{"configMap":{"name":"aither-bff-config"},"name":"app"}]}}}}
+  creationTimestamp: "2026-07-19T22:01:40Z"
+  generation: 20
+  labels:
+    app: aither-bff
+  name: aither-bff
+  namespace: aither-inference
+  resourceVersion: "2234008"
+  uid: 64443874-472a-44d9-be5a-64b4bd488a07
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: aither-bff
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-07-26T04:32:24+03:00"
+      creationTimestamp: null
+      labels:
+        app: aither-bff
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -c
+        - |
+          export HOME=/tmp && pip install -q --user fastapi uvicorn httpx pydantic redis 2>&1 && exec python /app/app.py 2>&1
+        env:
+        - name: RATE_LIMIT_ENABLED
+          value: "true"
+        - name: REDIS_URL
+          value: redis://aither-redis-rate-limit.aither-inference.svc:6379/0
+        - name: RATE_LIMIT_WINDOW_SECONDS
+          value: "60"
+        - name: RATE_LIMIT_MAX_REQUESTS
+          value: "10"
+        - name: BFF_14B_BASE_URL
+          value: http://vllm-14b-instruct.aither-inference.svc:8000
+        - name: BFF_32B_GATEWAY_URL
+          value: http://nginx-gateway-32b.aither-inference.svc:8000
+        - name: BFF_REQUEST_TIMEOUT_SECONDS
+          value: "300"
+        - name: ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: ADMIN_USERNAME
+              name: aither-bff-auth
+        - name: ADMIN_PASSWORD_HASH
+          valueFrom:
+            secretKeyRef:
+              key: ADMIN_PASSWORD_HASH
+              name: aither-bff-auth
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: SESSION_SECRET
+              name: aither-bff-auth
+        - name: AUTH_TOKEN_HASH_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: AUTH_TOKEN_HASH_SECRET
+              name: aither-bff-auth
+        - name: BFF_14B_UPSTREAM_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: BFF_14B_UPSTREAM_AUTH_TOKEN
+              name: aither-bff-auth
+        - name: BFF_32B_GATEWAY_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: BFF_32B_GATEWAY_AUTH_TOKEN
+              name: aither-bff-auth
+        image: python:3.11-slim
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: bff
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP

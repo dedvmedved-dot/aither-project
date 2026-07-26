@@ -1,0 +1,27 @@
+START: 2026-07-26T02:20:36Z
+AUDIT_TS=20260726T022036Z
+=== ANNOTATE ===
+configmap/aither-bff-config annotated
+=== VERIFY ANNOTATION ===
+20260726T022036Z
+=== ROLLOUT RESTART ===
+deployment.apps/aither-bff restarted
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+deployment "aither-bff" successfully rolled out
+=== REMOVE ANNOTATION ===
+configmap/aither-bff-config annotated
+=== VERIFY REMOVED ===
+ANNOTATION_REMOVED=YES
+=== FINAL STATE ===
+NAME                          READY   STATUS      RESTARTS   AGE     IP            NODE                         NOMINATED NODE   READINESS GATES
+aither-bff-648757b4bb-9tvzj   1/1     Running     0          41s     10.244.1.42   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+aither-bff-648757b4bb-srx7r   1/1     Running     0          76s     10.244.0.64   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-bff-75d9bf999c-l6ssg   0/1     Completed   0          5m54s   10.244.1.41   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+AVAILABLE=2
+CONFIGMAP_DONE: 2026-07-26T02:21:54Z

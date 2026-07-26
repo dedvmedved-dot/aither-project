@@ -1,0 +1,69 @@
+START: 2026-07-26T02:22:09Z
+=== ROLLOUT HISTORY (before) ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+10        <none>
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+16        <none>
+18        <none>
+19        <none>
+20        <none>
+21        <none>
+
+REV_BEFORE=21
+IMAGE_BEFORE=python:3.11-slim
+
+=== CREATE TEST REVISION ===
+ROLLBACK_MARKER=20260726T022210Z
+deployment.apps/aither-bff patched
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+deployment "aither-bff" successfully rolled out
+REV_TEST=22
+
+=== ROLLBACK ===
+deployment.apps/aither-bff rolled back
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+deployment "aither-bff" successfully rolled out
+REV_AFTER=23
+IMAGE_BEFORE=python:3.11-slim IMAGE_AFTER=python:3.11-slim
+MARKER_AFTER=[]
+IMAGE_RESTORED=YES
+MARKER_CLEARED=YES
+
+=== ROLLOUT HISTORY (after) ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+16        <none>
+18        <none>
+19        <none>
+20        <none>
+22        <none>
+23        <none>
+
+
+NAME                          READY   STATUS    RESTARTS   AGE   IP            NODE                         NOMINATED NODE   READINESS GATES
+aither-bff-648757b4bb-289mw   1/1     Running   0          42s   10.244.1.44   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+aither-bff-648757b4bb-jl5rw   1/1     Running   0          78s   10.244.0.66   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+AVAILABLE=2
+ROLLBACK_DONE: 2026-07-26T02:24:45Z

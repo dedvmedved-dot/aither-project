@@ -1,0 +1,328 @@
+
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T02:15:22Z
+COMMAND: configuration audit
+
+=== SECRETS (names + keys only, no values) ===
+aither-ai-platform-secret	AI_PLATFORM_LOG_LEVEL
+aither-bff-auth	ADMIN_PASSWORD_HASH,ADMIN_USERNAME,AUTH_TOKEN_HASH_SECRET,BFF_14B_UPSTREAM_AUTH_TOKEN,BFF_32B_GATEWAY_AUTH_TOKEN,SESSION_SECRET
+aither-identity-secret	IDENTITY_ADMIN_PASS,IDENTITY_ADMIN_USER,IDENTITY_SECRET_KEY
+vllm-api-key	VLLM_API_KEY
+
+=== DEPLOYMENTS — ENV REFERENCES ===
+[
+  {
+    "name": "aither-ai-platform",
+    "containers": [
+      {
+        "name": "ai-platform",
+        "image": "10.129.13.78:5000/ai-platform:u1.2-persistence-20260725-0004",
+        "ports": [
+          8000
+        ],
+        "envFrom": [
+          {
+            "secretRef": "vllm-api-key",
+            "configMapRef": null
+          }
+        ],
+        "envSecretRefs": [],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": [
+          {
+            "name": "AI_PLATFORM_DB_PATH",
+            "val": "/data/ai-platform.db"
+          },
+          {
+            "name": "AI_PLATFORM_IDENTITY_URL",
+            "val": "http://aither-identity:8000"
+          },
+          {
+            "name": "AI_PLATFORM_GATEWAY_URL",
+            "val": "http://nginx-gateway-32b.aither-inference.svc:8000"
+          },
+          {
+            "name": "AI_PLATFORM_LOG_LEVEL",
+            "val": "INFO"
+          },
+          {
+            "name": "AI_PLATFORM_CORS_ORIGIN",
+            "val": "http://localhost:3000"
+          },
+          {
+            "name": "AI_PLATFORM_GATEWAY_API_KEY",
+            "val": "502586c8257331420184db810503a2c2d3fb3fa1b4bef4c80bbac0aad3d34e6f"
+          },
+          {
+            "name": "AI_PLATFORM_14B_URL",
+            "val": "http://vllm-14b-instruct.aither-inference.svc:8000"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "aither-bff",
+    "containers": [
+      {
+        "name": "bff",
+        "image": "python:3.11-slim",
+        "ports": [
+          8000
+        ],
+        "envFrom": [],
+        "envSecretRefs": [
+          {
+            "name": "ADMIN_USERNAME",
+            "secret": "aither-bff-auth",
+            "key": "ADMIN_USERNAME"
+          },
+          {
+            "name": "ADMIN_PASSWORD_HASH",
+            "secret": "aither-bff-auth",
+            "key": "ADMIN_PASSWORD_HASH"
+          },
+          {
+            "name": "SESSION_SECRET",
+            "secret": "aither-bff-auth",
+            "key": "SESSION_SECRET"
+          },
+          {
+            "name": "AUTH_TOKEN_HASH_SECRET",
+            "secret": "aither-bff-auth",
+            "key": "AUTH_TOKEN_HASH_SECRET"
+          },
+          {
+            "name": "BFF_14B_UPSTREAM_AUTH_TOKEN",
+            "secret": "aither-bff-auth",
+            "key": "BFF_14B_UPSTREAM_AUTH_TOKEN"
+          },
+          {
+            "name": "BFF_32B_GATEWAY_AUTH_TOKEN",
+            "secret": "aither-bff-auth",
+            "key": "BFF_32B_GATEWAY_AUTH_TOKEN"
+          }
+        ],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": [
+          {
+            "name": "RATE_LIMIT_ENABLED",
+            "val": "true"
+          },
+          {
+            "name": "REDIS_URL",
+            "val": "redis://aither-redis-rate-limit.aither-inference.svc:6379/0"
+          },
+          {
+            "name": "RATE_LIMIT_WINDOW_SECONDS",
+            "val": "60"
+          },
+          {
+            "name": "RATE_LIMIT_MAX_REQUESTS",
+            "val": "10"
+          },
+          {
+            "name": "BFF_14B_BASE_URL",
+            "val": "http://vllm-14b-instruct.aither-inference.svc:8000"
+          },
+          {
+            "name": "BFF_32B_GATEWAY_URL",
+            "val": "http://nginx-gateway-32b.aither-inference.svc:8000"
+          },
+          {
+            "name": "BFF_REQUEST_TIMEOUT_SECONDS",
+            "val": "300"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "aither-identity",
+    "containers": [
+      {
+        "name": "identity",
+        "image": "10.129.13.78:5000/aither-identity:stage18a-82fe433",
+        "ports": [
+          8000
+        ],
+        "envFrom": [
+          {
+            "secretRef": "aither-identity-secret",
+            "configMapRef": null
+          }
+        ],
+        "envSecretRefs": [],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": [
+          {
+            "name": "IDENTITY_DB_PATH",
+            "val": "/data/identity.db"
+          },
+          {
+            "name": "IDENTITY_TOKEN_TTL",
+            "val": "86400"
+          },
+          {
+            "name": "IDENTITY_LOG_LEVEL",
+            "val": "INFO"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "aither-portal",
+    "containers": [
+      {
+        "name": "nginx",
+        "image": "nginx:alpine",
+        "ports": [
+          80
+        ],
+        "envFrom": [],
+        "envSecretRefs": [],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": []
+      }
+    ]
+  },
+  {
+    "name": "aither-portal-backend",
+    "containers": [
+      {
+        "name": "portal-backend",
+        "image": "10.129.13.78:5000/aither-portal-backend:ba02-014f91b",
+        "ports": [
+          8000
+        ],
+        "envFrom": [],
+        "envSecretRefs": [],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": [
+          {
+            "name": "PORTAL_IDENTITY_URL",
+            "val": "http://aither-identity:8000"
+          },
+          {
+            "name": "PORTAL_AI_PLATFORM_URL",
+            "val": "http://aither-ai-platform:8000"
+          },
+          {
+            "name": "PORTAL_LOG_LEVEL",
+            "val": "INFO"
+          },
+          {
+            "name": "PORTAL_CORS_ORIGIN",
+            "val": "http://localhost:3000"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "aither-portal-frontend",
+    "containers": [
+      {
+        "name": "portal-frontend",
+        "image": "nginx:stable-alpine",
+        "ports": [
+          80
+        ],
+        "envFrom": [],
+        "envSecretRefs": [],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": []
+      }
+    ]
+  },
+  {
+    "name": "aither-redis-rate-limit",
+    "containers": [
+      {
+        "name": "redis",
+        "image": "redis:7-alpine",
+        "ports": [
+          6379
+        ],
+        "envFrom": [],
+        "envSecretRefs": [],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": []
+      }
+    ]
+  },
+  {
+    "name": "nginx-gateway-32b",
+    "containers": [
+      {
+        "name": "nginx",
+        "image": "nginx:alpine",
+        "ports": [
+          8000
+        ],
+        "envFrom": [],
+        "envSecretRefs": [],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": []
+      }
+    ]
+  },
+  {
+    "name": "vllm-14b-instruct",
+    "containers": [
+      {
+        "name": "vllm",
+        "image": "vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33",
+        "ports": [
+          8000
+        ],
+        "envFrom": [],
+        "envSecretRefs": [
+          {
+            "name": "VLLM_API_KEY",
+            "secret": "vllm-api-key",
+            "key": "VLLM_API_KEY"
+          }
+        ],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": [
+          {
+            "name": "PYTORCH_CUDA_ALLOC_CONF",
+            "val": "expandable_segments:True"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vllm-32b-gptq",
+    "containers": [
+      {
+        "name": "vllm",
+        "image": "vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33",
+        "ports": [
+          8000
+        ],
+        "envFrom": [],
+        "envSecretRefs": [
+          {
+            "name": "VLLM_API_KEY",
+            "secret": "vllm-api-key",
+            "key": "VLLM_API_KEY"
+          }
+        ],
+        "envConfigMapRefs": [],
+        "hardcodedEnv": [
+          {
+            "name": "PYTORCH_CUDA_ALLOC_CONF",
+            "val": "expandable_segments:True"
+          }
+        ]
+      }
+    ]
+  }
+]
+
+EXIT_CODE=0
+COMMAND END

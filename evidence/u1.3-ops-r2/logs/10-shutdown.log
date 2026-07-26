@@ -1,0 +1,7 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T02:25:09Z
+OPERATION: runtime-stop validation
+STATUS: BLOCKED
+REASON: No isolated environment and no approved maintenance window.
+Production deployment must not be scaled to zero for test purposes.
+EXIT_CODE=0

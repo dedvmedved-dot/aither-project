@@ -1,0 +1,12 @@
+DELETE_START: 2026-07-26T02:19:36Z UTC
+pod "aither-bff-75d9bf999c-9shpd" deleted
+pod/aither-bff-75d9bf999c-9shpd condition met
+pod/aither-bff-75d9bf999c-l6ssg condition met
+pod/aither-bff-75d9bf999c-x5rgt condition met
+OLD_POD=aither-bff-75d9bf999c-9shpd OLD_UID=e41b0191-89af-4ef1-adba-0c0650cc78fe
+NEW_POD=aither-bff-75d9bf999c-x5rgt NEW_UID=8c68aa25-5fec-48b6-be63-ab8423b5a81d
+ELAPSED=31 seconds
+UID_CHECK=PASS (different UIDs)
+AVAILABLE=1
+{"status":"ok","version":"0.4.0","rate_limit":"enabled","redis":"connected","auth":"configured"}
+POD_RECREATION_DONE: 2026-07-26T02:20:08Z UTC

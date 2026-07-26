@@ -1,0 +1,40 @@
+PRE-RESTART STATE
+UTC: 2026-07-26T02:14:52Z
+=== BFF DEPLOYMENT ===
+STRATEGY=RollingUpdate REPLICAS=2 READY=2 REVISION=19
+=== BFF PODS ===
+NAME                          READY   STATUS    RESTARTS   AGE    IP            NODE                         NOMINATED NODE   READINESS GATES
+aither-bff-64cb8c55b4-fz9s7   1/1     Running   0          40m    10.244.0.61   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-bff-64cb8c55b4-tv4h7   1/1     Running   0          6m4s   10.244.1.40   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+=== ENDPOINTS ===
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+10.244.0.61
+10.244.1.40
+=== ROLLOUT HISTORY ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+8         <none>
+9         <none>
+10        <none>
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+16        <none>
+18        <none>
+19        <none>
+
+
+deployment.apps/aither-bff restarted
+RESTART_RC=0
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "aither-bff" rollout to finish: 1 old replicas are pending termination...
+deployment "aither-bff" successfully rolled out
+ROLLOUT_RC=0
+PROBE_RC=0
