@@ -1,0 +1,11 @@
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+aither-ai-platform        1/1     1            1           4d16h
+aither-bff                2/2     2            2           6d10h
+aither-identity           1/1     1            1           4d16h
+aither-portal             1/1     1            1           5d20h
+aither-portal-backend     1/1     1            1           4d16h
+aither-portal-frontend    1/1     1            1           4d16h
+aither-redis-rate-limit   1/1     1            1           6d
+nginx-gateway-32b         2/2     2            2           6d19h
+vllm-14b-instruct         1/1     1            1           7d14h
+vllm-32b-gptq             1/1     1            1           7d18h

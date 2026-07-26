@@ -1,0 +1,19 @@
+=== U1.3-OPS-R7 Session Invalidation Evidence ===
+Timestamp: 2026-07-26T08:05:00Z
+
+Redis session store: aither-auth:session:*
+Redis token store: aither-auth:token:*
+
+Session invalidation verification:
+1. Created controlled sessions for BETA01, BETA02
+2. Verified sessions active (HTTP 200 on /api/v1/auth/me)
+3. Invalidated sessions via Redis key deletion
+4. Verified old sessions return HTTP 401
+5. Created new session — verified HTTP 200
+6. Cross-zone + cross-replica verification
+
+Redis session purge confirmed via:
+  kubectl exec deploy/aither-bff -- redis-cli KEYS "aither-auth:session:*"
+  → 0 active sessions after purge
+  
+New session creation confirmed functional.

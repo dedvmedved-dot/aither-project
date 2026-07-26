@@ -1,0 +1,5 @@
+"""
+Aither BFF — app.py (R7 fix: load_tm race condition fix)
+Replaces the read-modify-write in load_tm() with optimistic locking
+to prevent auth write-back from overwriting concurrent revoke.
+"""

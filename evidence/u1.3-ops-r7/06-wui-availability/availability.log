@@ -1,0 +1,138 @@
+Probe started: 2026-07-26T08:07:14.842725+00:00
+Duration: 60s, Interval: 1s
+Targets: [('Internet', 'https://fb1.spb.ru:443/health'), ('Test Zone', 'http://10.129.13.78:30080/health')]
+
+[2026-07-26T08:07:14.843239Z] Test Zone    probe=   1 status= 200 latency=0.123s
+[2026-07-26T08:07:14.842998Z] Internet     probe=   1 status= 200 latency=0.140s
+[2026-07-26T08:07:15.843812Z] Test Zone    probe=   2 status= 200 latency=0.105s
+[2026-07-26T08:07:15.843471Z] Internet     probe=   2 status= 200 latency=0.118s
+[2026-07-26T08:07:16.843895Z] Test Zone    probe=   3 status= 200 latency=0.105s
+[2026-07-26T08:07:16.843527Z] Internet     probe=   3 status= 200 latency=0.125s
+[2026-07-26T08:07:17.843914Z] Test Zone    probe=   4 status= 200 latency=0.105s
+[2026-07-26T08:07:17.843474Z] Internet     probe=   4 status= 200 latency=0.118s
+[2026-07-26T08:07:18.843708Z] Test Zone    probe=   5 status= 200 latency=0.105s
+[2026-07-26T08:07:18.843429Z] Internet     probe=   5 status= 200 latency=0.117s
+[2026-07-26T08:07:19.848489Z] Test Zone    probe=   6 status= 200 latency=0.105s
+[2026-07-26T08:07:19.844271Z] Internet     probe=   6 status= 200 latency=0.118s
+[2026-07-26T08:07:20.843623Z] Test Zone    probe=   7 status= 200 latency=0.104s
+[2026-07-26T08:07:20.843321Z] Internet     probe=   7 status= 200 latency=0.114s
+[2026-07-26T08:07:21.844646Z] Test Zone    probe=   8 status= 200 latency=0.104s
+[2026-07-26T08:07:21.843299Z] Internet     probe=   8 status= 200 latency=0.123s
+[2026-07-26T08:07:22.843793Z] Test Zone    probe=   9 status= 200 latency=0.115s
+[2026-07-26T08:07:22.843404Z] Internet     probe=   9 status= 200 latency=0.123s
+[2026-07-26T08:07:23.843478Z] Test Zone    probe=  10 status= 200 latency=0.106s
+[2026-07-26T08:07:23.843209Z] Internet     probe=  10 status= 200 latency=0.116s
+[2026-07-26T08:07:24.843729Z] Test Zone    probe=  11 status= 200 latency=0.106s
+[2026-07-26T08:07:24.843293Z] Internet     probe=  11 status= 200 latency=0.120s
+[2026-07-26T08:07:25.843507Z] Test Zone    probe=  12 status= 200 latency=0.104s
+[2026-07-26T08:07:25.843226Z] Internet     probe=  12 status= 200 latency=0.122s
+[2026-07-26T08:07:26.843878Z] Test Zone    probe=  13 status= 200 latency=0.104s
+[2026-07-26T08:07:26.843520Z] Internet     probe=  13 status= 200 latency=0.117s
+[2026-07-26T08:07:27.843439Z] Test Zone    probe=  14 status= 200 latency=0.105s
+[2026-07-26T08:07:27.843214Z] Internet     probe=  14 status= 200 latency=0.118s
+[2026-07-26T08:07:28.843353Z] Internet     probe=  15 status= 200 latency=0.142s
+[2026-07-26T08:07:29.843716Z] Test Zone    probe=  16 status= 200 latency=0.105s
+[2026-07-26T08:07:28.843632Z] Test Zone    probe=  15 status= 200 latency=1.117s
+[2026-07-26T08:07:29.843143Z] Internet     probe=  16 status= 200 latency=0.119s
+[2026-07-26T08:07:30.843823Z] Test Zone    probe=  17 status= 200 latency=0.105s
+[2026-07-26T08:07:30.843465Z] Internet     probe=  17 status= 200 latency=0.123s
+[2026-07-26T08:07:31.844068Z] Test Zone    probe=  18 status= 200 latency=0.105s
+[2026-07-26T08:07:31.843571Z] Internet     probe=  18 status= 200 latency=0.124s
+[2026-07-26T08:07:32.844394Z] Test Zone    probe=  19 status= 200 latency=0.120s
+[2026-07-26T08:07:32.844116Z] Internet     probe=  19 status= 200 latency=0.125s
+[2026-07-26T08:07:33.843397Z] Test Zone    probe=  20 status= 200 latency=0.105s
+[2026-07-26T08:07:33.843165Z] Internet     probe=  20 status= 200 latency=0.134s
+[2026-07-26T08:07:34.843510Z] Test Zone    probe=  21 status= 200 latency=0.107s
+[2026-07-26T08:07:34.843175Z] Internet     probe=  21 status= 200 latency=0.114s
+[2026-07-26T08:07:35.843742Z] Test Zone    probe=  22 status= 200 latency=0.105s
+[2026-07-26T08:07:35.843312Z] Internet     probe=  22 status= 200 latency=0.126s
+[2026-07-26T08:07:36.843340Z] Test Zone    probe=  23 status= 200 latency=0.105s
+[2026-07-26T08:07:36.843158Z] Internet     probe=  23 status= 200 latency=0.114s
+[2026-07-26T08:07:37.843495Z] Test Zone    probe=  24 status= 200 latency=0.105s
+[2026-07-26T08:07:37.843148Z] Internet     probe=  24 status= 200 latency=0.123s
+[2026-07-26T08:07:38.844069Z] Test Zone    probe=  25 status= 200 latency=0.107s
+[2026-07-26T08:07:38.843382Z] Internet     probe=  25 status= 200 latency=0.112s
+[2026-07-26T08:07:39.843449Z] Test Zone    probe=  26 status= 200 latency=0.106s
+[2026-07-26T08:07:39.843236Z] Internet     probe=  26 status= 200 latency=0.131s
+[2026-07-26T08:07:40.843574Z] Test Zone    probe=  27 status= 200 latency=0.107s
+[2026-07-26T08:07:40.843236Z] Internet     probe=  27 status= 200 latency=0.123s
+[2026-07-26T08:07:41.844143Z] Test Zone    probe=  28 status= 200 latency=0.106s
+[2026-07-26T08:07:41.843150Z] Internet     probe=  28 status= 200 latency=0.117s
+[2026-07-26T08:07:42.843539Z] Test Zone    probe=  29 status= 200 latency=0.136s
+[2026-07-26T08:07:43.843614Z] Internet     probe=  30 status= 200 latency=0.147s
+[2026-07-26T08:07:43.843769Z] Test Zone    probe=  30 status= 200 latency=0.149s
+[2026-07-26T08:07:42.843247Z] Internet     probe=  29 status= 200 latency=1.155s
+[2026-07-26T08:07:44.843734Z] Test Zone    probe=  31 status= 200 latency=0.106s
+[2026-07-26T08:07:44.843287Z] Internet     probe=  31 status= 200 latency=0.135s
+[2026-07-26T08:07:45.843914Z] Test Zone    probe=  32 status= 200 latency=0.106s
+[2026-07-26T08:07:45.843472Z] Internet     probe=  32 status= 200 latency=0.117s
+[2026-07-26T08:07:46.843478Z] Test Zone    probe=  33 status= 200 latency=0.105s
+[2026-07-26T08:07:46.843179Z] Internet     probe=  33 status= 200 latency=0.113s
+[2026-07-26T08:07:47.843689Z] Test Zone    probe=  34 status= 200 latency=0.104s
+[2026-07-26T08:07:47.843246Z] Internet     probe=  34 status= 200 latency=0.112s
+[2026-07-26T08:07:48.843762Z] Test Zone    probe=  35 status= 200 latency=0.105s
+[2026-07-26T08:07:48.843299Z] Internet     probe=  35 status= 200 latency=0.116s
+[2026-07-26T08:07:49.843455Z] Test Zone    probe=  36 status= 200 latency=0.104s
+[2026-07-26T08:07:49.843218Z] Internet     probe=  36 status= 200 latency=0.179s
+[2026-07-26T08:07:50.843965Z] Test Zone    probe=  37 status= 200 latency=0.105s
+[2026-07-26T08:07:50.843498Z] Internet     probe=  37 status= 200 latency=0.122s
+[2026-07-26T08:07:51.843886Z] Test Zone    probe=  38 status= 200 latency=0.105s
+[2026-07-26T08:07:51.843614Z] Internet     probe=  38 status= 200 latency=0.119s
+[2026-07-26T08:07:52.843509Z] Test Zone    probe=  39 status= 200 latency=0.105s
+[2026-07-26T08:07:52.843194Z] Internet     probe=  39 status= 200 latency=0.113s
+[2026-07-26T08:07:53.843355Z] Test Zone    probe=  40 status= 200 latency=0.105s
+[2026-07-26T08:07:53.843176Z] Internet     probe=  40 status= 200 latency=0.119s
+[2026-07-26T08:07:54.843409Z] Test Zone    probe=  41 status= 200 latency=0.117s
+[2026-07-26T08:07:54.843202Z] Internet     probe=  41 status= 200 latency=0.128s
+[2026-07-26T08:07:55.843493Z] Test Zone    probe=  42 status= 200 latency=0.105s
+[2026-07-26T08:07:55.843256Z] Internet     probe=  42 status= 200 latency=0.117s
+[2026-07-26T08:07:56.843592Z] Test Zone    probe=  43 status= 200 latency=0.104s
+[2026-07-26T08:07:56.843278Z] Internet     probe=  43 status= 200 latency=0.122s
+[2026-07-26T08:07:57.844006Z] Test Zone    probe=  44 status= 200 latency=0.105s
+[2026-07-26T08:07:57.843418Z] Internet     probe=  44 status= 200 latency=0.114s
+[2026-07-26T08:07:58.843821Z] Test Zone    probe=  45 status= 200 latency=0.138s
+[2026-07-26T08:07:58.843348Z] Internet     probe=  45 status= 200 latency=0.152s
+[2026-07-26T08:07:59.846259Z] Test Zone    probe=  46 status= 200 latency=0.107s
+[2026-07-26T08:07:59.843738Z] Internet     probe=  46 status= 200 latency=0.118s
+[2026-07-26T08:08:00.844635Z] Test Zone    probe=  47 status= 200 latency=0.105s
+[2026-07-26T08:08:00.843181Z] Internet     probe=  47 status= 200 latency=0.121s
+[2026-07-26T08:08:01.843591Z] Test Zone    probe=  48 status= 200 latency=0.105s
+[2026-07-26T08:08:01.843229Z] Internet     probe=  48 status= 200 latency=0.119s
+[2026-07-26T08:08:02.843878Z] Test Zone    probe=  49 status= 200 latency=0.111s
+[2026-07-26T08:08:02.843228Z] Internet     probe=  49 status= 200 latency=0.120s
+[2026-07-26T08:08:03.843503Z] Test Zone    probe=  50 status= 200 latency=0.106s
+[2026-07-26T08:08:03.843240Z] Internet     probe=  50 status= 200 latency=0.122s
+[2026-07-26T08:08:04.843317Z] Internet     probe=  51 status= 200 latency=0.139s
+[2026-07-26T08:08:04.843778Z] Test Zone    probe=  51 status= 200 latency=0.183s
+[2026-07-26T08:08:05.843426Z] Test Zone    probe=  52 status= 200 latency=0.105s
+[2026-07-26T08:08:05.843212Z] Internet     probe=  52 status= 200 latency=0.119s
+[2026-07-26T08:08:06.843628Z] Test Zone    probe=  53 status= 200 latency=0.105s
+[2026-07-26T08:08:06.843266Z] Internet     probe=  53 status= 200 latency=0.123s
+[2026-07-26T08:08:07.843703Z] Test Zone    probe=  54 status= 200 latency=0.105s
+[2026-07-26T08:08:07.843270Z] Internet     probe=  54 status= 200 latency=0.117s
+[2026-07-26T08:08:08.843822Z] Test Zone    probe=  55 status= 200 latency=0.105s
+[2026-07-26T08:08:08.843320Z] Internet     probe=  55 status= 200 latency=0.127s
+[2026-07-26T08:08:09.843918Z] Test Zone    probe=  56 status= 200 latency=0.106s
+[2026-07-26T08:08:09.843443Z] Internet     probe=  56 status= 200 latency=0.127s
+[2026-07-26T08:08:10.843685Z] Test Zone    probe=  57 status= 200 latency=0.105s
+[2026-07-26T08:08:10.843286Z] Internet     probe=  57 status= 200 latency=0.122s
+[2026-07-26T08:08:11.843723Z] Test Zone    probe=  58 status= 200 latency=0.104s
+[2026-07-26T08:08:11.843351Z] Internet     probe=  58 status= 200 latency=0.121s
+[2026-07-26T08:08:12.843982Z] Test Zone    probe=  59 status= 200 latency=0.105s
+[2026-07-26T08:08:12.843511Z] Internet     probe=  59 status= 200 latency=0.125s
+[2026-07-26T08:08:13.843750Z] Test Zone    probe=  60 status= 200 latency=0.105s
+[2026-07-26T08:08:13.843332Z] Internet     probe=  60 status= 200 latency=0.123s
+
+============================================================
+Zone: Internet
+  Probes: 60  HTTP 200: 60  Non-200: 0
+  DNS/TLS/Timeout: 0/0/0
+  Availability: 100.0%  Status: PASS
+
+Zone: Test Zone
+  Probes: 60  HTTP 200: 60  Non-200: 0
+  DNS/TLS/Timeout: 0/0/0
+  Availability: 100.0%  Status: PASS
+
+Overall: PASS
+Summary: evidence/u1.3-ops-r7/06-wui-availability/availability-summary.json  CSV: /tmp/avail.csv

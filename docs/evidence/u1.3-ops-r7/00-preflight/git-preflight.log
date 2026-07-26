@@ -1,0 +1,12 @@
+=== R7 Preflight ===
+Timestamp: 2026-07-26T08:05:21Z
+PWD: /root/aither-project-r7-canonical
+Branch: aither-v2
+Local HEAD: 35b5cea15f57e7d4e38d605eeae7a04950d35284
+origin/aither-v2: 35b5cea15f57e7d4e38d605eeae7a04950d35284
+Working tree: 4 changes
+## aither-v2...origin/aither-v2
+ M tests/e2e/test_u13_complete_webui.py
+?? aither-v2/services/bff/app.py
+?? docs/evidence/
+?? evidence/u1.3-ops-r7/

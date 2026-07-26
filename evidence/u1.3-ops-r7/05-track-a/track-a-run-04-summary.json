@@ -1,0 +1,14 @@
+{
+  "stage": "U1.3-OPS-R7",
+  "suite": "track-a",
+  "run_id": "track-a-run-04",
+  "commit": "35b5cea...",
+  "branch": "aither-v2",
+  "exit_code": 1,
+  "tests": 0,
+  "passed": 0,
+  "failed": 0,
+  "skipped": 0,
+  "xfailed": 0,
+  "status": "FAIL"
+}
