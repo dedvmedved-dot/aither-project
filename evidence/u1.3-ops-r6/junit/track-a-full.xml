@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="10" time="115.805" timestamp="2026-07-26T09:34:29.630149+03:00" hostname="330133.fornex.cloud"><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Internet-https://fb1.spb.ru:443-chromium]" time="19.139" /><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Internet-https://fb1.spb.ru:443-firefox]" time="22.889" /><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Test Zone-http://10.129.13.78:30080-chromium]" time="19.939" /><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Test Zone-http://10.129.13.78:30080-firefox]" time="20.608"><failure message="AssertionError: Revoked key must return 401/403, got 200&#10;assert 200 in (401, 403)&#10; +  where 200 = &lt;Response [200]&gt;.status_code">self = &lt;test_r3_identities.TestBETA01 object at 0x77a41d3e99d0&gt;, bn = 'firefox'
+zone_name = 'Test Zone', target_url = 'http://10.129.13.78:30080'
+
+    @pytest.mark.parametrize("bn", BROWSERS)
+    @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
+    def test_full_scenario(self, bn, zone_name, target_url):
+&gt;       agent_key = run_beta01_full(bn, target_url)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/e2e/test_r3_identities.py:412: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+browser_name = 'firefox', target_url = 'http://10.129.13.78:30080'
+
+    def run_beta01_full(browser_name, target_url):
+        """26 explicit steps for BETA-USER-01."""
+        with sync_playwright() as p:
+            browser = getattr(p, browser_name).launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1366, "height": 768})
+            page = ctx.new_page()
+    
+            # ── 01. Login as real BETA-USER-01 ──
+            page.goto(target_url, wait_until="networkidle", timeout=30000)
+            expect(page.locator("#page-login")).to_be_visible()
+            page.fill("#login-username", BETA01_USER)
+            page.fill("#login-password", BETA01_PASS)
+            page.click("#login-submit")
+            expect(page.locator("#page-dashboard")).to_be_visible(timeout=15000)
+    
+            # ── 02. Username check ──
+            expect(page.locator("#nav-username")).to_have_text(BETA01_USER)
+    
+            # ── 03. Role = User (not Admin) ──
+            expect(page.locator("#nav-role-badge")).to_have_text("User")
+    
+            # ── 04. Open API Keys ──
+            page.click('[data-page="api-keys"]')
+            expect(page.locator("#page-api-keys")).to_be_visible(timeout=10000)
+    
+            # ── 05. Create dual-model key ──
+            page.click("#btn-create-apikey")
+            expect(page.locator("#modal-overlay")).to_be_visible()
+            page.fill("#modal-token-name", "R3-dual-key")
+            page.select_option("#modal-token-models", "both")
+            page.click("#modal-token-create-btn")
+    
+            # ── 06. Wait for key reveal ──
+            key_input = page.locator("#modal-token-full")
+            expect(key_input).to_be_visible(timeout=15000)
+            full_secret = key_input.input_value()
+            # Get token_id from API for later revoke
+            import requests as _r0
+            cookies_list = ctx.cookies()
+            session_cookie = {c["name"]: c["value"] for c in cookies_list if c["name"] == "session_id"}
+            saved_token_id = ""
+            list_r = _r0.get(f"{target_url}/api/v1/tokens", cookies=session_cookie, timeout=15)
+            if list_r.status_code == 200:
+                tokens = list_r.json().get("tokens", [])
+                # Find the most recently created non-revoked key
+                for t in sorted(tokens, key=lambda x: x.get("created_at", ""), reverse=True):
+                    if not t.get("revoked"):
+                        saved_token_id = t.get("token_id", "")
+                        break
+    
+            # ── 07. Full secret starts with athr_ ──
+            assert full_secret.startswith("athr_"), f"Secret must start with athr_, got: {full_secret[:20]}"
+            assert len(full_secret) &gt; 30, f"Secret too short: {len(full_secret)} chars"
+    
+            # ── 08. Prefix check ──
+            assert "athr_" in full_secret
+    
+            # ── 09. Save token_id from table ──
+            page.wait_for_timeout(1000)  # let table reload
+            token_cells = page.locator("td code")
+            token_preview = ""
+            if token_cells.count() &gt; 0:
+                token_preview = token_cells.first.text_content() or ""
+            assert len(token_preview) &gt; 0, "Token prefix should appear in table"
+            assert token_preview != full_secret, "Table prefix must not equal full secret"
+    
+            # ── 10. Close modal — click overlay background
+            page.locator("#modal-overlay").click(position={"x": 1, "y": 1})
+            page.wait_for_timeout(500)
+            expect(page.locator("#modal-overlay")).to_be_hidden(timeout=5000)
+    
+            # ── 11. Refresh (F5) ──
+            page.reload(wait_until="networkidle")
+            page.wait_for_timeout(2000)
+            # Navigate back to API Keys after reload
+            page.click('[data-page="api-keys"]')
+            page.wait_for_timeout(1000)
+    
+            # ── 12. Full secret NOT visible after refresh ──
+            expect(page.locator("body")).not_to_contain_text(full_secret, timeout=5000)
+    
+            # ── 13. Safe prefix/token_id is visible ──
+            token_cells2 = page.locator("td code")
+            if token_cells2.count() &gt; 0:
+                safe_text = token_cells2.first.text_content() or ""
+                assert safe_text != full_secret, "Safe prefix must differ from full secret"
+                assert len(safe_text) &lt;= 20, "Safe prefix should be short"
+    
+            # ── 14. Test Key for qwen-14b via API ──
+            import requests as _r
+            api_url = target_url.rstrip("/") + "/api/v1"
+            r14_test = _r.get(f"{api_url}/models", headers={"Authorization": f"Bearer {full_secret}"}, timeout=15)
+            assert r14_test.status_code == 200, f"14B key test /models failed: HTTP {r14_test.status_code}"
+    
+            # ── 15. 14B response verified ──
+            r14_chat = _r.post(f"{api_url}/chat", headers={"Authorization": f"Bearer {full_secret}"}, json={
+                "model": "qwen-14b", "messages": [{"role": "user", "content": "Say OK"}], "max_tokens": 5
+            }, timeout=60)
+            assert r14_chat.status_code == 200, f"14B key test /chat failed: HTTP {r14_chat.status_code}"
+            assert "choices" in r14_chat.json(), "14B response must contain choices"
+    
+            # ── 16. Test Key for qwen-32b-base via API ──
+            r32_test = _r.post(f"{api_url}/chat", headers={"Authorization": f"Bearer {full_secret}"}, json={
+                "model": "qwen-32b-base", "messages": [{"role": "user", "content": "AI is"}], "max_tokens": 5
+            }, timeout=120)
+            assert r32_test.status_code == 200, f"32B key test /chat failed: HTTP {r32_test.status_code}"
+    
+            # ── 17. 32B response verified ──
+            assert "choices" in r32_test.json(), "32B response must contain choices"
+    
+            # ── 18. Web Chat 14B ──
+            page.click('[data-page="chat"]')
+            expect(page.locator("#page-chat")).to_be_visible(timeout=10000)
+            expect(page.locator("#chat-model-select")).to_have_value("qwen-14b")
+            page.fill("#chat-input", "Привет! Скажи одно слово: Готов.")
+            page.click("#btn-send-message")
+            expect(page.locator(".chat-msg.assistant")).to_be_visible(timeout=60000)
+    
+            # ── 19. Web Chat 32B ──
+            page.select_option("#chat-model-select", "qwen-32b-base")
+            page.fill("#chat-input", "Быть или не быть")
+            page.click("#btn-send-message")
+            expect(page.locator(".chat-msg.assistant")).to_be_visible(timeout=120000)
+    
+            # ── 20. Create separate Agent key ──
+            page.click('[data-page="api-keys"]')
+            expect(page.locator("#page-api-keys")).to_be_visible(timeout=5000)
+            page.click("#btn-create-apikey")
+            expect(page.locator("#modal-overlay")).to_be_visible()
+            page.fill("#modal-token-name", "R3-agent-key")
+            page.select_option("#modal-token-purpose", "agent")
+            page.select_option("#modal-token-models", "both")
+            page.click("#modal-token-create-btn")
+    
+            # ── 21. Agent key purpose/scopes ──
+            agent_input = page.locator("#modal-token-full")
+            expect(agent_input).to_be_visible(timeout=15000)
+            agent_key = agent_input.input_value()
+            assert agent_key.startswith("athr_"), f"Agent key must start with athr_: {agent_key[:20]}"
+            assert len(agent_key) &gt; 30
+            # Close agent key modal — click overlay background
+            page.locator("#modal-overlay").click(position={"x": 1, "y": 1})
+            page.wait_for_timeout(500)
+            # Ensure modal is actually closed
+            expect(page.locator("#modal-overlay")).to_be_hidden(timeout=5000)
+    
+            # ── 22. Revoke first key via API
+            assert saved_token_id, "Must have saved token_id for revoke"
+            revoke_r = _r0.delete(f"{target_url}/api/v1/tokens/{saved_token_id}",
+                                 cookies=session_cookie, timeout=15)
+            assert revoke_r.status_code == 200, f"Revoke failed: HTTP {revoke_r.status_code}"
+            page.reload(wait_until="networkidle")
+            page.wait_for_timeout(1000)
+            page.click('[data-page="api-keys"]')
+            page.wait_for_timeout(1000)
+            revoked_badges = page.locator(".badge-revoked")
+            assert revoked_badges.count() &gt;= 1, "At least one key should show 'Отозван' status"
+    
+            # ── 24. Call revoked key → 401/403 ──
+            # Use the API directly with the known full_secret
+            import requests
+            api_url = target_url.rstrip("/") + "/api/v1/models"
+            r = requests.get(api_url, headers={"Authorization": f"Bearer {full_secret}"}, timeout=10)
+            # ── 25. Expect 401 or 403 ──
+&gt;           assert r.status_code in (401, 403), f"Revoked key must return 401/403, got {r.status_code}"
+E           AssertionError: Revoked key must return 401/403, got 200
+E           assert 200 in (401, 403)
+E            +  where 200 = &lt;Response [200]&gt;.status_code
+
+tests/e2e/test_r3_identities.py:197: AssertionError</failure></testcase><testcase classname="tests.e2e.test_r3_identities.TestBETA02" name="test_isolation[Internet-https://fb1.spb.ru:443]" time="8.700" /><testcase classname="tests.e2e.test_r3_identities.TestBETA02" name="test_isolation[Test Zone-http://10.129.13.78:30080]" time="8.308" /><testcase classname="tests.e2e.test_r3_identities.TestOWNER01" name="test_rbac[Internet-https://fb1.spb.ru:443]" time="4.702" /><testcase classname="tests.e2e.test_r3_identities.TestOWNER01" name="test_rbac[Test Zone-http://10.129.13.78:30080]" time="4.470" /><testcase classname="tests.e2e.test_r3_identities.TestAgent" name="test_agent_api[Internet-https://fb1.spb.ru:443]" time="3.593" /><testcase classname="tests.e2e.test_r3_identities.TestAgent" name="test_agent_api[Test Zone-http://10.129.13.78:30080]" time="3.425" /></testsuite></testsuites>

@@ -1,0 +1,79 @@
+{
+  "probe_start": "2026-07-26T06:34:30.535995+00:00",
+  "probe_end": "2026-07-26T06:38:30.540007+00:00",
+  "total_probes": 240,
+  "unfinished_threads": 0,
+  "targets": [
+    {
+      "zone": "internet",
+      "url": "https://fb1.spb.ru/health"
+    },
+    {
+      "zone": "test",
+      "url": "http://10.129.13.78:30080/health"
+    }
+  ],
+  "zone_summaries": [
+    {
+      "zone": "internet",
+      "planned_duration_seconds": 240,
+      "actual_duration_seconds": 239.0,
+      "planned_interval_seconds": 1,
+      "actual_probe_count": 240,
+      "expected_probe_count": 240,
+      "missing_probe_count": 0,
+      "extra_probe_count": 0,
+      "http_200_count": 240,
+      "non_200_count": 0,
+      "dns_failure_count": 0,
+      "tls_failure_count": 0,
+      "timeout_count": 0,
+      "connection_failure_count": 0,
+      "max_consecutive_failures": 0,
+      "first_failure_timestamp": "",
+      "last_failure_timestamp": "",
+      "availability_percent": 100.0,
+      "interval_statistics": {
+        "intervals_total": 239,
+        "intervals_in_range": 239,
+        "intervals_in_range_percent": 100.0,
+        "min_interval_seconds": 0.996,
+        "max_interval_seconds": 1.004,
+        "avg_interval_seconds": 1.0,
+        "p95_interval_seconds": 1.0
+      },
+      "exit_status": "PASS"
+    },
+    {
+      "zone": "test",
+      "planned_duration_seconds": 240,
+      "actual_duration_seconds": 239.0,
+      "planned_interval_seconds": 1,
+      "actual_probe_count": 240,
+      "expected_probe_count": 240,
+      "missing_probe_count": 0,
+      "extra_probe_count": 0,
+      "http_200_count": 240,
+      "non_200_count": 0,
+      "dns_failure_count": 0,
+      "tls_failure_count": 0,
+      "timeout_count": 0,
+      "connection_failure_count": 0,
+      "max_consecutive_failures": 0,
+      "first_failure_timestamp": "",
+      "last_failure_timestamp": "",
+      "availability_percent": 100.0,
+      "interval_statistics": {
+        "intervals_total": 239,
+        "intervals_in_range": 239,
+        "intervals_in_range_percent": 100.0,
+        "min_interval_seconds": 0.992,
+        "max_interval_seconds": 1.007,
+        "avg_interval_seconds": 1.0,
+        "p95_interval_seconds": 1.001
+      },
+      "exit_status": "PASS"
+    }
+  ],
+  "overall_status": "PASS"
+}
