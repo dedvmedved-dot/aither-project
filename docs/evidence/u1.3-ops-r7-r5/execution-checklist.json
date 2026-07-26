@@ -128,7 +128,7 @@
     {
       "direction": "12",
       "name": "Gitleaks scans",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "implementation_commit": "TBD-commit-B",
       "evidence_commit": "",
       "run_id": "",
@@ -144,7 +144,7 @@
     {
       "direction": "13",
       "name": "Individual finding classification",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "implementation_commit": "TBD-commit-B",
       "evidence_commit": "",
       "run_id": "",
@@ -160,7 +160,7 @@
     {
       "direction": "14",
       "name": "Credential redaction",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "implementation_commit": "TBD-commit-B",
       "evidence_commit": "TBD-commit-B",
       "run_id": "",

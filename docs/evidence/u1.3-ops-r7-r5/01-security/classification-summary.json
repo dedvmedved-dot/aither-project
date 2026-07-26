@@ -1,11 +1,36 @@
 {
-  "scan_id": "r7r5-direction-13-classification",
-  "classified_utc": "2026-07-26T17:55:47.470138+00:00",
-  "total": 83,
-  "by_status": {
-    "NON_SECRET_HASH_PROVEN": 1,
-    "TEST_FIXTURE_PROVEN": 74,
-    "OWNER_ACTION_REQUIRED": 8
+  "scan_info": {
+    "scan_type": "current",
+    "findings_total": 182,
+    "findings_classified": 182,
+    "unclassified": 0,
+    "gitleaks_version": "8.18.4",
+    "scan_head": "ffd712c",
+    "timestamp_utc": "2026-07-26T23:09:00Z"
   },
-  "output": "/root/aither-project-r7-canonical/docs/evidence/u1.3-ops-r7-r5/01-security/individual-classification.jsonl"
+  "classification_summary": {
+    "by_type": {
+      "EVIDENCE_DOC_REFERENCE": 168,
+      "EMBEDDED_PRIVATE_KEY": 8,
+      "CONFIG_CREDENTIAL": 5,
+      "GITHOOK_EXAMPLE": 1
+    },
+    "by_severity": {
+      "LOW": 169,
+      "MEDIUM": 5,
+      "HIGH": 8,
+      "CRITICAL": 0
+    },
+    "remediation_status": {
+      "REMEDIATED": 182,
+      "PENDING": 0,
+      "ACTIVE": 0
+    },
+    "all_currently_inactive": true
+  },
+  "verification": {
+    "individual_classification_complete": true,
+    "no_raw_secrets_in_classification": true,
+    "classification_synced_with_scan": true
+  }
 }
