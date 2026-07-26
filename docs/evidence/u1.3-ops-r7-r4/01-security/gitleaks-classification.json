@@ -1,0 +1,17 @@
+{
+  "scan_id": "r7r4-phase0-gitleaks-baseline",
+  "total_findings": 83,
+  "status_summary": {
+    "TEST_FIXTURE_PROVEN": 69,
+    "FALSE_POSITIVE_PROVEN": 5,
+    "NON_SECRET_HASH_PROVEN": 2,
+    "REDACTED": 4,
+    "OWNER_ACTION_REQUIRED": 3
+  },
+  "unresolved": 3,
+  "owner_actions": [
+    "OAR-001: BMC techvit credentials",
+    "OAR-002: BMC techvirt credentials",
+    "OAR-003: JWT_SECRET verification"
+  ]
+}

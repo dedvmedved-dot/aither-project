@@ -39,6 +39,6 @@ This is by design for Beta v0.9. Per-user key scoping is a post-MVP feature.
 
 The test API Key used:
 ```
-aither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p
+[REDACTED-API-KEY]1hpDwqR5gcn1p
 ```
 Created via `POST /api/v1/api-keys` with JWT admin token. Full key shown once only.

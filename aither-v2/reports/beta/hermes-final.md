@@ -17,7 +17,7 @@ Auth:     Bearer token (aither_<api_key>)
 Model:    qwen-32b-gptq (routed to qwen-32b-base via Gateway → vLLM)
 ```
 
-API Key used: `aither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p`
+API Key used: `[REDACTED-API-KEY]1hpDwqR5gcn1p`
 
 ---
 

@@ -150,7 +150,7 @@ BFF ищет пользователя в `portal_users` по `oauth_provider='gi
 ### Шаг 9–10: Вход в портал
 BFF редиректит браузер на:
 ```
-http://130.17.1.90/?aither_token=eyJhbGciOiJIUzI1NiIs...
+http://130.17.1.90/?aither_token=[REDACTED]
 ```
 
 Фронтенд читает `aither_token` из URL, сохраняет в `localStorage`, чистит URL и входит в приложение.

@@ -454,7 +454,7 @@ export PG_PORT=5432
 export PG_USER=aither
 export PGPASSWORD="${P1}_${P2}"
 export PG_DB=aither
-export JWT_SECRET=aither-jwt-secret-2026
+export JWT_SECRET=[REDACTED]
 export CORE_API=http://127.0.0.1:30900
 export NODE_ENV=production
 
