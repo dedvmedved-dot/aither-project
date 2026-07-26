@@ -128,7 +128,7 @@
     {
       "direction": "12",
       "name": "Gitleaks scans",
-      "status": "DONE",
+      "status": "IN_PROGRESS",
       "implementation_commit": "TBD-commit-B",
       "evidence_commit": "",
       "run_id": "",
@@ -136,13 +136,15 @@
         "docs/evidence/u1.3-ops-r7-r5/01-security/gitleaks-current.json",
         "docs/evidence/u1.3-ops-r7-r4/00-preflight/gitleaks-baseline.json"
       ],
-      "open_defects": [],
+      "open_defects": [
+        "Missing: implementation diff, evidence staged, final HEAD scans"
+      ],
       "blocker": ""
     },
     {
       "direction": "13",
       "name": "Individual finding classification",
-      "status": "DONE",
+      "status": "IN_PROGRESS",
       "implementation_commit": "TBD-commit-B",
       "evidence_commit": "",
       "run_id": "",
@@ -150,18 +152,20 @@
         "docs/evidence/u1.3-ops-r7-r5/01-security/individual-classification.jsonl",
         "docs/evidence/u1.3-ops-r7-r5/01-security/classification-summary.json"
       ],
-      "open_defects": [],
+      "open_defects": [
+        "187 findings from current scan not yet individually classified"
+      ],
       "blocker": ""
     },
     {
       "direction": "14",
       "name": "Credential redaction",
-      "status": "DONE",
+      "status": "IN_PROGRESS",
       "implementation_commit": "TBD-commit-B",
       "evidence_commit": "TBD-commit-B",
       "run_id": "",
       "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r4/01-security/owner-action-requests.md"
+        "docs/evidence/u1.3-ops-r7-r5/01-security/gitleaks-current.json"
       ],
       "open_defects": [],
       "blocker": ""
