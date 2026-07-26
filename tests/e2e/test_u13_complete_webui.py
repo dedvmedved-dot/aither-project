@@ -139,19 +139,61 @@ class TestChat:
     @pytest.mark.parametrize("bn", BROWSERS)
     @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
     def test_model_switch(self, bn, zone_name, target_url):
-        """Switch between models in chat"""
+        """Switch between models in chat — R5 enhanced."""
         with sync_playwright() as p:
             browser = getattr(p, bn).launch(headless=True)
             ctx = browser.new_context(viewport={"width": 1366, "height": 768})
             page = ctx.new_page()
 
             login(page, target_url, BETA02_USER, BETA02_PASS)
+
+            # Count messages before first send
+            before_count = page.locator(".chat-msg.assistant").count()
+
             chat_send(page, MODEL_A, "Hi.")
-            # Switch to MODEL_B and send another message
+
+            # Verify one new assistant message appeared
+            after_first_count = page.locator(".chat-msg.assistant").count()
+            assert after_first_count == before_count + 1, \
+                f"Expected {before_count + 1} messages, got {after_first_count}"
+
+            # Switch to MODEL_B and verify selector
             page.select_option("#chat-model-select", MODEL_B)
-            page.fill("#chat-input", "Hello again.")
-            page.click("#btn-send-message")
+            expect(page.locator("#chat-model-select")).to_have_value(MODEL_B)
+
+            # Intercept POST /chat request to verify model in payload
+            with page.expect_request(
+                lambda request: request.method == "POST"
+                and "/chat" in request.url
+            ) as request_info:
+                page.fill("#chat-input", "Hello again.")
+                page.click("#btn-send-message")
+
+            # Verify MODEL_B was sent in request body
+            post_data = request_info.value.post_data_json
+            assert post_data is not None, "No POST data captured"
+            request_model = post_data.get("model", "")
+            assert request_model in (MODEL_B, "qwen-32b-base"), \
+                f"Expected MODEL_B in request, got: {request_model}"
+
+            # Wait for the response
             expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=180000)
+
+            # Verify message count increased
+            after_second_count = page.locator(".chat-msg.assistant").count()
+            assert after_second_count == after_first_count + 1, \
+                f"Expected {after_first_count + 1} messages, got {after_second_count}"
+
+            # Verify latest response is complete (not placeholder)
+            last_message = page.locator(".chat-msg.assistant").last
+            text = last_message.inner_text().strip()
+            assert text, "Response is empty"
+            assert "⏳" not in text, "Response is still generating placeholder"
+            assert "pending" not in text.lower(), "Response contains pending"
+
+            # Verify first message still visible (history preserved)
+            assert page.locator(".chat-msg.assistant").nth(after_first_count - 1).is_visible(), \
+                "First message not visible"
 
             ctx.close()
             browser.close()

@@ -135,7 +135,39 @@ def generate_summary(zone: str, results: list, planned_duration: int, planned_in
         actual_duration = 0.0
         availability_pct = 0.0
 
-    exit_status = "PASS" if (non_200 == 0 and dns_failures == 0 and tls_failures == 0 and timeouts == 0 and connection_failures == 0) else "FAIL"
+    # Expected probe count gate
+    expected_count = planned_duration // planned_interval
+    missing_probes = max(0, expected_count - actual_count)
+    extra_probes = max(0, actual_count - expected_count)
+
+    # Interval statistics
+    interval_stats = {}
+    if len(results) >= 2:
+        sorted_results = sorted(results, key=lambda r: r["timestamp"])
+        intervals = []
+        for j in range(1, len(sorted_results)):
+            try:
+                t1 = datetime.fromisoformat(sorted_results[j-1]["timestamp"].replace("Z", "+00:00"))
+                t2 = datetime.fromisoformat(sorted_results[j]["timestamp"].replace("Z", "+00:00"))
+                intervals.append((t2 - t1).total_seconds())
+            except Exception:
+                pass
+        if intervals:
+            intervals_sorted = sorted(intervals)
+            n = len(intervals_sorted)
+            p95_idx = int(n * 0.95)
+            in_range = sum(1 for x in intervals if 0.8 <= x <= 1.2)
+            interval_stats = {
+                "intervals_total": n,
+                "intervals_in_range": in_range,
+                "intervals_in_range_percent": round((in_range / n) * 100, 2) if n > 0 else 0.0,
+                "min_interval_seconds": round(min(intervals_sorted), 3),
+                "max_interval_seconds": round(max(intervals_sorted), 3),
+                "avg_interval_seconds": round(sum(intervals_sorted) / n, 3),
+                "p95_interval_seconds": round(intervals_sorted[min(p95_idx, n-1)], 3),
+            }
+
+    exit_status = "PASS" if (non_200 == 0 and dns_failures == 0 and tls_failures == 0 and timeouts == 0 and connection_failures == 0 and missing_probes == 0) else "FAIL"
 
     return {
         "zone": zone,
@@ -143,6 +175,9 @@ def generate_summary(zone: str, results: list, planned_duration: int, planned_in
         "actual_duration_seconds": round(actual_duration, 2),
         "planned_interval_seconds": planned_interval,
         "actual_probe_count": actual_count,
+        "expected_probe_count": expected_count,
+        "missing_probe_count": missing_probes,
+        "extra_probe_count": extra_probes,
         "http_200_count": http_200,
         "non_200_count": non_200,
         "dns_failure_count": dns_failures,
@@ -153,6 +188,7 @@ def generate_summary(zone: str, results: list, planned_duration: int, planned_in
         "first_failure_timestamp": first_failure_ts,
         "last_failure_timestamp": last_failure_ts,
         "availability_percent": availability_pct,
+        "interval_statistics": interval_stats,
         "exit_status": exit_status,
     }
 
@@ -227,15 +263,22 @@ def main():
     unfinished = sum(1 for t in all_threads if t.is_alive())
     if unfinished > 0:
         print(f"WARNING: {unfinished} threads did not complete within timeout", file=sys.stderr)
+        overall_pass = False  # Unfinished threads = FAIL
 
     csvfile.close()
+
+    # Sort results before generating summaries
+    for zone, _ in targets:
+        results[zone].sort(key=lambda r: r["probe_num"])
 
     # Generate summaries
     summaries = []
     for zone, _ in targets:
         summary = generate_summary(zone, results[zone], args.duration, args.interval)
         summaries.append(summary)
-        if summary["non_200_count"] > 0 or summary["dns_failure_count"] > 0 or summary["tls_failure_count"] > 0 or summary["timeout_count"] > 0 or summary["connection_failure_count"] > 0:
+        if (summary["non_200_count"] > 0 or summary["dns_failure_count"] > 0 or
+            summary["tls_failure_count"] > 0 or summary["timeout_count"] > 0 or
+            summary["connection_failure_count"] > 0 or summary["missing_probe_count"] > 0):
             overall_pass = False
 
     # Correct probe_start timestamp
@@ -245,6 +288,7 @@ def main():
         "probe_start": probe_start_iso,
         "probe_end": datetime.now(timezone.utc).isoformat(),
         "total_probes": probe_num,
+        "unfinished_threads": unfinished,
         "targets": [{"zone": z, "url": u} for z, u in targets],
         "zone_summaries": summaries,
         "overall_status": "PASS" if overall_pass else "FAIL",
