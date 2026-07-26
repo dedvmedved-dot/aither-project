@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aither-bff
+  namespace: aither-inference
+  labels:
+    app: aither-bff
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: aither-bff
