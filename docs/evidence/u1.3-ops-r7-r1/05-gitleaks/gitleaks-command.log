@@ -1,0 +1,474 @@
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+Finding:     '[1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m    
+[1;3;m    '-----BEGIN PRIVATE KEY-----'[0m   
+[1;3;m    '-----BEGIN EC PRIVATE KEY---...[0m
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m    
+[1;3;m    '-----BEGIN PRIVATE KEY-----'[0m   
+[1;3;m    '-----BEGIN EC PRIVATE KEY---...[0m
+RuleID:      private-key
+Entropy:     3.540648
+File:        /src/.githooks/pre-commit
+Line:        10
+Fingerprint: /src/.githooks/pre-commit:private-key:10
+
+Finding:     CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
+        -H "Authorization: Bearer                      [1;3;minvali...here[0m" http://${GW}/v1/com...
+Secret:      [1;3;minvali...here[0m
+RuleID:      curl-auth-header
+Entropy:     3.026987
+File:        /src/aither-v2/docs/mvp-roadmap/02-inference-acceptance/evidence/benchmark-smoke-describe.txt
+Line:        90
+Fingerprint: /src/aither-v2/docs/mvp-roadmap/02-inference-acceptance/evidence/benchmark-smoke-describe.txt:curl-auth-header:90
+
+Finding:     ...keys: ['aither-auth:token:[1;3;m4b48e0d643707a601ae9587509daebfbd9cec2bac03c3b150b89ccb5c82cf766[0m', 'aither-auth:token...
+Secret:      [1;3;m4b48e0d643707a601ae9587509daebfbd9cec2bac03c3b150b89ccb5c82cf766[0m
+RuleID:      generic-api-key
+Entropy:     3.883970
+File:        /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/token-hash-storage-check.txt
+Line:        11
+Fingerprint: /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/token-hash-storage-check.txt:generic-api-key:11
+
+Finding:     ...f766', 'aither-auth:token:[1;3;m07687f2ba3b6c714666987c69ea38a4c17123af0430657cde6ad236c4360be5a[0m', 'aither-auth:token...
+Secret:      [1;3;m07687f2ba3b6c714666987c69ea38a4c17123af0430657cde6ad236c4360be5a[0m
+RuleID:      generic-api-key
+Entropy:     3.826052
+File:        /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/token-hash-storage-check.txt
+Line:        11
+Fingerprint: /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/token-hash-storage-check.txt:generic-api-key:11
+
+Finding:     ...": "060e398d7029", "token_hash": "[1;3;m4b48e0d643707a601ae9587509daebfbd9cec2bac03c3b150b89ccb5c82cf766[0m", "name": "test-agen...
+Secret:      [1;3;m4b48e0d643707a601ae9587509daebfbd9cec2bac03c3b150b89ccb5c82cf766[0m
+RuleID:      generic-api-key
+Entropy:     3.883970
+File:        /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/token-hash-storage-check.txt
+Line:        12
+Fingerprint: /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/token-hash-storage-check.txt:generic-api-key:12
+
+Finding:     ...en_id=d4041d445d1b, token=[1;3;mathr_3HHOVUl...REDACTED[0m
+Secret:      [1;3;mathr_3HHOVUl...REDACTED[0m
+RuleID:      generic-api-key
+Entropy:     4.055958
+File:        /src/aither-v2/docs/mvp-roadmap/07-portal/evidence/portal-token-create-once-redacted.txt
+Line:        5
+Fingerprint: /src/aither-v2/docs/mvp-roadmap/07-portal/evidence/portal-token-create-once-redacted.txt:generic-api-key:5
+
+Finding:     ...id":"c5e6b513a9e4","token":"[1;3;mathr_RHxuXU45AX...REDACTED[0m","name":"e2e-test-to...
+Secret:      [1;3;mathr_RHxuXU45AX...REDACTED[0m
+RuleID:      generic-api-key
+Entropy:     4.132944
+File:        /src/aither-v2/docs/mvp-roadmap/08-end-to-end-acceptance/evidence/e2e-token-create-redacted.txt
+Line:        6
+Fingerprint: /src/aither-v2/docs/mvp-roadmap/08-end-to-end-acceptance/evidence/e2e-token-create-redacted.txt:generic-api-key:6
+
+Finding:     Key prefix: [1;3;maither_30a67d9d[0m
+Secret:      [1;3;maither_30a67d9d[0m
+RuleID:      generic-api-key
+Entropy:     3.640224
+File:        /src/aither-v2/docs/stage-u1.4/05_FEEDBACK_PROCESS.md
+Line:        25
+Fingerprint: /src/aither-v2/docs/stage-u1.4/05_FEEDBACK_PROCESS.md:generic-api-key:25
+
+Finding:     CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://${GW}/v1/completions)
+              log "   HTTP $CODE (expect 401/403)"                                
+                                                                                  
+              # Wrong token                                                       
+              log "7. Gateway wrong token:"                                       
+              CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \      
+                -H "Authorization: Bearer                                         [1;3;minvalid_token_here[0m" http://${GW}/v1/com...
+Secret:      [1;3;minvalid_token_here[0m
+RuleID:      curl-auth-header
+Entropy:     3.572431
+File:        /src/aither-v2/manifests/mvp-roadmap/02-inference-acceptance/benchmark-smoke.yaml
+Line:        78
+Fingerprint: /src/aither-v2/manifests/mvp-roadmap/02-inference-acceptance/benchmark-smoke.yaml:curl-auth-header:78
+
+Finding:     The test API Key used:
+```          
+             [1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m
+Secret:      [1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m
+RuleID:      generic-api-key
+Entropy:     5.380876
+File:        /src/aither-v2/reports/beta/ba02-api-key-isolation.md
+Line:        40
+Fingerprint: /src/aither-v2/reports/beta/ba02-api-key-isolation.md:generic-api-key:40
+
+Finding:     API Key used: `[1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m`
+Secret:      [1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m
+RuleID:      generic-api-key
+Entropy:     5.380876
+File:        /src/aither-v2/reports/beta/hermes-final.md
+Line:        20
+Fingerprint: /src/aither-v2/reports/beta/hermes-final.md:generic-api-key:20
+
+Finding:     curl -X POST http://aither-ai-platform:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \                          
+  -H "Authorization: Bearer                                      [1;3;maither_83de4e49_...[0m" \
+Secret:      [1;3;maither_83de4e49_...[0m
+RuleID:      curl-auth-header
+Entropy:     3.536887
+File:        /src/aither-v2/reports/beta/openai-api-final.md
+Line:        46
+Fingerprint: /src/aither-v2/reports/beta/openai-api-final.md:curl-auth-header:46
+
+Finding:     curl -X POST ... -H "X-API-Key: [1;3;maither_83de4e49_...[0m" ...
+Secret:      [1;3;maither_83de4e49_...[0m
+RuleID:      curl-auth-header
+Entropy:     3.536887
+File:        /src/aither-v2/reports/beta/openai-api-final.md
+Line:        59
+Fingerprint: /src/aither-v2/reports/beta/openai-api-final.md:curl-auth-header:59
+
+Finding:     BAD_KEY=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${BASE_URL}/v1/chat/completions" \
+    -H "Content-Type: application/json" \                                         
+    -H "Authorization: Bearer                                                     [1;3;maither_bad_invalidkey[0m" \
+Secret:      [1;3;maither_bad_invalidkey[0m
+RuleID:      curl-auth-header
+Entropy:     3.653757
+File:        /src/aither-v2/scripts/test-stage16-acceptance.sh
+Line:        143
+Fingerprint: /src/aither-v2/scripts/test-stage16-acceptance.sh:curl-auth-header:143
+
+Finding:     export JWT_SECRET=[1;3;maither-jwt-secret-2026[0m
+Secret:      [1;3;maither-jwt-secret-2026[0m
+RuleID:      generic-api-key
+Entropy:     3.629220
+File:        /src/configs/vps3/bff-wrapper.sh
+Line:        12
+Fingerprint: /src/configs/vps3/bff-wrapper.sh:generic-api-key:12
+
+Finding:     Command: curl -s -H "Authorization: Bearer [1;3;mathr_invalidtoken[0m" http://aither-bff.a...
+Secret:      [1;3;mathr_invalidtoken[0m
+RuleID:      curl-auth-header
+Entropy:     3.616875
+File:        /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/evidence-report.txt
+Line:        106
+Fingerprint: /src/aither-v2/docs/mvp-roadmap/07-auth-api/evidence/evidence-report.txt:curl-auth-header:106
+
+Finding:     ...inding:     '[1;3;m[1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m    [0m
+[1;3;m[1;3;m    '-----BEGIN PRIVATE KEY-----'[0m   [0m
+[1;3;m[1;3;m    ...[0m                             '[0m
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m    [0m
+[1;3;m[1;3;m    '-----BEGIN PRIVATE KEY-----'[0m   [0m
+[1;3;m[1;3;m    ...[0m                             
+RuleID:      private-key
+Entropy:     4.218871
+File:        /src/docs/evidence/u1.3-ops-r7-r1/04-gitleaks/gitleaks-current.log
+Line:        8
+Fingerprint: /src/docs/evidence/u1.3-ops-r7-r1/04-gitleaks/gitleaks-current.log:private-key:8
+
+Finding:     http://130.17.1.90/?aither_token=[1;3;meyJhbGciOiJIUzI1NiIs...[0m
+Secret:      [1;3;meyJhbGciOiJIUzI1NiIs...[0m
+RuleID:      generic-api-key
+Entropy:     3.816403
+File:        /src/docs/oauth-github.md
+Line:        153
+Fingerprint: /src/docs/oauth-github.md:generic-api-key:153
+
+Finding:     curl https://fb1.spb.ru:443/v1/chat/completions \
+  -H "Authorization: Bearer                      [1;3;mathr_a1b2c3d4_...[0m" \
+Secret:      [1;3;mathr_a1b2c3d4_...[0m
+RuleID:      curl-auth-header
+Entropy:     3.572469
+File:        /src/docs/user-guide/WEB_UI_USER_GUIDE.md
+Line:        344
+Fingerprint: /src/docs/user-guide/WEB_UI_USER_GUIDE.md:curl-auth-header:344
+
+Finding:     curl https://fb1.spb.ru:443/v1/chat/completions \
+  -H "Authorization: Bearer                      [1;3;mathr_e5f6g7h8_...[0m" \
+Secret:      [1;3;mathr_e5f6g7h8_...[0m
+RuleID:      curl-auth-header
+Entropy:     3.572469
+File:        /src/docs/user-guide/WEB_UI_USER_GUIDE.md
+Line:        370
+Fingerprint: /src/docs/user-guide/WEB_UI_USER_GUIDE.md:curl-auth-header:370
+
+Finding:     "token_id": "[1;3;ma1b2c3d4e5f6[0m"
+Secret:      [1;3;ma1b2c3d4e5f6[0m
+RuleID:      generic-api-key
+Entropy:     3.584963
+File:        /src/evidence/cb-webui-01/06_API_KEY_LIFECYCLE.md
+Line:        20
+Fingerprint: /src/evidence/cb-webui-01/06_API_KEY_LIFECYCLE.md:generic-api-key:20
+
+Finding:     "token": "[1;3;mathr_DlDp31NMY_N2OBUkle1ZKvzTHjgWtc0OO6x2-cEY0Cg[0m"
+Secret:      [1;3;mathr_DlDp31NMY_N2OBUkle1ZKvzTHjgWtc0OO6x2-cEY0Cg[0m
+RuleID:      generic-api-key
+Entropy:     5.027569
+File:        /src/evidence/cb-webui-01/06_API_KEY_LIFECYCLE.md
+Line:        21
+Fingerprint: /src/evidence/cb-webui-01/06_API_KEY_LIFECYCLE.md:generic-api-key:21
+
+Finding:     curl -X POST https://fb1.spb.ru:443/v1/chat/completions \
+  -H "Authorization: Bearer                              [1;3;mtk_live_a1b2c3d4e5f6...[0m" \
+Secret:      [1;3;mtk_live_a1b2c3d4e5f6...[0m
+RuleID:      curl-auth-header
+Entropy:     4.142915
+File:        /src/evidence/cb-webui-01/09_AGENT_KEY_READINESS.md
+Line:        140
+Fingerprint: /src/evidence/cb-webui-01/09_AGENT_KEY_READINESS.md:curl-auth-header:140
+
+Finding:     curl -X POST https://fb1.spb.ru:443/api/v1/chat \
+  -H "Authorization: Bearer                      [1;3;mtk_live_a1b2c3d4e5f6...[0m" \
+Secret:      [1;3;mtk_live_a1b2c3d4e5f6...[0m
+RuleID:      curl-auth-header
+Entropy:     4.142915
+File:        /src/evidence/cb-webui-01/09_AGENT_KEY_READINESS.md
+Line:        149
+Fingerprint: /src/evidence/cb-webui-01/09_AGENT_KEY_READINESS.md:curl-auth-header:149
+
+Finding:     export JWT_SECRET=[1;3;maither-jwt-secret-2026[0m
+Secret:      [1;3;maither-jwt-secret-2026[0m
+RuleID:      generic-api-key
+Entropy:     3.629220
+File:        /src/docs/vps3-failover.md
+Line:        457
+Fingerprint: /src/docs/vps3-failover.md:generic-api-key:457
+
+Finding:     ...http://130.17.1.90/?aither_token=[1;3;meyJhbGciOiJIUzI1NiIs...[0m
+Secret:      [1;3;meyJhbGciOiJIUzI1NiIs...[0m
+RuleID:      generic-api-key
+Entropy:     3.816403
+File:        /src/evidence/u1.3-ops-r2/logs/14-secret-scan.log
+Line:        22
+Fingerprint: /src/evidence/u1.3-ops-r2/logs/14-secret-scan.log:generic-api-key:22
+
+Finding:     ...tions.py:70:        token = "[1;3;mathr_DlDp31NMY_N2OBUkle1ZKvzTHjgWtc0OO6x2-cEY0Cg[0m"
+Secret:      [1;3;mathr_DlDp31NMY_N2OBUkle1ZKvzTHjgWtc0OO6x2-cEY0Cg[0m
+RuleID:      generic-api-key
+Entropy:     5.027569
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        39
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:generic-api-key:39
+
+Finding:     ...et-scan.txt:16:    '[1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m                                      
+[1;3;m./security/incidents/evidence/history-scan.txt:21:+    '-----BEGIN ...[0m
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m                                      
+[1;3;m./security/incidents/evidence/history-scan.txt:21:+    '-----BEGIN ...[0m
+RuleID:      private-key
+Entropy:     4.725252
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        14
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:private-key:14
+
+Finding:     ...y-scan.txt:22:+    '[1;3;m-----BEGIN PRIVATE KEY-----'[0m                                              
+[1;3;m./security/incidents/evidence/history-scan.txt:23:+    '-----BEGIN EC P...[0m
+Secret:      [1;3;m-----BEGIN PRIVATE KEY-----'[0m                                              
+[1;3;m./security/incidents/evidence/history-scan.txt:23:+    '-----BEGIN EC P...[0m
+RuleID:      private-key
+Entropy:     4.695504
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        16
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:private-key:16
+
+Finding:     ...-es.md:PRIVATE_KEY="[1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./security/incidents/evidence/gitleaks-current.txt:229:./portal/node...[0m\nKh9NV...\n-----END...
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./security/incidents/evidence/gitleaks-current.txt:229:./portal/node...[0m
+RuleID:      private-key
+Entropy:     5.019614
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        21
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:private-key:21
+
+Finding:     ...DME.md:PRIVATE_KEY="[1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./security/incidents/evidence/gitleaks-current.txt:231:./portal/node...[0m\nKh9NV...\n-----END...
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./security/incidents/evidence/gitleaks-current.txt:231:./portal/node...[0m
+RuleID:      private-key
+Entropy:     5.047718
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        23
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:private-key:23
+
+Finding:     ...GATION_PRIVATE_KEY="[1;3;m-----BEGIN PRIVATE KEY-----[0m                                    
+[1;3;m./.githooks/pre-commit:10:    '-----BEGIN RSA PRIVATE KEY-----'[0m
+[1;3;m./.githo...[0m                                                    
+Secret:      [1;3;m-----BEGIN PRIVATE KEY-----[0m                                    
+[1;3;m./.githooks/pre-commit:10:    '-----BEGIN RSA PRIVATE KEY-----'[0m
+[1;3;m./.githo...[0m                                                    
+RuleID:      private-key
+Entropy:     4.510811
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        34
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:private-key:34
+
+Finding:     .../pre-commit:12:    '[1;3;m-----BEGIN EC PRIVATE KEY-----'[0m                                    
+[1;3;m./.githooks/pre-commit:14:    '-----BEGIN OPENSSH PRIVATE KEY-----'[0m
+[1;3;m...[0m                                                                
+Secret:      [1;3;m-----BEGIN EC PRIVATE KEY-----'[0m                                    
+[1;3;m./.githooks/pre-commit:14:    '-----BEGIN OPENSSH PRIVATE KEY-----'[0m
+[1;3;m...[0m                                                                
+RuleID:      private-key
+Entropy:     5.397210
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        37
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:private-key:37
+
+Finding:     ...rt.txt:106:Command: curl -s -H "Authorization: Bearer [1;3;mathr_invalidtoken[0m" http://aither-bff.a...
+Secret:      [1;3;mathr_invalidtoken[0m
+RuleID:      curl-auth-header
+Entropy:     3.616875
+File:        /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log
+Line:        13
+Fingerprint: /src/evidence/u1.3-ops-r4/logs/19-secret-scan.log:curl-auth-header:13
+
+Finding:     curl -sk -u [1;3;mtechvirt:PASS[0m -X POST \
+Secret:      [1;3;mtechvirt:PASS[0m
+RuleID:      curl-auth-user
+Entropy:     3.392747
+File:        /src/manifests/deployment-plan.md
+Line:        16
+Fingerprint: /src/manifests/deployment-plan.md:curl-auth-user:16
+
+Finding:     curl -sk -u [1;3;mtechvirt:PASS[0m -X POST \
+Secret:      [1;3;mtechvirt:PASS[0m
+RuleID:      curl-auth-user
+Entropy:     3.392747
+File:        /src/manifests/deployment-plan.md
+Line:        44
+Fingerprint: /src/manifests/deployment-plan.md:curl-auth-user:44
+
+Finding:     curl -sk -u [1;3;mtechvirt:PASS[0m -X PATCH \
+Secret:      [1;3;mtechvirt:PASS[0m
+RuleID:      curl-auth-user
+Entropy:     3.392747
+File:        /src/manifests/deployment-plan.md
+Line:        56
+Fingerprint: /src/manifests/deployment-plan.md:curl-auth-user:56
+
+Finding:     curl -sk -u [1;3;mtechvirt:PASS[0m -X POST \
+Secret:      [1;3;mtechvirt:PASS[0m
+RuleID:      curl-auth-user
+Entropy:     3.392747
+File:        /src/manifests/deployment-plan.md
+Line:        67
+Fingerprint: /src/manifests/deployment-plan.md:curl-auth-user:67
+
+Finding:     curl -sk -u [1;3;m"techvit:fhtfdh2!RF78"[0m "https://10.129.40....
+Secret:      [1;3;m"techvit:fhtfdh2!RF78"[0m
+RuleID:      curl-auth-user
+Entropy:     3.845351
+File:        /src/references/bmc-admin-rights-guide.md
+Line:        90
+Fingerprint: /src/references/bmc-admin-rights-guide.md:curl-auth-user:90
+
+Finding:     +    '[1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m   
+[1;3;m+    '-----BEGIN PRIVATE KEY-----'[0m 
+[1;3;m+    '-----BEGIN EC PRIVATE KEY-...[0m
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----'[0m   
+[1;3;m+    '-----BEGIN PRIVATE KEY-----'[0m 
+[1;3;m+    '-----BEGIN EC PRIVATE KEY-...[0m
+RuleID:      private-key
+Entropy:     3.566066
+File:        /src/security/incidents/evidence/history-scan.txt
+Line:        21
+Fingerprint: /src/security/incidents/evidence/history-scan.txt:private-key:21
+
+Finding:     curl -sk -u [1;3;m"techvit:fhtfdh2!RF78"[0m \
+Secret:      [1;3;m"techvit:fhtfdh2!RF78"[0m
+RuleID:      curl-auth-user
+Entropy:     3.845351
+File:        /src/references/openbmc-admin-guide.md
+Line:        126
+Fingerprint: /src/references/openbmc-admin-guide.md:curl-auth-user:126
+
+Finding:     secret = "[1;3;mak-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6[0m"
+Secret:      [1;3;mak-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6[0m
+RuleID:      generic-api-key
+Entropy:     4.042292
+File:        /src/tests/unit/test_hashing.py
+Line:        149
+Fingerprint: /src/tests/unit/test_hashing.py:generic-api-key:149
+
+Finding:     secret = "[1;3;mak-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6[0m"
+Secret:      [1;3;mak-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6[0m
+RuleID:      generic-api-key
+Entropy:     4.042292
+File:        /src/tests/unit/test_hashing.py
+Line:        156
+Fingerprint: /src/tests/unit/test_hashing.py:generic-api-key:156
+
+Finding:     key = "[1;3;mak-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6[0m"
+Secret:      [1;3;mak-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6[0m
+RuleID:      generic-api-key
+Entropy:     4.042292
+File:        /src/tests/unit/test_key_generation.py
+Line:        80
+Fingerprint: /src/tests/unit/test_key_generation.py:generic-api-key:80
+
+Finding:     token = "[1;3;mathr_DlDp31NMY_N2OBUkle1ZKvzTHjgWtc0OO6x2-cEY0Cg[0m"
+Secret:      [1;3;mathr_DlDp31NMY_N2OBUkle1ZKvzTHjgWtc0OO6x2-cEY0Cg[0m
+RuleID:      generic-api-key
+Entropy:     5.027569
+File:        /src/tests/unit/test_key_operations.py
+Line:        70
+Fingerprint: /src/tests/unit/test_key_operations.py:generic-api-key:70
+
+Finding:     ...-es.md:PRIVATE_KEY="[1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./portal/node_modules/dotenv/README-es.md:PRIVATE_KEY="-----BEGIN RS...[0m\nKh9NV...\n-----END...
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./portal/node_modules/dotenv/README-es.md:PRIVATE_KEY="-----BEGIN RS...[0m
+RuleID:      private-key
+Entropy:     4.667632
+File:        /src/security/incidents/evidence/gitleaks-current.txt
+Line:        228
+Fingerprint: /src/security/incidents/evidence/gitleaks-current.txt:private-key:228
+
+Finding:     ...DME.md:PRIVATE_KEY="[1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./portal/node_modules/dotenv/README.md:PRIVATE_KEY="-----BEGIN RSA P...[0m\nKh9NV...\n-----END...
+Secret:      [1;3;m-----BEGIN RSA PRIVATE KEY-----[0m                                        
+[1;3;m./portal/node_modules/dotenv/README.md:PRIVATE_KEY="-----BEGIN RSA P...[0m
+RuleID:      private-key
+Entropy:     4.668741
+File:        /src/security/incidents/evidence/gitleaks-current.txt
+Line:        230
+Fingerprint: /src/security/incidents/evidence/gitleaks-current.txt:private-key:230
+
+Finding:     ...openai-api-final.md:curl -X POST ... -H "X-API-Key: [1;3;maither_83de4e49_...[0m" ...
+Secret:      [1;3;maither_83de4e49_...[0m
+RuleID:      curl-auth-header
+Entropy:     3.536887
+File:        /src/security/incidents/evidence/gitleaks-current.txt
+Line:        35
+Fingerprint: /src/security/incidents/evidence/gitleaks-current.txt:curl-auth-header:35
+
+Finding:     ...eta/hermes-final.md:API Key used: `[1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m`
+Secret:      [1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m
+RuleID:      generic-api-key
+Entropy:     5.380876
+File:        /src/security/incidents/evidence/gitleaks-current.txt
+Line:        25
+Fingerprint: /src/security/incidents/evidence/gitleaks-current.txt:generic-api-key:25
+
+Finding:     ...her-v2/reports/beta/ba02-api-key-isolation.md:[1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m
+Secret:      [1;3;maither_83de4e49_rgVkDCy6-bHmCMOIrbw5MHRxfpeC_alpL0p1vYoE-o-Ip23TB7P1hpDwqR5gcn1p[0m
+RuleID:      generic-api-key
+Entropy:     5.380876
+File:        /src/security/incidents/evidence/gitleaks-current.txt
+Line:        38
+Fingerprint: /src/security/incidents/evidence/gitleaks-current.txt:generic-api-key:38
+
+Finding:     ...FEEDBACK_PROCESS.md:Key prefix: [1;3;maither_30a67d9d[0m
+Secret:      [1;3;maither_30a67d9d[0m
+RuleID:      generic-api-key
+Entropy:     3.640224
+File:        /src/security/incidents/evidence/gitleaks-current.txt
+Line:        104
+Fingerprint: /src/security/incidents/evidence/gitleaks-current.txt:generic-api-key:104
+
+Finding:     ...http://130.17.1.90/?aither_token=[1;3;meyJhbGciOiJIUzI1NiIs...[0m
+Secret:      [1;3;meyJhbGciOiJIUzI1NiIs...[0m
+RuleID:      generic-api-key
+Entropy:     3.816403
+File:        /src/security/incidents/evidence/gitleaks-current.txt
+Line:        213
+Fingerprint: /src/security/incidents/evidence/gitleaks-current.txt:generic-api-key:213
+
+[90m10:50AM[0m [32mINF[0m [1mscanned ~22951655 bytes (22.95 MB) in 2.72s[0m
+[90m10:50AM[0m [33mWRN[0m [1mleaks found: 52[0m

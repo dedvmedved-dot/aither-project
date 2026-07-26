@@ -1,0 +1,330 @@
+============================= test session starts ==============================
+collecting ... collected 28 items
+
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Internet-https://fb1.spb.ru:443-chromium] PASSED [  3%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Internet-https://fb1.spb.ru:443-firefox] PASSED [  7%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Test Zone-http://10.129.13.78:30080-chromium] PASSED [ 10%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_a[Test Zone-http://10.129.13.78:30080-firefox] PASSED [ 14%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Internet-https://fb1.spb.ru:443-chromium] PASSED [ 17%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Internet-https://fb1.spb.ru:443-firefox] PASSED [ 21%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Test Zone-http://10.129.13.78:30080-chromium] PASSED [ 25%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_chat_model_b[Test Zone-http://10.129.13.78:30080-firefox] PASSED [ 28%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-chromium] FAILED [ 32%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-firefox] FAILED [ 35%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-chromium] FAILED [ 39%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-firefox] FAILED [ 42%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_a_creation[Internet-https://fb1.spb.ru:443] PASSED [ 46%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_a_creation[Test Zone-http://10.129.13.78:30080] PASSED [ 50%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_b_creation[Internet-https://fb1.spb.ru:443] PASSED [ 53%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_key_b_creation[Test Zone-http://10.129.13.78:30080] PASSED [ 57%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_one_time_secret PASSED [ 60%]
+tests/e2e/test_u13_complete_webui.py::TestApiKeys::test_revoke_denial PASSED [ 64%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_a[Internet-https://fb1.spb.ru:443] PASSED [ 67%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_a[Test Zone-http://10.129.13.78:30080] PASSED [ 71%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_b[Internet-https://fb1.spb.ru:443] PASSED [ 75%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_model_b[Test Zone-http://10.129.13.78:30080] PASSED [ 78%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_revoked_denial[Internet-https://fb1.spb.ru:443] PASSED [ 82%]
+tests/e2e/test_u13_complete_webui.py::TestAgent::test_agent_revoked_denial[Test Zone-http://10.129.13.78:30080] PASSED [ 85%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_agent_page_accessible[Internet-https://fb1.spb.ru:443] PASSED [ 89%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_agent_page_accessible[Test Zone-http://10.129.13.78:30080] PASSED [ 92%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_dashboard_populated[Internet-https://fb1.spb.ru:443] PASSED [ 96%]
+tests/e2e/test_u13_complete_webui.py::TestUISanity::test_dashboard_populated[Test Zone-http://10.129.13.78:30080] PASSED [100%]
+
+=================================== FAILURES ===================================
+_____ TestChat.test_model_switch[Internet-https://fb1.spb.ru:443-chromium] _____
+
+self = <test_u13_complete_webui.TestChat object at 0x72a5f251c1d0>
+bn = 'chromium', zone_name = 'Internet', target_url = 'https://fb1.spb.ru:443'
+
+    @pytest.mark.parametrize("bn", BROWSERS)
+    @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
+    def test_model_switch(self, bn, zone_name, target_url):
+        """Switch between models in chat — R7 strict contract.
+    
+        Verifies:
+        1. Exact message count increments (not just > before_count)
+        2. First response content preserved and verified
+        3. Second model payload matches selector
+        4. Response has substantive content (completed, not placeholder)
+        5. No extra hidden messages
+        """
+        with sync_playwright() as p:
+            browser = getattr(p, bn).launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1366, "height": 768})
+            page = ctx.new_page()
+    
+            login(page, target_url, BETA02_USER, BETA02_PASS)
+    
+            # ── Count baseline ──
+            before_count = page.locator(".chat-msg.assistant").count()
+    
+            # ── Send first message (MODEL_A) ──
+            chat_send(page, MODEL_A, "Hi.")
+    
+            # ── STRICT: exactly one new assistant message ──
+            after_first_count = page.locator(".chat-msg.assistant").count()
+            assert after_first_count == before_count + 1, \
+                f"Expected exactly 1 new message after first send (before={before_count}, after={after_first_count})"
+    
+            # ── Preserve first response text ──
+            first_response = page.locator(".chat-msg.assistant").last
+            first_text = first_response.inner_text().strip()
+            assert first_text, "First response is empty"
+            clean_first = first_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
+            assert clean_first, f"First response has no substantive content: {first_text[:80]}"
+    
+            # ── Switch to MODEL_B and verify selector ──
+            page.select_option("#chat-model-select", MODEL_B)
+            expect(page.locator("#chat-model-select")).to_have_value(MODEL_B)
+    
+            # ── Intercept second POST /chat request ──
+            with page.expect_request(
+                lambda request: request.method == "POST"
+                and "/chat" in request.url
+            ) as request_info:
+                page.fill("#chat-input", "Hello again.")
+                page.click("#btn-send-message")
+    
+            # ── Verify MODEL_B was sent in request body ──
+            post_data = request_info.value.post_data_json
+            assert post_data is not None, "No POST data captured"
+            request_model = post_data.get("model", "")
+            assert request_model in (MODEL_B, "qwen-32b-base"), \
+                f"Expected MODEL_B in request, got: {request_model}"
+    
+            # ── Wait for response with content ──
+            expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=180000)
+    
+            # ── Verify at least one more message appeared for second model ──
+            after_second_count = page.locator(".chat-msg.assistant").count()
+>           assert after_second_count > after_first_count, \
+                f"Expected new message after model switch (first={after_first_count}, after_second={after_second_count})"
+E           AssertionError: Expected new message after model switch (first=1, after_second=1)
+E           assert 1 > 1
+
+tests/e2e/test_u13_complete_webui.py:200: AssertionError
+_____ TestChat.test_model_switch[Internet-https://fb1.spb.ru:443-firefox] ______
+
+self = <test_u13_complete_webui.TestChat object at 0x72a5f251c690>
+bn = 'firefox', zone_name = 'Internet', target_url = 'https://fb1.spb.ru:443'
+
+    @pytest.mark.parametrize("bn", BROWSERS)
+    @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
+    def test_model_switch(self, bn, zone_name, target_url):
+        """Switch between models in chat — R7 strict contract.
+    
+        Verifies:
+        1. Exact message count increments (not just > before_count)
+        2. First response content preserved and verified
+        3. Second model payload matches selector
+        4. Response has substantive content (completed, not placeholder)
+        5. No extra hidden messages
+        """
+        with sync_playwright() as p:
+            browser = getattr(p, bn).launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1366, "height": 768})
+            page = ctx.new_page()
+    
+            login(page, target_url, BETA02_USER, BETA02_PASS)
+    
+            # ── Count baseline ──
+            before_count = page.locator(".chat-msg.assistant").count()
+    
+            # ── Send first message (MODEL_A) ──
+            chat_send(page, MODEL_A, "Hi.")
+    
+            # ── STRICT: exactly one new assistant message ──
+            after_first_count = page.locator(".chat-msg.assistant").count()
+            assert after_first_count == before_count + 1, \
+                f"Expected exactly 1 new message after first send (before={before_count}, after={after_first_count})"
+    
+            # ── Preserve first response text ──
+            first_response = page.locator(".chat-msg.assistant").last
+            first_text = first_response.inner_text().strip()
+            assert first_text, "First response is empty"
+            clean_first = first_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
+            assert clean_first, f"First response has no substantive content: {first_text[:80]}"
+    
+            # ── Switch to MODEL_B and verify selector ──
+            page.select_option("#chat-model-select", MODEL_B)
+            expect(page.locator("#chat-model-select")).to_have_value(MODEL_B)
+    
+            # ── Intercept second POST /chat request ──
+            with page.expect_request(
+                lambda request: request.method == "POST"
+                and "/chat" in request.url
+            ) as request_info:
+                page.fill("#chat-input", "Hello again.")
+                page.click("#btn-send-message")
+    
+            # ── Verify MODEL_B was sent in request body ──
+            post_data = request_info.value.post_data_json
+            assert post_data is not None, "No POST data captured"
+            request_model = post_data.get("model", "")
+            assert request_model in (MODEL_B, "qwen-32b-base"), \
+                f"Expected MODEL_B in request, got: {request_model}"
+    
+            # ── Wait for response with content ──
+            expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=180000)
+    
+            # ── Verify at least one more message appeared for second model ──
+            after_second_count = page.locator(".chat-msg.assistant").count()
+>           assert after_second_count > after_first_count, \
+                f"Expected new message after model switch (first={after_first_count}, after_second={after_second_count})"
+E           AssertionError: Expected new message after model switch (first=1, after_second=1)
+E           assert 1 > 1
+
+tests/e2e/test_u13_complete_webui.py:200: AssertionError
+___ TestChat.test_model_switch[Test Zone-http://10.129.13.78:30080-chromium] ___
+
+self = <test_u13_complete_webui.TestChat object at 0x72a5f251d290>
+bn = 'chromium', zone_name = 'Test Zone'
+target_url = 'http://10.129.13.78:30080'
+
+    @pytest.mark.parametrize("bn", BROWSERS)
+    @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
+    def test_model_switch(self, bn, zone_name, target_url):
+        """Switch between models in chat — R7 strict contract.
+    
+        Verifies:
+        1. Exact message count increments (not just > before_count)
+        2. First response content preserved and verified
+        3. Second model payload matches selector
+        4. Response has substantive content (completed, not placeholder)
+        5. No extra hidden messages
+        """
+        with sync_playwright() as p:
+            browser = getattr(p, bn).launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1366, "height": 768})
+            page = ctx.new_page()
+    
+            login(page, target_url, BETA02_USER, BETA02_PASS)
+    
+            # ── Count baseline ──
+            before_count = page.locator(".chat-msg.assistant").count()
+    
+            # ── Send first message (MODEL_A) ──
+            chat_send(page, MODEL_A, "Hi.")
+    
+            # ── STRICT: exactly one new assistant message ──
+            after_first_count = page.locator(".chat-msg.assistant").count()
+            assert after_first_count == before_count + 1, \
+                f"Expected exactly 1 new message after first send (before={before_count}, after={after_first_count})"
+    
+            # ── Preserve first response text ──
+            first_response = page.locator(".chat-msg.assistant").last
+            first_text = first_response.inner_text().strip()
+            assert first_text, "First response is empty"
+            clean_first = first_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
+            assert clean_first, f"First response has no substantive content: {first_text[:80]}"
+    
+            # ── Switch to MODEL_B and verify selector ──
+            page.select_option("#chat-model-select", MODEL_B)
+            expect(page.locator("#chat-model-select")).to_have_value(MODEL_B)
+    
+            # ── Intercept second POST /chat request ──
+            with page.expect_request(
+                lambda request: request.method == "POST"
+                and "/chat" in request.url
+            ) as request_info:
+                page.fill("#chat-input", "Hello again.")
+                page.click("#btn-send-message")
+    
+            # ── Verify MODEL_B was sent in request body ──
+            post_data = request_info.value.post_data_json
+            assert post_data is not None, "No POST data captured"
+            request_model = post_data.get("model", "")
+            assert request_model in (MODEL_B, "qwen-32b-base"), \
+                f"Expected MODEL_B in request, got: {request_model}"
+    
+            # ── Wait for response with content ──
+            expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=180000)
+    
+            # ── Verify at least one more message appeared for second model ──
+            after_second_count = page.locator(".chat-msg.assistant").count()
+>           assert after_second_count > after_first_count, \
+                f"Expected new message after model switch (first={after_first_count}, after_second={after_second_count})"
+E           AssertionError: Expected new message after model switch (first=1, after_second=1)
+E           assert 1 > 1
+
+tests/e2e/test_u13_complete_webui.py:200: AssertionError
+___ TestChat.test_model_switch[Test Zone-http://10.129.13.78:30080-firefox] ____
+
+self = <test_u13_complete_webui.TestChat object at 0x72a5f251c8d0>
+bn = 'firefox', zone_name = 'Test Zone'
+target_url = 'http://10.129.13.78:30080'
+
+    @pytest.mark.parametrize("bn", BROWSERS)
+    @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
+    def test_model_switch(self, bn, zone_name, target_url):
+        """Switch between models in chat — R7 strict contract.
+    
+        Verifies:
+        1. Exact message count increments (not just > before_count)
+        2. First response content preserved and verified
+        3. Second model payload matches selector
+        4. Response has substantive content (completed, not placeholder)
+        5. No extra hidden messages
+        """
+        with sync_playwright() as p:
+            browser = getattr(p, bn).launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1366, "height": 768})
+            page = ctx.new_page()
+    
+            login(page, target_url, BETA02_USER, BETA02_PASS)
+    
+            # ── Count baseline ──
+            before_count = page.locator(".chat-msg.assistant").count()
+    
+            # ── Send first message (MODEL_A) ──
+            chat_send(page, MODEL_A, "Hi.")
+    
+            # ── STRICT: exactly one new assistant message ──
+            after_first_count = page.locator(".chat-msg.assistant").count()
+            assert after_first_count == before_count + 1, \
+                f"Expected exactly 1 new message after first send (before={before_count}, after={after_first_count})"
+    
+            # ── Preserve first response text ──
+            first_response = page.locator(".chat-msg.assistant").last
+            first_text = first_response.inner_text().strip()
+            assert first_text, "First response is empty"
+            clean_first = first_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
+            assert clean_first, f"First response has no substantive content: {first_text[:80]}"
+    
+            # ── Switch to MODEL_B and verify selector ──
+            page.select_option("#chat-model-select", MODEL_B)
+            expect(page.locator("#chat-model-select")).to_have_value(MODEL_B)
+    
+            # ── Intercept second POST /chat request ──
+            with page.expect_request(
+                lambda request: request.method == "POST"
+                and "/chat" in request.url
+            ) as request_info:
+                page.fill("#chat-input", "Hello again.")
+                page.click("#btn-send-message")
+    
+            # ── Verify MODEL_B was sent in request body ──
+            post_data = request_info.value.post_data_json
+            assert post_data is not None, "No POST data captured"
+            request_model = post_data.get("model", "")
+            assert request_model in (MODEL_B, "qwen-32b-base"), \
+                f"Expected MODEL_B in request, got: {request_model}"
+    
+            # ── Wait for response with content ──
+            expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=180000)
+    
+            # ── Verify at least one more message appeared for second model ──
+            after_second_count = page.locator(".chat-msg.assistant").count()
+>           assert after_second_count > after_first_count, \
+                f"Expected new message after model switch (first={after_first_count}, after_second={after_second_count})"
+E           AssertionError: Expected new message after model switch (first=1, after_second=1)
+E           assert 1 > 1
+
+tests/e2e/test_u13_complete_webui.py:200: AssertionError
+- generated xml file: /root/aither-project-r7-canonical/docs/evidence/u1.3-ops-r7-r1/05-acceptance/full-wui.junit.xml -
+=========================== short test summary info ============================
+FAILED tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-chromium]
+FAILED tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-firefox]
+FAILED tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-chromium]
+FAILED tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-firefox]
+=================== 4 failed, 24 passed in 93.93s (0:01:33) ====================

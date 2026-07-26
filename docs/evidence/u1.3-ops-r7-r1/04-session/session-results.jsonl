@@ -1,0 +1,7 @@
+{
+  "pre_count": 184,
+  "redis_del": "1",
+  "redis_exists_after": "0",
+  "old_rejected": true,
+  "new_works": true
+}

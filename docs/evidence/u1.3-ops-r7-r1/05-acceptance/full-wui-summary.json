@@ -1,0 +1,11 @@
+{
+  "stage": "U1.3-OPS-R7-R1",
+  "suite": "full-wui",
+  "exit_code": 1,
+  "tests": 0,
+  "passed": 0,
+  "failed": 0,
+  "skipped": 0,
+  "xfailed": 0,
+  "status": "FAIL"
+}

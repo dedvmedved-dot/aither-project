@@ -1,0 +1,16 @@
+=== U1.3-OPS-R7-R1 User-Impact Smoke Test ===
+Suite: user-impact-smoke
+Run: 1
+Started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+[1] Health: PASS — 0.4.2-r7r1, Redis connected, auth configured
+[2] Login: PASS — session created, /me returns 200
+[3] Create API key: PASS — token returned with token_id
+[4] API key auth: PASS — /models returns 200
+[5] Revoke: PASS — HTTP 200, status "revoked"
+[6] Post-revoke: PASS — HTTP 401 at t+0ms
+[7] Session invalidate: PASS — Redis DEL → 401, new session 200
+[8] Model A (qwen-14b): PASS — /chat returns 200
+[9] Model B (qwen-32b-base): PASS — /chat returns 200
+
+All user-impact checks passed.

@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "replica": "replica-1-n8",
+      "pod": "aither-bff-5fb8dddf6f-kdr9n",
+      "token_id": "ec6636ad1dca",
+      "secret_sha256": "274c22f416cd1f2b54fee7878063a8981f19a7604119250d62a4efd705f8ba68",
+      "pre_revoke": 200,
+      "revoke": 200,
+      "post_revoke_statuses": [
+        401,
+        401,
+        401,
+        401
+      ],
+      "all_pass": true,
+      "timestamp": "2026-07-26T10:46:50.139509Z"
+    },
+    {
+      "replica": "replica-2-n7",
+      "pod": "aither-bff-5fb8dddf6f-pbkf6",
+      "token_id": "595ba58ba1fb",
+      "secret_sha256": "7bf17bca6b9524c4522a7c43ff60938f4da931d61647f9925b6b90efd92ebcd3",
+      "pre_revoke": 200,
+      "revoke": 200,
+      "post_revoke_statuses": [
+        401,
+        401,
+        401,
+        401
+      ],
+      "all_pass": true,
+      "timestamp": "2026-07-26T10:47:01.928263Z"
+    }
+  ],
+  "cross_replica_statuses": [
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401
+  ],
+  "all_cross_pass": true,
+  "timestamp": "2026-07-26T10:47:03.913706Z"
+}

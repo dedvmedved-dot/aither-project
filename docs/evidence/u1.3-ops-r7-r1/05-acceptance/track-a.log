@@ -1,0 +1,5 @@
+============================= test session starts ==============================
+collecting ... collected 10 items
+
+tests/e2e/test_r3_identities.py::TestBETA01::test_full_scenario[Internet-https://fb1.spb.ru:443-chromium] PASSED [ 10%]
+tests/e2e/test_r3_identities.py::TestBETA01::test_full_scenario[Internet-https://fb1.spb.ru:443-firefox] 
