@@ -67,57 +67,112 @@ def thsk(): return f"{TNS}:all"
 def ua(m): return B32T if m==M32 else B14T
 
 # ═══════════════════════════════════════════════════════════════════
-# R7 FIX: load_tm with optimistic locking to prevent revoke undo
+# R7-R1 FIX: load_tm — fail-closed, no fallback, atomic Lua
 # ═══════════════════════════════════════════════════════════════════
+#
+# Design:
+#   - Lua script atomically checks revoked AND updates last_used_at
+#   - If Lua fails (Redis error, script not loaded, etc.) → fail-closed
+#   - NO fallback: fallback would re-create the read-modify-write race
+#   - Distinguishes: revoked/unknown token (401) vs Redis error (503)
+#
 LOAD_TM_LUA = """
 local key = KEYS[1]
 local now = ARGV[1]
 local val = redis.call('GET', key)
 if not val then return nil end
 local meta = cjson.decode(val)
--- If revoked, auth denied regardless of anything else
-if meta['revoked'] == true then return nil end
+-- If revoked, auth denied
+if meta['revoked'] == true then
+    return cjson.encode({revoked=true})
+end
 -- Update last_used_at atomically without touching revoked
 meta['last_used_at'] = now
 redis.call('SET', key, cjson.encode(meta))
 return cjson.encode(meta)
 """
 
+# Pod identity for diagnostics (K8s sets HOSTNAME to pod name)
+POD_NAME = os.environ.get("HOSTNAME", "unknown")
+
+_load_tm_script_sha = None  # cached SHA for EVALSHA
+
 async def load_tm(th):
-    """Load token metadata with atomic last_used_at update (R7 fix).
+    """Load token metadata — fail-closed, no unsafe fallback (R7-R1).
     
-    Uses Redis Lua script to ensure:
-    1. Revoked check and last_used_at update are atomic
-    2. A concurrent revoke SET cannot be overwritten by this read
+    Returns:
+        dict token metadata  — token is active (auth success)
+        None                 — token revoked or not found (auth denied, HTTP 401)
+    
+    Raises:
+        TokenAuthDependencyError — Redis/Lua internal failure (HTTP 503)
     """
     if not ravail:
-        return None
+        raise TokenAuthDependencyError("Redis unavailable")
+    
+    key = tmk(th)
+    now = datetime.now(timezone.utc).isoformat()
+    hash_prefix = th[:12] if th else "none"
+    
     try:
-        key = tmk(th)
-        now = datetime.now(timezone.utc).isoformat()
+        global _load_tm_script_sha
         
-        # Try Lua script first (atomic read-check-update)
-        try:
+        # Use EVALSHA for efficiency, fall back to EVAL if not cached
+        if _load_tm_script_sha:
+            try:
+                result = await rcli.evalsha(_load_tm_script_sha, 1, key, now)
+            except ra.exceptions.NoScriptError:
+                _load_tm_script_sha = None
+                result = await rcli.eval(LOAD_TM_LUA, 1, key, now)
+        else:
             result = await rcli.eval(LOAD_TM_LUA, 1, key, now)
-            if result:
-                return json.loads(result)
-        except redis.exceptions.NoScriptError:
-            pass  # Fall through to simple check
         
-        # Fallback: simple read-only check (no write-back)
-        d = await rcli.get(key)
-        if not d:
+        if not result:
+            # Token not found
             return None
-        m = json.loads(d)
-        if m.get("revoked", False):
+        
+        meta = json.loads(result)
+        
+        # Check if Lua returned the revoked sentinel
+        if meta.get("revoked") is True and "token_id" not in meta:
+            # This is the revoked sentinel — auth denied
             return None
-        # Update last_used_at via simple SET (best-effort)
-        m["last_used_at"] = now
-        await rcli.set(key, json.dumps(m))
-        return m
+        
+        # Cache script SHA for next call
+        if not _load_tm_script_sha:
+            try:
+                _load_tm_script_sha = await rcli.script_load(LOAD_TM_LUA)
+            except Exception:
+                pass  # Non-critical — will use EVAL next time
+        
+        return meta
+        
+    except ra.exceptions.ResponseError as e:
+        # Lua script error (e.g. syntax, runtime) — internal failure
+        log.error("load_tm Lua error hash=%s pod=%s: %s", hash_prefix, POD_NAME, e)
+        raise TokenAuthDependencyError("Internal auth service error") from e
+        
+    except ra.exceptions.ConnectionError as e:
+        log.error("load_tm Redis connection error hash=%s pod=%s: %s", hash_prefix, POD_NAME, e)
+        raise TokenAuthDependencyError("Auth service unavailable") from e
+        
+    except (ra.exceptions.TimeoutError, TimeoutError) as e:
+        log.error("load_tm Redis timeout hash=%s pod=%s: %s", hash_prefix, POD_NAME, e)
+        raise TokenAuthDependencyError("Auth service timeout") from e
+        
+    except TokenAuthDependencyError:
+        raise  # Re-raise without wrapping
+        
     except Exception as e:
-        log.warning("load_tm error for hash=%s: %s", th[:16] if th else "none", e)
-        return None
+        log.error("load_tm unexpected error hash=%s pod=%s type=%s: %s",
+                  hash_prefix, POD_NAME, type(e).__name__, e)
+        raise TokenAuthDependencyError("Internal auth error") from e
+
+
+class TokenAuthDependencyError(Exception):
+    """Raised when Redis/Lua internal failure prevents auth decision.
+    Caught by auth middleware to return HTTP 503."""
+    pass
 
 async def auth_req(req):
     sid=req.cookies.get("session_id","")
@@ -165,7 +220,7 @@ async def lifespan(app):
     if rcli: await rcli.aclose()
     await cli.aclose()
 
-app=FastAPI(title="Aither BFF",version="0.4.1-r7",lifespan=lifespan)
+app=FastAPI(title="Aither BFF",version="0.4.2-r7r1",lifespan=lifespan)
 class CTReq(BaseModel): name:str=""; scopes:list=["model:14b:chat","model:32b:completion"]; expires_at:str=""
 AEP={"/api/v1/models":{"GET"},"/api/v1/chat":{"POST"},"/api/v1/completions":{"POST"},"/api/v1/tokens":{"GET","POST"}}
 
@@ -174,14 +229,17 @@ async def amw(req:Request,call_next):
     p=req.url.path;m=req.method
     if p=="/health" or p.startswith("/api/v1/auth/"): return await call_next(req)
     if p in AEP and m in AEP[p]:
-        ok,sc=await auth_req(req)
+        try:
+            ok,sc=await auth_req(req)
+        except TokenAuthDependencyError as e:
+            return JSONResponse(status_code=503,content={"error":"Auth service temporarily unavailable","detail":str(e)})
         if not ok: return JSONResponse(status_code=401,content={"error":sc})
         req.state.auth_ok=ok;req.state.auth_scope=sc
     return await call_next(req)
 
 @app.get("/health")
 async def health():
-    return {"status":"ok","version":"0.4.1-r7","rate_limit":"enabled" if RL_EN else "disabled",
+    return {"status":"ok","version":"0.4.2-r7r1","rate_limit":"enabled" if RL_EN else "disabled",
             "redis":"connected" if ravail else "unavailable","auth":"configured" if not vc() else "partial"}
 
 @app.post("/api/v1/auth/login")
