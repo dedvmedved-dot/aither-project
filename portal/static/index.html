@@ -262,9 +262,46 @@ code {
         </div>
         <button type="submit" class="btn btn-primary btn-block" id="login-submit">Войти</button>
       </form>
+      <div style="text-align:center;margin-top:12px;">
+        <button class="btn btn-outline btn-block" id="btn-show-register" style="width:100%;">📝 Регистрация</button>
+      </div>
       <div class="auth-footer">
         <p class="text-muted">Версия 2.0 — CB-WEBUI-01</p>
-        <p class="text-muted" style="margin-top:4px;">Требуется учётная запись. Обратитесь к администратору.</p>
+        <p class="text-muted" style="margin-top:4px;">Требуется учётная запись или приглашение.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registration Page -->
+  <div class="page" id="page-register" style="display:none;">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>📝 Регистрация</h1>
+        <p class="text-muted">Создать учётную запись</p>
+      </div>
+      <div class="alert alert-danger" id="register-error" style="display:none;"></div>
+      <div class="alert alert-success" id="register-success" style="display:none;"></div>
+      <form id="register-form">
+        <div class="form-group">
+          <label for="reg-username">Имя пользователя</label>
+          <input type="text" id="reg-username" class="form-input" required autocomplete="username" minlength="3" maxlength="64">
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Пароль (мин. 12 символов)</label>
+          <input type="password" id="reg-password" class="form-input" required minlength="12" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label for="reg-password-confirm">Повторите пароль</label>
+          <input type="password" id="reg-password-confirm" class="form-input" required minlength="12" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label for="reg-invite">Код приглашения</label>
+          <input type="text" id="reg-invite" class="form-input" required placeholder="Одноразовый invite-код">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="register-submit">Создать аккаунт</button>
+      </form>
+      <div style="text-align:center;margin-top:12px;">
+        <button class="btn btn-outline btn-block" id="btn-show-login" style="width:100%;">← Вернуться ко входу</button>
       </div>
     </div>
   </div>
@@ -1084,10 +1121,86 @@ code {
         return false;
     }
 
+    // ── Registration ──────────────────────────────────────────
+    function showRegisterPage() {
+        $('page-login').classList.remove('active');
+        $('page-register').style.display = 'block';
+        hideAlert('register-error');
+        hideAlert('register-success');
+    }
+
+    function showLoginPage() {
+        $('page-register').style.display = 'none';
+        $('page-login').classList.add('active');
+    }
+
+    async function handleRegister(e) {
+        e.preventDefault();
+        hideAlert('register-error');
+        hideAlert('register-success');
+        const username = $('reg-username').value.trim();
+        const password = $('reg-password').value;
+        const passwordConf = $('reg-password-confirm').value;
+        const invite = $('reg-invite').value.trim();
+
+        if (!username || !password || !passwordConf || !invite) {
+            showAlert('register-error', 'Все поля обязательны', 'danger');
+            return;
+        }
+        if (password !== passwordConf) {
+            showAlert('register-error', 'Пароли не совпадают', 'danger');
+            return;
+        }
+        if (password.length < 12) {
+            showAlert('register-error', 'Пароль должен быть не менее 12 символов', 'danger');
+            return;
+        }
+
+        setLoading(true);
+        $('register-submit').disabled = true;
+        try {
+            const res = await api('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username, password,
+                    password_confirmation: passwordConf,
+                    invite_code: invite
+                }),
+            });
+            if (res.ok && res.data) {
+                authToken = res.data.session_id || 'session';
+                currentUser = res.data.user || { username, role: 'registered_user' };
+                localStorage.setItem('aither_token', authToken);
+                updateNav();
+                showAlert('register-success', '✅ Аккаунт создан! Перенаправление...', 'success');
+                setTimeout(() => {
+                    $('page-register').style.display = 'none';
+                    showPage('dashboard');
+                    loadDashboardInfo();
+                }, 1000);
+                $('reg-username').value = '';
+                $('reg-password').value = '';
+                $('reg-password-confirm').value = '';
+                $('reg-invite').value = '';
+            } else {
+                const msg = res.data?.detail || res.data?.error || 'Ошибка регистрации';
+                showAlert('register-error', msg, 'danger');
+            }
+        } catch {
+            showAlert('register-error', 'Ошибка сети. Проверьте подключение.', 'danger');
+        } finally {
+            setLoading(false);
+            $('register-submit').disabled = false;
+        }
+    }
+
     // ── Init ──────────────────────────────────────────────────
     function init() {
         updateNav();
         $('login-form')?.addEventListener('submit', handleLogin);
+        $('register-form')?.addEventListener('submit', handleRegister);
+        $('btn-show-register')?.addEventListener('click', showRegisterPage);
+        $('btn-show-login')?.addEventListener('click', showLoginPage);
         $('btn-logout')?.addEventListener('click', handleLogout);
         $('btn-create-apikey')?.addEventListener('click', showCreateTokenModal);
         $('btn-send-message')?.addEventListener('click', sendChatMessage);

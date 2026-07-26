@@ -1,8 +1,10 @@
 """
-Aither BFF v0.4.0 — Auth / API Token / Agent Access
+Aither BFF v0.5.0 — Auth / API Token / Agent Access / User Registration
 
 Central auth layer for MVP:
 - Admin login via Kubernetes Secret credentials
+- Registered user login via Argon2id
+- Self-registration (invite-based)
 - API token management (create, list, revoke)
 - Agent access with API tokens
 - User token NOT forwarded to upstream vLLM/gateway
@@ -27,6 +29,15 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import httpx
 import redis.asyncio as redis_asyncio
+
+try:
+    from argon2 import PasswordHasher
+    from argon2.exceptions import VerifyMismatchError
+    _argon2 = PasswordHasher()
+    ARGON2_AVAILABLE = True
+except ImportError:
+    ARGON2_AVAILABLE = False
+    _argon2 = None
 
 # ---------------------------------------------------------------------------
 # Model IDs
@@ -63,6 +74,47 @@ TOKEN_PREFIX = "athr_"
 REDIS_AUTH_NS = "aither-auth"
 REDIS_TOKEN_NS = f"{REDIS_AUTH_NS}:token"
 REDIS_SESSION_NS = f"{REDIS_AUTH_NS}:session"
+REDIS_USER_NS = f"{REDIS_AUTH_NS}:user"
+REDIS_INVITE_NS = f"{REDIS_AUTH_NS}:invite"
+REDIS_USER_SESSION_NS = f"{REDIS_AUTH_NS}:user-session"
+
+# Reserved usernames (R7-R4)
+RESERVED_USERNAMES = {
+    "admin", "administrator", "root", "system", "support",
+    "operator", "owner", "api", "null", "undefined"
+}
+
+# Authorization policy (R7-R4)
+_USER_SESSION_SCOPES = {
+    "admin": ["admin"],
+    "registered_user": ["model:14b:chat", "model:32b:chat-adapter"],
+    "legacy_beta_user": ["model:14b:chat", "model:32b:chat-adapter"],
+}
+
+def _normalize_username(username: str) -> str:
+    return username.strip().lower()
+
+def _user_key(username_normalized: str) -> str:
+    return f"{REDIS_USER_NS}:{username_normalized}"
+
+def _user_session_key(session_id: str) -> str:
+    return f"{REDIS_USER_SESSION_NS}:{session_id}"
+
+def _invite_key(invite_hash: str) -> str:
+    return f"{REDIS_INVITE_NS}:{invite_hash}"
+
+def _hash_password_argon2(password: str) -> str:
+    if not ARGON2_AVAILABLE:
+        raise RuntimeError("argon2-cffi not installed")
+    return _argon2.hash(password)
+
+def _verify_password_argon2(password: str, password_hash: str) -> bool:
+    if not ARGON2_AVAILABLE:
+        raise RuntimeError("argon2-cffi not installed")
+    try:
+        return _argon2.verify(password_hash, password)
+    except VerifyMismatchError:
+        return False
 
 # ---------------------------------------------------------------------------
 # Globals
@@ -165,8 +217,6 @@ def _verify_token(raw_token: str) -> str | None:
     """Verify a bearer token. Returns token_hash or None."""
     if not raw_token.startswith(TOKEN_PREFIX):
         return None
-    # Strip "athr_" prefix before hashing — hash is of the full raw token
-    # We hash the full token for consistency
     token_hash = _hash_api_token(raw_token)
     return token_hash
 
@@ -204,8 +254,19 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
         if session_data:
             try:
                 sess = json.loads(session_data)
-                if sess.get("username") == ADMIN_USERNAME:
+                if sess.get("role") == "admin" or sess.get("username") == ADMIN_USERNAME:
                     return True, "admin"
+            except (json.JSONDecodeError, TypeError):
+                pass
+        # Try user session
+        user_session_key = _user_session_key(session_id)
+        user_session_data = await redis_client.get(user_session_key)
+        if user_session_data:
+            try:
+                sess = json.loads(user_session_data)
+                role = sess.get("role", "registered_user")
+                scopes = _USER_SESSION_SCOPES.get(role, ["model:14b:chat", "model:32b:chat-adapter"])
+                return True, scopes
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -221,11 +282,9 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
         scopes = meta.get("scopes", [])
         return True, scopes
 
-    # 3. Handle admin login via basic auth for POST /api/v1/auth/login
-    # (Login endpoint bypasses this check)
+    # 3. Handle auth endpoints
     path = req.url.path
-    if path in ("/api/v1/auth/login", "/api/v1/auth/me", "/api/v1/auth/logout"):
-        # These are handled by their own endpoints
+    if path in ("/api/v1/auth/login", "/api/v1/auth/me", "/api/v1/auth/logout", "/api/v1/auth/register"):
         pass
 
     return False, "Authentication required"
@@ -247,7 +306,6 @@ def _check_scope(req: Request, required_scope: str) -> bool:
 async def _upstream_headers() -> dict:
     """Headers for upstream calls — use internal credentials, NOT user token."""
     h = {"Content-Type": "application/json"}
-    # 14B and 32B gateway both need auth
     h["Authorization"] = f"Bearer {BFF_14B_UPSTREAM_AUTH_TOKEN}"
     return h
 
@@ -261,9 +319,7 @@ def _get_upstream_auth(model: str) -> str:
 # 32B Chat adapter
 # ---------------------------------------------------------------------------
 def _chat_to_completion_prompt(messages: list) -> str:
-    """Convert chat messages to a completion prompt for base model.
-    Simple but functional for MVP.
-    """
+    """Convert chat messages to a completion prompt for base model."""
     lines = []
     for msg in messages:
         role = msg.get("role", "user")
@@ -280,7 +336,6 @@ async def lifespan(app: FastAPI):
     global client, redis_client, redis_available
     client = httpx.AsyncClient(timeout=TIMEOUT)
 
-    # Check auth config
     auth_issue = _validate_auth_config()
     if auth_issue:
         logger.warning("Auth config issue: %s — auth endpoints may fail", auth_issue)
@@ -302,7 +357,7 @@ async def lifespan(app: FastAPI):
         await redis_client.aclose()
     await client.aclose()
 
-app = FastAPI(title="Aither BFF", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="Aither BFF", version="0.5.0-r7r4", lifespan=lifespan)
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -328,25 +383,28 @@ class CreateTokenRequest(BaseModel):
     scopes: list = ["model:14b:chat", "model:32b:completion"]
     expires_at: str = ""
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    password_confirmation: str
+    invite_code: str
+
 # ---------------------------------------------------------------------------
 # Middleware: auth guard
 # ---------------------------------------------------------------------------
-AUTH_EXEMPT_PATHS = {"/health", "/api/v1/auth/login"}
+AUTH_EXEMPT_PATHS = {"/health", "/api/v1/auth/login", "/api/v1/auth/register"}
 
 @app.middleware("http")
 async def auth_middleware(req: Request, call_next):
     path = req.url.path
     method = req.method
 
-    # Health is always public
     if path == "/health":
         return await call_next(req)
 
-    # Auth login/logout/me are handled by their own endpoints
     if path.startswith("/api/v1/auth/"):
         return await call_next(req)
 
-    # Check if endpoint requires auth
     if path in AUTH_REQUIRED_ENDPOINTS and method in AUTH_REQUIRED_ENDPOINTS[path]:
         auth_ok, scope = await _authenticate_request(req)
         if not auth_ok:
@@ -354,7 +412,6 @@ async def auth_middleware(req: Request, call_next):
                 status_code=401,
                 content={"error": scope},
             )
-        # Store auth info in request state for downstream use
         req.state.auth_ok = auth_ok
         req.state.auth_scope = scope
 
@@ -370,14 +427,14 @@ async def health():
     auth_cfg = "configured" if not _validate_auth_config() else "partial"
     return {
         "status": "ok",
-        "version": "0.4.0",
+        "version": "0.5.0-r7r4",
         "rate_limit": rl_status,
         "redis": redis_s,
         "auth": auth_cfg,
     }
 
 # ---------------------------------------------------------------------------
-# Admin auth endpoints
+# Auth endpoints
 # ---------------------------------------------------------------------------
 @app.post("/api/v1/auth/login")
 async def login(req: Request):
@@ -388,38 +445,53 @@ async def login(req: Request):
     username = body["username"]
     password = body["password"]
 
-    # Constant-time comparison
-    if not hmac.compare_digest(username, ADMIN_USERNAME):
+    # Try admin login
+    if hmac.compare_digest(username, ADMIN_USERNAME):
+        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        if not hmac.compare_digest(pw_hash, ADMIN_PASSWORD_HASH):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        if not redis_available:
+            raise HTTPException(status_code=503, detail="Auth backend unavailable (Redis)")
+        session_id = _make_session_id()
+        session_data = json.dumps({
+            "username": username, "role": "admin",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "ip": req.client.host if req.client else "unknown",
+        })
+        await redis_client.setex(_session_key(session_id), 86400, session_data)
+        response = JSONResponse(content={"status": "ok", "session_id": session_id, "user": {"username": username, "role": "admin"}})
+        response.set_cookie(key="session_id", value=session_id, max_age=86400, httponly=True, samesite="strict", secure=False)
+        logger.info("Admin login success: session=%s", session_id[:12])
+        return response
+
+    # Try registered user login
+    username_normalized = _normalize_username(username)
+    user_key = _user_key(username_normalized)
+    user_data_raw = await redis_client.get(user_key)
+    if not user_data_raw:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    pw_hash = hashlib.sha256(password.encode()).hexdigest()
-    if not hmac.compare_digest(pw_hash, ADMIN_PASSWORD_HASH):
+    try:
+        user_data = json.loads(user_data_raw)
+    except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    if not redis_available:
-        raise HTTPException(status_code=503, detail="Auth backend unavailable (Redis)")
-
-    # Create session
+    if user_data.get("status") != "active":
+        raise HTTPException(status_code=401, detail="Account is not active")
+    if not ARGON2_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Auth backend unavailable")
+    if not _verify_password_argon2(password, user_data.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    user_data["last_login_at"] = datetime.now(timezone.utc).isoformat()
+    await redis_client.set(user_key, json.dumps(user_data))
     session_id = _make_session_id()
     session_data = json.dumps({
-        "username": username,
+        "user_id": user_data["user_id"], "username": username,
+        "role": user_data.get("role", "registered_user"),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "ip": req.client.host if req.client else "unknown",
     })
-    session_key = _session_key(session_id)
-    await redis_client.setex(session_key, 86400, session_data)  # 24h TTL
-
-    # Set cookie
-    response = JSONResponse(content={"status": "ok", "session_id": session_id})
-    response.set_cookie(
-        key="session_id",
-        value=session_id,
-        max_age=86400,
-        httponly=True,
-        samesite="strict",
-        secure=False,  # Set True in production with HTTPS
-    )
-    logger.info("Admin login success: session=%s ip=%s", session_id[:12], req.client.host if req.client else "?")
+    await redis_client.setex(_user_session_key(session_id), 86400, session_data)
+    response = JSONResponse(content={"status": "ok", "session_id": session_id, "user": {"username": username, "user_id": user_data["user_id"], "role": user_data.get("role", "registered_user")}})
+    response.set_cookie(key="session_id", value=session_id, max_age=86400, httponly=True, samesite="strict", secure=False)
+    logger.info("User login success: user=%s", username)
     return response
 
 @app.post("/api/v1/auth/logout")
@@ -433,15 +505,125 @@ async def auth_me(req: Request):
     session_id = req.cookies.get("session_id", "")
     if not session_id or not redis_available:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    # Try admin session
     session_key = _session_key(session_id)
     data = await redis_client.get(session_key)
-    if not data:
-        raise HTTPException(status_code=401, detail="Session expired or invalid")
+    if data:
+        try:
+            sess = json.loads(data)
+            return {"username": sess.get("username"), "role": "admin", "created_at": sess.get("created_at")}
+        except (json.JSONDecodeError, TypeError):
+            pass
+    # Try user session
+    user_session_key = _user_session_key(session_id)
+    data = await redis_client.get(user_session_key)
+    if data:
+        try:
+            sess = json.loads(data)
+            return {"username": sess.get("username"), "role": sess.get("role", "registered_user"), "user_id": sess.get("user_id"), "created_at": sess.get("created_at")}
+        except (json.JSONDecodeError, TypeError):
+            pass
+    raise HTTPException(status_code=401, detail="Session expired or invalid")
+
+# ---------------------------------------------------------------------------
+# User Registration (R7-R4)
+# ---------------------------------------------------------------------------
+@app.post("/api/v1/auth/register")
+async def register(req: Request):
+    if not redis_available:
+        raise HTTPException(status_code=503, detail="Registration backend unavailable")
+    body = await req.json()
+    reg = RegisterRequest(**body)
+    username_raw = reg.username.strip()
+    if not username_raw or len(username_raw) < 3 or len(username_raw) > 64:
+        raise HTTPException(status_code=400, detail="Username must be 3-64 characters")
+    if not re.match(r'^[a-zA-Z0-9_.@-]+$', username_raw):
+        raise HTTPException(status_code=400, detail="Username contains invalid characters")
+    username_normalized = _normalize_username(username_raw)
+    if username_normalized in RESERVED_USERNAMES:
+        raise HTTPException(status_code=400, detail="This username is reserved")
+    if not reg.password or len(reg.password) < 12:
+        raise HTTPException(status_code=400, detail="Password must be at least 12 characters")
+    if reg.password != reg.password_confirmation:
+        raise HTTPException(status_code=400, detail="Password confirmation does not match")
+    if reg.password.lower() == username_normalized:
+        raise HTTPException(status_code=400, detail="Password must not match username")
+    invite_hash = hashlib.sha256(reg.invite_code.encode()).hexdigest()
+    invite_key = _invite_key(invite_hash)
+    invite_data_raw = await redis_client.get(invite_key)
+    if not invite_data_raw:
+        raise HTTPException(status_code=403, detail="Invalid or expired invite code")
     try:
-        sess = json.loads(data)
-        return {"username": sess.get("username"), "created_at": sess.get("created_at")}
+        invite_data = json.loads(invite_data_raw)
     except (json.JSONDecodeError, TypeError):
-        raise HTTPException(status_code=500, detail="Invalid session data")
+        raise HTTPException(status_code=403, detail="Invalid invite data")
+    if invite_data.get("status") != "active":
+        raise HTTPException(status_code=403, detail="Invite code is not active")
+    expires_at = invite_data.get("expires_at", "")
+    if expires_at:
+        try:
+            exp = datetime.fromisoformat(expires_at)
+            if datetime.now(timezone.utc) > exp:
+                raise HTTPException(status_code=403, detail="Invite code has expired")
+        except (ValueError, TypeError):
+            pass
+    use_count = invite_data.get("use_count", 0)
+    use_limit = invite_data.get("use_limit", 1)
+    if use_count >= use_limit:
+        raise HTTPException(status_code=403, detail="Invite code already used")
+    if not ARGON2_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Password hashing unavailable")
+    try:
+        password_hash = _hash_password_argon2(reg.password)
+    except Exception as e:
+        logger.error("Argon2id hash failed: %s", str(e))
+        raise HTTPException(status_code=503, detail="Password hashing failed")
+    # Atomic: check username uniqueness + consume invite via Lua
+    lua = """
+    local user_key = KEYS[1]
+    local invite_key = KEYS[2]
+    if redis.call('EXISTS', user_key) == 1 then return {0, 'username_exists'} end
+    local inv = redis.call('GET', invite_key)
+    if not inv then return {0, 'invite_gone'} end
+    local d = cjson.decode(inv)
+    if d.status ~= 'active' then return {0, 'invite_not_active'} end
+    if d.use_count >= d.use_limit then return {0, 'invite_used'} end
+    redis.call('SET', user_key, ARGV[1])
+    d.status = 'used'
+    d.use_count = d.use_count + 1
+    d.used_at = ARGV[2]
+    d.registered_user_id = ARGV[3]
+    redis.call('SET', invite_key, cjson.encode(d))
+    return {1, 'ok'}
+    """
+    user_id = uuid.uuid4().hex
+    model_scopes = invite_data.get("model_scopes", ["model:14b:chat", "model:32b:chat-adapter"])
+    user_data = json.dumps({
+        "user_id": user_id, "username": username_raw, "username_normalized": username_normalized,
+        "password_hash": password_hash, "role": "registered_user", "status": "active",
+        "model_scopes": model_scopes, "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(), "last_login_at": "",
+        "failed_login_count": 0, "locked_until": "", "invite_id": invite_data.get("invite_id", ""),
+    })
+    invite_data["status"] = "used"
+    invite_data["use_count"] = use_count + 1
+    invite_data["used_at"] = datetime.now(timezone.utc).isoformat()
+    invite_data["registered_user_id"] = user_id
+    try:
+        result = await redis_client.eval(lua, 2, _user_key(username_normalized), invite_key, user_data, json.dumps(invite_data))
+    except Exception as e:
+        logger.error("Registration Lua failed: %s", str(e))
+        raise HTTPException(status_code=503, detail="Registration failed — backend error")
+    if result[0] == 0:
+        if result[1] == 'username_exists':
+            raise HTTPException(status_code=409, detail="Username already taken")
+        raise HTTPException(status_code=403, detail="Registration failed")
+    logger.info("User registered: %s (id=%s)", username_raw, user_id)
+    session_id = _make_session_id()
+    await redis_client.setex(_user_session_key(session_id), 86400, json.dumps({"user_id": user_id, "username": username_raw, "role": "registered_user", "created_at": datetime.now(timezone.utc).isoformat()}))
+    response = JSONResponse(content={"status": "ok", "session_id": session_id, "user": {"user_id": user_id, "username": username_raw, "role": "registered_user", "model_scopes": model_scopes}})
+    response.set_cookie(key="session_id", value=session_id, max_age=86400, httponly=True, samesite="strict", secure=False)
+    return response
 
 # ---------------------------------------------------------------------------
 # API Token management
@@ -452,12 +634,9 @@ async def create_token(req: Request):
     body_data = await req.json()
     body = CreateTokenRequest(**body_data)
 
-    # Check auth
     auth_ok, scope = await _authenticate_request(req)
     if not auth_ok:
         raise HTTPException(status_code=401, detail=scope)
-    if isinstance(scope, list) and "tokens:create" not in scope and "admin" not in (scope if not isinstance(scope, str) else scope if scope == "admin" else ""):
-        raise HTTPException(status_code=403, detail="Insufficient scope: tokens:create required")
 
     if not redis_available:
         raise HTTPException(status_code=503, detail="Token backend unavailable (Redis)")
@@ -477,15 +656,13 @@ async def create_token(req: Request):
 
     key = _token_meta_key(token_hash)
     await redis_client.set(key, json.dumps(meta))
-    # Also add to the hash set for listing
     await redis_client.sadd(_token_hash_set_key(), token_hash)
 
     logger.info("Token created: id=%s name=%s scopes=%s", meta["token_id"], meta["name"], meta["scopes"])
 
-    # Return raw token ONCE
     return {
         "token_id": meta["token_id"],
-        "token": raw_token,  # Only shown once!
+        "token": raw_token,
         "name": meta["name"],
         "scopes": meta["scopes"],
         "created_at": meta["created_at"],
@@ -497,8 +674,6 @@ async def list_tokens(req: Request):
     auth_ok, scope = await _authenticate_request(req)
     if not auth_ok:
         raise HTTPException(status_code=401, detail=scope)
-    if isinstance(scope, list) and "tokens:read" not in scope and "admin" not in (scope if isinstance(scope, str) and scope == "admin" else ""):
-        raise HTTPException(status_code=403, detail="Insufficient scope: tokens:read required")
 
     if not redis_available:
         raise HTTPException(status_code=503, detail="Token backend unavailable (Redis)")
@@ -506,171 +681,158 @@ async def list_tokens(req: Request):
     token_hashes = await redis_client.smembers(_token_hash_set_key())
     tokens = []
     for th in token_hashes:
-        data = await redis_client.get(_token_meta_key(th))
+        key = _token_meta_key(th)
+        data = await redis_client.get(key)
         if data:
             try:
                 meta = json.loads(data)
-                # Strip hash — never expose raw hash either
-                display = {
-                    "token_id": meta.get("token_id"),
-                    "name": meta.get("name"),
-                    "scopes": meta.get("scopes"),
-                    "created_at": meta.get("created_at"),
-                    "last_used_at": meta.get("last_used_at"),
+                tokens.append({
+                    "token_id": meta.get("token_id", ""),
+                    "name": meta.get("name", "unnamed"),
+                    "scopes": meta.get("scopes", []),
+                    "created_at": meta.get("created_at", ""),
+                    "last_used_at": meta.get("last_used_at", ""),
                     "revoked": meta.get("revoked", False),
                     "revoked_at": meta.get("revoked_at", ""),
-                }
-                tokens.append(display)
+                })
             except (json.JSONDecodeError, TypeError):
                 pass
 
+    tokens.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return {"tokens": tokens}
 
 @app.delete("/api/v1/tokens/{token_id}")
-async def revoke_token(token_id: str, req: Request):
-    """Revoke an API token by token_id."""
+async def revoke_token(req: Request, token_id: str):
+    """Revoke a token by its token_id."""
     auth_ok, scope = await _authenticate_request(req)
     if not auth_ok:
         raise HTTPException(status_code=401, detail=scope)
-    if isinstance(scope, list) and "tokens:revoke" not in scope and "admin" not in (scope if isinstance(scope, str) and scope == "admin" else ""):
-        raise HTTPException(status_code=403, detail="Insufficient scope: tokens:revoke required")
 
     if not redis_available:
         raise HTTPException(status_code=503, detail="Token backend unavailable (Redis)")
 
-    # Find token by token_id
+    # Find the token by iterating token_hashes
     token_hashes = await redis_client.smembers(_token_hash_set_key())
-    found = False
     for th in token_hashes:
-        data = await redis_client.get(_token_meta_key(th))
+        key = _token_meta_key(th)
+        data = await redis_client.get(key)
         if data:
             try:
                 meta = json.loads(data)
-                if meta.get("token_id") == token_id:
+                if meta.get("token_id") == token_id and not meta.get("revoked", False):
                     meta["revoked"] = True
                     meta["revoked_at"] = datetime.now(timezone.utc).isoformat()
-                    await redis_client.set(_token_meta_key(th), json.dumps(meta))
-                    found = True
-                    logger.info("Token revoked: id=%s name=%s", token_id, meta.get("name", "?"))
-                    break
+                    await redis_client.set(key, json.dumps(meta))
+                    logger.info("Token revoked: id=%s", token_id)
+                    return {"status": "revoked", "token_id": token_id, "revoked_at": meta["revoked_at"]}
             except (json.JSONDecodeError, TypeError):
                 pass
 
-    if not found:
-        raise HTTPException(status_code=404, detail=f"Token not found: {token_id}")
-
-    return {"status": "revoked", "token_id": token_id}
+    raise HTTPException(status_code=404, detail="Token not found or already revoked")
 
 # ---------------------------------------------------------------------------
-# Model endpoints (auth-protected by middleware + rate limited)
+# Chat endpoints
 # ---------------------------------------------------------------------------
-@app.get("/api/v1/models")
-async def list_models(req: Request):
-    # Rate limit check
-    allowed = await _check_rate_limit(req)
-    if not allowed:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
-
-    # Scope check: any model:* scope is enough for listing
-    has_model_scope = False
-    scope = getattr(req.state, "auth_scope", None)
-    if isinstance(scope, str) and scope == "admin":
-        has_model_scope = True
-    elif isinstance(scope, list):
-        has_model_scope = any(s.startswith("model:") for s in scope)
-    if not has_model_scope:
-        raise HTTPException(status_code=403, detail="Insufficient scope: requires model:* scope")
-
-    return {
-        "models": [
-            {"id": "14b", "name": MODEL_14B, "type": "chat"},
-            {"id": "32b", "name": MODEL_32B, "type": "completion"},
-        ]
-    }
-
 @app.post("/api/v1/chat")
 async def chat(req: Request):
-    body = await req.json()
-    model = body.get("model", "")
+    auth_ok, scope = await _authenticate_request(req)
+    if not auth_ok:
+        raise HTTPException(status_code=401, detail=scope)
 
-    # Rate limit check
-    allowed = await _check_rate_limit(req)
-    if not allowed:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
+    if not await _check_rate_limit(req):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
-    if model == "32b" or model == MODEL_32B:
-        # Check scope: require model:32b:chat-adapter
-        if not _check_scope(req, "model:32b:chat-adapter"):
-            raise HTTPException(status_code=403, detail="Insufficient scope: requires model:32b:chat-adapter")
-        # 32B chat adapter over completion
-        messages = body.get("messages", [])
-        prompt = _chat_to_completion_prompt(messages)
-        completion_body = {
-            "model": MODEL_32B,
-            "prompt": prompt,
-            "max_tokens": body.get("max_tokens", 64),
-            "temperature": body.get("temperature", 0.0),
+    body_data = await req.json()
+    body = ChatRequest(**body_data)
+
+    if body.model == MODEL_14B:
+        upstream_url = f"{CHAT_14B_URL}/v1/chat/completions"
+        upstream_model = "/models/Qwen2.5-14B-Instruct"
+        headers = await _upstream_headers()
+        payload = {
+            "model": upstream_model,
+            "messages": body.messages,
+            "max_tokens": body.max_tokens,
+            "temperature": body.temperature,
+            "stream": False,
         }
-        upstream_token = _get_upstream_auth(MODEL_32B)
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {upstream_token}"}
-        url = f"{GATEWAY_32B_URL}/v1/completions"
-        async with client.stream("POST", url, json=completion_body, headers=headers) as resp:
-            content = await resp.aread()
-            return Response(
-                content=content,
-                status_code=resp.status_code,
-                media_type=resp.headers.get("content-type", "application/json"),
-            )
+    elif body.model == MODEL_32B:
+        upstream_url = f"{GATEWAY_32B_URL}/v1/completions"
+        upstream_model = "/models/Qwen2.5-32B-Instruct-GPTQ"
+        prompt = _chat_to_completion_prompt(body.messages)
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {BFF_32B_GATEWAY_AUTH_TOKEN}"}
+        payload = {
+            "model": upstream_model,
+            "prompt": prompt,
+            "max_tokens": body.max_tokens,
+            "temperature": body.temperature,
+            "stream": False,
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown model: {body.model}")
 
-    if model == "14b" or model == MODEL_14B:
-        # Check scope: require model:14b:chat
-        if not _check_scope(req, "model:14b:chat"):
-            raise HTTPException(status_code=403, detail="Insufficient scope: requires model:14b:chat")
-        body["model"] = MODEL_14B
-        upstream_token = _get_upstream_auth(MODEL_14B)
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {upstream_token}"}
-        url = f"{CHAT_14B_URL}/v1/chat/completions"
-        async with client.stream("POST", url, json=body, headers=headers) as resp:
-            content = await resp.aread()
-            return Response(
-                content=content,
-                status_code=resp.status_code,
-                media_type=resp.headers.get("content-type", "application/json"),
-            )
-
-    raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
+    try:
+        resp = await client.post(upstream_url, json=payload, headers=headers, timeout=TIMEOUT)
+        if resp.status_code != 200:
+            logger.error("Upstream %s returned %d: %s", body.model, resp.status_code, (await resp.aread()).decode()[:200])
+            raise HTTPException(status_code=502, detail=f"Upstream model error: HTTP {resp.status_code}")
+        return JSONResponse(content=resp.json())
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Upstream timeout")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Upstream error: {str(e)}")
 
 @app.post("/api/v1/completions")
 async def completions(req: Request):
-    body = await req.json()
-    model = body.get("model", "")
+    auth_ok, scope = await _authenticate_request(req)
+    if not auth_ok:
+        raise HTTPException(status_code=401, detail=scope)
 
-    # Rate limit check
-    allowed = await _check_rate_limit(req)
-    if not allowed:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
+    if not await _check_rate_limit(req):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
-    if model == "32b" or model == MODEL_32B:
-        # Check scope: require model:32b:completion
-        if not _check_scope(req, "model:32b:completion"):
-            raise HTTPException(status_code=403, detail="Insufficient scope: requires model:32b:completion")
-        body["model"] = MODEL_32B
-        upstream_token = _get_upstream_auth(MODEL_32B)
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {upstream_token}"}
-        url = f"{GATEWAY_32B_URL}/v1/completions"
-    elif model == "14b" or model == MODEL_14B:
-        # 14B completions: model:14b:chat scope is sufficient (MVP decision — 14B is primarily chat)
-        raise HTTPException(status_code=422, detail="14B model does not support completions endpoint. Use /api/v1/chat for 14B.")
+    body_data = await req.json()
+    body = CompletionRequest(**body_data)
+
+    if body.model == MODEL_32B:
+        upstream_url = f"{GATEWAY_32B_URL}/v1/completions"
+        upstream_model = "/models/Qwen2.5-32B-Instruct-GPTQ"
     else:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {model}")
+        raise HTTPException(status_code=400, detail=f"Model {body.model} does not support completions")
 
-    async with client.stream("POST", url, json=body, headers=headers) as resp:
-        content = await resp.aread()
-        return Response(
-            content=content,
-            status_code=resp.status_code,
-            media_type=resp.headers.get("content-type", "application/json"),
-        )
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {BFF_32B_GATEWAY_AUTH_TOKEN}"}
+    payload = {
+        "model": upstream_model,
+        "prompt": body.prompt,
+        "max_tokens": body.max_tokens,
+        "temperature": body.temperature,
+        "stream": False,
+    }
 
+    try:
+        resp = await client.post(upstream_url, json=payload, headers=headers, timeout=TIMEOUT)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Upstream error: HTTP {resp.status_code}")
+        return JSONResponse(content=resp.json())
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Upstream timeout")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Upstream error: {str(e)}")
+
+@app.get("/api/v1/models")
+async def list_models(req: Request):
+    auth_ok, scope = await _authenticate_request(req)
+    if not auth_ok:
+        raise HTTPException(status_code=401, detail=scope)
+    return {
+        "data": [
+            {"id": "qwen-14b", "object": "model", "owned_by": "aither"},
+            {"id": "qwen-32b-base", "object": "model", "owned_by": "aither"},
+        ]
+    }
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
