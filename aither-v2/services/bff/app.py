@@ -193,7 +193,9 @@ async def auth_req(req):
 
 def ck(req,rs):
     sc=getattr(req.state,"auth_scope",None)
-    if isinstance(sc,str) and sc=="admin": return True
+    # R7-R2: Session users ("admin"/"user") can access all models
+    if isinstance(sc,str) and sc in ("admin","user"): return True
+    # API key users must have explicit scope
     return isinstance(sc,list) and rs in sc
 
 def cvt(messages):

@@ -139,13 +139,14 @@ class TestChat:
     @pytest.mark.parametrize("bn", BROWSERS)
     @pytest.mark.parametrize("zone_name,target_url", list(ZONES.items()))
     def test_model_switch(self, bn, zone_name, target_url):
-        """Switch between models in chat — R7-R1: verify model switching.
+        """Switch between models in chat — R7-R2 strict contract.
         
-        Core requirements:
-        1. First model sends successfully
-        2. Model selector changes to MODEL_B
+        Verifies:
+        1. Exact message count increments (before→+1→+2)
+        2. First response content preserved after second send
         3. Second request payload contains MODEL_B
-        4. Response received with substantive content
+        4. Each response has substantive content
+        5. Messages have unique data-msg-id attributes (R7-R2 UI fix)
         """
         with sync_playwright() as p:
             browser = getattr(p, bn).launch(headless=True)
@@ -154,43 +155,83 @@ class TestChat:
 
             login(page, target_url, BETA02_USER, BETA02_PASS)
 
-            # ── Send first message (MODEL_A) ──
-            chat_send(page, MODEL_A, "Hi.")
+            # ── Navigate to chat page ──
+            page.click('[data-page="chat"]')
+            page.wait_for_timeout(1000)
 
-            # ── Verify first response received ──
+            # ── Count baseline ──
+            before_count = page.locator(".chat-msg.assistant").count()
+
+            # ── Send first message ──
+            page.select_option("#chat-model-select", MODEL_A)
+            page.wait_for_timeout(300)
+            page.fill("#chat-input", "Hi.")
+            page.click("#btn-send-message")
+            # Wait for actual response (not placeholder)
+            page.wait_for_timeout(3000)
+            expect(page.locator(".chat-msg.assistant")).to_be_visible(timeout=60000)
+
+            # ── STRICT: exactly 1 new assistant message ──
+            after_first_count = page.locator(".chat-msg.assistant").count()
+            assert after_first_count == before_count + 1, \
+                f"Expected exactly 1 new message (before={before_count}, after={after_first_count})"
+
+            # ── Verify first response has content ──
             first_response = page.locator(".chat-msg.assistant").last
             first_text = first_response.inner_text().strip()
-            assert first_text, "First response is empty"
-            clean_first = first_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
-            assert clean_first, f"First response has no content: {first_text[:80]}"
+            assert first_text, "First response empty"
+            first_clean = first_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
+            assert first_clean, f"First response: {first_text[:80]}"
+            
+            # ── Verify data-msg-id present (R7-R2 UI fix) ──
+            first_id = first_response.get_attribute("data-msg-id")
+            assert first_id and first_id.startswith("msg-"), f"Expected data-msg-id, got: {first_id}"
 
-            # ── Switch to MODEL_B and verify selector ──
+            # ── Switch to MODEL_B ──
             page.select_option("#chat-model-select", MODEL_B)
             expect(page.locator("#chat-model-select")).to_have_value(MODEL_B)
 
-            # ── Intercept second POST /chat request ──
+            # ── Intercept second POST /chat ──
             with page.expect_request(
-                lambda request: request.method == "POST"
-                and "/chat" in request.url
+                lambda r: r.method == "POST" and "/chat" in r.url
             ) as request_info:
                 page.fill("#chat-input", "Hello again.")
                 page.click("#btn-send-message")
 
-            # ── Verify MODEL_B in request payload ──
+            # ── Verify MODEL_B in payload ──
             post_data = request_info.value.post_data_json
-            assert post_data is not None, "No POST data captured"
+            assert post_data is not None, "No POST data"
             request_model = post_data.get("model", "")
             assert request_model in (MODEL_B, "qwen-32b-base"), \
-                f"Expected MODEL_B in request, got: {request_model}"
+                f"Expected MODEL_B, got: {request_model}"
 
-            # ── Wait for response ──
-            expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=180000)
+            # ── Wait for response to complete ──
+            page.wait_for_timeout(5000)
+            expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=120000)
 
-            # ── Verify response has content ──
-            last_text = page.locator(".chat-msg.assistant").last.inner_text().strip()
-            assert last_text, "Last response is empty"
-            clean = last_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
-            assert clean, f"Response has no content: {last_text[:80]}"
+            # ── STRICT: exactly 2 assistant messages total ──
+            after_second_count = page.locator(".chat-msg.assistant").count()
+            assert after_second_count == before_count + 2, \
+                f"Expected exactly 2 messages (before={before_count}, after={after_second_count})"
+
+            # ── Verify second message has different data-msg-id ──
+            second_response = page.locator(".chat-msg.assistant").last
+            second_id = second_response.get_attribute("data-msg-id")
+            assert second_id and second_id.startswith("msg-"), f"Expected data-msg-id, got: {second_id}"
+            assert second_id != first_id, f"Messages should have different IDs: {first_id} == {second_id}"
+
+            # ── Verify second response has content ──
+            second_text = second_response.inner_text().strip()
+            assert second_text, "Second response empty"
+            second_clean = second_text.replace("⏳ Генерация ответа...", "").replace("📋 Копировать", "").strip()
+            assert second_clean, f"Second response: {second_text[:80]}"
+
+            # ── Verify first response preserved (unchanged) ──
+            # Note: Legacy UI removes placeholder/re-adds; DOM element identity may change.
+            # Verify content survival instead of exact DOM element persistence.
+            all_assistant_texts = page.locator(".chat-msg.assistant").all_inner_texts()
+            assert any(first_clean in t or t in first_clean for t in all_assistant_texts if t.strip()), \
+                f"First response content should survive in DOM: '{first_clean[:60]}' not found in {[t[:40] for t in all_assistant_texts[:5]]}"
 
             ctx.close()
             browser.close()
