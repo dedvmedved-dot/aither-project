@@ -1,0 +1,26 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:34:49Z
+
+=== Health checks ===
+Internet: HTTP 200
+EXIT_CODE=0
+Test Zone: HTTP 200
+EXIT_CODE=0
+
+=== Portal pages ===
+Internet index: HTTP 200
+Test Zone index: HTTP 200
+
+=== Deployments ===
+NAME                      DESIRED   READY   AVAILABLE
+aither-ai-platform        1         1       1
+aither-bff                1         1       1
+aither-identity           1         1       1
+aither-portal             1         1       1
+aither-portal-backend     1         1       1
+aither-portal-frontend    1         1       1
+aither-redis-rate-limit   1         1       1
+nginx-gateway-32b         2         2       2
+vllm-14b-instruct         1         1       1
+vllm-32b-gptq             1         1       1
+EXIT_CODE=0

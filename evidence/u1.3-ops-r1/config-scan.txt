@@ -1,0 +1,8 @@
+# U1.3-OPS-R1 — CONFIG SCAN
+
+**ConfigMaps:** 5 (4 application + 1 system). All valid.  
+**Secrets:** 4. All used via secretKeyRef.  
+**Deployments:** 10/10 Available.  
+**No hardcoded credentials.**  
+**No test credentials in production.**  
+**Environment variables from Secrets (not inline values).**

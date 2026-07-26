@@ -1,0 +1,51 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:23:33Z
+
+=== pwd ===
+/root/aither-project
+EXIT_CODE=0
+
+=== git remote -v ===
+origin	https://github.com/dedvmedved-dot/aither-project.git (fetch)
+origin	https://github.com/dedvmedved-dot/aither-project.git (push)
+EXIT_CODE=0
+
+=== git status --short ===
+ M docs/operations/BACKUP_RESTORE_GUIDE.md
+ M docs/operations/MONITORING_GUIDE.md
+?? evidence/u1.3-ops-r1/
+?? evidence/u1.3-wui/rejected-run-14136d7/logs/
+EXIT_CODE=0
+
+=== git branch --show-current ===
+aither-v2
+EXIT_CODE=0
+
+=== git rev-parse HEAD ===
+3a2cb3de884724e80b5e1a442adb96880d8416ea
+EXIT_CODE=0
+
+=== git rev-parse origin/aither-v2 ===
+3a2cb3de884724e80b5e1a442adb96880d8416ea
+EXIT_CODE=0
+
+=== git log --oneline --decorate -15 ===
+3a2cb3d (HEAD -> aither-v2, origin/aither-v2) evidence(u1.3-ops): operational readiness verification
+2ed4b4c ops(u1.3): operational readiness — documentation and procedures
+171f78d evidence(u1.3-wui-r1): prove complete webui workflow after corrections
+7c7bb10 fix(u1.3-wui): repair agent page renderer and enforce TLS verification
+14136d7 feat(u1.3-wui): complete dual-model chat and agent key workflows
+6327205 docs(r3.3): remove self-reference placeholders and stale HEAD values
+76df023 docs(r3.2): reconcile tested, evidence and final commit chain
+bb224c4 evidence(r3.1): prove reproducible identity acceptance from clean clone
+1ed9500 test(r3.1): make identity acceptance reproducible from clean commit
+6278381 feat(r3): TRACK-A-R3 — real identities, key lifecycle, agent acceptance
+4adab46 test(r2): TRACK-A-R2 — Playwright E2E fix, 4/4 PASS (Chromium+Firefox, Internet+Test Zone)
+5f79ab8 fix(e2e): use Enter key instead of chat-send button, fix chat input
+8a4ec06 fix(e2e): correct button selectors, use Escape for modal close
+5b87dd0 fix(e2e): increase login timeout for Internet zone, use target_url param
+5fc5792 test(r2): TRACK-A-R2 — real user browser acceptance with Playwright
+EXIT_CODE=0
+
+=== Verify branch ===
+EXIT_CODE=0

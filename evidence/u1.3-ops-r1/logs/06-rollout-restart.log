@@ -1,0 +1,77 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:26:54Z
+
+=== Pre-restart deployment ===
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS   IMAGES             SELECTOR
+aither-bff   1/1     1            1           6d3h   bff          python:3.11-slim   app=aither-bff
+
+=== Pre-restart pods ===
+NAME                         READY   STATUS    RESTARTS   AGE    IP            NODE                         NOMINATED NODE   READINESS GATES
+aither-bff-85f756f59-gd5gv   1/1     Running   0          161m   10.244.0.56   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+
+=== Rollout history ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+5         <none>
+6         <none>
+7         <none>
+8         <none>
+9         <none>
+10        <none>
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+
+
+=== Performing restart ===
+COMMAND: kubectl rollout restart deployment/aither-bff
+deployment.apps/aither-bff restarted
+EXIT_CODE=0
+
+=== Rollout status ===
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 of 1 updated replicas are available...
+deployment "aither-bff" successfully rolled out
+EXIT_CODE=0
+
+=== Post-restart deployment ===
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS   IMAGES             SELECTOR
+aither-bff   1/1     1            1           6d3h   bff          python:3.11-slim   app=aither-bff
+
+=== Post-restart pods ===
+NAME                                       READY   STATUS      RESTARTS   AGE     IP             NODE                         NOMINATED NODE   READINESS GATES
+aither-ai-platform-84c478c874-75plb        1/1     Running     0          27h     10.244.0.39    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-bff-778cdf45b5-m4sng                1/1     Running     0          36s     10.244.0.57    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-identity-67b5994997-2jdvd           1/1     Running     0          3d3h    10.244.0.245   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-6c445cc9f-44dzd              1/1     Running     0          3h34m   10.244.0.53    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-backend-559754567d-599kk     1/1     Running     0          3d1h    10.244.0.5     bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-frontend-5cc6d99997-btksr    1/1     Running     0          3h34m   10.244.0.54    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-redis-rate-limit-754cdd9784-stnl6   1/1     Running     0          4d9h    10.244.1.20    bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+nginx-gateway-32b-65786797-k8skw           1/1     Running     0          28h     10.244.1.39    bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+nginx-gateway-32b-65786797-px4rz           1/1     Running     0          28h     10.244.0.36    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-curl2                                 0/1     Completed   0          41h     10.244.0.10    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-pf                                    0/1     Completed   0          41h     10.244.0.18    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-vllm                                  0/1     Completed   0          41h     10.244.0.16    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-vllm2                                 0/1     Completed   0          41h     10.244.0.17    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+vllm-14b-instruct-7f6f784dcb-g2h5d         1/1     Running     0          6d16h   10.244.1.3     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+vllm-32b-gptq-7d6dc7c64-r82nh              1/1     Running     0          6d16h   10.244.1.4     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+
+=== Post-restart history ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+6         <none>
+7         <none>
+8         <none>
+9         <none>
+10        <none>
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+16        <none>
+

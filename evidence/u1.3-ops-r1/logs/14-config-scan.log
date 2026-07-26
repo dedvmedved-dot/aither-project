@@ -1,0 +1,21 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:28:27Z
+
+=== ConfigMaps ===
+NAME                            DATA   AGE
+aither-bff-config               1      6d3h
+aither-portal-config            4      5d13h
+aither-portal-frontend-config   2      4d9h
+kube-root-ca.crt                1      7d19h
+nginx-gateway-32b               1      6d12h
+
+=== Secrets (keys only, no values) ===
+aither-ai-platform-secret: keys=['AI_PLATFORM_LOG_LEVEL']
+aither-bff-auth: keys=['ADMIN_PASSWORD_HASH', 'ADMIN_USERNAME', 'AUTH_TOKEN_HASH_SECRET', 'BFF_14B_UPSTREAM_AUTH_TOKEN', 'BFF_32B_GATEWAY_AUTH_TOKEN', 'SESSION_SECRET']
+aither-identity-secret: keys=['IDENTITY_ADMIN_PASS', 'IDENTITY_ADMIN_USER', 'IDENTITY_SECRET_KEY']
+vllm-api-key: keys=['VLLM_API_KEY']
+
+=== Deployment env references ===
+aither-ai-platform/ai-platform: ConfigMaps=[] Secrets=['vllm-api-key']
+aither-identity/identity: ConfigMaps=[] Secrets=['aither-identity-secret']
+EXIT_CODE=0

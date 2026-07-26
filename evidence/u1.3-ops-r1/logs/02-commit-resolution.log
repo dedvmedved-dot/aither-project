@@ -1,0 +1,202 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:24:11Z
+
+=== git fetch --all --prune --tags ===
+EXIT_CODE=0
+
+=== git cat-file -t 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf ===
+commit
+EXIT_CODE=0
+
+=== git show --no-patch --format=fuller 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf ===
+commit 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf
+Author:     Sergey Kravchuk <sergey@kravchuk.dev>
+AuthorDate: Sun Jul 26 01:17:23 2026 +0300
+Commit:     Sergey Kravchuk <sergey@kravchuk.dev>
+CommitDate: Sun Jul 26 01:17:23 2026 +0300
+
+    evidence(u1.3-wui-r1): prove complete webui workflow after corrections
+    
+    - Full U1.3-WUI suite: 28/28 PASSED (0 failures, 0 errors, 0 skipped)
+    - Track A regression: 10/10 PASSED
+    - Fresh clone: 28/28 PASSED
+    - TLS verification enforced; zero TLS warnings
+    - Agent page renderAgentPage fixed (was ReferenceError)
+    - Rejected evidence preserved in rejected-run-14136d7/
+    - Acceptance matrix: 33/33 (all items traced to test IDs)
+    - Secret scan: PASS
+    - Placeholder scan: PASS
+EXIT_CODE=0
+
+=== git branch -a --contains 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf ===
+* aither-v2
+  remotes/origin/aither-v2
+EXIT_CODE=0
+
+=== git cat-file -t 2ed4b4c5defb830f6c0f6ff03dfe2ed37c213bb5 ===
+fatal: git cat-file: could not get object info
+EXIT_CODE=128
+
+=== git show --no-patch --format=fuller 2ed4b4c5defb830f6c0f6ff03dfe2ed37c213bb5 ===
+fatal: bad object 2ed4b4c5defb830f6c0f6ff03dfe2ed37c213bb5
+EXIT_CODE=128
+
+=== git branch -a --contains 2ed4b4c5defb830f6c0f6ff03dfe2ed37c213bb5 ===
+error: no such commit 2ed4b4c5defb830f6c0f6ff03dfe2ed37c213bb5
+EXIT_CODE=129
+
+=== git cat-file -t 3a2cb3de884724e80b5e1a442adb96880d8416ea ===
+commit
+EXIT_CODE=0
+
+=== git show --no-patch --format=fuller 3a2cb3de884724e80b5e1a442adb96880d8416ea ===
+commit 3a2cb3de884724e80b5e1a442adb96880d8416ea
+Author:     Sergey Kravchuk <sergey@kravchuk.dev>
+AuthorDate: Sun Jul 26 01:52:53 2026 +0300
+Commit:     Sergey Kravchuk <sergey@kravchuk.dev>
+CommitDate: Sun Jul 26 01:52:53 2026 +0300
+
+    evidence(u1.3-ops): operational readiness verification
+    
+    - OPS-001..008 all PASSED
+    - Configuration audit: 0 secrets in Git, proper Secret/ConfigMap usage
+    - Deployment validation: 10/10 deployments Available, all probes OK
+    - Log validation: 0 errors across all 9 deployments
+    - Recovery: restart + pod recreation + rollback tested
+    - Fresh clone: smoke PASS
+    - Secret scan: PASS
+    - Placeholder scan: PASS
+    - Config scan: PASS
+EXIT_CODE=0
+
+=== git branch -a --contains 3a2cb3de884724e80b5e1a442adb96880d8416ea ===
+* aither-v2
+  remotes/origin/aither-v2
+EXIT_CODE=0
+
+=== git ls-remote origin refs/heads/aither-v2 ===
+3a2cb3de884724e80b5e1a442adb96880d8416ea	refs/heads/aither-v2
+EXIT_CODE=0
+
+=== Local vs Remote comparison ===
+LOCAL_HEAD=3a2cb3de884724e80b5e1a442adb96880d8416ea
+REMOTE_TRACKING_HEAD=3a2cb3de884724e80b5e1a442adb96880d8416ea
+REMOTE_LS_HEAD=3a2cb3de884724e80b5e1a442adb96880d8416ea
+
+LOCAL==TRACKING EXIT_CODE=0
+LOCAL==LS_REMOTE EXIT_CODE=0
+
+=== gh auth status ===
+You are not logged into any GitHub hosts. To log in, run: gh auth login
+gh not available
+EXIT_CODE=0
+
+gh CLI not authenticated — skipping GitHub API verification
+
+=== CORRECTION: Real implementation SHA ===
+Reported (FABRICATED): 2ed4b4c5defb830f6c0f6ff03dfe2ed37c213bb5
+Actual SHA: 2ed4b4c0a83be895d23594930b7a7cabfec3559f
+Short hash: 2ed4b4c
+Verification: commit
+
+=== diff baseline..impl ===
+ docs/operations/BACKUP_RESTORE_GUIDE.md  |   98 ++
+ docs/operations/DEPLOYMENT_GUIDE.md      | 1067 ++++++++++++++++++++++
+ docs/operations/MONITORING_GUIDE.md      |  103 +++
+ docs/operations/OPERATIONS_GUIDE.md      | 1431 ++++++++++++++++++++++++++++++
+ docs/operations/ROLLBACK_GUIDE.md        |  657 ++++++++++++++
+ docs/operations/TROUBLESHOOTING_GUIDE.md |  196 ++++
+ 6 files changed, 3552 insertions(+)
+EXIT_CODE=0
+
+A	docs/operations/BACKUP_RESTORE_GUIDE.md
+A	docs/operations/DEPLOYMENT_GUIDE.md
+A	docs/operations/MONITORING_GUIDE.md
+A	docs/operations/OPERATIONS_GUIDE.md
+A	docs/operations/ROLLBACK_GUIDE.md
+A	docs/operations/TROUBLESHOOTING_GUIDE.md
+EXIT_CODE=0
+
+=== diff impl..evidence ===
+ evidence/u1.3-ops/00_SUMMARY.md               | 28 ++++++++
+ evidence/u1.3-ops/01_BASELINE.md              | 13 ++++
+ evidence/u1.3-ops/02_OPERATION_CHECKLIST.md   | 94 +++++++++++++++++++++++++++
+ evidence/u1.3-ops/03_CONFIGURATION_AUDIT.md   | 38 +++++++++++
+ evidence/u1.3-ops/04_DEPLOYMENT_VALIDATION.md | 40 ++++++++++++
+ evidence/u1.3-ops/05_LOG_VALIDATION.md        | 24 +++++++
+ evidence/u1.3-ops/06_ROLLBACK_VALIDATION.md   | 41 ++++++++++++
+ evidence/u1.3-ops/07_DOCUMENTATION_MATRIX.md  | 14 ++++
+ evidence/u1.3-ops/08_OPERATION_ACCEPTANCE.md  | 39 +++++++++++
+ evidence/u1.3-ops/changed-files.txt           | 12 ++++
+ evidence/u1.3-ops/config-scan.txt             | 24 +++++++
+ evidence/u1.3-ops/final-report.md             | 70 ++++++++++++++++++++
+ evidence/u1.3-ops/placeholder-scan.txt        | 16 +++++
+ evidence/u1.3-ops/secret-scan.txt             | 23 +++++++
+ 14 files changed, 476 insertions(+)
+EXIT_CODE=0
+
+A	evidence/u1.3-ops/00_SUMMARY.md
+A	evidence/u1.3-ops/01_BASELINE.md
+A	evidence/u1.3-ops/02_OPERATION_CHECKLIST.md
+A	evidence/u1.3-ops/03_CONFIGURATION_AUDIT.md
+A	evidence/u1.3-ops/04_DEPLOYMENT_VALIDATION.md
+A	evidence/u1.3-ops/05_LOG_VALIDATION.md
+A	evidence/u1.3-ops/06_ROLLBACK_VALIDATION.md
+A	evidence/u1.3-ops/07_DOCUMENTATION_MATRIX.md
+A	evidence/u1.3-ops/08_OPERATION_ACCEPTANCE.md
+A	evidence/u1.3-ops/changed-files.txt
+A	evidence/u1.3-ops/config-scan.txt
+A	evidence/u1.3-ops/final-report.md
+A	evidence/u1.3-ops/placeholder-scan.txt
+A	evidence/u1.3-ops/secret-scan.txt
+EXIT_CODE=0
+
+=== diff baseline..HEAD ===
+ docs/operations/BACKUP_RESTORE_GUIDE.md       |   98 ++
+ docs/operations/DEPLOYMENT_GUIDE.md           | 1067 ++++++++++++++++++
+ docs/operations/MONITORING_GUIDE.md           |  103 ++
+ docs/operations/OPERATIONS_GUIDE.md           | 1431 +++++++++++++++++++++++++
+ docs/operations/ROLLBACK_GUIDE.md             |  657 ++++++++++++
+ docs/operations/TROUBLESHOOTING_GUIDE.md      |  196 ++++
+ evidence/u1.3-ops/00_SUMMARY.md               |   28 +
+ evidence/u1.3-ops/01_BASELINE.md              |   13 +
+ evidence/u1.3-ops/02_OPERATION_CHECKLIST.md   |   94 ++
+ evidence/u1.3-ops/03_CONFIGURATION_AUDIT.md   |   38 +
+ evidence/u1.3-ops/04_DEPLOYMENT_VALIDATION.md |   40 +
+ evidence/u1.3-ops/05_LOG_VALIDATION.md        |   24 +
+ evidence/u1.3-ops/06_ROLLBACK_VALIDATION.md   |   41 +
+ evidence/u1.3-ops/07_DOCUMENTATION_MATRIX.md  |   14 +
+ evidence/u1.3-ops/08_OPERATION_ACCEPTANCE.md  |   39 +
+ evidence/u1.3-ops/changed-files.txt           |   12 +
+ evidence/u1.3-ops/config-scan.txt             |   24 +
+ evidence/u1.3-ops/final-report.md             |   70 ++
+ evidence/u1.3-ops/placeholder-scan.txt        |   16 +
+ evidence/u1.3-ops/secret-scan.txt             |   23 +
+ 20 files changed, 4028 insertions(+)
+EXIT_CODE=0
+
+A	docs/operations/BACKUP_RESTORE_GUIDE.md
+A	docs/operations/DEPLOYMENT_GUIDE.md
+A	docs/operations/MONITORING_GUIDE.md
+A	docs/operations/OPERATIONS_GUIDE.md
+A	docs/operations/ROLLBACK_GUIDE.md
+A	docs/operations/TROUBLESHOOTING_GUIDE.md
+A	evidence/u1.3-ops/00_SUMMARY.md
+A	evidence/u1.3-ops/01_BASELINE.md
+A	evidence/u1.3-ops/02_OPERATION_CHECKLIST.md
+A	evidence/u1.3-ops/03_CONFIGURATION_AUDIT.md
+A	evidence/u1.3-ops/04_DEPLOYMENT_VALIDATION.md
+A	evidence/u1.3-ops/05_LOG_VALIDATION.md
+A	evidence/u1.3-ops/06_ROLLBACK_VALIDATION.md
+A	evidence/u1.3-ops/07_DOCUMENTATION_MATRIX.md
+A	evidence/u1.3-ops/08_OPERATION_ACCEPTANCE.md
+A	evidence/u1.3-ops/changed-files.txt
+A	evidence/u1.3-ops/config-scan.txt
+A	evidence/u1.3-ops/final-report.md
+A	evidence/u1.3-ops/placeholder-scan.txt
+A	evidence/u1.3-ops/secret-scan.txt
+EXIT_CODE=0
+
+=== Verify no runtime/WUI/test changes between impl and evidence ===
+No non-evidence changes - OK
+EXIT_CODE=0

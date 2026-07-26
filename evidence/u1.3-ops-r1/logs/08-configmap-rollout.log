@@ -1,0 +1,29 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:32:23Z
+Audit timestamp: 20260726T013223Z
+
+=== Adding annotation ===
+configmap/aither-bff-config annotated
+EXIT_CODE=0
+
+=== Verifying annotation ===
+20260726T013223Z
+EXIT_CODE=0
+
+=== Rollout restart ===
+deployment.apps/aither-bff restarted
+EXIT_CODE=0
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 of 1 updated replicas are available...
+deployment "aither-bff" successfully rolled out
+EXIT_CODE=0
+
+=== Removing annotation ===
+configmap/aither-bff-config annotated
+EXIT_CODE=0
+
+=== Verifying annotation removed ===
+Remaining: <empty>
+Annotation removed EXIT_CODE=0

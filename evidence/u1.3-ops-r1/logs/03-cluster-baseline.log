@@ -1,0 +1,76 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:26:06Z
+
+=== kubectl cluster-info ===
+Kubernetes control plane is running at https://10.129.13.78:6443
+CoreDNS is running at https://10.129.13.78:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+EXIT_CODE=0
+
+=== kubectl get nodes -o wide ===
+NAME                         STATUS   ROLES           AGE   VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE      KERNEL-VERSION     CONTAINER-RUNTIME
+bootsmam-k8s-clnt01-n7-gpu   Ready    <none>          12d   v1.33.5   10.129.13.77   <none>        Astra Linux   6.6.28-1-generic   containerd://2.2.1
+bootsman-k8s-clnt01-n8-gpu   Ready    control-plane   12d   v1.33.5   10.129.13.78   <none>        Astra Linux   6.6.28-1-generic   containerd://2.2.1
+EXIT_CODE=0
+
+=== kubectl get deployments -n aither-inference -o wide ===
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS        IMAGES                                                                                     SELECTOR
+aither-ai-platform        1/1     1            1           4d9h    ai-platform       10.129.13.78:5000/ai-platform:u1.2-persistence-20260725-0004                               app=aither-ai-platform
+aither-bff                1/1     1            1           6d3h    bff               python:3.11-slim                                                                           app=aither-bff
+aither-identity           1/1     1            1           4d9h    identity          10.129.13.78:5000/aither-identity:stage18a-82fe433                                         app=aither-identity
+aither-portal             1/1     1            1           5d13h   nginx             nginx:alpine                                                                               app=aither-portal
+aither-portal-backend     1/1     1            1           4d9h    portal-backend    10.129.13.78:5000/aither-portal-backend:ba02-014f91b                                       app=aither-portal-backend
+aither-portal-frontend    1/1     1            1           4d9h    portal-frontend   nginx:stable-alpine                                                                        app=aither-portal-frontend
+aither-redis-rate-limit   1/1     1            1           5d18h   redis             redis:7-alpine                                                                             app=aither-redis-rate-limit
+nginx-gateway-32b         2/2     2            2           6d12h   nginx             nginx:alpine                                                                               app=nginx-gateway,model=qwen-32b-gptq
+vllm-14b-instruct         1/1     1            1           7d7h    vllm              vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33   app=vllm,model=qwen-14b-instruct
+vllm-32b-gptq             1/1     1            1           7d11h   vllm              vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33   app=vllm,model=qwen-32b-gptq
+EXIT_CODE=0
+
+=== kubectl get pods -n aither-inference -o wide ===
+NAME                                       READY   STATUS      RESTARTS   AGE     IP             NODE                         NOMINATED NODE   READINESS GATES
+aither-ai-platform-84c478c874-75plb        1/1     Running     0          27h     10.244.0.39    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-bff-85f756f59-gd5gv                 1/1     Running     0          160m    10.244.0.56    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-identity-67b5994997-2jdvd           1/1     Running     0          3d3h    10.244.0.245   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-6c445cc9f-44dzd              1/1     Running     0          3h32m   10.244.0.53    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-backend-559754567d-599kk     1/1     Running     0          3d1h    10.244.0.5     bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-frontend-5cc6d99997-btksr    1/1     Running     0          3h32m   10.244.0.54    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-redis-rate-limit-754cdd9784-stnl6   1/1     Running     0          4d9h    10.244.1.20    bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+nginx-gateway-32b-65786797-k8skw           1/1     Running     0          28h     10.244.1.39    bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+nginx-gateway-32b-65786797-px4rz           1/1     Running     0          28h     10.244.0.36    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-curl2                                 0/1     Completed   0          41h     10.244.0.10    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-pf                                    0/1     Completed   0          41h     10.244.0.18    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-vllm                                  0/1     Completed   0          41h     10.244.0.16    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-vllm2                                 0/1     Completed   0          41h     10.244.0.17    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+vllm-14b-instruct-7f6f784dcb-g2h5d         1/1     Running     0          6d16h   10.244.1.3     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+vllm-32b-gptq-7d6dc7c64-r82nh              1/1     Running     0          6d16h   10.244.1.4     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+EXIT_CODE=0
+
+=== kubectl get services -n aither-inference ===
+NAME                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+aither-ai-platform        NodePort    10.107.239.156   <none>        8000:30902/TCP   4d9h
+aither-bff                ClusterIP   10.106.87.155    <none>        8000/TCP         6d3h
+aither-identity           ClusterIP   10.105.189.202   <none>        8000/TCP         4d9h
+aither-portal             NodePort    10.100.145.83    <none>        80:30080/TCP     5d13h
+aither-portal-backend     ClusterIP   10.100.101.65    <none>        8000/TCP         4d9h
+aither-portal-frontend    ClusterIP   10.105.195.81    <none>        80/TCP           4d9h
+aither-redis-rate-limit   ClusterIP   10.105.190.101   <none>        6379/TCP         5d18h
+nginx-gateway-32b         NodePort    10.106.31.143    <none>        8000:30901/TCP   6d12h
+vllm-14b-instruct         ClusterIP   10.108.67.57     <none>        8000/TCP         7d7h
+vllm-32b-gptq             ClusterIP   10.99.3.103      <none>        8000/TCP         7d7h
+EXIT_CODE=0
+
+=== Deployment replicas ===
+NAME                      DESIRED   READY   AVAILABLE   UPDATED
+aither-ai-platform        1         1       1           1
+aither-bff                1         1       1           1
+aither-identity           1         1       1           1
+aither-portal             1         1       1           1
+aither-portal-backend     1         1       1           1
+aither-portal-frontend    1         1       1           1
+aither-redis-rate-limit   1         1       1           1
+nginx-gateway-32b         2         2       2           2
+vllm-14b-instruct         1         1       1           1
+vllm-32b-gptq             1         1       1           1
+EXIT_CODE=0

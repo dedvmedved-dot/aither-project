@@ -1,0 +1,28 @@
+# U1.3-OPS-R1 — PLACEHOLDER SCAN
+
+**Evidence:** logs/16-placeholder-scan.log
+
+## New Evidence (evidence/u1.3-ops-r1/): CLEAN ✅
+
+No placeholders, no `<to be>`, no `TBD`, no `DIRTY (uncommitted)`.
+
+## Operations Docs (docs/operations/): CLEAN ✅
+
+No placeholders found.
+
+## User Docs (docs/user-guide/): CLEAN ✅
+
+No placeholders found.
+
+## Old Evidence (evidence/u1.3-ops/final-report.md): PLACEHOLDERS FOUND ❌
+
+Lines 15, 18, 21, 24 contain unfilled values:
+- `<to be created>` (×2)
+- `<to be resolved after push>`
+- `DIRTY (uncommitted ops docs + evidence)`
+
+**These are the DEFECT OPS-R1-001 findings — the old evidence was not finalized.**
+
+## Verdict
+- **New evidence:** PASS (0 placeholders)
+- **Old evidence:** Placeholders confirmed (preserved unmodified per policy)

@@ -1,0 +1,23 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:31:32Z
+
+=== python --version ===
+Python 3.11.15
+=== pip check ===
+No broken requirements found.
+=== pip freeze (e2e deps) ===
+playwright==1.61.0
+pytest==9.1.1
+pytest-base-url==2.1.0
+pytest-httpx==0.36.2
+pytest-playwright==0.8.0
+requests==2.33.0
+requests-oauthlib==2.0.0
+urllib3==2.7.0
+=== Dry-run install ===
+ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'tests/e2e/requirements.txt'
+
+[notice] A new release of pip is available: 24.0 -> 26.1.2
+[notice] To update, run: pip install --upgrade pip
+
+EXIT_CODE=0

@@ -1,0 +1,22 @@
+ docs/operations/BACKUP_RESTORE_GUIDE.md       |   98 ++
+ docs/operations/DEPLOYMENT_GUIDE.md           | 1067 ++++++++++++++++++
+ docs/operations/MONITORING_GUIDE.md           |  103 ++
+ docs/operations/OPERATIONS_GUIDE.md           | 1431 +++++++++++++++++++++++++
+ docs/operations/ROLLBACK_GUIDE.md             |  657 ++++++++++++
+ docs/operations/TROUBLESHOOTING_GUIDE.md      |  196 ++++
+ evidence/u1.3-ops/00_SUMMARY.md               |   28 +
+ evidence/u1.3-ops/01_BASELINE.md              |   13 +
+ evidence/u1.3-ops/02_OPERATION_CHECKLIST.md   |   94 ++
+ evidence/u1.3-ops/03_CONFIGURATION_AUDIT.md   |   38 +
+ evidence/u1.3-ops/04_DEPLOYMENT_VALIDATION.md |   40 +
+ evidence/u1.3-ops/05_LOG_VALIDATION.md        |   24 +
+ evidence/u1.3-ops/06_ROLLBACK_VALIDATION.md   |   41 +
+ evidence/u1.3-ops/07_DOCUMENTATION_MATRIX.md  |   14 +
+ evidence/u1.3-ops/08_OPERATION_ACCEPTANCE.md  |   39 +
+ evidence/u1.3-ops/changed-files.txt           |   12 +
+ evidence/u1.3-ops/config-scan.txt             |   24 +
+ evidence/u1.3-ops/final-report.md             |   70 ++
+ evidence/u1.3-ops/placeholder-scan.txt        |   16 +
+ evidence/u1.3-ops/secret-scan.txt             |   23 +
+ scripts/ops/u13_ops_r1_collect.sh             |   39 +
+ 21 files changed, 4067 insertions(+)

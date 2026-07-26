@@ -1,0 +1,66 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:27:34Z
+
+Pod: aither-ai-platform-84c478c874-75plb | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: aither-bff-778cdf45b5-m4sng | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: aither-identity-67b5994997-2jdvd | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: aither-portal-6c445cc9f-44dzd | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: aither-portal-backend-559754567d-599kk | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: aither-portal-frontend-5cc6d99997-btksr | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: aither-redis-rate-limit-754cdd9784-stnl6 | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: nginx-gateway-32b-65786797-k8skw | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: nginx-gateway-32b-65786797-px4rz | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: vllm-14b-instruct-7f6f784dcb-g2h5d | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+Pod: vllm-32b-gptq-7d6dc7c64-r82nh | Status: Running | Error matches: 0
+0
+/usr/bin/bash: line 65: [: 0
+0: integer expression expected
+
+=== Pod restart counts ===
+aither-ai-platform-84c478c874-75plb / ai-platform: restarts=0
+aither-bff-778cdf45b5-m4sng / bff: restarts=0
+aither-identity-67b5994997-2jdvd / identity: restarts=0
+aither-portal-6c445cc9f-44dzd / nginx: restarts=0
+aither-portal-backend-559754567d-599kk / portal-backend: restarts=0
+aither-portal-frontend-5cc6d99997-btksr / portal-frontend: restarts=0
+aither-redis-rate-limit-754cdd9784-stnl6 / redis: restarts=0
+nginx-gateway-32b-65786797-k8skw / nginx: restarts=0
+nginx-gateway-32b-65786797-px4rz / nginx: restarts=0
+test-curl2 / test-curl2: restarts=0
+test-pf / test-pf: restarts=0
+test-vllm / test-vllm: restarts=0
+test-vllm2 / test-vllm2: restarts=0
+vllm-14b-instruct-7f6f784dcb-g2h5d / vllm: restarts=0
+vllm-32b-gptq-7d6dc7c64-r82nh / vllm: restarts=0
+
+EXIT_CODE=0

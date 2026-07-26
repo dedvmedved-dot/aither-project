@@ -1,0 +1,101 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:33:24Z
+
+=== Pre-rollback state ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+7         <none>
+8         <none>
+9         <none>
+10        <none>
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+16        <none>
+17        <none>
+
+
+Current revision: 17
+
+Current image: python:3.11-slim
+
+=== Creating new revision via annotation ===
+deployment.apps/aither-bff patched
+EXIT_CODE=0
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 of 1 updated replicas are available...
+deployment "aither-bff" successfully rolled out
+EXIT_CODE=0
+
+=== Post-patch state ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+8         <none>
+9         <none>
+10        <none>
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+16        <none>
+17        <none>
+18        <none>
+
+New revision: 18
+
+=== Performing rollback ===
+deployment.apps/aither-bff rolled back
+EXIT_CODE=0
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "aither-bff" rollout to finish: 0 of 1 updated replicas are available...
+deployment "aither-bff" successfully rolled out
+EXIT_CODE=0
+
+=== Post-rollback state ===
+deployment.apps/aither-bff 
+REVISION  CHANGE-CAUSE
+8         <none>
+9         <none>
+10        <none>
+11        <none>
+12        <none>
+13        <none>
+14        <none>
+15        <none>
+16        <none>
+18        <none>
+19        <none>
+
+Revision after rollback: 19
+
+Image after rollback: python:3.11-slim
+
+Rollback annotation after undo: <absent>
+
+NAME                                       READY   STATUS      RESTARTS   AGE     IP             NODE                         NOMINATED NODE   READINESS GATES
+aither-ai-platform-84c478c874-75plb        1/1     Running     0          27h     10.244.0.39    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-bff-64cb8c55b4-fz9s7                1/1     Running     0          31s     10.244.0.61    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-identity-67b5994997-2jdvd           1/1     Running     0          3d3h    10.244.0.245   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-6c445cc9f-44dzd              1/1     Running     0          3h41m   10.244.0.53    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-backend-559754567d-599kk     1/1     Running     0          3d1h    10.244.0.5     bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-portal-frontend-5cc6d99997-btksr    1/1     Running     0          3h41m   10.244.0.54    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-redis-rate-limit-754cdd9784-stnl6   1/1     Running     0          4d9h    10.244.1.20    bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+nginx-gateway-32b-65786797-k8skw           1/1     Running     0          29h     10.244.1.39    bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+nginx-gateway-32b-65786797-px4rz           1/1     Running     0          29h     10.244.0.36    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-curl2                                 0/1     Completed   0          41h     10.244.0.10    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-pf                                    0/1     Completed   0          41h     10.244.0.18    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-vllm                                  0/1     Completed   0          41h     10.244.0.16    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+test-vllm2                                 0/1     Completed   0          41h     10.244.0.17    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+vllm-14b-instruct-7f6f784dcb-g2h5d         1/1     Running     0          6d16h   10.244.1.3     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+vllm-32b-gptq-7d6dc7c64-r82nh              1/1     Running     0          6d16h   10.244.1.4     bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+
+=== Verifications ===
+Image restored: YES
+Rollback annotation absent: YES
+New revision created: YES

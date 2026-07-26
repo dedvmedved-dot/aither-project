@@ -1,0 +1,63 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:26:21Z
+=== kubectl rollout status deployment/aither-ai-platform ===
+deployment "aither-ai-platform" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/aither-bff ===
+deployment "aither-bff" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/aither-identity ===
+deployment "aither-identity" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/aither-portal ===
+deployment "aither-portal" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/aither-portal-backend ===
+deployment "aither-portal-backend" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/aither-portal-frontend ===
+deployment "aither-portal-frontend" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/aither-redis-rate-limit ===
+deployment "aither-redis-rate-limit" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/nginx-gateway-32b ===
+deployment "nginx-gateway-32b" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/vllm-14b-instruct ===
+deployment "vllm-14b-instruct" successfully rolled out
+EXIT_CODE=0
+=== kubectl rollout status deployment/vllm-32b-gptq ===
+deployment "vllm-32b-gptq" successfully rolled out
+EXIT_CODE=0
+=== Final pod status ===
+NAME                                       READY   STATUS      RESTARTS   AGE
+aither-ai-platform-84c478c874-75plb        1/1     Running     0          27h
+aither-bff-85f756f59-gd5gv                 1/1     Running     0          161m
+aither-identity-67b5994997-2jdvd           1/1     Running     0          3d3h
+aither-portal-6c445cc9f-44dzd              1/1     Running     0          3h32m
+aither-portal-backend-559754567d-599kk     1/1     Running     0          3d1h
+aither-portal-frontend-5cc6d99997-btksr    1/1     Running     0          3h32m
+aither-redis-rate-limit-754cdd9784-stnl6   1/1     Running     0          4d9h
+nginx-gateway-32b-65786797-k8skw           1/1     Running     0          28h
+nginx-gateway-32b-65786797-px4rz           1/1     Running     0          28h
+test-curl2                                 0/1     Completed   0          41h
+test-pf                                    0/1     Completed   0          41h
+test-vllm                                  0/1     Completed   0          41h
+test-vllm2                                 0/1     Completed   0          41h
+vllm-14b-instruct-7f6f784dcb-g2h5d         1/1     Running     0          6d16h
+vllm-32b-gptq-7d6dc7c64-r82nh              1/1     Running     0          6d16h
+EXIT_CODE=0
+=== Final deployment status ===
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+aither-ai-platform        1/1     1            1           4d9h
+aither-bff                1/1     1            1           6d3h
+aither-identity           1/1     1            1           4d9h
+aither-portal             1/1     1            1           5d13h
+aither-portal-backend     1/1     1            1           4d9h
+aither-portal-frontend    1/1     1            1           4d9h
+aither-redis-rate-limit   1/1     1            1           5d18h
+nginx-gateway-32b         2/2     2            2           6d12h
+vllm-14b-instruct         1/1     1            1           7d7h
+vllm-32b-gptq             1/1     1            1           7d11h
+EXIT_CODE=0

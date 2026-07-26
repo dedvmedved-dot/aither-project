@@ -1,0 +1,27 @@
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T01:30:54Z
+
+Selector: app=aither-bff
+OLD_POD=aither-bff-778cdf45b5-m4sng
+OLD_UID=c8000ef9-21a8-4f93-bc58-83d33bdece33
+
+=== Deleting pod ===
+pod "aither-bff-778cdf45b5-m4sng" deleted
+EXIT_CODE=0
+
+=== Waiting for new pod Ready ===
+pod/aither-bff-778cdf45b5-69j4s condition met
+EXIT_CODE=0
+
+NEW_POD=aither-bff-778cdf45b5-69j4s
+NEW_UID=56d1aad5-697e-4ce4-b63f-d612a8f00a36
+ELAPSED_SECONDS=32
+
+=== UID check ===
+UIDs differ EXIT_CODE=0
+
+=== Post-recreation state ===
+NAME                          READY   STATUS    RESTARTS   AGE   IP            NODE                         NOMINATED NODE   READINESS GATES
+aither-bff-778cdf45b5-69j4s   1/1     Running   0          31s   10.244.0.58   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS   IMAGES             SELECTOR
+aither-bff   1/1     1            1           6d3h   bff          python:3.11-slim   app=aither-bff
