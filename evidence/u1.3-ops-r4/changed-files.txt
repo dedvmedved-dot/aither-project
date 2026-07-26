@@ -1,0 +1,14 @@
+# U1.3-OPS-R4 — Changed Files
+
+## Commit D (implementation)
+M  aither-v2/manifests/mvp-roadmap/05-bff/bff-mvp.yaml
+M  aither-v2/manifests/mvp-roadmap/07-auth-api/bff-auth-secret.example.yaml
+M  scripts/ops/http_availability_probe.py
+M  tests/e2e/test_u13_complete_webui.py
+A  scripts/ops/run_with_evidence.sh
+
+## Commit E (runtime evidence)
+A  evidence/u1.3-ops-r4/ (30 files)
+
+## Commit F (final acceptance)
+A  evidence/u1.3-ops-r4/ (additional final documents)
