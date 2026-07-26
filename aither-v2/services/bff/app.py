@@ -191,12 +191,22 @@ async def auth_req(req):
         return True,meta.get("scopes",[])
     return False,"Auth required"
 
+# R7-R3: Explicit model access policy
+# Session "admin": all models
+# Session "user": both web UI models (qwen-14b, qwen-32b-base)
+# API key: scope-based (model:14b:chat, model:32b:chat-adapter, model:32b:completion)
+_USER_SESSION_SCOPES = {"admin": ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"],
+                        "user": ["model:14b:chat", "model:32b:chat-adapter"]}
+
 def ck(req,rs):
     sc=getattr(req.state,"auth_scope",None)
-    # R7-R2: Session users ("admin"/"user") can access all models
-    if isinstance(sc,str) and sc in ("admin","user"): return True
-    # API key users must have explicit scope
-    return isinstance(sc,list) and rs in sc
+    # Session auth: check role-based policy
+    if isinstance(sc,str) and sc in _USER_SESSION_SCOPES:
+        return rs in _USER_SESSION_SCOPES[sc]
+    # API key auth: check explicit scopes
+    if isinstance(sc,list) and rs in sc:
+        return True
+    return False
 
 def cvt(messages):
     lines=[f"<|{m.get('role','user')}|>\n{m.get('content','')}" for m in messages]
@@ -223,7 +233,7 @@ async def lifespan(app):
     await cli.aclose()
 
 app=FastAPI(title="Aither BFF",version="0.4.2-r7r1",lifespan=lifespan)
-class CTReq(BaseModel): name:str=""; scopes:list=["model:14b:chat","model:32b:completion"]; expires_at:str=""
+class CTReq(BaseModel): name:str=""; scopes:list=["model:14b:chat","model:32b:chat-adapter"]; expires_at:str=""
 AEP={"/api/v1/models":{"GET"},"/api/v1/chat":{"POST"},"/api/v1/completions":{"POST"},"/api/v1/tokens":{"GET","POST"}}
 
 @app.middleware("http")

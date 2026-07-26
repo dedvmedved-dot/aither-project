@@ -521,6 +521,7 @@ code {
     let authToken = localStorage.getItem('aither_token') || null;
     let currentUser = null;
     let chatHistory = []; // client-side chat history
+    let _msgIdCounter = 0; // R7-R3: unique message ID counter
 
     const $ = (id) => document.getElementById(id);
     const pages = ['login','dashboard','chat','api-keys','agent','docs','feedback','status','profile'];
@@ -712,15 +713,35 @@ code {
         if (!msgs) return;
         let meta = '';
         if (role === 'assistant' && model) {
-            meta = `<div class="msg-meta">🤖 ${model}</div>`;
+            meta = '<div class="msg-meta">🤖 ' + model + '</div>';
         }
+        _msgIdCounter++;
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg ' + role;
-        msgDiv.innerHTML = meta + escHtml(content) +
-            (role === 'assistant' ? `<div class="msg-actions"><button class="btn btn-sm btn-outline" onclick="this.closest('.chat-msg').querySelector('.msg-actions').remove();navigator.clipboard.writeText('${escHtml(content).replace(/'/g, "\\'")}')">📋 Копировать</button></div>` : '');
+        msgDiv.setAttribute('data-msg-id', 'msg-' + _msgIdCounter);
+        msgDiv.setAttribute('data-role', role);
+        if (model) msgDiv.setAttribute('data-model', model);
+        msgDiv.setAttribute('data-content', content);
+        let actionsHtml = '';
+        if (role === 'assistant') {
+            actionsHtml = '<div class="msg-actions"><button class="btn btn-sm btn-outline msg-copy-btn">📋 Копировать</button></div>';
+        }
+        msgDiv.innerHTML = meta + escHtml(content) + actionsHtml;
         msgs.appendChild(msgDiv);
         msgs.scrollTop = msgs.scrollHeight;
     }
+
+
+    // R7-R3: Global clipboard handler for copy buttons
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.msg-copy-btn');
+        if (!btn) return;
+        var msgDiv = btn.closest('.chat-msg');
+        if (!msgDiv) return;
+        var content = msgDiv.getAttribute('data-content') || '';
+        navigator.clipboard.writeText(content).catch(function(){});
+        btn.remove();
+    });
 
     function showChatError(code, detail) {
         const errors = {

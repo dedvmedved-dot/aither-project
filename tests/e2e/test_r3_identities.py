@@ -152,7 +152,10 @@ def run_beta01_full(browser_name, target_url):
         page.select_option("#chat-model-select", "qwen-32b-base")
         page.fill("#chat-input", "Быть или не быть")
         page.click("#btn-send-message")
-        expect(page.locator(".chat-msg.assistant")).to_be_visible(timeout=120000)
+        # R7-R3: Use .last to avoid strict-mode violation when MODEL_A response is still visible
+        expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=120000)
+        # Wait for response to complete (not just placeholder)
+        page.wait_for_timeout(3000)
 
         # ── 20. Create separate Agent key ──
         page.click('[data-page="api-keys"]')
