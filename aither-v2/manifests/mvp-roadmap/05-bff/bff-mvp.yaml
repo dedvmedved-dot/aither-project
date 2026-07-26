@@ -24,6 +24,11 @@ data:
     ADM_U=os.environ.get("ADMIN_USERNAME","");ADM_PH=os.environ.get("ADMIN_PASSWORD_HASH","")
     SESS_S=os.environ.get("SESSION_SECRET","");ATH_S=os.environ.get("AUTH_TOKEN_HASH_SECRET","")
     B14T=os.environ.get("BFF_14B_UPSTREAM_AUTH_TOKEN","");B32T=os.environ.get("BFF_32B_GATEWAY_AUTH_TOKEN","")
+    BU_RAW=os.environ.get("BETA_USERS","");BU={}
+    if BU_RAW:
+        for pair in BU_RAW.split(","):
+            parts=pair.strip().split(":",1)
+            if len(parts)==2: BU[parts[0]]=parts[1]
     TP="athr_";RNS="aither-auth";TNS=f"{RNS}:token";SNS=f"{RNS}:session"
     log=logging.getLogger("aither-bff");cli=None;rcli=None;ravail=False
 
@@ -83,6 +88,7 @@ data:
                 try:
                     s=json.loads(sd)
                     if s.get("username")==ADM_U: return True,"admin"
+                    if s.get("username") in BU: return True,"user"
                 except: pass
         if ah.startswith("Bearer "):
             rt=ah[7:].strip();th=htok(rt);meta=await load_tm(th)
@@ -137,15 +143,21 @@ data:
     async def login(req:Request):
         b=await req.json()
         if not b or not b.get("username") or not b.get("password"): raise HTTPException(400)
-        u=b["username"];p=b["password"]
-        if not hmac.compare_digest(u,ADM_U): raise HTTPException(401)
-        ph=hashlib.sha256(p.encode()).hexdigest()
-        if not hmac.compare_digest(ph,ADM_PH): raise HTTPException(401)
+        u=b["username"];p=b["password"];role=None
+        if not hmac.compare_digest(u,ADM_U):
+            if u not in BU: raise HTTPException(401)
+            ph=hashlib.sha256(p.encode()).hexdigest()
+            if not hmac.compare_digest(ph,BU[u]): raise HTTPException(401)
+            role="user"
+        else:
+            ph=hashlib.sha256(p.encode()).hexdigest()
+            if not hmac.compare_digest(ph,ADM_PH): raise HTTPException(401)
+            role="admin"
         if not ravail: raise HTTPException(503)
         sid=uuid.uuid4().hex
-        sd=json.dumps({"username":u,"created_at":datetime.now(timezone.utc).isoformat(),"ip":req.client.host if req.client else "unknown"})
+        sd=json.dumps({"username":u,"role":role,"created_at":datetime.now(timezone.utc).isoformat(),"ip":req.client.host if req.client else "unknown"})
         await rcli.setex(sk(sid),86400,sd)
-        r=JSONResponse(content={"status":"ok","session_id":sid})
+        r=JSONResponse(content={"status":"ok","session_id":sid,"user":{"username":u,"role":role}})
         r.set_cookie(key="session_id",value=sid,max_age=86400,httponly=True,samesite="strict",secure=False)
         return r
 
@@ -158,7 +170,7 @@ data:
         if not sid or not ravail: raise HTTPException(401)
         d=await rcli.get(sk(sid))
         if not d: raise HTTPException(401)
-        try: s=json.loads(d);return {"username":s.get("username"),"created_at":s.get("created_at")}
+        try: s=json.loads(d);return {"username":s.get("username"),"role":s.get("role",""),"created_at":s.get("created_at")}
         except: raise HTTPException(500)
 
     @app.post("/api/v1/tokens")
@@ -325,6 +337,11 @@ spec:
                 secretKeyRef:
                   name: aither-bff-auth
                   key: BFF_32B_GATEWAY_AUTH_TOKEN
+            - name: BETA_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: aither-bff-auth
+                  key: BETA_USERS
           ports:
             - containerPort: 8000
               name: http

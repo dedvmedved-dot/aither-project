@@ -151,7 +151,7 @@ class TestChat:
             page.select_option("#chat-model-select", MODEL_B)
             page.fill("#chat-input", "Hello again.")
             page.click("#btn-send-message")
-            expect(page.locator(".chat-msg.assistant")).to_be_visible(timeout=180000)
+            expect(page.locator(".chat-msg.assistant").last).to_be_visible(timeout=180000)
 
             ctx.close()
             browser.close()

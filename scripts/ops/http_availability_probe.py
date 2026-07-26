@@ -135,7 +135,7 @@ def generate_summary(zone: str, results: list, planned_duration: int, planned_in
         actual_duration = 0.0
         availability_pct = 0.0
 
-    exit_status = "PASS" if non_200 == 0 and dns_failures == 0 and tls_failures == 0 and timeouts == 0 else "FAIL"
+    exit_status = "PASS" if (non_200 == 0 and dns_failures == 0 and tls_failures == 0 and timeouts == 0 and connection_failures == 0) else "FAIL"
 
     return {
         "zone": zone,
@@ -196,21 +196,21 @@ def main():
     # Fire probes at exact 1-second intervals
     next_fire = time.time()
     deadline = next_fire + args.duration
+    all_threads = []  # Track all threads for proper join
 
     while time.time() < deadline:
         probe_num += 1
 
         # Spawn all zone probes in parallel (non-blocking)
-        threads = []
         for zone, url in targets:
             t = threading.Thread(
                 target=probe_worker,
                 args=(url, zone, probe_num, args.connect_timeout, args.request_timeout,
                       results[zone], results_lock, writer, writer_lock),
-                daemon=True
+                daemon=False
             )
             t.start()
-            threads.append(t)
+            all_threads.append(t)
 
         # Wait for next interval
         next_fire += args.interval
@@ -218,8 +218,16 @@ def main():
         if sleep_time > 0:
             time.sleep(sleep_time)
 
-    # Wait for any remaining threads
-    time.sleep(max(args.request_timeout, 5))
+    # Join all remaining threads with timeout
+    thread_timeout = max(args.request_timeout + 5, 15)
+    for t in all_threads:
+        t.join(timeout=thread_timeout)
+
+    # Count threads that didn't finish
+    unfinished = sum(1 for t in all_threads if t.is_alive())
+    if unfinished > 0:
+        print(f"WARNING: {unfinished} threads did not complete within timeout", file=sys.stderr)
+
     csvfile.close()
 
     # Generate summaries
@@ -227,7 +235,7 @@ def main():
     for zone, _ in targets:
         summary = generate_summary(zone, results[zone], args.duration, args.interval)
         summaries.append(summary)
-        if summary["non_200_count"] > 0 or summary["dns_failure_count"] > 0 or summary["tls_failure_count"] > 0:
+        if summary["non_200_count"] > 0 or summary["dns_failure_count"] > 0 or summary["tls_failure_count"] > 0 or summary["timeout_count"] > 0 or summary["connection_failure_count"] > 0:
             overall_pass = False
 
     # Correct probe_start timestamp
