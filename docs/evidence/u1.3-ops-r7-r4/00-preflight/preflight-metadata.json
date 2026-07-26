@@ -1,0 +1,24 @@
+{
+  "run_id": "r7r4-phase0-001",
+  "utc": "2026-07-26T13:50:32Z",
+  "starting_head": "f33153d0ba5ea6ec689dc05ed9f460f75d4d4a72",
+  "branch": "aither-v2",
+  "working_dir": "/root/aither-project-r7-canonical",
+  "origin_head": "f33153d0ba5ea6ec689dc05ed9f460f75d4d4a72",
+  "ls_remote_head": "f33153d0ba5ea6ec689dc05ed9f460f75d4d4a72",
+  "working_tree": "CLEAN (before task files)",
+  "redis_persistence": {
+    "volume": "emptyDir",
+    "aof_enabled": false,
+    "pvc": "NONE",
+    "durable": false,
+    "blocker": "IDENTITY_STORE_NOT_DURABLE"
+  },
+  "gitleaks_baseline": {
+    "total_findings": 83,
+    "rules": {"private-key": 40, "generic-api-key": 25, "curl-auth-header": 12, "curl-auth-user": 6}
+  },
+  "bff_dependencies": "aither-v2/tools/bff/requirements.txt",
+  "bff_image": "python:3.11-slim",
+  "argon2_status": "NOT_INSTALLED"
+}
