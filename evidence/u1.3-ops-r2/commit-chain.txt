@@ -1,0 +1,12 @@
+Baseline:
+79026986f5bdaabca2eb9ab005bdb0d63b1b1e6c
+
+Commit A:
+349f78b3c1d5dd467a59e1093c1189605d7860b1
+
+Commit B:
+df6f4fe7a5c5ad857322a360176b1e01ee0733be
+
+Commit C:
+This file is contained in the final evidence finalization commit.
+Verification: git log -1 --format=%H -- evidence/u1.3-ops-r2/commit-chain.txt

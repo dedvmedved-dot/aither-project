@@ -1,0 +1,19 @@
+
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T02:59:16Z
+COMMAND: placeholder scan
+
+=== NEW EVIDENCE (u1.3-ops-r2) ===
+  MATCHES: 0
+
+=== DOCS/OPERATIONS ===
+  MATCHES: 0
+
+=== SCRIPTS/OPS ===
+scripts/ops/u13_ops_r2_collect.sh:188:        run_logged "$log" bash -c "grep -RInE '(api.?key|secret|token|password|credential)[\s]*[=:][\s]*[A-Za-z0-9_\-]{8,}' . --exclude-dir=.git --exclude-dir=.venv --exclude-dir=evidence --exclude='*.pyc' --exclude='*.log' | grep -v 'example\|EXAMPLE\|placeholder\|PLACEHOLDER\|test_secret\|Bearer \*\*\*\|# ' | head -100"
+scripts/ops/u13_ops_r2_collect.sh:200:    local patterns='(<set by|<after commit>|<to be|to be created|to be resolved|set by Hermes|after commit|TBD|FIXME|CHANGEME|PLACEHOLDER|ACTUAL_SHA|NUMBER|LIST|DIRTY \(uncommitted)'
+scripts/ops/u13_ops_r2_collect.sh:203:    run_logged "$log" grep -RInE '(<set by|<after commit>|<to be|to be created|to be resolved|TBD|FIXME|CHANGEME|PLACEHOLDER)' docs/operations scripts/ops || true
+
+PLACEHOLDER SCAN COMPLETE
+EXIT_CODE=0
+COMMAND END

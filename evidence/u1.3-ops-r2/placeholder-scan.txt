@@ -1,0 +1,25 @@
+# U1.3-OPS-R2 — Placeholder Scan
+
+**Date/Time (UTC):** 2026-07-26T02:59:16Z
+
+## New Evidence (evidence/u1.3-ops-r2/)
+
+```
+MATCHES: 0
+```
+
+## Documentation (docs/operations/)
+
+```
+MATCHES: 0
+```
+
+## Scripts (scripts/ops/)
+
+```
+MATCHES: 0 (3 hits are scanner's own search patterns, not placeholders)
+```
+
+## Placeholder Scan: PASS
+
+0 placeholders in committed files.

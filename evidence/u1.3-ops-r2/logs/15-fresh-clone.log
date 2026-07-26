@@ -1,0 +1,27 @@
+
+COMMAND START
+UTC TIMESTAMP: 2026-07-26T02:30:20Z
+COMMAND: fresh clone from Commit B
+
+FRESH_DIR=/tmp/aither-u13-ops-r2.g8q0XR
+CLONE_RC=0
+WORKING_TREE=CLEAN
+BRANCH=aither-v2
+HEAD=df6f4fe7a5c5ad857322a360176b1e01ee0733be
+ALL_10_FILES=PRESENT
+VENV=OK (pip install success, pip check: no broken requirements)
+
+=== FILE CHECK ===
+✓ docs/operations/OPERATIONS_GUIDE.md
+✓ docs/operations/DEPLOYMENT_GUIDE.md
+✓ docs/operations/ROLLBACK_GUIDE.md
+✓ docs/operations/BACKUP_RESTORE_GUIDE.md
+✓ docs/operations/MONITORING_GUIDE.md
+✓ docs/operations/TROUBLESHOOTING_GUIDE.md
+✓ scripts/ops/u13_ops_r2_collect.sh
+✓ scripts/ops/http_availability_probe.py
+✓ tests/e2e/test_u13_complete_webui.py
+✓ tests/e2e/test_r3_identities.py
+
+EXIT_CODE=0
+COMMAND END

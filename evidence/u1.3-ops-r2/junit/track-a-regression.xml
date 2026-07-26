@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="10" time="112.420" timestamp="2026-07-26T05:56:28.871588+03:00" hostname="330133.fornex.cloud"><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Internet-https://fb1.spb.ru:443-chromium]" time="11.639"><failure message="AssertionError: Locator expected to have text 'User'&#10;Actual value: Admin &#10;Call log:&#10;  - Expect &quot;to_have_text&quot; with timeout 5000ms&#10;  - waiting for locator(&quot;#nav-role-badge&quot;)&#10;    14 × locator resolved to &lt;span id=&quot;nav-role-badge&quot; class=&quot;nav-role-badge&quot;&gt;Admin&lt;/span&gt;&#10;       - unexpected value &quot;Admin&quot;&#10;&#10;Aria snapshot:&#10;- text: Admin">tests/e2e/test_r3_identities.py:412: in test_full_scenario
+    agent_key = run_beta01_full(bn, target_url)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_r3_identities.py:52: in run_beta01_full
+    expect(page.locator("#nav-role-badge")).to_have_text("User")
+E   AssertionError: Locator expected to have text 'User'
+E   Actual value: Admin 
+E   Call log:
+E     - Expect "to_have_text" with timeout 5000ms
+E     - waiting for locator("#nav-role-badge")
+E       14 × locator resolved to &lt;span id="nav-role-badge" class="nav-role-badge"&gt;Admin&lt;/span&gt;
+E          - unexpected value "Admin"
+E   
+E   Aria snapshot:
+E   - text: Admin</failure></testcase><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Internet-https://fb1.spb.ru:443-firefox]" time="12.712"><failure message="AssertionError: Locator expected to have text 'User'&#10;Actual value: Admin &#10;Call log:&#10;  - Expect &quot;to_have_text&quot; with timeout 5000ms&#10;  - waiting for locator(&quot;#nav-role-badge&quot;)&#10;    14 × locator resolved to &lt;span id=&quot;nav-role-badge&quot; class=&quot;nav-role-badge&quot;&gt;Admin&lt;/span&gt;&#10;       - unexpected value &quot;Admin&quot;&#10;&#10;Aria snapshot:&#10;- text: Admin">tests/e2e/test_r3_identities.py:412: in test_full_scenario
+    agent_key = run_beta01_full(bn, target_url)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_r3_identities.py:52: in run_beta01_full
+    expect(page.locator("#nav-role-badge")).to_have_text("User")
+E   AssertionError: Locator expected to have text 'User'
+E   Actual value: Admin 
+E   Call log:
+E     - Expect "to_have_text" with timeout 5000ms
+E     - waiting for locator("#nav-role-badge")
+E       14 × locator resolved to &lt;span id="nav-role-badge" class="nav-role-badge"&gt;Admin&lt;/span&gt;
+E          - unexpected value "Admin"
+E   
+E   Aria snapshot:
+E   - text: Admin</failure></testcase><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Test Zone-http://10.129.13.78:30080-chromium]" time="6.476"><failure message="AssertionError: Locator expected to have text 'User'&#10;Actual value: Admin &#10;Call log:&#10;  - Expect &quot;to_have_text&quot; with timeout 5000ms&#10;  - waiting for locator(&quot;#nav-role-badge&quot;)&#10;    14 × locator resolved to &lt;span id=&quot;nav-role-badge&quot; class=&quot;nav-role-badge&quot;&gt;Admin&lt;/span&gt;&#10;       - unexpected value &quot;Admin&quot;&#10;&#10;Aria snapshot:&#10;- text: Admin">tests/e2e/test_r3_identities.py:412: in test_full_scenario
+    agent_key = run_beta01_full(bn, target_url)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_r3_identities.py:52: in run_beta01_full
+    expect(page.locator("#nav-role-badge")).to_have_text("User")
+E   AssertionError: Locator expected to have text 'User'
+E   Actual value: Admin 
+E   Call log:
+E     - Expect "to_have_text" with timeout 5000ms
+E     - waiting for locator("#nav-role-badge")
+E       14 × locator resolved to &lt;span id="nav-role-badge" class="nav-role-badge"&gt;Admin&lt;/span&gt;
+E          - unexpected value "Admin"
+E   
+E   Aria snapshot:
+E   - text: Admin</failure></testcase><testcase classname="tests.e2e.test_r3_identities.TestBETA01" name="test_full_scenario[Test Zone-http://10.129.13.78:30080-firefox]" time="7.559"><failure message="AssertionError: Locator expected to have text 'User'&#10;Actual value: Admin &#10;Call log:&#10;  - Expect &quot;to_have_text&quot; with timeout 5000ms&#10;  - waiting for locator(&quot;#nav-role-badge&quot;)&#10;    14 × locator resolved to &lt;span id=&quot;nav-role-badge&quot; class=&quot;nav-role-badge&quot;&gt;Admin&lt;/span&gt;&#10;       - unexpected value &quot;Admin&quot;&#10;&#10;Aria snapshot:&#10;- text: Admin">tests/e2e/test_r3_identities.py:412: in test_full_scenario
+    agent_key = run_beta01_full(bn, target_url)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_r3_identities.py:52: in run_beta01_full
+    expect(page.locator("#nav-role-badge")).to_have_text("User")
+E   AssertionError: Locator expected to have text 'User'
+E   Actual value: Admin 
+E   Call log:
+E     - Expect "to_have_text" with timeout 5000ms
+E     - waiting for locator("#nav-role-badge")
+E       14 × locator resolved to &lt;span id="nav-role-badge" class="nav-role-badge"&gt;Admin&lt;/span&gt;
+E          - unexpected value "Admin"
+E   
+E   Aria snapshot:
+E   - text: Admin</failure></testcase><testcase classname="tests.e2e.test_r3_identities.TestBETA02" name="test_isolation[Internet-https://fb1.spb.ru:443]" time="11.570"><failure message="AssertionError: Locator expected to have text 'User'&#10;Actual value: Admin &#10;Call log:&#10;  - Expect &quot;to_have_text&quot; with timeout 5000ms&#10;  - waiting for locator(&quot;#nav-role-badge&quot;)&#10;    14 × locator resolved to &lt;span id=&quot;nav-role-badge&quot; class=&quot;nav-role-badge&quot;&gt;Admin&lt;/span&gt;&#10;       - unexpected value &quot;Admin&quot;&#10;&#10;Aria snapshot:&#10;- text: Admin">tests/e2e/test_r3_identities.py:422: in test_isolation
+    run_beta02_isolation("chromium", target_url, "nonexistent00")
+tests/e2e/test_r3_identities.py:228: in run_beta02_isolation
+    expect(page.locator("#nav-role-badge")).to_have_text("User")
+E   AssertionError: Locator expected to have text 'User'
+E   Actual value: Admin 
+E   Call log:
+E     - Expect "to_have_text" with timeout 5000ms
+E     - waiting for locator("#nav-role-badge")
+E       14 × locator resolved to &lt;span id="nav-role-badge" class="nav-role-badge"&gt;Admin&lt;/span&gt;
+E          - unexpected value "Admin"
+E   
+E   Aria snapshot:
+E   - text: Admin</failure></testcase><testcase classname="tests.e2e.test_r3_identities.TestBETA02" name="test_isolation[Test Zone-http://10.129.13.78:30080]" time="6.398"><failure message="AssertionError: Locator expected to have text 'User'&#10;Actual value: Admin &#10;Call log:&#10;  - Expect &quot;to_have_text&quot; with timeout 5000ms&#10;  - waiting for locator(&quot;#nav-role-badge&quot;)&#10;    14 × locator resolved to &lt;span id=&quot;nav-role-badge&quot; class=&quot;nav-role-badge&quot;&gt;Admin&lt;/span&gt;&#10;       - unexpected value &quot;Admin&quot;&#10;&#10;Aria snapshot:&#10;- text: Admin">tests/e2e/test_r3_identities.py:422: in test_isolation
+    run_beta02_isolation("chromium", target_url, "nonexistent00")
+tests/e2e/test_r3_identities.py:228: in run_beta02_isolation
+    expect(page.locator("#nav-role-badge")).to_have_text("User")
+E   AssertionError: Locator expected to have text 'User'
+E   Actual value: Admin 
+E   Call log:
+E     - Expect "to_have_text" with timeout 5000ms
+E     - waiting for locator("#nav-role-badge")
+E       14 × locator resolved to &lt;span id="nav-role-badge" class="nav-role-badge"&gt;Admin&lt;/span&gt;
+E          - unexpected value "Admin"
+E   
+E   Aria snapshot:
+E   - text: Admin</failure></testcase><testcase classname="tests.e2e.test_r3_identities.TestOWNER01" name="test_rbac[Internet-https://fb1.spb.ru:443]" time="9.635" /><testcase classname="tests.e2e.test_r3_identities.TestOWNER01" name="test_rbac[Test Zone-http://10.129.13.78:30080]" time="4.240" /><testcase classname="tests.e2e.test_r3_identities.TestAgent" name="test_agent_api[Internet-https://fb1.spb.ru:443]" time="38.658" /><testcase classname="tests.e2e.test_r3_identities.TestAgent" name="test_agent_api[Test Zone-http://10.129.13.78:30080]" time="3.425" /></testsuite></testsuites>
