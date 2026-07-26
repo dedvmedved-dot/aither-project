@@ -1,0 +1,26 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T04:16:24Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: python -m pytest tests/e2e/test_u13_complete_webui.py -k test_model_switch -vv --tb=long --capture=tee-sys --junitxml=evidence/u1.3-ops-r4/junit/targeted-model-switch-before.xml
+------------------------------------------------------------
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/lib/hermes-agent/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /root/aither-project
+plugins: httpx-0.36.2, base-url-2.1.0, playwright-0.8.0, anyio-4.12.1
+collecting ... collected 28 items / 24 deselected / 4 selected
+
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-chromium] PASSED [ 25%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Internet-https://fb1.spb.ru:443-firefox] PASSED [ 50%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-chromium] PASSED [ 75%]
+tests/e2e/test_u13_complete_webui.py::TestChat::test_model_switch[Test Zone-http://10.129.13.78:30080-firefox] PASSED [100%]
+
+- generated xml file: /root/aither-project/evidence/u1.3-ops-r4/junit/targeted-model-switch-before.xml -
+====================== 4 passed, 24 deselected in 24.07s =======================
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T04:16:49Z
+DURATION_SECONDS=25
+COMMAND END
+============================================================

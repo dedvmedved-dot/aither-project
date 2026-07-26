@@ -1,0 +1,54 @@
+{
+  "probe_start": "2026-07-26T04:24:55.352434+00:00",
+  "probe_end": "2026-07-26T04:28:55.354766+00:00",
+  "total_probes": 240,
+  "targets": [
+    {
+      "zone": "internet",
+      "url": "https://fb1.spb.ru/health"
+    },
+    {
+      "zone": "test",
+      "url": "http://10.129.13.78:30080/health"
+    }
+  ],
+  "zone_summaries": [
+    {
+      "zone": "internet",
+      "planned_duration_seconds": 240,
+      "actual_duration_seconds": 239.0,
+      "planned_interval_seconds": 1,
+      "actual_probe_count": 240,
+      "http_200_count": 240,
+      "non_200_count": 0,
+      "dns_failure_count": 0,
+      "tls_failure_count": 0,
+      "timeout_count": 0,
+      "connection_failure_count": 0,
+      "max_consecutive_failures": 0,
+      "first_failure_timestamp": "",
+      "last_failure_timestamp": "",
+      "availability_percent": 100.0,
+      "exit_status": "PASS"
+    },
+    {
+      "zone": "test",
+      "planned_duration_seconds": 240,
+      "actual_duration_seconds": 239.0,
+      "planned_interval_seconds": 1,
+      "actual_probe_count": 240,
+      "http_200_count": 240,
+      "non_200_count": 0,
+      "dns_failure_count": 0,
+      "tls_failure_count": 0,
+      "timeout_count": 0,
+      "connection_failure_count": 0,
+      "max_consecutive_failures": 0,
+      "first_failure_timestamp": "",
+      "last_failure_timestamp": "",
+      "availability_percent": 100.0,
+      "exit_status": "PASS"
+    }
+  ],
+  "overall_status": "PASS"
+}

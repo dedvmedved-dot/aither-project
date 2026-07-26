@@ -1,0 +1,44 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T04:02:35Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: bash -c $'\ndate -u +"%Y-%m-%dT%H:%M:%SZ"\necho "PWD: $(pwd)"\necho "REMOTE: $(git remote get-url origin)"\necho "BRANCH: $(git branch --show-current)"\necho "LOCAL_HEAD: $(git rev-parse HEAD)"\necho "ORIGIN_HEAD: $(git rev-parse origin/aither-v2)"\necho "LS_REMOTE: $(git ls-remote origin refs/heads/aither-v2 | awk \'{print $1}\')"\necho "MATCH_LOCAL_ORIGIN: $([ "$(git rev-parse HEAD)" = "$(git rev-parse origin/aither-v2)" ] && echo YES || echo NO)"\necho "MATCH_LOCAL_LS_REMOTE: $([ "$(git rev-parse HEAD)" = "$(git ls-remote origin refs/heads/aither-v2 | awk \'{print $1}\')" ] && echo YES || echo NO)"\necho "PORCELAIN: $(git status --porcelain)"\necho "JOBS: $(jobs -l)"\ngit log --oneline --decorate -20\n'
+------------------------------------------------------------
+2026-07-26T04:02:35Z
+PWD: /root/aither-project
+REMOTE: https://github.com/dedvmedved-dot/aither-project.git
+BRANCH: aither-v2
+LOCAL_HEAD: 0419be6deab62352581a729d4242609efe768622
+ORIGIN_HEAD: 0419be6deab62352581a729d4242609efe768622
+LS_REMOTE: 0419be6deab62352581a729d4242609efe768622
+MATCH_LOCAL_ORIGIN: YES
+MATCH_LOCAL_LS_REMOTE: YES
+PORCELAIN: ?? evidence/u1.3-ops-r4/
+?? scripts/ops/run_with_evidence.sh
+JOBS: 
+0419be6 (HEAD -> aither-v2, origin/aither-v2) evidence(u1.3-ops-r2): finalize fresh-clone and acceptance evidence
+df6f4fe evidence(u1.3-ops-r2): add operations validation payload
+349f78b ops(u1.3-r2): fix availability validation and operations documentation
+7902698 evidence(u1.3-ops-r1): add verifiable operations evidence with raw logs
+0dd6fd5 ops(u1.3-r1): correct operational tooling — evidence collection script
+3a2cb3d evidence(u1.3-ops): operational readiness verification
+2ed4b4c ops(u1.3): operational readiness — documentation and procedures
+171f78d evidence(u1.3-wui-r1): prove complete webui workflow after corrections
+7c7bb10 fix(u1.3-wui): repair agent page renderer and enforce TLS verification
+14136d7 feat(u1.3-wui): complete dual-model chat and agent key workflows
+6327205 docs(r3.3): remove self-reference placeholders and stale HEAD values
+76df023 docs(r3.2): reconcile tested, evidence and final commit chain
+bb224c4 evidence(r3.1): prove reproducible identity acceptance from clean clone
+1ed9500 test(r3.1): make identity acceptance reproducible from clean commit
+6278381 feat(r3): TRACK-A-R3 — real identities, key lifecycle, agent acceptance
+4adab46 test(r2): TRACK-A-R2 — Playwright E2E fix, 4/4 PASS (Chromium+Firefox, Internet+Test Zone)
+5f79ab8 fix(e2e): use Enter key instead of chat-send button, fix chat input
+8a4ec06 fix(e2e): correct button selectors, use Escape for modal close
+5b87dd0 fix(e2e): increase login timeout for Internet zone, use target_url param
+5fc5792 test(r2): TRACK-A-R2 — real user browser acceptance with Playwright
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T04:02:46Z
+DURATION_SECONDS=11
+COMMAND END
+============================================================

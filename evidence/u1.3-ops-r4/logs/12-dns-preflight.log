@@ -1,0 +1,35 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T04:23:52Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: bash -c $'\nfor i in $(seq 1 20); do\n    TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")\n    INTERNET_RESULT=$(curl --silent --show-error --output /dev/null --write-out "%{http_code} %{time_total}" --connect-timeout 3 --max-time 10 https://fb1.spb.ru/health 2>&1)\n    INTERNET_RC=$?\n    TEST_RESULT=$(curl --silent --show-error --output /dev/null --write-out "%{http_code} %{time_total}" --connect-timeout 3 --max-time 10 http://10.129.13.78:30080/health 2>&1)\n    TEST_RC=$?\n    printf "%s iteration=%s internet_rc=%s internet=\\"%s\\" test_rc=%s test=\\"%s\\"\\n" "$TS" "$i" "$INTERNET_RC" "$INTERNET_RESULT" "$TEST_RC" "$TEST_RESULT"\n    sleep 1\ndone\necho ""\necho "=== SUMMARY ==="\nINTERNET_200=$(grep -c "200 " evidence/u1.3-ops-r4/logs/12-dns-preflight.log | head -1)\necho "Internet 200: $INTERNET_200/20"\nTEST_200=$(grep -c "test=\\"200" evidence/u1.3-ops-r4/logs/12-dns-preflight.log || echo 0)\n'
+------------------------------------------------------------
+2026-07-26T04:23:52Z iteration=1 internet_rc=0 internet="200 0.128489" test_rc=0 test="200 0.106239"
+2026-07-26T04:23:54Z iteration=2 internet_rc=0 internet="200 0.123546" test_rc=0 test="200 0.105743"
+2026-07-26T04:23:55Z iteration=3 internet_rc=0 internet="200 0.121530" test_rc=0 test="200 0.105817"
+2026-07-26T04:23:56Z iteration=4 internet_rc=0 internet="200 0.134843" test_rc=0 test="200 0.106265"
+2026-07-26T04:23:57Z iteration=5 internet_rc=0 internet="200 0.145566" test_rc=0 test="200 0.106513"
+2026-07-26T04:23:59Z iteration=6 internet_rc=0 internet="200 0.146301" test_rc=0 test="200 0.107120"
+2026-07-26T04:24:00Z iteration=7 internet_rc=0 internet="200 0.130121" test_rc=0 test="200 0.105621"
+2026-07-26T04:24:01Z iteration=8 internet_rc=0 internet="200 0.146667" test_rc=0 test="200 0.106870"
+2026-07-26T04:24:03Z iteration=9 internet_rc=0 internet="200 0.131498" test_rc=0 test="200 0.105639"
+2026-07-26T04:24:04Z iteration=10 internet_rc=0 internet="200 0.154541" test_rc=0 test="200 0.106288"
+2026-07-26T04:24:05Z iteration=11 internet_rc=0 internet="200 0.128539" test_rc=0 test="200 0.106127"
+2026-07-26T04:24:06Z iteration=12 internet_rc=0 internet="200 0.144353" test_rc=0 test="200 0.105554"
+2026-07-26T04:24:08Z iteration=13 internet_rc=0 internet="200 0.144576" test_rc=0 test="200 0.105753"
+2026-07-26T04:24:09Z iteration=14 internet_rc=0 internet="200 0.146335" test_rc=0 test="200 0.106819"
+2026-07-26T04:24:10Z iteration=15 internet_rc=0 internet="200 0.134952" test_rc=0 test="200 0.106136"
+2026-07-26T04:24:11Z iteration=16 internet_rc=0 internet="200 0.141878" test_rc=0 test="200 0.106172"
+2026-07-26T04:24:13Z iteration=17 internet_rc=0 internet="200 0.146570" test_rc=0 test="200 0.106268"
+2026-07-26T04:24:14Z iteration=18 internet_rc=0 internet="200 0.131129" test_rc=0 test="200 0.106150"
+2026-07-26T04:24:15Z iteration=19 internet_rc=0 internet="200 0.141824" test_rc=0 test="200 0.106803"
+2026-07-26T04:24:17Z iteration=20 internet_rc=0 internet="200 0.143124" test_rc=0 test="200 0.106347"
+
+=== SUMMARY ===
+Internet 200: 21/20
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T04:24:18Z
+DURATION_SECONDS=26
+COMMAND END
+============================================================

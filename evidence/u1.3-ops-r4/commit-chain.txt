@@ -1,0 +1,12 @@
+U1.3-OPS-R4 — COMMIT CHAIN (APPEND-ONLY)
+
+79026986f5bdaabca2eb9ab005bdb0d63b1b1e6c  U1.3-OPS-R1 evidence (rejected)
+349f78b3c1d5dd467a59e1093c1189605d7860b1  U1.3-OPS-R2 implementation (BFF RollingUpdate, PDB)
+df6f4fe7a5c5ad857322a360176b1e01ee0733be  U1.3-OPS-R2 evidence payload
+cf8bf4fd3cc6847a411708de0017c8e49221e8df  U1.3-OPS-R2 finalization (rejected)
+0419be6deab62352581a729d4242609efe768622  U1.3-OPS-R3 amended finalization (rejected)
+b8d592cfee5b7ddb2fd8ce5f70075422b5d66239  Commit D — implementation (BFF multi-user, probe fix, model_switch fix)
+<<COMMIT_E>>  Commit E — runtime evidence
+<<COMMIT_F>>  Commit F — final acceptance evidence
+
+No amend, no force push, no history rewriting.

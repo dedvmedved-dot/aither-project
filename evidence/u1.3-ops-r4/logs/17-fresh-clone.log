@@ -1,0 +1,39 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T04:29:23Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: bash -c $'\ncd /tmp\ngit clone --branch aither-v2 --single-branch https://github.com/dedvmedved-dot/aither-project.git /tmp/aither-u13-ops-r4.9rnZlo 2>&1\ncd /tmp/aither-u13-ops-r4.9rnZlo\necho \'=== GIT STATUS ===\' \ngit status --porcelain\necho \'=== BRANCH ===\'\ngit branch --show-current\necho \'=== HEAD ===\'\ngit rev-parse HEAD\necho \'=== LOG ===\'\ngit log -1 --format=fuller\necho \'=== VENV ===\'\npython3 -m venv .venv\nsource .venv/bin/activate\npython -m pip install --upgrade pip -q 2>&1\npython -m pip install -r tests/e2e/requirements.txt -q 2>&1\npython -m pip check 2>&1\npython -m playwright install chromium firefox 2>&1\necho \'=== VENV READY ===\'\necho \'FRESH_DIR=/tmp/aither-u13-ops-r4.9rnZlo\'\n'
+------------------------------------------------------------
+Cloning into '/tmp/aither-u13-ops-r4.9rnZlo'...
+=== GIT STATUS ===
+=== BRANCH ===
+aither-v2
+=== HEAD ===
+b8d592cfee5b7ddb2fd8ce5f70075422b5d66239
+=== LOG ===
+commit b8d592cfee5b7ddb2fd8ce5f70075422b5d66239
+Author:     Sergey Kravchuk <sergey@kravchuk.dev>
+AuthorDate: Sun Jul 26 07:15:44 2026 +0300
+Commit:     Sergey Kravchuk <sergey@kravchuk.dev>
+CommitDate: Sun Jul 26 07:15:44 2026 +0300
+
+    fix(u1.3-ops-r4): restore accepted regressions and correct validation tooling
+    
+    - BFF: add BETA_USERS support with role differentiation in login response
+    - BFF: return user object with role in /api/v1/auth/login and /auth/me
+    - BFF deployment: add BETA_USERS env from secret
+    - test_u13_complete_webui: fix model_switch strict-mode Playwright locator
+    - http_availability_probe: proper thread joining, connection_failure in FAIL
+    - Add run_with_evidence.sh wrapper for raw evidence capture
+=== VENV ===
+ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'tests/e2e/requirements.txt'
+No broken requirements found.
+/tmp/aither-u13-ops-r4.9rnZlo/.venv/bin/python: No module named playwright
+=== VENV READY ===
+FRESH_DIR=/tmp/aither-u13-ops-r4.9rnZlo
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T04:29:43Z
+DURATION_SECONDS=20
+COMMAND END
+============================================================

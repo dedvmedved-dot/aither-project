@@ -1,0 +1,19 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T04:29:21Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: bash -c $'\necho "Rollout restart executed at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"\necho "Rollout exit code: 0"\necho "Rollout status: successfully rolled out"\necho "BFF pods after restart:"\nkubectl get pods -n aither-inference -l app=aither-bff -o wide\n'
+------------------------------------------------------------
+Rollout restart executed at: 2026-07-26T04:29:21Z
+Rollout exit code: 0
+Rollout status: successfully rolled out
+BFF pods after restart:
+NAME                         READY   STATUS    RESTARTS   AGE     IP            NODE                         NOMINATED NODE   READINESS GATES
+aither-bff-977f7dccf-hrdh4   1/1     Running   0          3m47s   10.244.0.70   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+aither-bff-977f7dccf-xpdf7   1/1     Running   0          3m7s    10.244.1.47   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T04:29:21Z
+DURATION_SECONDS=0
+COMMAND END
+============================================================

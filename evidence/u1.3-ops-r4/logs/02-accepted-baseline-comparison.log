@@ -1,0 +1,40 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T04:03:08Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: bash -c $'\necho "=== ACCEPTED WUI BASELINE COMMIT ==="\necho "171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf"\necho ""\necho "=== TEST FILE HISTORY — WUI ==="\ngit log --oneline --all --decorate -- tests/e2e/test_u13_complete_webui.py\necho ""\necho "=== TEST FILE HISTORY — TRACK A ==="\ngit log --oneline --all --decorate -- tests/e2e/test_r3_identities.py\necho ""\necho "=== BFF MANIFEST HISTORY ==="\ngit log --oneline --all --decorate -- k8s/cluster/aither-inference/bff/\necho ""\necho "=== BLOB SHA — WUI TEST ==="\necho "Accepted baseline blob: $(git rev-parse 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf:tests/e2e/test_u13_complete_webui.py)"\necho "Current HEAD blob: $(git rev-parse HEAD:tests/e2e/test_u13_complete_webui.py)"\necho ""\necho "=== BLOB SHA — TRACK A TEST ==="\necho "Accepted baseline blob: $(git rev-parse 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf:tests/e2e/test_r3_identities.py)"\necho "Current HEAD blob: $(git rev-parse HEAD:tests/e2e/test_r3_identities.py)"\necho ""\necho "=== WUI TEST DIFF (accepted..HEAD) ==="\ngit diff 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf..HEAD -- tests/e2e/test_u13_complete_webui.py | head -200\necho ""\necho "=== TRACK A TEST DIFF (accepted..HEAD) ==="\ngit diff 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf..HEAD -- tests/e2e/test_r3_identities.py | head -200\necho ""\necho "=== TESTS/ DIFF ==="\ngit diff --stat 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf..HEAD -- tests/\necho ""\necho "=== K8S/CLUSTER DIFF ==="\ngit diff --stat 171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf..HEAD -- k8s/cluster/\n'
+------------------------------------------------------------
+=== ACCEPTED WUI BASELINE COMMIT ===
+171f78ddcec2c40dc8a5b630ccb5e8b2b31d5ddf
+
+=== TEST FILE HISTORY — WUI ===
+7c7bb10 fix(u1.3-wui): repair agent page renderer and enforce TLS verification
+14136d7 feat(u1.3-wui): complete dual-model chat and agent key workflows
+
+=== TEST FILE HISTORY — TRACK A ===
+1ed9500 test(r3.1): make identity acceptance reproducible from clean commit
+6278381 feat(r3): TRACK-A-R3 — real identities, key lifecycle, agent acceptance
+
+=== BFF MANIFEST HISTORY ===
+
+=== BLOB SHA — WUI TEST ===
+Accepted baseline blob: 868e20a0199694aefa50229e59e471daa4a9c5ae
+Current HEAD blob: 868e20a0199694aefa50229e59e471daa4a9c5ae
+
+=== BLOB SHA — TRACK A TEST ===
+Accepted baseline blob: 090e8374767c98565ffbde4e5d6711ebd4bbd0ef
+Current HEAD blob: 090e8374767c98565ffbde4e5d6711ebd4bbd0ef
+
+=== WUI TEST DIFF (accepted..HEAD) ===
+
+=== TRACK A TEST DIFF (accepted..HEAD) ===
+
+=== TESTS/ DIFF ===
+
+=== K8S/CLUSTER DIFF ===
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T04:03:08Z
+DURATION_SECONDS=0
+COMMAND END
+============================================================

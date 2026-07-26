@@ -1,0 +1,21 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T05:15:11Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: bash -c $'\necho "=== PLACEHOLDER SCAN — evidence/u1.3-ops-r4 ==="\ngrep -RInE "(<pending>|<this commit>|<set by|<after commit>|<to be|to be created|to be resolved|set by Hermes|after commit|available on request|TBD|FIXME|CHANGEME|PLACEHOLDER|ACTUAL_SHA|REAL_SHA|NUMBER|CONCRETE RESULT|CONCRETE LIST|DIRTY \\(uncommitted|PARTIAL PASS|PARTIAL)" evidence/u1.3-ops-r4 --exclude="placeholder-scan.txt" --exclude="20-placeholder-scan.log" 2>/dev/null || echo "MATCHES=0"\necho ""\necho "=== PLACEHOLDER SCAN — scripts/ops + changed files ==="\ngrep -RInE "(<pending>|<this commit>|<set by|<after commit>|<to be|TBD|FIXME|CHANGEME|PLACEHOLDER)" scripts/ops aither-v2/manifests/mvp-roadmap/05-bff/ aither-v2/manifests/mvp-roadmap/07-auth-api/ tests/e2e/test_u13_complete_webui.py 2>/dev/null || echo "MATCHES=0"\necho ""\necho "Scan complete."\n'
+------------------------------------------------------------
+=== PLACEHOLDER SCAN — evidence/u1.3-ops-r4 ===
+MATCHES=0
+
+=== PLACEHOLDER SCAN — scripts/ops + changed files ===
+scripts/ops/u13_ops_r2_collect.sh:188:        run_logged "$log" bash -c "grep -RInE '(api.?key|secret|token|password|credential)[\s]*[=:][\s]*[A-Za-z0-9_\-]{8,}' . --exclude-dir=.git --exclude-dir=.venv --exclude-dir=evidence --exclude='*.pyc' --exclude='*.log' | grep -v 'example\|EXAMPLE\|placeholder\|PLACEHOLDER\|test_secret\|Bearer \*\*\*\|# ' | head -100"
+scripts/ops/u13_ops_r2_collect.sh:200:    local patterns='(<set by|<after commit>|<to be|to be created|to be resolved|set by Hermes|after commit|TBD|FIXME|CHANGEME|PLACEHOLDER|ACTUAL_SHA|NUMBER|LIST|DIRTY \(uncommitted)'
+scripts/ops/u13_ops_r2_collect.sh:203:    run_logged "$log" grep -RInE '(<set by|<after commit>|<to be|to be created|to be resolved|TBD|FIXME|CHANGEME|PLACEHOLDER)' docs/operations scripts/ops || true
+
+Scan complete.
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T05:15:11Z
+DURATION_SECONDS=0
+COMMAND END
+============================================================
