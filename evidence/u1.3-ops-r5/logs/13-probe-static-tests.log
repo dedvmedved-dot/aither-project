@@ -1,0 +1,163 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/lib/hermes-agent/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /root/aither-project
+plugins: httpx-0.36.2, base-url-2.1.0, playwright-0.8.0, anyio-4.12.1
+collecting ... collected 13 items
+
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_all_200_pass FAILED [  7%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_http_500_fail PASSED [ 15%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_dns_failure_fail PASSED [ 23%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_connection_failure_fail PASSED [ 30%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_timeout_fail PASSED [ 38%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_tls_failure_fail PASSED [ 46%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_missing_probe_enforced FAILED [ 53%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_empty_results FAILED [ 61%]
+tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_result_sorting_maintains_order PASSED [ 69%]
+tests/ops/test_http_availability_probe.py::TestIntervalCalculation::test_intervals_in_range PASSED [ 76%]
+tests/ops/test_http_availability_probe.py::TestProbeSingle::test_http_200_response PASSED [ 84%]
+tests/ops/test_http_availability_probe.py::TestProbeSingle::test_connection_refused PASSED [ 92%]
+tests/ops/test_http_availability_probe.py::TestProbeSingle::test_invalid_host_dns_failure PASSED [100%]
+
+=================================== FAILURES ===================================
+____________________ TestGenerateSummary.test_all_200_pass _____________________
+
+self = <test_http_availability_probe.TestGenerateSummary object at 0x75cf41b31590>
+
+    def test_all_200_pass(self):
+        results = []
+        for i in range(240):
+            results.append({
+                "zone": "test", "url": "http://ok", "probe_num": i+1,
+                "timestamp": f"2026-07-26T04:00:{i:02d}.000000Z",
+                "http_status": 200, "latency_seconds": 0.1,
+                "error_type": None, "error_message": ""
+            })
+>       summary = probe_module.generate_summary("test", results, 240, 1)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/ops/test_http_availability_probe.py:30: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+zone = 'test'
+results = [{'zone': 'test', 'url': 'http://ok', 'probe_num': 1, 'timestamp': '2026-07-26T04:00:00.000000Z', ...}, {'zone': 'test...00Z', ...}, {'zone': 'test', 'url': 'http://ok', 'probe_num': 6, 'timestamp': '2026-07-26T04:00:05.000000Z', ...}, ...]
+planned_duration = 240, planned_interval = 1
+
+    def generate_summary(zone: str, results: list, planned_duration: int, planned_interval: int) -> dict:
+        """Generate summary statistics for a zone."""
+        actual_count = len(results)
+        http_200 = sum(1 for r in results if r["http_status"] == 200)
+        non_200 = sum(1 for r in results if r["http_status"] is not None and r["http_status"] != 200)
+        dns_failures = sum(1 for r in results if r["error_type"] == "dns_failure")
+        tls_failures = sum(1 for r in results if r["error_type"] == "tls_failure")
+        timeouts = sum(1 for r in results if r["error_type"] == "timeout")
+        connection_failures = sum(1 for r in results if r["error_type"] == "connection_failure")
+    
+        max_consecutive = 0
+        current_consecutive = 0
+        first_failure_ts = ""
+        last_failure_ts = ""
+        for r in results:
+            is_failure = (r["http_status"] != 200) or (r["error_type"] is not None)
+            if is_failure:
+                current_consecutive += 1
+                max_consecutive = max(max_consecutive, current_consecutive)
+                if not first_failure_ts:
+                    first_failure_ts = r["timestamp"]
+                last_failure_ts = r["timestamp"]
+            else:
+                current_consecutive = 0
+    
+        if actual_count > 0:
+            first_r = results[0]
+            last_r = results[-1]
+>           actual_duration = (datetime.fromisoformat(last_r["timestamp"].replace("Z", "+00:00")) -
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                              datetime.fromisoformat(first_r["timestamp"].replace("Z", "+00:00"))).total_seconds()
+E           ValueError: Invalid isoformat string: '2026-07-26T04:00:239.000000+00:00'
+
+scripts/ops/http_availability_probe.py:131: ValueError
+_______________ TestGenerateSummary.test_missing_probe_enforced ________________
+
+self = <test_http_availability_probe.TestGenerateSummary object at 0x75cf41b25890>
+
+    def test_missing_probe_enforced(self):
+        """If expected 240 probes but only 200 completed -> FAIL."""
+        results = []
+        for i in range(200):
+            results.append({
+                "zone": "test", "url": "http://ok", "probe_num": i+1,
+                "timestamp": f"2026-07-26T04:00:{i:02d}.000000Z",
+                "http_status": 200, "latency_seconds": 0.1,
+                "error_type": None, "error_message": ""
+            })
+>       summary = probe_module.generate_summary("test", results, 240, 1)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/ops/test_http_availability_probe.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+zone = 'test'
+results = [{'zone': 'test', 'url': 'http://ok', 'probe_num': 1, 'timestamp': '2026-07-26T04:00:00.000000Z', ...}, {'zone': 'test...00Z', ...}, {'zone': 'test', 'url': 'http://ok', 'probe_num': 6, 'timestamp': '2026-07-26T04:00:05.000000Z', ...}, ...]
+planned_duration = 240, planned_interval = 1
+
+    def generate_summary(zone: str, results: list, planned_duration: int, planned_interval: int) -> dict:
+        """Generate summary statistics for a zone."""
+        actual_count = len(results)
+        http_200 = sum(1 for r in results if r["http_status"] == 200)
+        non_200 = sum(1 for r in results if r["http_status"] is not None and r["http_status"] != 200)
+        dns_failures = sum(1 for r in results if r["error_type"] == "dns_failure")
+        tls_failures = sum(1 for r in results if r["error_type"] == "tls_failure")
+        timeouts = sum(1 for r in results if r["error_type"] == "timeout")
+        connection_failures = sum(1 for r in results if r["error_type"] == "connection_failure")
+    
+        max_consecutive = 0
+        current_consecutive = 0
+        first_failure_ts = ""
+        last_failure_ts = ""
+        for r in results:
+            is_failure = (r["http_status"] != 200) or (r["error_type"] is not None)
+            if is_failure:
+                current_consecutive += 1
+                max_consecutive = max(max_consecutive, current_consecutive)
+                if not first_failure_ts:
+                    first_failure_ts = r["timestamp"]
+                last_failure_ts = r["timestamp"]
+            else:
+                current_consecutive = 0
+    
+        if actual_count > 0:
+            first_r = results[0]
+            last_r = results[-1]
+>           actual_duration = (datetime.fromisoformat(last_r["timestamp"].replace("Z", "+00:00")) -
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                              datetime.fromisoformat(first_r["timestamp"].replace("Z", "+00:00"))).total_seconds()
+E           ValueError: Invalid isoformat string: '2026-07-26T04:00:199.000000+00:00'
+
+scripts/ops/http_availability_probe.py:131: ValueError
+____________________ TestGenerateSummary.test_empty_results ____________________
+
+self = <test_http_availability_probe.TestGenerateSummary object at 0x75cf41b26050>
+
+    def test_empty_results(self):
+        results = []
+        summary = probe_module.generate_summary("test", results, 240, 1)
+        assert summary["actual_probe_count"] == 0
+        assert summary["availability_percent"] == 0.0
+>       assert summary["exit_status"] == "PASS"  # no failures, just empty
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'FAIL' == 'PASS'
+E         
+E         - PASS
+E         + FAIL
+
+tests/ops/test_http_availability_probe.py:111: AssertionError
+- generated xml file: /root/aither-project/evidence/u1.3-ops-r5/junit/probe-unit.xml -
+=========================== short test summary info ============================
+FAILED tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_all_200_pass - ValueError: Invalid isoformat string: '2026-07-26T04:00:239.000000+00:00'
+FAILED tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_missing_probe_enforced - ValueError: Invalid isoformat string: '2026-07-26T04:00:199.000000+00:00'
+FAILED tests/ops/test_http_availability_probe.py::TestGenerateSummary::test_empty_results - AssertionError: assert 'FAIL' == 'PASS'
+  
+  - PASS
+  + FAIL
+======================== 3 failed, 10 passed in 10.27s =========================

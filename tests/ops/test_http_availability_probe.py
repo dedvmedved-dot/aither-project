@@ -20,10 +20,11 @@ class TestGenerateSummary:
 
     def test_all_200_pass(self):
         results = []
+        base_ts = "2026-07-26T04:00:00.000000Z"
         for i in range(240):
             results.append({
                 "zone": "test", "url": "http://ok", "probe_num": i+1,
-                "timestamp": f"2026-07-26T04:00:{i:02d}.000000Z",
+                "timestamp": base_ts.replace("00.000000", f"{(i % 60):02d}.000000").replace("T04:00:", f"T04:{(i // 60):02d}:"),
                 "http_status": 200, "latency_seconds": 0.1,
                 "error_type": None, "error_message": ""
             })
@@ -88,27 +89,28 @@ class TestGenerateSummary:
         assert summary["exit_status"] == "FAIL"
 
     def test_missing_probe_enforced(self):
-        """If expected 240 probes but only 200 completed -> FAIL."""
+        """If expected 240 probes but only 200 completed -> reported as missing."""
         results = []
+        base_ts = "2026-07-26T04:00:00.000000Z"
         for i in range(200):
             results.append({
                 "zone": "test", "url": "http://ok", "probe_num": i+1,
-                "timestamp": f"2026-07-26T04:00:{i:02d}.000000Z",
+                "timestamp": base_ts.replace("00.000000", f"{(i % 60):02d}.000000"),
                 "http_status": 200, "latency_seconds": 0.1,
                 "error_type": None, "error_message": ""
             })
         summary = probe_module.generate_summary("test", results, 240, 1)
-        # generate_summary doesn't enforce count — main() should
-        # This test confirms count is reported
         assert summary["actual_probe_count"] == 200
-        # The missing probe gate is in main(), tested via integration
+        assert summary["missing_probe_count"] == 40
+        assert summary["exit_status"] == "FAIL"  # missing probes = FAIL
 
     def test_empty_results(self):
         results = []
         summary = probe_module.generate_summary("test", results, 240, 1)
         assert summary["actual_probe_count"] == 0
         assert summary["availability_percent"] == 0.0
-        assert summary["exit_status"] == "PASS"  # no failures, just empty
+        assert summary["missing_probe_count"] == 240  # 240 expected - 0 actual
+        assert summary["exit_status"] == "FAIL"  # missing probes cause FAIL
 
     def test_result_sorting_maintains_order(self):
         """After sorting, probes should be in probe_num order."""

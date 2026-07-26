@@ -1,0 +1,32 @@
+============================================================
+COMMAND START
+UTC START TIMESTAMP: 2026-07-26T05:55:07Z
+WORKING DIRECTORY: /root/aither-project
+COMMAND: bash -Eeuo pipefail -c $'\nfor i in $(seq 1 20); do\n    TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")\n    IR=$(curl --silent --show-error --output /dev/null --write-out "%{http_code} %{time_total}" --connect-timeout 3 --max-time 10 https://fb1.spb.ru/health 2>&1)\n    TR=$(curl --silent --show-error --output /dev/null --write-out "%{http_code} %{time_total}" --connect-timeout 3 --max-time 10 http://10.129.13.78:30080/health 2>&1)\n    printf "%s i=%s internet=\\"%s\\" test=\\"%s\\"\\n" "$TS" "$i" "$IR" "$TR"\n    sleep 1\ndone\n'
+------------------------------------------------------------
+2026-07-26T05:55:07Z i=1 internet="200 0.129894" test="200 0.108451"
+2026-07-26T05:55:08Z i=2 internet="200 0.126745" test="200 0.144567"
+2026-07-26T05:55:09Z i=3 internet="200 0.122423" test="200 0.141591"
+2026-07-26T05:55:10Z i=4 internet="200 0.130038" test="200 0.106948"
+2026-07-26T05:55:12Z i=5 internet="200 0.128558" test="200 0.107645"
+2026-07-26T05:55:13Z i=6 internet="200 0.129086" test="200 0.125179"
+2026-07-26T05:55:14Z i=7 internet="200 0.130513" test="200 0.106438"
+2026-07-26T05:55:16Z i=8 internet="200 0.126957" test="200 0.115312"
+2026-07-26T05:55:17Z i=9 internet="200 0.125473" test="200 0.106929"
+2026-07-26T05:55:18Z i=10 internet="200 0.123727" test="200 0.380701"
+2026-07-26T05:55:20Z i=11 internet="200 0.139192" test="200 0.106528"
+2026-07-26T05:55:21Z i=12 internet="200 0.126998" test="200 0.106112"
+2026-07-26T05:55:22Z i=13 internet="200 0.123328" test="200 0.106511"
+2026-07-26T05:55:23Z i=14 internet="200 0.135820" test="200 0.107233"
+2026-07-26T05:55:25Z i=15 internet="200 0.121691" test="200 0.106373"
+2026-07-26T05:55:26Z i=16 internet="200 0.131936" test="200 0.106088"
+2026-07-26T05:55:27Z i=17 internet="200 0.129470" test="200 0.107184"
+2026-07-26T05:55:28Z i=18 internet="200 0.143686" test="200 0.108102"
+2026-07-26T05:55:30Z i=19 internet="200 0.163235" test="200 0.106332"
+2026-07-26T05:55:31Z i=20 internet="200 0.130058" test="200 0.107098"
+------------------------------------------------------------
+EXIT_CODE=0
+UTC END TIMESTAMP: 2026-07-26T05:55:32Z
+DURATION_SECONDS=25
+COMMAND END
+============================================================
