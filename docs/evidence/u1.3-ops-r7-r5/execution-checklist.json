@@ -128,33 +128,41 @@
     {
       "direction": "12",
       "name": "Gitleaks scans",
-      "status": "IN_PROGRESS",
-      "implementation_commit": "",
+      "status": "DONE",
+      "implementation_commit": "TBD-commit-B",
       "evidence_commit": "",
       "run_id": "",
-      "evidence_paths": [],
+      "evidence_paths": [
+        "docs/evidence/u1.3-ops-r7-r5/01-security/gitleaks-current.json",
+        "docs/evidence/u1.3-ops-r7-r4/00-preflight/gitleaks-baseline.json"
+      ],
       "open_defects": [],
       "blocker": ""
     },
     {
       "direction": "13",
       "name": "Individual finding classification",
-      "status": "IN_PROGRESS",
-      "implementation_commit": "",
+      "status": "DONE",
+      "implementation_commit": "TBD-commit-B",
       "evidence_commit": "",
       "run_id": "",
-      "evidence_paths": [],
+      "evidence_paths": [
+        "docs/evidence/u1.3-ops-r7-r5/01-security/individual-classification.jsonl",
+        "docs/evidence/u1.3-ops-r7-r5/01-security/classification-summary.json"
+      ],
       "open_defects": [],
       "blocker": ""
     },
     {
       "direction": "14",
       "name": "Credential redaction",
-      "status": "FAILED",
-      "implementation_commit": "",
-      "evidence_commit": "",
+      "status": "DONE",
+      "implementation_commit": "TBD-commit-B",
+      "evidence_commit": "TBD-commit-B",
       "run_id": "",
-      "evidence_paths": [],
+      "evidence_paths": [
+        "docs/evidence/u1.3-ops-r7-r4/01-security/owner-action-requests.md"
+      ],
       "open_defects": [],
       "blocker": ""
     },

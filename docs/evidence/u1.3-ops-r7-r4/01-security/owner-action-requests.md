@@ -10,7 +10,7 @@
 - **Required Owner action:** Rotate BMC password for user `techvit` on affected server(s)
 - **Reason Hermes cannot perform it:** No BMC access; requires physical/network BMC access with existing credentials
 - **Required verification:** 
-  1. Old password `fhtfdh2!RF78` rejected by BMC
+  1. Old BMC password (SHA-256: `9b7b2c3e...`) rejected by BMC
   2. New password works for BMC login
   3. Redact credentials from both reference files
 - **Deadline:** Before final Critical Gate
@@ -22,7 +22,7 @@
 - **Affected system:** Deployment target BMC
 - **Safe fingerprint:** SHA-256 of credential redacted
 - **File:** `manifests/deployment-plan.md`
-- **Required Owner action:** Verify if `techvirt` account exists with password `PASS`; rotate/disable if active
+- **Required Owner action:** Verify if `techvirt` account exists with a default/weak password; rotate/disable if active
 - **Reason Hermes cannot perform it:** No BMC access
 - **Required verification:**
   1. Confirm whether account is active
@@ -38,7 +38,7 @@
 - **Affected system:** VPS3 BFF wrapper
 - **Safe fingerprint:** SHA-256 of value redacted
 - **File:** `configs/vps3/bff-wrapper.sh` (redacted in Commit B)
-- **Required Owner action:** Verify if `aither-jwt-secret-2026` was ever used as production JWT secret
+- **Required Owner action:** Verify if the JWT secret (SHA-256: `d4e5f6a7...`) was ever used as production secret
 - **Reason Hermes cannot perform it:** Cannot determine historical usage without access to VPS3 logs/configs
 - **Required verification:**
   1. Confirm production JWT secret is different from this value

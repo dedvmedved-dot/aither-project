@@ -1,0 +1,11 @@
+{
+  "scan_id": "r7r5-direction-13-classification",
+  "classified_utc": "2026-07-26T17:55:47.470138+00:00",
+  "total": 83,
+  "by_status": {
+    "NON_SECRET_HASH_PROVEN": 1,
+    "TEST_FIXTURE_PROVEN": 74,
+    "OWNER_ACTION_REQUIRED": 8
+  },
+  "output": "/root/aither-project-r7-canonical/docs/evidence/u1.3-ops-r7-r5/01-security/individual-classification.jsonl"
+}
