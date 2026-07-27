@@ -17,7 +17,7 @@ from config import settings
 from auth import check_auth, check_admin
 from routing import route_model
 from rate_limit import check_rate_limit
-from billing import reserve, settle, refund
+from billing import reserve, settle, refund, BillingResult
 from usage import record_usage
 from security import check_security
 from security_egress import check_egress
@@ -158,9 +158,13 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
 
     # Billing reserve
     ref = None
+    idem_key = request.headers.get("X-Idempotency-Key", rid)
     if settings.billing_enabled and request.app.state.db:
-        ref = reserve(org_id, 100, request.app.state.db)
-        if ref is None: return _err(402, "insufficient_balance")
+        result, ref = reserve(org_id, max_tokens + 100, request.app.state.db, idem_key)
+        if result != BillingResult.SUCCESS:
+            if result == BillingResult.INSUFFICIENT_BALANCE:
+                return _err(402, "insufficient_balance")
+            return _err(503, "billing_unavailable")
 
     # Upstream call with actual stream flag
     payload = {"model": model.served_model_name, "max_tokens": max_tokens, "temperature": temperature, "stream": stream}
