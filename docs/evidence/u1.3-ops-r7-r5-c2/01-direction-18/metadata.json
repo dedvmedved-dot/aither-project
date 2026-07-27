@@ -1,0 +1,31 @@
+{
+  "run_id": "d18-c2-20260727T030057Z",
+  "source_commit": "75dd903960c34777d91e6e92ef4686df0c4b8fde",
+  "deployed_commit": "75dd903960c34777d91e6e92ef4686df0c4b8fde",
+  "command": "pytest tests/e2e/test_u13_registration_corrective.py -v --tb=short",
+  "pid": 2762070,
+  "ppid": 2762070,
+  "working_directory": "/root/aither-project-r7-canonical",
+  "start_utc": "2026-07-27T03:00:57Z",
+  "zones": [
+    "Internet",
+    "Test Zone"
+  ],
+  "browsers": [
+    "chromium",
+    "firefox"
+  ],
+  "environment_names": [
+    "E2E_INVITE_VALID",
+    "E2E_INVITE_EXPIRED",
+    "E2E_INVITE_REVOKED",
+    "E2E_INVITE_USED",
+    "E2E_INVITE_SCOPED",
+    "E2E_INVITE_CONCURRENT_12",
+    "E2E_INVITE_SINGLE_26",
+    "INTERNET_URL",
+    "TEST_ZONE_URL"
+  ],
+  "end_utc": "2026-07-27T03:01:47Z",
+  "exit_code": 1
+}

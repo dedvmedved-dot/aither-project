@@ -466,7 +466,16 @@ async def lifespan(app: FastAPI):
     await client.aclose()
 
 
-app = FastAPI(title="Aither BFF", version="0.5.0-r7r7-d18corrective", lifespan=lifespan)
+app = FastAPI(title="Aither BFF", version="0.6.0-r7r7-c2-d18", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def add_replica_header(request: Request, call_next):
+    """Add X-Aither-Replica-ID to every response for cross-replica verification."""
+    response = await call_next(request)
+    pod_name = os.environ.get("HOSTNAME", "unknown")
+    response.headers["X-Aither-Replica-ID"] = pod_name
+    return response
 
 
 # ---------------------------------------------------------------------------
