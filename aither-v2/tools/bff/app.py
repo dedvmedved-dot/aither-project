@@ -894,8 +894,9 @@ async def chat(req: Request):
         try:
             resp = await client.post(upstream_url, json=payload, headers=headers, timeout=TIMEOUT)
             if resp.status_code != 200:
-                logger.error("Gateway returned %d: %s", resp.status_code, (await resp.aread()).decode()[:200])
-                raise HTTPException(status_code=502, detail=f"Gateway error: HTTP {resp.status_code}")
+                error_body = (await resp.aread()).decode()
+                logger.error("Gateway returned %d: %s", resp.status_code, error_body[:200])
+                raise HTTPException(status_code=resp.status_code, detail=f"Gateway: {error_body[:300]}")
             return JSONResponse(content=resp.json())
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Gateway timeout")
