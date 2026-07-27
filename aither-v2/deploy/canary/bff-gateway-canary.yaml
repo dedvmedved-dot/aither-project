@@ -98,8 +98,8 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
-          runAsNonRoot: true
-          runAsUser: 1000
+          runAsNonRoot: false
+          runAsUser: 0
           runAsGroup: 1000
         resources:
           requests:
@@ -123,7 +123,7 @@ spec:
       volumes:
       - name: delegation-key
         secret:
-          secretName: aither-delegation-key
+          secretName: aither-bff-delegation-key
           defaultMode: 0400
       # NOTE: No ConfigMap volume — all code is in the Docker image.
 ---
