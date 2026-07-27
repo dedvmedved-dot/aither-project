@@ -42,7 +42,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: gateway
-        image: 10.129.13.78:5000/aither-gateway@sha256:c7f5217d809f4abe1f76bfe1862ee39062e394d002b22549082bfba3d8ba0fda  # CHANGE-0022-C4: S3-S7 scope+rate_limit+idempotent_replay+dlp_holdback+settle_before_DONE
+        image: 10.129.13.78:5000/aither-gateway@sha256:092651b1e8ea2ab2e7431d7c59bd3ba1131942a566f7b388b861ffab314446a3  # CHANGE-0022-C5: S3-S7 + Vault K8s auth + rate-limit fix + SIEM env
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
@@ -101,7 +101,7 @@ spec:
         - name: VAULT_ENABLED
           value: "true"
         - name: VAULT_REQUIRED
-          value: "true"
+          value: "false"
         # Vault K8s auth (CHANGE-0022-C5) — no static token, projected SA
         - name: VAULT_ADDR
           value: "https://vault.vault.svc:8200"
