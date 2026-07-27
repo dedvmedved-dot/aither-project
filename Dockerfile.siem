@@ -1,0 +1,26 @@
+# Aither SIEM Receiver — production image. CHANGE-0022-C4.
+# Uses stdlib only — no pip install at runtime.
+FROM python:3.12-slim
+
+LABEL org.aither.component=siem
+LABEL org.aither.change=CHANGE-0022-C4
+
+# Non-root user
+RUN groupadd -r siem -g 1000 && useradd -r -g siem -u 1000 -d /app siem
+
+WORKDIR /app
+
+# Copy application — stdlib only, no pip install needed
+COPY gateway/siem_receiver.py /app/siem_receiver.py
+
+# Create data dirs
+RUN mkdir -p /data/siem/backups && chown -R siem:siem /app /data/siem
+
+USER siem
+
+EXPOSE 8080 1514/udp
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
+
+CMD ["python3", "/app/siem_receiver.py"]

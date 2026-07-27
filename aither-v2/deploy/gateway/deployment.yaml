@@ -102,7 +102,7 @@ spec:
         - name: VAULT_REQUIRED
           value: "false"
         - name: SIEM_ENABLED
-          value: "false"
+          value: "true"
         - name: RAG_ENABLED
           value: "false"
         # Rate limits (defaults for free tier)

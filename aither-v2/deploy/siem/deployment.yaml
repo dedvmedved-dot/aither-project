@@ -1,4 +1,4 @@
-# Aither SIEM — Production K8s Deployment. CHANGE-0022-C3.
+# Aither SIEM — Production K8s Deployment. CHANGE-0022-C4.
 #
 # Requirements met:
 # - Pinned image digest (sha256:...)
@@ -21,7 +21,7 @@ kind: Namespace
 metadata:
   name: aither-inference
   labels:
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -30,7 +30,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-siem
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 spec:
   accessModes:
     - ReadWriteOnce
@@ -46,7 +46,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-siem
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 type: Opaque
 stringData:
   # Replace with actual secure key — this is a placeholder
@@ -59,7 +59,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-siem
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 data:
   SIEM_LISTEN_HOST: "0.0.0.0"
   SIEM_UDP_PORT: "1514"
@@ -79,7 +79,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-siem
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 spec:
   podSelector:
     matchLabels:
@@ -125,7 +125,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-siem
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 spec:
   replicas: 1
   strategy:
@@ -137,7 +137,7 @@ spec:
     metadata:
       labels:
         app: aither-siem
-        change: CHANGE-0022-C3
+        change: CHANGE-0022-C4
     spec:
       # Pod security context
       securityContext:
@@ -147,9 +147,8 @@ spec:
         fsGroup: 1000
       containers:
       - name: siem
-        # Pinned image digest — build from Dockerfile.siem
-        # image: aither-siem@sha256:XXX  ← update with actual digest after build
-        image: aither-siem:v3-prod
+        # Pinned image digest — built from Dockerfile.siem
+        image: 10.129.13.78:5000/aither-siem@sha256:ab84e88c45576092f6ecb2810f377d019cff9fd2efe9f7ad102b8b94c9154b02
         imagePullPolicy: IfNotPresent
         command:
         - python3
@@ -173,9 +172,6 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data/siem
-        - name: app
-          mountPath: /app
-          readOnly: true
         resources:
           requests:
             cpu: "100m"
@@ -208,25 +204,6 @@ spec:
       - name: data
         persistentVolumeClaim:
           claimName: aither-siem-data
-      - name: app
-        configMap:
-          name: aither-siem-code
-          defaultMode: 0444
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: aither-siem-code
-  namespace: aither-inference
-  labels:
-    app: aither-siem
-    change: CHANGE-0022-C3
-data:
-  # This file is deployed via ConfigMap for simplicity.
-  # For production with image digest, build into Docker image instead.
-  siem_receiver.py: |
-    # See gateway/siem_receiver.py for full source
-    # Built into Docker image for production deployment
 ---
 apiVersion: v1
 kind: Service
@@ -235,7 +212,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-siem
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 spec:
   selector:
     app: aither-siem

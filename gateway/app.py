@@ -110,7 +110,7 @@ async def req_id_mw(request: Request, call_next):
 def _err(c: int, m: str, **kw): return JSONResponse({"error": m, **kw}, status_code=c)
 
 @app.get("/health")
-async def health(): return {"status":"ok","service":"aither-gateway","change":"CHANGE-0022-C3"}
+async def health(): return {"status":"ok","service":"aither-gateway","change":"CHANGE-0022-C4"}
 
 @app.get("/ready")
 async def ready(request: Request):
