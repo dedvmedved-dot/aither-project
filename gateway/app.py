@@ -207,7 +207,7 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
     # Rate limit — with proper token estimate
     if settings.rate_limit_enabled:
         est_tokens = estimate_tokens(messages, max_tokens)
-        ok, reason = await check_rate_limit(org_id, tier, request.app.state.redis, est_tokens, request.app.state.db)
+        ok, reason, _details = await check_rate_limit(org_id, tier, request.app.state.redis, est_tokens, request.app.state.db)
         if not ok:
             mtr.rate_limit_denied(tier)
             return _err(429, reason)

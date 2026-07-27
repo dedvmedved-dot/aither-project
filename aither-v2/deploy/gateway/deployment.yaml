@@ -41,7 +41,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: gateway
-        image: 10.129.13.78:5000/aither-gateway@sha256:b2abbe54223bd6873a60cd03a2fe77974e69d181e9f29bf850a69548f1654090  # CHANGE-0022-C2-R4: pinned by digest
+        image: 10.129.13.78:5000/aither-gateway@sha256:a71928282929c257da7eb7ec42b6519f9670e6de5b57c52d60313a12d91805e1  # CHANGE-0022-C3: auth fix
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000

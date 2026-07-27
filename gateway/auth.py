@@ -143,12 +143,8 @@ async def _check_api_key(token: str, app) -> AuthResult:
                 cur.execute(
                     """SELECT pk.org_id, pk.status, pk.tier,
                               pk.expires_at, pk.user_id, pk.name,
-                              pk.model_scopes, pk.rag_scopes,
-                              u.status AS user_status,
-                              o.status AS org_status
+                              pk.model_scopes, pk.rag_scopes
                        FROM portal_api_keys pk
-                       LEFT JOIN portal_users u ON u.user_id = pk.user_id
-                       LEFT JOIN billing_accounts o ON o.org_id = pk.org_id
                        WHERE pk.api_key = %s""",
                     (token_hash,),
                 )
@@ -159,7 +155,10 @@ async def _check_api_key(token: str, app) -> AuthResult:
                     return AuthResult(status="denied", reason="invalid_key")
 
                 (org_id, key_status, tier, expires_at, user_id, key_name,
-                 model_scopes, rag_scopes, user_status, org_status) = row
+                 model_scopes, rag_scopes) = row
+                # User/org status checks deferred until portal_users/organizations tables exist
+                user_status = "active"
+                org_status = "active"
 
                 # ── Key status checks ──────────────────────────────────
                 if key_status == "revoked":

@@ -143,8 +143,8 @@ async def _load_tier_from_pg(tier: str, db_pool) -> Optional[dict]:
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT rpm_limit, tpm_limit, daily_request_limit, daily_token_limit, models, rag_enabled "
-                "FROM subscription_tiers WHERE tier_id = %s",
+                "SELECT rpm_limit, tpm_limit, daily_request_limit, daily_token_limit "
+                "FROM subscription_tiers WHERE tier = %s",
                 (tier,),
             )
             row = cur.fetchone()
@@ -154,8 +154,6 @@ async def _load_tier_from_pg(tier: str, db_pool) -> Optional[dict]:
                     "tpm": int(row[1]),
                     "daily_requests": int(row[2]) if row[2] else 10000,
                     "daily_tokens": int(row[3]) if row[3] else 1000000,
-                    "models": list(row[4]) if row[4] else [],
-                    "rag": bool(row[5]),
                 }
         finally:
             db_pool.putconn(conn)
