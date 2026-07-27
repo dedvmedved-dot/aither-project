@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aither-gateway
+  namespace: aither-inference
+  labels:
+    app: aither-gateway
+    change: CHANGE-0022
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: aither-gateway

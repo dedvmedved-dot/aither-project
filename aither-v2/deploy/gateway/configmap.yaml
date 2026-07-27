@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-gateway-catalog
+  namespace: aither-inference
+  labels:
+    app: aither-gateway
+    change: CHANGE-0022
+data:
+  catalog.yaml: |
+    # Placeholder — replaced by kubectl create configmap from gateway/catalog.yaml

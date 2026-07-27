@@ -1,23 +1,34 @@
-# Модельный каталог Aither Platform
-# Каждая модель знает свой backend URL (vLLM-под) и параметры
+# Aither Model Catalog — актуальный для текущего кластера
+# Gateway использует этот файл для роутинга запросов к vLLM-подам
 
 models:
-  - name: qwen2.5-14b
-    display_name: "Qwen 2.5 14B"
-    backend: "http://vllm:8000"
-    model_path: "/models/Qwen2.5-14B-Instruct"
-    max_tokens: 4096
+  - id: qwen-14b
+    display_name: "Qwen 2.5 14B Instruct"
     description: "Быстрая универсальная модель — чаты, summarization, код"
+    upstream_url: "http://vllm-14b-instruct.aither-inference.svc:8000"
+    endpoint_type: chat_completions
+    served_model_name: "qwen-14b"
+    status: active
+    max_model_len: 4096
     tokens_per_ruble: 100
-    tags: [chat, code, fast]
-    status: active
+    tier_access: [free, standard, vip, enterprise]
+    rag_support: false
+    stream_support: true
+    timeout_seconds: 300
+    health_endpoint: "/health"
 
-  - name: qwen2.5-32b
-    display_name: "Qwen 2.5 32B"
-    backend: "http://vllm-32b:8000"
-    model_path: "/models/Qwen2.5-32B-Instruct-GPTQ"
-    max_tokens: 8192
-    description: "Мощная модель — сложный код, аналитика, длинные тексты"
-    tokens_per_ruble: 30
-    tags: [code, analysis, large-context]
+  - id: qwen-32b-base
+    display_name: "Qwen 2.5 32B GPTQ"
+    description: "Мощная базовая модель — аналитика, длинные тексты, сложный код"
+    upstream_url: "http://vllm-32b-gptq.aither-inference.svc:8000"
+    endpoint_type: completions
+    served_model_name: "qwen-32b-base"
     status: active
+    max_model_len: 4096
+    tokens_per_ruble: 30
+    tier_access: [standard, vip, enterprise]
+    rag_support: false
+    stream_support: true
+    timeout_seconds: 300
+    health_endpoint: "/health"
+    note: "Базовая модель — требует chat-адаптер для диалогов"
