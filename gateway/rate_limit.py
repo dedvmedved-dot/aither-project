@@ -279,51 +279,39 @@ async def check_rate_limit(
 # ── Organisation quota check (separate from per-request rate limit) ──────
 
 async def check_org_quota(org_id: str, redis, db_pool=None) -> tuple:
-    """Check organisation-level quota (daily request budget from billing).
-    FAIL-CLOSED: Redis error → deny.
+    """Check organisation-level quota. FAIL-CLOSED: Redis/DB error → deny.
+    
+    Checks billing_accounts.balance > 0 as quota gate.
+    No billing account → unlimited (new org, no quota configured).
     """
     today = time.strftime("%Y%m%d")
-    quota_key = f"org_quota:{org_id}:{today}"
     
     try:
-        remaining = await redis.get(quota_key)
-        if remaining is None:
-            # Load from PG
-            if db_pool:
+        # Check if billing account exists with positive balance
+        if db_pool:
+            try:
+                conn = db_pool.getconn()
                 try:
-                    conn = db_pool.getconn()
-                    try:
-                        cur = conn.cursor()
-                        cur.execute(
-                            "SELECT daily_quota FROM billing_accounts WHERE org_id = %s",
-                            (org_id,))
-                        row = cur.fetchone()
-                        if row and row[0]:
-                            remaining = int(row[0])
-                            await redis.setex(quota_key, 86400, remaining)
-                        else:
-                            # No quota configured → unlimited
-                            return True, "ok", {"remaining": None}
-                    finally:
-                        db_pool.putconn(conn)
-                except Exception as e:
-                    logger.error("Org quota PG lookup failed: %s", e)
-                    return False, "org_quota_unavailable", {}
-            else:
-                return True, "ok", {"remaining": None}
-        
-        remaining = int(remaining)
-        if remaining <= 0:
-            return False, "org_quota_exceeded", {"remaining": 0}
-        
-        new_remaining = await redis.decr(quota_key)
-        if new_remaining < 0:
-            # Race: another request just exhausted it
-            await redis.incr(quota_key)  # undo
-            return False, "org_quota_exceeded", {"remaining": 0}
-        
-        return True, "ok", {"remaining": new_remaining}
-        
+                    cur = conn.cursor()
+                    cur.execute(
+                        "SELECT balance, tier FROM billing_accounts WHERE org_id = %s",
+                        (org_id,))
+                    row = cur.fetchone()
+                    if not row:
+                        # No billing account → unlimited (new org)
+                        return True, "ok", {"remaining": None, "reason": "no_account"}
+                    balance = int(row[0])
+                    tier = row[1] or "free"
+                    if balance <= 0:
+                        return False, "org_quota_exceeded", {"remaining": 0, "tier": tier}
+                    return True, "ok", {"remaining": balance, "tier": tier}
+                finally:
+                    db_pool.putconn(conn)
+            except Exception as e:
+                logger.error("Org quota PG lookup failed: %s", e)
+                return False, "org_quota_unavailable", {}
+        else:
+            return True, "ok", {"remaining": None}
     except Exception as e:
         logger.error("Org quota check FAIL-CLOSED: %s", e)
         return False, "rate_limit_unavailable", {}
