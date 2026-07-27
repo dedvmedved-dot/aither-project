@@ -1,119 +1,97 @@
-"""Model Catalog — loads model registry and resolves model→backend mappings."""
-import os
+"""Model Catalog — loads model registry from YAML. CHANGE-0022."""
+import os, time, logging
 import yaml
-import json
-import time
+from dataclasses import dataclass, field
+from typing import Optional
 from urllib.request import Request, urlopen
-from urllib.error import URLError
+
+logger = logging.getLogger("aither.gateway.catalog")
 
 CATALOG_PATH = os.environ.get("CATALOG_PATH", "/app/catalog.yaml")
-HEALTH_TTL = int(os.environ.get("HEALTH_TTL", "30"))  # seconds
+HEALTH_TTL = int(os.environ.get("HEALTH_TTL", "30"))
 
-# In-memory state
-_registry: dict = {}          # name → model entry
-_health: dict = {}            # backend → {last_check, alive}
+_models: list = []
+_health: dict = {}
 _last_load = 0
 
+@dataclass
+class ModelEntry:
+    id: str
+    display_name: str = ""
+    description: str = ""
+    upstream_url: str = ""
+    endpoint_type: str = "chat_completions"
+    served_model_name: str = ""
+    status: str = "active"
+    max_model_len: int = 4096
+    tokens_per_ruble: int = 100
+    tier_access: list = field(default_factory=lambda: ["free"])
+    rag_support: bool = False
+    stream_support: bool = True
+    timeout_seconds: int = 300
+    health_endpoint: str = "/health"
 
-def load_catalog(path: str = ""):
-    """Load model catalog from YAML file. Returns {name: entry, ...}."""
-    global _registry, _last_load
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "object": "model", "owned_by": "aither",
+            "display_name": self.display_name, "max_model_len": self.max_model_len,
+            "status": self.status,
+        }
+
+def load_catalog(path: str = "") -> list:
+    """Load model catalog from YAML. Returns list of ModelEntry."""
+    global _models, _last_load
     path = path or CATALOG_PATH
-
     if not os.path.exists(path):
-        print(f"[Catalog] WARNING: {path} not found, using empty catalog", flush=True)
-        _registry = {}
-        return _registry
-
+        logger.warning("Catalog not found: %s", path)
+        _models = []
+        return _models
     with open(path) as f:
         data = yaml.safe_load(f)
-
-    models = data.get("models", [])
-    _registry = {m["name"]: m for m in models if m.get("status") != "inactive"}
+    models_raw = data.get("models", [])
+    _models = [ModelEntry(
+        id=m.get("id", m.get("name", "")),
+        display_name=m.get("display_name", ""),
+        description=m.get("description", ""),
+        upstream_url=m.get("upstream_url", m.get("backend", "")),
+        endpoint_type=m.get("endpoint_type", "chat_completions"),
+        served_model_name=m.get("served_model_name", ""),
+        status=m.get("status", "active"),
+        max_model_len=m.get("max_model_len", m.get("max_tokens", 4096)),
+        tokens_per_ruble=m.get("tokens_per_ruble", 100),
+        tier_access=m.get("tier_access", ["free"]),
+        rag_support=m.get("rag_support", False),
+        stream_support=m.get("stream_support", True),
+        timeout_seconds=m.get("timeout_seconds", 300),
+        health_endpoint=m.get("health_endpoint", "/health"),
+    ) for m in models_raw if m.get("status") != "inactive"]
     _last_load = time.time()
-    print(f"[Catalog] Loaded {len(_registry)} models from {path}", flush=True)
-    return _registry
+    logger.info("Catalog loaded: %d models from %s", len(_models), path)
+    return _models
 
+def model_list() -> list:
+    """Return public model list."""
+    return _models
 
-def list_models() -> list:
-    """Return public model list (no backend/internal fields)."""
-    if not _registry:
-        load_catalog()
-    return [
-        {
-            "id": m["name"],
-            "object": "model",
-            "created": int(_last_load),
-            "owned_by": "aither",
-            "display_name": m.get("display_name", m["name"]),
-            "description": m.get("description", ""),
-            "max_tokens": m.get("max_tokens", 4096),
-            "tokens_per_ruble": m.get("tokens_per_ruble", 100),
-            "tags": m.get("tags", []),
-        }
-        for m in _registry.values()
-    ]
-
-
-def resolve(model_name: str) -> tuple:
-    """Resolve model name → (backend_url, model_path, error).
-    Returns (url, path, None) on success, or (None, None, error_str) on failure.
-    """
-    if not _registry:
-        load_catalog()
-
-    # Exact match
-    if model_name in _registry:
-        m = _registry[model_name]
-        return m["backend"], m["model_path"], None
-
-    # Fuzzy match: check if model_name contains any known name
-    for name, entry in _registry.items():
-        if name.lower() in model_name.lower():
-            return entry["backend"], entry["model_path"], None
-
-    # Default: first active model
-    if _registry:
-        first = list(_registry.values())[0]
-        return first["backend"], first["model_path"], None
-
-    return None, None, f"model '{model_name}' not found in catalog"
-
+def resolve(model_name: str) -> Optional[ModelEntry]:
+    """Find model by ID or served name."""
+    for m in _models:
+        if m.id == model_name or m.served_model_name == model_name:
+            return m
+    return None
 
 def health_check(backend_url: str, timeout: int = 5) -> bool:
-    """Check if a vLLM backend is healthy via /health endpoint."""
+    """Check vLLM backend health."""
     global _health
-    now = time.time()
-
-    # Use cache if recent enough
-    if backend_url in _health:
-        entry = _health[backend_url]
-        if now - entry["last_check"] < HEALTH_TTL:
-            return entry["alive"]
-
+    if backend_url in _health and time.time() - _health[backend_url]["last_check"] < HEALTH_TTL:
+        return _health[backend_url]["alive"]
     try:
-        url = f"{backend_url}/health"
-        req = Request(url)
+        req = Request(f"{backend_url}/health")
         resp = urlopen(req, timeout=timeout)
         alive = resp.status == 200
     except Exception:
         alive = False
-
-    _health[backend_url] = {"last_check": now, "alive": alive}
+    _health[backend_url] = {"last_check": time.time(), "alive": alive}
     return alive
 
-
-def health_summary() -> dict:
-    """Return health status of all known backends."""
-    result = {}
-    if not _registry:
-        load_catalog()
-    for name, entry in _registry.items():
-        backend = entry["backend"]
-        alive = health_check(backend)
-        result[name] = {"backend": backend, "alive": alive}
-    return result
-
-
-# Auto-load on import
 load_catalog()
