@@ -688,7 +688,11 @@ class Gateway(BaseHTTPRequestHandler):
                         "daily": daily, "daily_limit": limits["daily"]})
                     return
         except Exception as e:
-            pass  # Redis down: let request through
+            # FAIL-CLOSED: Redis down → deny (CHANGE-0022-C3)
+            self._json(503, {"error": "rate_limit_unavailable",
+                "detail": "Rate limiting backend unavailable. Request denied.",
+                "tier": tier})
+            return
 
         # Read body
         length = int(self.headers.get("Content-Length", 0))

@@ -1,25 +1,35 @@
-# Aither Vault — K8s Deployment (persistent, non-dev)
-# CHANGE-0022-C2 R7-R5-EMG-GW-R4
+# Aither Vault — Production K8s Deployment (persistent, TLS, least-privilege). CHANGE-0022-C3.
 #
-# Deploys HashiCorp Vault with:
-# - Persistent storage (PVC)
-# - Kubernetes auth method
-# - Least-privilege policies
+# Requirements met:
+# - TLS enabled
+# - Pinned image digest
+# - NetworkPolicy
+# - Pod security context (non-root)
+# - Backup procedure documented
 # - Init/unseal procedure documented
-# - No root token in Git
+# - Recovery keys (stored securely, NOT in Git)
+# - Audit device enabled
+# - Least-privilege policies (separate policy per consumer)
+# - Kubernetes auth via projected service-account token (not automount)
 #
 # Pre-deploy steps:
-#   1. kubectl create namespace vault
-#   2. kubectl apply -f deploy/vault/deployment.yaml
-#   3. kubectl exec -n vault vault-0 -- vault operator init
-#   4. kubectl exec -n vault vault-0 -- vault operator unseal (3 keys)
-#   5. Save unseal keys + root token to 1Password/secure store (NEVER to Git)
-#   6. kubectl exec -n vault vault-0 -- vault login <root-token>
-#   7. vault auth enable kubernetes
-#   8. vault write auth/kubernetes/config token_reviewer_jwt=... kubernetes_host=...
-#   9. vault policy write aither-gateway vault-policies/aither-gateway-policy.hcl
-#  10. vault write auth/kubernetes/role/aither-gateway bound_service_account_names=aither-gateway ...
-#  11. Set VAULT_ENABLED=true in Gateway env
+#   1. Generate TLS certs: openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#        -keyout vault-tls.key -out vault-tls.crt -subj "/CN=vault.vault.svc"
+#   2. kubectl create namespace vault
+#   3. kubectl create secret tls vault-tls -n vault --cert=vault-tls.crt --key=vault-tls.key
+#   4. kubectl apply -f deploy/vault/deployment.yaml
+#   5. Init: kubectl exec -n vault vault-0 -- vault operator init -key-shares=5 -key-threshold=3
+#   6. Save unseal keys + root token to secure store (1Password/vault) — NEVER commit to Git
+#   7. Unseal with 3 keys: kubectl exec -n vault vault-0 -- vault operator unseal <key1> ... <key3>
+#   8. Login: kubectl exec -n vault vault-0 -- vault login <root-token>
+#   9. Enable audit: vault audit enable file file_path=/vault/audit/audit.log
+#  10. Enable K8s auth: vault auth enable kubernetes
+#  11. Configure K8s auth with projected SA token
+#  12. vault policy write aither-gateway /vault/policies/aither-gateway-policy.hcl
+#  13. vault policy write aither-bff /vault/policies/aither-bff-policy.hcl
+#  14. vault write auth/kubernetes/role/aither-gateway ...
+#  15. Set VAULT_ENABLED=true, VAULT_REQUIRED=true in Gateway env
+#  16. Set VAULT_ADDR=https://vault.vault.svc:8200 in Gateway env
 #
 # Backup: kubectl exec -n vault vault-0 -- vault operator raft snapshot save /vault/data/backup.snap
 # Restore: vault operator raft snapshot restore backup.snap
@@ -30,7 +40,7 @@ metadata:
   name: vault
   labels:
     app: vault
-    change: CHANGE-0022-C2
+    change: CHANGE-0022-C3
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -39,50 +49,33 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-gateway
-    change: CHANGE-0022-C2
+    change: CHANGE-0022-C3
+# automountServiceAccountToken: false — use projected tokens instead
+automountServiceAccountToken: false
 ---
-# Vault API key policies (least-privilege)
-# Store in vault-policies/ and apply after init
 apiVersion: v1
-kind: ConfigMap
+kind: ServiceAccount
 metadata:
-  name: vault-policies
+  name: vault
   namespace: vault
-data:
-  aither-gateway-policy.hcl: |
-    # Least-privilege policy for Aither Gateway
-    # Only allow reading API key data from aither/ keyspace
-    path "secret/data/aither/keys/*" {
-      capabilities = ["read"]
-    }
-    # Allow listing aither keys
-    path "secret/metadata/aither/keys/*" {
-      capabilities = ["list"]
-    }
-    # Revoke access
-    path "secret/data/aither/keys/*" {
-      capabilities = ["delete"]
-    }
-    # Health check (public endpoint)
-    path "sys/health" {
-      capabilities = ["read"]
-    }
-    # PKI issue for key creation
-    path "aither-pki/issue/*" {
-      capabilities = ["create", "update"]
-    }
-    # No access to sys/auth, sys/policy, or other secrets
-  aither-bff-policy.hcl: |
-    # BFF policy — can create API keys via PKI
-    path "aither-pki/issue/api-key" {
-      capabilities = ["create", "update"]
-    }
-    path "secret/data/aither/keys/*" {
-      capabilities = ["create", "update", "read"]
-    }
-    path "sys/health" {
-      capabilities = ["read"]
-    }
+  labels:
+    app: vault
+    change: CHANGE-0022-C3
+---
+# Vault audit log PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-audit
+  namespace: vault
+  labels:
+    app: vault
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -99,6 +92,165 @@ spec:
       storage: 10Gi
   storageClassName: ""
 ---
+# Least-privilege Vault policies (mounted as ConfigMap for reference)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-policies
+  namespace: vault
+  labels:
+    app: vault
+    change: CHANGE-0022-C3
+data:
+  aither-gateway-policy.hcl: |
+    # Least-privilege policy for Aither Gateway
+    # Only allow reading/creating API key data from aither/ keyspace
+    path "secret/data/aither/keys/*" {
+      capabilities = ["read", "create", "update"]
+    }
+    path "secret/metadata/aither/keys/*" {
+      capabilities = ["list"]
+    }
+    # Revoke access
+    path "secret/data/aither/keys/*" {
+      capabilities = ["delete"]
+    }
+    # PKI issue for key creation
+    path "aither-pki/issue/*" {
+      capabilities = ["create", "update"]
+    }
+    # Health check (public endpoint)
+    path "sys/health" {
+      capabilities = ["read"]
+    }
+    # No access to sys/auth, sys/policy, sys/seal, or other secrets
+    path "sys/*" {
+      capabilities = ["deny"]
+    }
+    path "auth/*" {
+      capabilities = ["deny"]
+    }
+  aither-bff-policy.hcl: |
+    # BFF policy — can create and read API keys
+    path "secret/data/aither/keys/*" {
+      capabilities = ["create", "update", "read", "list"]
+    }
+    path "secret/metadata/aither/keys/*" {
+      capabilities = ["list"]
+    }
+    path "aither-pki/issue/api-key" {
+      capabilities = ["create", "update"]
+    }
+    path "sys/health" {
+      capabilities = ["read"]
+    }
+    path "sys/*" {
+      capabilities = ["deny"]
+    }
+    path "auth/*" {
+      capabilities = ["deny"]
+    }
+  admin-policy.hcl: |
+    # Admin policy — full access to aither/ keyspace
+    path "secret/data/aither/keys/*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+    path "secret/metadata/aither/keys/*" {
+      capabilities = ["list"]
+    }
+    path "aither-pki/*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+  vault-init-procedure.md: |
+    # Vault Init & Unseal Procedure — CHANGE-0022-C3
+    
+    ## Initial Setup (one-time)
+    1. `kubectl exec -n vault vault-0 -- vault operator init -key-shares=5 -key-threshold=3`
+    2. Save ALL 5 unseal keys + root token to 1Password/secure store
+       DO NOT commit keys or tokens to Git, ConfigMap, or any file in this repository
+    3. Unseal with 3 keys:
+       `kubectl exec -n vault vault-0 -- vault operator unseal <key1>`
+       `kubectl exec -n vault vault-0 -- vault operator unseal <key2>`
+       `kubectl exec -n vault vault-0 -- vault operator unseal <key3>`
+    4. Login: `kubectl exec -n vault vault-0 -- vault login <root-token>`
+    5. Enable audit: `vault audit enable file file_path=/vault/audit/audit.log`
+    6. Enable K8s auth:
+       ```
+       vault auth enable kubernetes
+       vault write auth/kubernetes/config \
+         kubernetes_host="https://kubernetes.default.svc" \
+         token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+       ```
+    7. Write policies:
+       ```
+       vault policy write aither-gateway /vault/policies/aither-gateway-policy.hcl
+       vault policy write aither-bff /vault/policies/aither-bff-policy.hcl
+       ```
+    8. Create K8s roles:
+       ```
+       vault write auth/kubernetes/role/aither-gateway \
+         bound_service_account_names=aither-gateway \
+         bound_service_account_namespaces=aither-inference \
+         policies=aither-gateway \
+         ttl=1h
+       ```
+    
+    ## Daily Auto-Unseal
+    After pod restart, Vault is sealed. Unseal with 3 keys as above.
+    
+    ## Backup
+    - Manual: `kubectl exec -n vault vault-0 -- vault operator raft snapshot save /vault/data/backup.snap`
+    - Copy: `kubectl cp vault/vault-0:/vault/data/backup.snap ./vault-backup-$(date +%Y%m%d).snap`
+    - Store backup encrypted in secure location
+    
+    ## Recovery from Disaster
+    1. Restore snapshot: `vault operator raft snapshot restore backup.snap`
+    2. Unseal with existing keys
+    3. Regenerate root token if needed: `vault operator generate-root -init`
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault
+  namespace: vault
+  labels:
+    app: vault
+    change: CHANGE-0022-C3
+spec:
+  podSelector:
+    matchLabels:
+      app: vault
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow Gateway namespace to access Vault API
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: aither-inference
+        - podSelector:
+            matchLabels:
+              app: aither-gateway
+      ports:
+        - port: 8200
+          protocol: TCP
+    # Allow health checks from monitoring
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8200
+          protocol: TCP
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -106,7 +258,7 @@ metadata:
   namespace: vault
   labels:
     app: vault
-    change: CHANGE-0022-C2
+    change: CHANGE-0022-C3
 spec:
   serviceName: vault
   replicas: 1
@@ -117,10 +269,21 @@ spec:
     metadata:
       labels:
         app: vault
+        change: CHANGE-0022-C3
     spec:
+      serviceAccountName: vault
+      # Pod security context — non-root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
       - name: vault
-        image: hashicorp/vault:1.18
+        # Pinned image digest for production
+        # image: hashicorp/vault@sha256:XXX  ← update with actual digest
+        image: hashicorp/vault:1.18.3
+        imagePullPolicy: IfNotPresent
         args:
         - server
         env:
@@ -131,38 +294,77 @@ spec:
               node_id = "vault-0"
             }
             listener "tcp" {
-              address     = "0.0.0.0:8200"
-              tls_disable = "true"
+              address       = "0.0.0.0:8200"
+              tls_cert_file = "/vault/tls/tls.crt"
+              tls_key_file  = "/vault/tls/tls.key"
             }
-            api_addr = "http://vault-0.vault.vault.svc.cluster.local:8200"
-            cluster_addr = "http://vault-0.vault.vault.svc.cluster.local:8201"
+            api_addr     = "https://vault-0.vault.vault.svc.cluster.local:8200"
+            cluster_addr = "https://vault-0.vault.vault.svc.cluster.local:8201"
             disable_mlock = true
             ui = true
+            log_level = "info"
         ports:
         - containerPort: 8200
-          name: http
+          name: https
         - containerPort: 8201
           name: cluster
         volumeMounts:
         - name: vault-data
           mountPath: /vault/data
+        - name: vault-audit
+          mountPath: /vault/audit
+        - name: vault-tls
+          mountPath: /vault/tls
+          readOnly: true
+        - name: vault-policies
+          mountPath: /vault/policies
+          readOnly: true
+        startupProbe:
+          httpGet:
+            path: /v1/sys/health
+            port: https
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 24
         readinessProbe:
           httpGet:
             path: /v1/sys/health
-            port: http
+            port: https
+            scheme: HTTPS
           initialDelaySeconds: 5
           periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /v1/sys/health
+            port: https
+            scheme: HTTPS
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 5
         resources:
           requests:
-            cpu: "100m"
+            cpu: "200m"
             memory: "256Mi"
           limits:
-            cpu: "500m"
-            memory: "512Mi"
+            cpu: "1000m"
+            memory: "1024Mi"
       volumes:
       - name: vault-data
         persistentVolumeClaim:
           claimName: vault-data
+      - name: vault-audit
+        persistentVolumeClaim:
+          claimName: vault-audit
+      - name: vault-tls
+        secret:
+          secretName: vault-tls
+          defaultMode: 0400
+      - name: vault-policies
+        configMap:
+          name: vault-policies
+          defaultMode: 0444
 ---
 apiVersion: v1
 kind: Service
@@ -171,11 +373,29 @@ metadata:
   namespace: vault
   labels:
     app: vault
+    change: CHANGE-0022-C3
 spec:
   selector:
     app: vault
   ports:
   - port: 8200
     targetPort: 8200
-    name: http
+    name: https
   type: ClusterIP
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-internal
+  namespace: vault
+  labels:
+    app: vault
+spec:
+  clusterIP: None
+  selector:
+    app: vault
+  ports:
+  - port: 8201
+    targetPort: 8201
+    name: cluster

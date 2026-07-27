@@ -153,6 +153,7 @@ class Settings:
     vault_required: bool = VAULT_REQUIRED
     siem_enabled: bool = SIEM_ENABLED
     rag_enabled: bool = RAG_ENABLED
+    chroma_url: str = CHROMA_URL
 
     rate_limit_rpm_default: int = RATE_LIMIT_RPM_DEFAULT
     rate_limit_tpm_default: int = RATE_LIMIT_TPM_DEFAULT
