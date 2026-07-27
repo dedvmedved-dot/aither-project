@@ -1,0 +1,11 @@
+?? docs/evidence/u1.3-ops-r7-r5-c2/
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-current-r7r6.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-current.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-diff-r7r6.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-diff.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-evidence-r7r6.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-evidence.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-final-head-r7r6.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-final-head.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-staged-r7r6.json
+?? docs/evidence/u1.3-ops-r7-r5/01-security/scans/gitleaks-staged.json
