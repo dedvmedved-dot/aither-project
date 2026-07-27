@@ -31,16 +31,8 @@ spec:
           type: RuntimeDefault
       runtimeClassName: nvidia
       nodeSelector:
-        aither.io/qwen14b-instruct: "true"
+        aither.io/vllm14b-primary: "true"
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: aither.io/inference-primary
-                    operator: In
-                    values:
-                      - "true"
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
@@ -65,24 +57,20 @@ spec:
             - --model
             - /model
             - --tensor-parallel-size
-            - "1"
+            - "2"
             - --host
             - 0.0.0.0
             - --port
             - "8000"
             - --gpu-memory-utilization
-            - "0.85"
+            - "0.90"
             - --max-model-len
-            - "2048"
+            - "4096"
             - --dtype
             - half
             - --max-num-seqs
             - "1"
             - --enforce-eager
-            - --cpu-offload-gb
-            - "10"
-            - --swap-space
-            - "4"
             - --generation-config
             - vllm
             - --served-model-name
@@ -103,11 +91,11 @@ spec:
               protocol: TCP
           resources:
             limits:
-              nvidia.com/gpu: "1"
+              nvidia.com/gpu: "2"
               memory: 64Gi
               cpu: "8"
             requests:
-              nvidia.com/gpu: "1"
+              nvidia.com/gpu: "2"
               memory: 64Gi
               cpu: "8"
           startupProbe:
