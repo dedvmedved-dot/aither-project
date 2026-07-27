@@ -414,27 +414,28 @@ def check_egress_streaming(chunk_data: dict, sliding_buffer: str = "",
     """
     Check a single SSE chunk with sliding buffer for cross-chunk secret detection.
 
-    The sliding buffer retains the last BUFFER_SIZE characters from previous chunks,
-    so secrets split across chunk boundaries are detected.
-
-    Algorithm:
+    HOLD-BACK ALGORITHM (CHANGE-0022-C4 S6):
       1. Extract text from current chunk
-      2. Merge: previous_tail (from sliding_buffer) + current_chunk_text
+      2. Merge: held_text_from_previous + current_text
       3. Scan merged text for violations
-      4. If violation: return (False, reason, audit_record) — chunk must NOT be released
-      5. If safe: return (True, "", None) — chunk can be released to client
+      4. If violation: NEVER deliver ANY byte — return (False, ...)
+      5. If safe: split into safe_to_release + held_tail (HOLD_BACK chars)
+      6. safe_to_release → caller yields; held_tail → next call's sliding_buffer
 
-    Returns (ok: bool, reason: str, audit_record: dict or None, new_sliding_buffer: str).
-    The caller MUST use new_sliding_buffer to update the buffer for the next chunk.
+    Returns (ok, reason, audit, new_sliding_buffer, safe_text, held_text).
+    Caller MUST reconstruct chunk with safe_text only and yield that.
+    held_text becomes the caller's buffer for next iteration.
     """
-    BUFFER_SIZE = 200  # keep last N chars across chunks
+    HOLD_BACK = 50  # characters to hold back for cross-chunk detection
+    BUFFER_SIZE = 200  # keep last N chars for next merge
+
     chunk_text = _extract_text(chunk_data)
 
-    if not chunk_text:
-        return True, "", None, sliding_buffer
+    if not chunk_text and not sliding_buffer:
+        return True, "", None, "", "", ""
 
-    # Merge: previous tail + current chunk
-    merged = (sliding_buffer + chunk_text)
+    # Merge: previous held tail + current chunk text
+    merged = sliding_buffer + chunk_text
 
     # Scan merged text (catches cross-chunk secrets)
     ok, reason, audit = _scan_text_for_violations(
@@ -442,9 +443,16 @@ def check_egress_streaming(chunk_data: dict, sliding_buffer: str = "",
     )
     if not ok:
         # Forbidden bytes must NEVER be delivered before verdict
-        # Return immediately — caller closes upstream AND stream
-        return False, reason, audit, merged[-BUFFER_SIZE:]
+        return False, reason, audit, merged[-BUFFER_SIZE:], "", merged[-BUFFER_SIZE:]
 
-    # Safe: update sliding buffer with merged text tail
-    new_buffer = merged[-BUFFER_SIZE:]
-    return True, "", None, new_buffer
+    # Safe: split into release and holdback
+    if len(merged) > HOLD_BACK:
+        safe_text = merged[:-HOLD_BACK]
+        held_text = merged[-HOLD_BACK:]
+    else:
+        # Not enough chars — hold everything, release nothing
+        safe_text = ""
+        held_text = merged
+
+    new_buffer = held_text[-BUFFER_SIZE:] if len(held_text) > BUFFER_SIZE else held_text
+    return True, "", None, new_buffer, safe_text, held_text

@@ -289,6 +289,43 @@ def _save_replay_result(ikey: str, org_id: str, reservation_id: str,
         logger.error("Failed to save replay for org=%s key=%s: %s", org_id, ikey, e)
 
 
+def get_replay_response(ikey: str, org_id: str, db_pool) -> tuple:
+    """Get original HTTP response for idempotent replay.
+
+    Returns (http_status, content_type, body, settle_result) or None.
+    Caller MUST verify settle_result != DATABASE_ERROR before returning.
+    """
+    try:
+        conn = db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT http_status, sanitized_response_ref, settle_result "
+                "FROM billing_idempotency "
+                "WHERE organisation = %s AND idempotency_key = %s",
+                (org_id, ikey),
+            )
+            row = cur.fetchone()
+            if row:
+                http_status = row[0]
+                response_ref = row[1]
+                settle_result = row[2]
+                if settle_result == "DATABASE_ERROR":
+                    return http_status, "application/json", "", "DATABASE_ERROR"
+                if response_ref:
+                    try:
+                        body = json.loads(response_ref) if isinstance(response_ref, str) else response_ref
+                        return http_status, "application/json", body, settle_result
+                    except (json.JSONDecodeError, TypeError):
+                        return http_status, "text/plain", str(response_ref), settle_result
+                return http_status, "application/json", {}, settle_result
+        finally:
+            db_pool.putconn(conn)
+    except Exception as e:
+        logger.error("Replay response fetch failed: %s", e)
+        return None
+
+
 # ── Expiry cleanup ───────────────────────────────────────────────────────
 
 def _clean_expired_idempotency(db_pool) -> int:

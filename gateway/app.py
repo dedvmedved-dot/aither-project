@@ -16,12 +16,12 @@ from pydantic import BaseModel
 from config import settings
 from auth import check_auth, check_admin
 from routing import route_model
-from rate_limit import check_rate_limit, estimate_tokens
+from rate_limit import check_rate_limit, estimate_tokens, check_org_quota, check_api_key_quota
 from billing import (
     reserve, settle, refund, BillingResult,
     _compute_fingerprint, _clean_expired_idempotency,
     settle_and_complete, settle_and_complete_stream,
-    _mark_idempotency_failed,
+    _mark_idempotency_failed, get_replay_response,
 )
 from usage import record_usage
 from security import check_security
@@ -186,6 +186,29 @@ async def comp(req: CompReq, request: Request):
     prompt_msgs = [{"role":"user","content":req.prompt}]
     return await _pipeline(req.model, prompt_msgs, req.max_tokens, req.temperature, req.stream, "completion", request)
 
+# ── Model scope mapping (CHANGE-0022-C4, Section 3) ─────────────────────
+
+_MODEL_SCOPE_MAP = {
+    "qwen-14b": {"chat": "model:14b:chat", "completion": "model:14b:chat"},
+    "qwen-32b-base": {"chat": "model:32b:chat-adapter", "completion": "model:32b:completion"},
+}
+
+
+def _model_required_scope(model_id: str, mode: str) -> str:
+    """Return the required scope for a model/mode combination."""
+    return _MODEL_SCOPE_MAP.get(model_id, {}).get(mode, "")
+
+
+def _has_scope(ar, required_scope: str) -> bool:
+    """Check if auth result has the required scope. Admin bypasses all."""
+    if getattr(ar, "role", "") == "admin":
+        return True
+    scopes = getattr(ar, "scopes", [])
+    if not isinstance(scopes, list):
+        scopes = [scopes] if scopes else []
+    return required_scope in scopes
+
+
 async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature: float, stream: bool, mode: str, request: Request):
     rid = request.state.rid
     token = request.headers.get("Authorization","").removeprefix("Bearer ").strip()
@@ -197,6 +220,14 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
         return _err(401, ar.reason)
     org_id, tier = ar.org_id, ar.tier
 
+    # ── Scope enforcement (CHANGE-0022-C4, Section 3) ─────────────────
+    required_scope = _model_required_scope(model_id, mode)
+    if required_scope and not _has_scope(ar, required_scope):
+        mtr.auth_denied("scope_denied")
+        return _err(403, "scope_denied", required=required_scope,
+                     scopes=getattr(ar, "scopes", []), model=model_id)
+    # RAG scope check (only for /v1/rag/* — handled in RAG endpoints)
+
     # Model routing — with PG drain check
     model, route_error, route_code = route_model(model_id, request.app.state.catalog, tier, request.app.state.db)
     if not model:
@@ -204,13 +235,34 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
             return _err(503, f"dependency_unavailable", detail=route_error)
         return _err(route_code or 403, route_error or "model_not_available", tier=tier, model=model_id)
 
-    # Rate limit — with proper token estimate
+    # Rate limit — FAIL-CLOSED: org quota + API-key quota + request rate limit
     if settings.rate_limit_enabled:
         est_tokens = estimate_tokens(messages, max_tokens)
-        ok, reason, _details = await check_rate_limit(org_id, tier, request.app.state.redis, est_tokens, request.app.state.db)
+
+        # 1. Organisation quota check (CHANGE-0022-C4 S4)
+        ok_q, q_reason, _q = await check_org_quota(
+            org_id, request.app.state.redis, request.app.state.db)
+        if not ok_q:
+            mtr.rate_limit_denied(tier)
+            status_code = 403 if "unknown" in q_reason else 429
+            return _err(status_code, q_reason)
+
+        # 2. API-key quota check (CHANGE-0022-C4 S4)
+        ok_k, k_reason, _k = await check_api_key_quota(
+            token, request.app.state.redis, request.app.state.db)
+        if not ok_k:
+            mtr.rate_limit_denied(tier)
+            return _err(429, k_reason)
+
+        # 3. Per-request rate limit (RPM/TPM/daily)
+        ok, reason, _details = await check_rate_limit(
+            org_id, tier, request.app.state.redis, est_tokens,
+            request.app.state.db, api_key=token, model_id=model_id)
         if not ok:
             mtr.rate_limit_denied(tier)
-            return _err(429, reason)
+            status_code = 403 if "unknown_tier" in reason else (
+                503 if "unavailable" in reason else 429)
+            return _err(status_code, reason)
 
     # Security ingress
     if settings.security_enabled:
@@ -238,9 +290,19 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
                               model=model_id)
 
         if result == BillingResult.ALREADY_COMPLETED:
-            # Replay: return original HTTP status + original response from DB
-            logger.info("Idempotency hit: org=%s key=%s ref=%s", org_id, idem_key, ref)
-            return _err(200, "idempotent_replay", reservation_id=ref)
+            # ── Replay: return original HTTP status + content-type + body (S5) ──
+            replay = get_replay_response(idem_key, org_id, request.app.state.db)
+            if replay is None:
+                return _err(503, "replay_unavailable")
+            rep_status, rep_ct, rep_body, rep_settle = replay
+            if rep_settle == "DATABASE_ERROR":
+                return _err(503, "billing_database_error")
+            logger.info("Idempotency replay: org=%s key=%s status=%d", org_id, idem_key, rep_status)
+            return JSONResponse(
+                content=rep_body if isinstance(rep_body, dict) else {"replay": str(rep_body)},
+                status_code=rep_status or 200,
+                media_type=rep_ct or "application/json",
+            )
         elif result == BillingResult.CONFLICT:
             return _err(409, "idempotency_conflict", detail="Same org+key, different payload")
         elif result == BillingResult.IN_PROGRESS:
@@ -316,21 +378,22 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
 
 async def _stream_response(url: str, payload: dict, headers: dict, org_id: str,
                            rid: str, model_id: str, ref, idem_key: str, request: Request):
-    """Real SSE streaming with egress sliding buffer (CHANGE-0022-C3).
+    """Streaming with DLP holdback buffer (S6) + settlement-before-DONE (S7).
 
-    Sliding buffer algorithm:
-      - Hold safe character window between chunks
-      - Check previous_tail + current_chunk before releasing
-      - Only release confirmed safe portion to client
-      - On violation: close upstream AND stream
-      - Forbidden bytes NEVER delivered before verdict
+    S6 — Holdback buffer:
+      - Don't deliver last HOLD_BACK chars of safe text
+      - Merge held tail with next chunk before egress check
+      - Reconstruct SSE chunks with only confirmed-safe text
+      - On violation: NEVER deliver ANY byte of matched secret
+
+    S7 — Settlement-first:
+      - Don't send [DONE] until settle SUCCESS
+      - On settlement failure: controlled error, reconciliation record, SIEM event
     """
     async def event_stream():
         usage_data = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         settled = False
-        # Sliding buffer for cross-chunk secret detection
-        sliding_buffer = ""
-        BUFFER_SIZE = 200  # keep last N chars across chunks
+        held_text = ""           # S6: held tail from previous chunk
         upstream_closed = False
 
         try:
@@ -340,38 +403,58 @@ async def _stream_response(url: str, payload: dict, headers: dict, org_id: str,
                     yield f"data: {{\"error\":\"upstream_error_{resp.status_code}\"}}\n\n"
                     yield "data: [DONE]\n\n"
                     return
+
                 async for line in resp.aiter_lines():
                     if not line:
                         continue
                     if line.startswith("data: "):
                         chunk = line[6:]
                         if chunk == "[DONE]":
+                            # ── S7: DON'T send [DONE] yet — settle FIRST ──
                             break
+
                         try:
                             chunk_data = json.loads(chunk)
 
-                            # Egress check with sliding buffer (CHANGE-0022-C3)
-                            # Hold safe window — check merged text BEFORE releasing
+                            # ── S6: Egress check with holdback buffer ──
                             if settings.security_egress_enabled:
-                                egr_ok, egr_reason, _, new_buffer = check_egress_streaming(
-                                    chunk_data,
-                                    sliding_buffer=sliding_buffer,
-                                    org_id=org_id, request_id=rid, model=model_id,
-                                    db_pool=request.app.state.db
-                                )
+                                egr_ok, egr_reason, _, new_buffer, safe_text, new_held = \
+                                    check_egress_streaming(
+                                        chunk_data,
+                                        sliding_buffer=held_text,
+                                        org_id=org_id, request_id=rid, model=model_id,
+                                        db_pool=request.app.state.db
+                                    )
                                 if not egr_ok:
-                                    # Forbidden bytes NEVER delivered before verdict
-                                    # Close upstream AND stream
                                     upstream_closed = True
-                                    logger.warning("Streaming egress violation: %s org=%s", egr_reason, org_id)
+                                    logger.warning("Stream egress violation: %s org=%s", egr_reason, org_id)
                                     if ref: refund(org_id, ref, request.app.state.db)
                                     yield f"data: {{\"error\":\"content_blocked\"}}\n\n"
                                     yield "data: [DONE]\n\n"
                                     return
 
-                                # Only release after confirmed safe
-                                # Update buffer with confirmed safe tail
-                                sliding_buffer = new_buffer
+                                held_text = new_held  # carry over for next iteration
+
+                                # Reconstruct chunk with safe_text only
+                                if safe_text:
+                                    # Inject safe_text back into chunk delta
+                                    choices = chunk_data.get("choices", [])
+                                    if choices and "delta" in choices[0]:
+                                        choices[0]["delta"]["content"] = safe_text
+                                    elif choices and "message" in choices[0]:
+                                        choices[0]["message"]["content"] = safe_text
+                                    elif "text" in chunk_data:
+                                        chunk_data["text"] = safe_text
+                                    chunk = json.dumps(chunk_data)
+                                else:
+                                    # Nothing safe to release — skip this chunk
+                                    # But accumulate usage if present
+                                    cu = chunk_data.get("usage", {})
+                                    if cu:
+                                        usage_data["prompt_tokens"] += cu.get("prompt_tokens", 0)
+                                        usage_data["completion_tokens"] += cu.get("completion_tokens", 0)
+                                        usage_data["total_tokens"] += cu.get("total_tokens", 0)
+                                    continue
 
                             # Accumulate usage
                             cu = chunk_data.get("usage", {})
@@ -379,30 +462,53 @@ async def _stream_response(url: str, payload: dict, headers: dict, org_id: str,
                                 usage_data["prompt_tokens"] += cu.get("prompt_tokens", 0)
                                 usage_data["completion_tokens"] += cu.get("completion_tokens", 0)
                                 usage_data["total_tokens"] += cu.get("total_tokens", 0)
+
                         except json.JSONDecodeError:
                             pass
 
-                        # Yield to client ONLY after egress check (forbidden bytes never delivered)
+                        # S6: Yield ONLY after egress check + safe_text reconstruction
                         yield f"data: {chunk}\n\n"
                     else:
                         yield f"{line}\n"
 
-                yield "data: [DONE]\n\n"
+                # ── S6: Final flush — release remaining held_text after final check ──
+                if held_text and settings.security_egress_enabled:
+                    final_ok, final_reason, _, _, _, _ = check_egress_streaming(
+                        {"choices": [{"delta": {"content": ""}}]},
+                        sliding_buffer=held_text,
+                        org_id=org_id, request_id=rid, model=model_id,
+                        db_pool=request.app.state.db,
+                    )
+                    if not final_ok:
+                        logger.warning("Final flush violation: %s org=%s", final_reason, org_id)
+                        if ref: refund(org_id, ref, request.app.state.db)
+                        yield f"data: {{\"error\":\"content_blocked\"}}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
+                    # Release remaining held text
+                    yield f"data: {json.dumps({'choices': [{'delta': {'content': held_text}}]})}\n\n"
 
-                # Settle after stream completes — use settle_and_complete_stream
+                # ── S7: Settle FIRST, THEN send [DONE] ──
                 if ref and not upstream_closed:
                     settle_result, settle_str = settle_and_complete_stream(
                         org_id, ref, usage_data["total_tokens"],
                         request.app.state.db, ikey=idem_key,
                     )
                     if settle_result == BillingResult.DATABASE_ERROR:
-                        logger.error("Stream settlement DATABASE_ERROR for org=%s ref=%s", org_id, ref)
-                    else:
-                        settled = True
+                        logger.error("Stream settlement DATABASE_ERROR org=%s ref=%s", org_id, ref)
+                        record_usage(request.app.state.db, org_id, rid, model_id,
+                                     usage_data["prompt_tokens"], usage_data["completion_tokens"],
+                                     usage_data["total_tokens"], "settlement_error")
+                        yield f"data: {{\"error\":\"settlement_failed\",\"detail\":\"Database error during settlement\"}}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
+                    settled = True
 
+                # Only send [DONE] after successful settlement
                 record_usage(request.app.state.db, org_id, rid, model_id,
                              usage_data["prompt_tokens"], usage_data["completion_tokens"],
                              usage_data["total_tokens"], "success")
+                yield "data: [DONE]\n\n"
 
         except Exception as e:
             logger.error("Stream error: %s", e)
