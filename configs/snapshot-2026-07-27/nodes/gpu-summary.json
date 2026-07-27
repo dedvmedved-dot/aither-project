@@ -1,0 +1,56 @@
+{
+  "n8-gpu": {
+    "node": "bootsman-k8s-clnt01-n8-gpu",
+    "gpus": [
+      {
+        "index": 0,
+        "uuid": "GPU-843d67db-f591-e428-2c05-a7ea0d88f7d6",
+        "model": "Quadro RTX 6000",
+        "total_mb": 23040,
+        "used_mb": 20185,
+        "util_pct": 0,
+        "pstate": "P0",
+        "workload": "vllm-14b-instruct (TP=2)",
+        "process": "python3"
+      },
+      {
+        "index": 1,
+        "uuid": "GPU-877a3026-d742-3cae-6f5d-f8a5da59c4e2",
+        "model": "Quadro RTX 6000",
+        "total_mb": 23040,
+        "used_mb": 20185,
+        "util_pct": 0,
+        "pstate": "P0",
+        "workload": "vllm-14b-instruct (TP=2)",
+        "process": "python3"
+      }
+    ]
+  },
+  "n7-gpu": {
+    "node": "bootsmam-k8s-clnt01-n7-gpu",
+    "gpus": [
+      {
+        "index": 0,
+        "uuid": "GPU-823a40a3-290d-b2d5-a3f0-982d24870289",
+        "model": "Quadro RTX 6000",
+        "total_mb": 23040,
+        "used_mb": 21865,
+        "util_pct": 0,
+        "pstate": "P0",
+        "workload": "vllm-32b-gptq (TP=2)",
+        "process": "python3"
+      },
+      {
+        "index": 1,
+        "uuid": "GPU-73b74615-6666-6df8-5a8b-11a1d3a2bf41",
+        "model": "Quadro RTX 6000",
+        "total_mb": 23040,
+        "used_mb": 0,
+        "util_pct": 0,
+        "pstate": "P8",
+        "workload": "idle",
+        "process": "none"
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+# Sanitized PVCs — sensitive fields removed
+
+aither-inference:
+  aither-ai-platform-data: 1Gi  RWO  Bound
+  aither-identity-data:    1Gi  RWO  Bound
+  aither-redis-data:       1Gi  RWO  Bound

@@ -1,0 +1,38 @@
+{
+  "aither-inference": {
+    "aither-bff-config": {
+      "data_keys": [
+        "config.yaml"
+      ],
+      "purpose": "BFF configuration and environment"
+    },
+    "aither-portal-config": {
+      "data_keys": [
+        "nginx.conf",
+        "styles.css",
+        "app.js",
+        "index.html"
+      ],
+      "purpose": "Portal nginx config + static assets"
+    },
+    "aither-portal-docs": {
+      "data_keys": [
+        "18 markdown files"
+      ],
+      "purpose": "Portal documentation pages"
+    },
+    "aither-portal-frontend-config": {
+      "data_keys": [
+        "nginx.conf",
+        "mime.types"
+      ],
+      "purpose": "Portal-frontend nginx config"
+    },
+    "nginx-gateway-32b": {
+      "data_keys": [
+        "nginx.conf"
+      ],
+      "purpose": "Gateway nginx reverse proxy config"
+    }
+  }
+}

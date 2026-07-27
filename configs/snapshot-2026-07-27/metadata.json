@@ -1,0 +1,18 @@
+{
+  "snapshot_id": "R7-R5-EMG-01-CHECKPOINT-01",
+  "emergency_id": "R7-R5-EMG-01-14B-N8-MIGRATION",
+  "captured_at_utc": "2026-07-27T12:36:10Z",
+  "control_head_t0": "5cdb43b0147239eb3197b76183064b7054ed2098",
+  "local_head_before_snapshot_commit": "e5c795062d3b4eed5984c207cac04272f77bd589",
+  "remote_head_before_push": "5cdb43b0147239eb3197b76183064b7054ed2098",
+  "cluster_context": "default",
+  "nodes": [
+    "bootsman-k8s-clnt01-n8-gpu",
+    "bootsmam-k8s-clnt01-n7-gpu"
+  ],
+  "raw_evidence_location": "/root/aither-emergency-journal/R7-R5-EMG-01-14B-N8-MIGRATION/artifacts/checkpoint-01-raw/",
+  "sanitized_for_git": true,
+  "secret_scan_exit_code": 0,
+  "accepted": false,
+  "reconciliation_required": true
+}

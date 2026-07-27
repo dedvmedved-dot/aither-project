@@ -1,0 +1,18 @@
+# BFF environment variable names (values excluded)
+# Source: sanitized from aither-bff deployment
+
+PG_HOST
+PG_PORT
+PG_USER
+PGPASSWORD          [SECRET REF]
+PG_DB
+JWT_SECRET          [SECRET REF]
+SESSION_SECRET      [SECRET REF]
+CORE_API_URL
+CORE_API_32B_URL
+ADMIN_USERNAME
+ADMIN_PASSWORD_HASH [SECRET REF]
+BFF_PORT
+NODE_ENV
+YOOKASSA_SHOP_ID    (not set — dev mode)
+YOOKASSA_SECRET     (not set — dev mode)

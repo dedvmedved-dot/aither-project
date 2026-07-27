@@ -1,0 +1,18 @@
+namespace	name	ready	status	restarts	age	node
+aiops	chromadb	1/1	Running	0	5d5h	n8-gpu
+aiops	clickhouse	1/1	Running	0	5d5h	n8-gpu
+aiops	flink-jobmanager	1/1	Running	0	5d5h	n8-gpu
+aiops	flink-taskmanager	0/1	CrashLoopBackOff	1072	5d5h	n8-gpu
+aiops	kafka	1/1	Running	0	5d5h	n8-gpu
+aiops	minio	1/1	Running	0	5d5h	n8-gpu
+aiops	postgres	1/1	Running	0	5d5h	n8-gpu
+aither-inference	aither-ai-platform	1/1	Running	0	2d14h	n8-gpu
+aither-inference	aither-bff	2x 1/1	Running	0	75m	n8-gpu+n7-gpu
+aither-inference	aither-identity	1/1	Running	0	4d14h	n8-gpu
+aither-inference	aither-portal	1/1	Running	0	45m	n7-gpu
+aither-inference	aither-portal-backend	1/1	Running	0	4d12h	n8-gpu
+aither-inference	aither-portal-frontend	1/1	Running	0	45m	n7-gpu
+aither-inference	aither-redis-rate-limit	1/1	Running	0	22h	n8-gpu
+aither-inference	nginx-gateway-32b	2x 1/1	Running	0	2d16h	n7-gpu+n8-gpu
+aither-inference	vllm-14b-instruct	1/1	Running	0	80m	n8-gpu
+aither-inference	vllm-32b-gptq	1/1	Running	0	8d	n7-gpu

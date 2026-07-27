@@ -1,0 +1,20 @@
+# Sanitized services — namespace/name/type/ports only
+
+aither-inference:
+  aither-ai-platform:        NodePort  8000:30902
+  aither-bff:                ClusterIP 8000
+  aither-identity:           ClusterIP 8000
+  aither-portal:             NodePort  80:30080
+  aither-portal-backend:     ClusterIP 8000
+  aither-portal-frontend:    ClusterIP 80
+  aither-redis-rate-limit:   ClusterIP 6379
+  nginx-gateway-32b:         NodePort  8000:30901
+  vllm-14b-instruct:         ClusterIP 8000
+  vllm-32b-gptq:             ClusterIP 8000
+
+External endpoints:
+  Portal (Internet):   https://fb1.spb.ru:443 → NodePort 30080
+  Portal (Test Zone):  http://10.129.13.78:30080
+  Grafana:             http://grafana.130.17.1.90.nip.io
+  Gateway:             NodePort 30901
+  AI Platform:         NodePort 30902

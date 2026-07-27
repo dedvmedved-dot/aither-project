@@ -1,0 +1,6 @@
+M	aither-v2/03-vllm-14b-deploy/manifests/vllm-deployment.yaml
+M	aither-v2/deploy/portal/nginx.conf
+A	aither-v2/docs/user-package/17_MODEL_USAGE_GUIDE.md
+M	aither-v2/services/bff/app.py
+M	aither-v2/services/portal-frontend/nginx.conf
+M	portal/static/index.html

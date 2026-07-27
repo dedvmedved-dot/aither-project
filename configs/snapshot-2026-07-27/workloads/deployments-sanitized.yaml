@@ -1,0 +1,70 @@
+# Sanitized deployments — status fields, managedFields, resourceVersion removed
+# Secrets and sensitive ConfigMap values excluded
+# See raw evidence in emergency journal for full dumps
+
+aither-inference:
+  aither-ai-platform:
+    replicas: 1
+    image: aither-ai-platform
+    node: n8-gpu
+    status: Running
+  aither-bff:
+    replicas: 2
+    image: aither-bff:0.6.0
+    nodes: [n8-gpu, n7-gpu]
+    status: Running (2/2)
+  aither-identity:
+    replicas: 1
+    image: aither-identity
+    node: n8-gpu
+    status: Running
+  aither-portal:
+    replicas: 1
+    image: aither-portal (nginx)
+    node: n7-gpu
+    status: Running
+  aither-portal-backend:
+    replicas: 1
+    node: n8-gpu
+    status: Running
+  aither-portal-frontend:
+    replicas: 1
+    node: n7-gpu
+    status: Running
+  aither-redis-rate-limit:
+    replicas: 1
+    image: redis:7-alpine
+    node: n8-gpu
+    status: Running
+  nginx-gateway-32b:
+    replicas: 2
+    image: python:3.12-slim (gateway.py)
+    nodes: [n7-gpu, n8-gpu]
+    status: Running (2/2)
+  vllm-14b-instruct:
+    replicas: 1
+    image: vllm/vllm-openai:latest
+    node: n8-gpu (recently migrated from n7)
+    gpu: 2 (TP=2)
+    model: Qwen2.5-14B-Instruct (FP16, 28 GB)
+    status: Running
+  vllm-32b-gptq:
+    replicas: 1
+    image: vllm/vllm-openai:latest
+    node: n7-gpu
+    gpu: 2 (TP=2)
+    model: Qwen2.5-32B-GPTQ (Int4, 19 GB)
+    status: Running
+
+gpu-operator:
+  gpu-operator: Running
+  Various DaemonSets (container-toolkit, device-plugin, dcgm-exporter, feature-discovery, validator): Running
+
+aiops:
+  chromadb: Running (n8-gpu)
+  clickhouse: Running (n8-gpu)
+  flink-jobmanager: Running (n8-gpu)
+  flink-taskmanager: CrashLoopBackOff (n8-gpu, 1072 restarts)
+  kafka: Running (n8-gpu)
+  minio: Running (n8-gpu)
+  postgres: Running (n8-gpu)

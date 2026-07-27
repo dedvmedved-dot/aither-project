@@ -1,0 +1,11 @@
+5cdb43b  T0 — chore(u1.3-ops-r7-r5-c2): close D12/D13/D14 evidence
+  ↓
+095afdc  hotfix(portal): JS syntax, closeModal, feedback, AbortController, doc links, model card
+  ↓
+55f45e1  fix(bff): set req.state.user_id for admin sessions in _authenticate_request
+  ↓
+efb563a  fix(nginx): charset utf-8 + text/plain MIME for docs; proxy /docs/ via portal-frontend
+  ↓
+dce645c  docs(user-package): add 17_MODEL_USAGE_GUIDE — model architecture and usage guide
+  ↓
+e5c7950  infra(vllm-14b): migrate to N8 with tensor-parallel-size=2, remove CPU-offload

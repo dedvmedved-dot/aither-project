@@ -1,0 +1,9 @@
+node	directory	size	config.json	index.json	quantization	active_workload
+n8-gpu	/data/models/Qwen2.5-14B-Instruct	28 GB	present	present (47 KB)	FP16	vllm-14b-instruct (TP=2)
+n8-gpu	/data/models/Qwen2.5-32B-GPTQ	19 GB	present	present (172 KB)	GPTQ Int4	(not deployed on n8)
+n8-gpu	/data/models/Qwen2.5-Coder-14B-Instruct	28 GB	present	present (47 KB)	FP16	idle
+n8-gpu	/data/models/Qwen2.5-Coder-14B	4.8 MB	present	absent	—	idle (base, not deployed)
+n8-gpu	/data/models/saiga_llama3_8b	15 GB	present	present (24 KB)	FP16	idle
+n8-gpu	/data/models/lora-qwen14b-astra	209 MB	—	—	LoRA adapter	idle
+n7-gpu	/data/models/Qwen2.5-14B-Instruct	28 GB	present	present (47 KB)	FP16	(not deployed on n7)
+n7-gpu	/data/models/Qwen2.5-32B-GPTQ	19 GB	present	present (172 KB)	GPTQ Int4	vllm-32b-gptq (TP=2)

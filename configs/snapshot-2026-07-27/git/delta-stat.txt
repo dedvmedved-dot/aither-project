@@ -1,0 +1,11 @@
+6 files changed, 231 insertions(+), 54 deletions(-)
+
+Modified:
+  aither-v2/03-vllm-14b-deploy/manifests/vllm-deployment.yaml  (-24 loc)
+  aither-v2/deploy/portal/nginx.conf                            (+6 loc)
+  aither-v2/services/bff/app.py                                 (+4 loc)
+  aither-v2/services/portal-frontend/nginx.conf                 (+/-36 loc)
+  portal/static/index.html                                      (+68/-? loc)
+
+Added:
+  aither-v2/docs/user-package/17_MODEL_USAGE_GUIDE.md           (+147 loc)

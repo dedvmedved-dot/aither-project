@@ -1,0 +1,33 @@
+{
+  "bootsman-k8s-clnt01-n8-gpu": {
+    "role": "control-plane",
+    "ip": "10.129.13.78",
+    "os": "Astra Linux 6.6.28-1-generic",
+    "k8s": "v1.33.5",
+    "gpu_count": 2,
+    "gpu_model": "Quadro RTX 6000",
+    "gpu_memory_mb": 23040,
+    "gpu_compute": "7.5 (Turing)",
+    "labels_of_interest": {
+      "aither.io/vllm14b-primary": "true",
+      "aither.io/qwen14b-instruct": "true",
+      "aither.io/qwen32b-gptq": "true",
+      "aither.io/benchmark-node": "true"
+    }
+  },
+  "bootsmam-k8s-clnt01-n7-gpu": {
+    "role": "worker",
+    "ip": "10.129.13.77",
+    "os": "Astra Linux 6.6.28-1-generic",
+    "k8s": "v1.33.5",
+    "gpu_count": 2,
+    "gpu_model": "Quadro RTX 6000",
+    "gpu_memory_mb": 23040,
+    "gpu_compute": "7.5 (Turing)",
+    "labels_of_interest": {
+      "aither.io/inference-primary": "true",
+      "aither.io/qwen14b-instruct": "true",
+      "aither.io/qwen32b-gptq": "true"
+    }
+  }
+}
