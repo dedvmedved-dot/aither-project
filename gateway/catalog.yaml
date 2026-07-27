@@ -1,15 +1,21 @@
 # Aither Model Catalog — актуальный для текущего кластера
 # Gateway использует этот файл для роутинга запросов к vLLM-подам
+#
+# Field mapping for catalog.py:
+#   name        → model identifier (used for routing + API)
+#   backend     → upstream vLLM base URL
+#   model_path  → served model name passed to vLLM
+#   display_name, description, tags, max_tokens, tokens_per_ruble, tier_access, status, endpoint_type
 
 models:
-  - id: qwen-14b
+  - name: qwen-14b
     display_name: "Qwen 2.5 14B Instruct"
     description: "Быстрая универсальная модель — чаты, summarization, код"
-    upstream_url: "http://vllm-14b-instruct.aither-inference.svc:8000"
+    backend: "http://vllm-14b-instruct.aither-inference.svc:8000"
+    model_path: "qwen-14b"
     endpoint_type: chat_completions
-    served_model_name: "qwen-14b"
     status: active
-    max_model_len: 4096
+    max_tokens: 4096
     tokens_per_ruble: 100
     tier_access: [free, standard, vip, enterprise]
     rag_support: false
@@ -17,14 +23,14 @@ models:
     timeout_seconds: 300
     health_endpoint: "/health"
 
-  - id: qwen-32b-base
+  - name: qwen-32b-base
     display_name: "Qwen 2.5 32B GPTQ"
     description: "Мощная базовая модель — аналитика, длинные тексты, сложный код"
-    upstream_url: "http://vllm-32b-gptq.aither-inference.svc:8000"
+    backend: "http://vllm-32b-gptq.aither-inference.svc:8000"
+    model_path: "qwen-32b-base"
     endpoint_type: completions
-    served_model_name: "qwen-32b-base"
     status: active
-    max_model_len: 4096
+    max_tokens: 4096
     tokens_per_ruble: 30
     tier_access: [standard, vip, enterprise]
     rag_support: false
