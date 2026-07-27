@@ -145,10 +145,13 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
     model = route_model(model_id, request.app.state.catalog, tier)
     if not model: return _err(403, f"model_not_available", tier=tier, model=model_id)
 
-    # Rate limit
+    # Rate limit — with real token estimate
     if settings.rate_limit_enabled:
-        ok, reason = await check_rate_limit(org_id, tier, request.app.state.redis)
-        if not ok: return _err(429, reason)
+        est_tokens = len(str(messages)) // 3 + max_tokens  # rough input estimate + max output
+        ok, reason = await check_rate_limit(org_id, tier, request.app.state.redis, est_tokens, request.app.state.db)
+        if not ok:
+            mtr.rate_limit_denied(tier)
+            return _err(429, reason)
 
     # Security ingress — messages list
     if settings.security_enabled:

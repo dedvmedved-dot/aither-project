@@ -10,7 +10,8 @@ def test_auth_result_dataclass():
 def test_verify_api_key():
     from auth import verify_api_key
     assert verify_api_key("ak-test1234567890abcdef") is True
-    assert verify_api_key("athr_test123") is False
+    assert verify_api_key("athr_test1234567890abc") is True
+    assert verify_api_key("invalid") is False
     assert verify_api_key("") is False
 
 def test_check_admin_no_key():
