@@ -360,6 +360,7 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
                 scopes = sess.get("model_scopes") or _USER_SESSION_SCOPES.get(role, ["model:14b:chat", "model:32b:chat-adapter"])
                 req.state.user_id = user_id
                 req.state.user_role = role
+                req.state.username = username_norm
                 return True, scopes
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -375,11 +376,28 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
             return False, "Token not found or revoked"
         scopes = meta.get("scopes", [])
         owner_id = meta.get("owner_user_id", "")
+        owner_username = meta.get("owner_username", "")
         req.state.user_id = owner_id
-        # Also verify owner's user record is still active
-        if owner_id and redis_available:
-            # Find username from token metadata or scan
-            pass  # Owner check is done at token load time via _load_token_meta
+        # D18-C2 corrective: verify owner's user record is still active
+        if not owner_id:
+            return False, "Token missing owner identity"
+        if not redis_available:
+            return False, "Auth backend unavailable"
+        if owner_username:
+            user_key = _user_key(_normalize_username(owner_username))
+            user_data_raw = await redis_client.get(user_key)
+            if not user_data_raw:
+                return False, "Token owner account not found"
+            try:
+                user_rec = json.loads(user_data_raw)
+                status = user_rec.get("status", "")
+                if status != "active":
+                    logger.info("Token denied: owner %s status=%s", owner_username, status)
+                    return False, "Token owner account is not active"
+            except (json.JSONDecodeError, TypeError):
+                return False, "Token owner record corrupted"
+        else:
+            return False, "Token missing owner identity"
         return True, scopes
 
     return False, "Authentication required"
@@ -519,7 +537,7 @@ async def health():
     auth_cfg = "configured" if not _validate_auth_config() else "partial"
     return {
         "status": "ok",
-        "version": "0.5.0-r7r7-d18corrective",
+        "version": "0.6.0-r7r7-c2-d18",
         "rate_limit": rl_status,
         "redis": redis_s,
         "auth": auth_cfg,
@@ -741,25 +759,15 @@ async def register(req: Request):
         logger.error("Argon2id hash failed: %s", str(e))
         raise HTTPException(status_code=503, detail="Password hashing failed")
 
-    # D18 corrective: expires_at passed as pre-computed timestamp to Lua
+    # D18-C2 corrective: expiry read directly from invite data in Lua (not Python ARGV)
     user_id = uuid.uuid4().hex
     now_iso = datetime.now(timezone.utc).isoformat()
     now_ts = int(time.time())
-    # Pre-parse expires_at to epoch for Lua comparison
-    expires_ts = 0
-    expires_str = invite_data.get("expires_at", "")
-    if expires_str:
-        try:
-            exp_dt = datetime.fromisoformat(expires_str)
-            expires_ts = int(exp_dt.timestamp())
-        except (ValueError, TypeError):
-            expires_ts = 0
 
     lua = """
     local user_key = KEYS[1]
     local invite_key = KEYS[2]
     local now_ts = tonumber(ARGV[4])
-    local expires_ts = tonumber(ARGV[5])
 
     if redis.call('EXISTS', user_key) == 1 then return {0, 'username_exists'} end
 
@@ -771,8 +779,10 @@ async def register(req: Request):
     if d.status ~= 'active' and d.status ~= 'used' then return {0, 'invite_not_active'} end
     if d.status == 'used' then return {0, 'invite_used'} end
     if d.use_count >= d.use_limit then return {0, 'invite_used'} end
-    -- Check expires_at inside atomic Lua
-    if expires_ts > 0 and now_ts > expires_ts then return {0, 'invite_expired'} end
+    -- C2 corrective: read expires_at_epoch directly from invite data
+    local expires_epoch = tonumber(d.expires_at_epoch)
+    if not expires_epoch then return {0, 'invite_expired'} end  -- fail-closed: missing epoch
+    if now_ts >= expires_epoch then return {0, 'invite_expired'} end
 
     redis.call('SET', user_key, ARGV[1])
     d.use_count = d.use_count + 1
@@ -802,8 +812,7 @@ async def register(req: Request):
             user_data,            # ARGV[1] — serialized user record
             now_iso,              # ARGV[2] — used_at timestamp
             user_id,              # ARGV[3] — registered_user_id
-            str(now_ts),          # ARGV[4] — current epoch for expiry check
-            str(expires_ts),      # ARGV[5] — expiry epoch
+            str(now_ts),          # ARGV[4] — current epoch
         )
     except Exception as e:
         logger.error("Registration Lua failed: %s", str(e))
@@ -872,22 +881,25 @@ async def create_token(req: Request):
     if not owner_user_id:
         raise HTTPException(status_code=401, detail="User identity required")
 
-    # D18 corrective: restrict requested scopes to user's allowed scopes
+    # D18-C2 corrective: reject forbidden scopes instead of silently removing
     allowed_scopes = user_scope if isinstance(user_scope, list) else ["model:14b:chat", "model:32b:chat-adapter"]
     if isinstance(user_scope, str) and user_scope == "admin":
         allowed_scopes = body.scopes  # Admin can create any scope
     else:
         requested = body.scopes or ["model:14b:chat"]
-        restricted = [s for s in requested if s in allowed_scopes]
-        if not restricted:
-            raise HTTPException(status_code=403, detail="Requested scopes exceed user permissions")
-        body.scopes = restricted
+        forbidden = [s for s in requested if s not in allowed_scopes]
+        if forbidden:
+            raise HTTPException(status_code=403, detail=f"Forbidden scopes requested: {forbidden}")
+        body.scopes = requested
 
     raw_token, token_hash = _generate_api_token()
+    # Get owner username for identity verification
+    owner_username = getattr(req.state, "username", "")
     meta = {
         "token_id": uuid.uuid4().hex[:12],
         "token_hash": token_hash,
         "owner_user_id": owner_user_id,
+        "owner_username": owner_username,
         "name": body.name or "unnamed",
         "scopes": body.scopes or ["model:14b:chat"],
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1070,6 +1082,10 @@ async def completions(req: Request):
 
     body_data = await req.json()
     body = CompletionRequest(**body_data)
+
+    # D18-C2 corrective: enforce model scope for completions
+    if isinstance(scope, list) and "model:32b:chat-adapter" not in scope:
+        raise HTTPException(status_code=403, detail="Model 32B not in user scopes")
 
     if body.model == MODEL_32B:
         upstream_url = f"{GATEWAY_32B_URL}/v1/completions"
