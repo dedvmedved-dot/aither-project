@@ -124,10 +124,10 @@ def sse_request_stream(model: str, messages: list, token: str,
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         return {"status": e.code, "error": body[:200], "chunks": [], "ttft": None,
-                "done": False, "usage_total": 0}
+                "done": False, "usage_total": 0, "chunk_count": 0}
     except Exception as e:
         return {"status": 0, "error": str(e)[:200], "chunks": [], "ttft": None,
-                "done": False, "usage_total": 0}
+                "done": False, "usage_total": 0, "chunk_count": 0}
 
 
 # =============================================================================
