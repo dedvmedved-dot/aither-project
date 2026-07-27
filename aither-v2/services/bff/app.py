@@ -326,6 +326,10 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
             try:
                 sess = json.loads(session_data)
                 if sess.get("role") == "admin" or sess.get("username") == ADMIN_USERNAME:
+                    req.state.user_id = sess.get("user_id", "admin-" + session_id[:12] if len(session_id) >= 12 else "admin")
+                    req.state.user_role = "admin"
+                    req.state.username = sess.get("username", ADMIN_USERNAME)
+                    req.state.auth_scope = "admin"
                     return True, "admin"
             except (json.JSONDecodeError, TypeError):
                 pass
