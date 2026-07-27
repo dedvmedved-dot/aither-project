@@ -41,7 +41,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: gateway
-        image: 10.129.13.78:5000/aither-gateway@sha256:766be16a90d62d854133772b274a5d9999181470c5060e3b98ae1e060e47b933  # CHANGE-0022-C3: all fixes integrated
+        image: 10.129.13.78:5000/aither-gateway@sha256:c7f5217d809f4abe1f76bfe1862ee39062e394d002b22549082bfba3d8ba0fda  # CHANGE-0022-C4: S3-S7 scope+rate_limit+idempotent_replay+dlp_holdback+settle_before_DONE
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
