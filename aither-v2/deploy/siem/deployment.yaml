@@ -38,28 +38,13 @@ spec:
     requests:
       storage: 20Gi
   storageClassName: ""
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: aither-siem-auth
-  namespace: aither-inference
-  labels:
-    app: aither-siem
-    change: CHANGE-0022-C4
-    security-incident: SEC-INC-CHANGE-0022-C4-01
-  annotations:
-    rotated-at: "2026-07-28T01:30:00Z"
-    rotated-by: "CHANGE-0022-C5"
-    previous-key-fingerprint: "sha256:siem-admin-key-change-me-in-production"
-type: Opaque
-stringData:
-  # SEC-INC-CHANGE-0022-C4-01: Known admin key was committed to repository.
-  # Key rotated 2026-07-28. New key stored in-cluster only via:
-  #   kubectl -n aither-inference create secret generic aither-siem-auth \
-  #     --from-literal=SIEM_ADMIN_KEY=<new-key-here>
-  # DO NOT commit actual key to repository.
-  SIEM_ADMIN_KEY: "REDACTED-ROTATED-SEE-INCIDENT-REPORT"
+# SEC-INC-CHANGE-0022-C4-01 / SEC-INC-CHANGE-0022-C5-01:
+#   SIEM admin key was previously committed with stringData in this manifest.
+#   Key rotated 2026-07-28T01:30:00Z (CHANGE-0022-C5); old value invalidated.
+#   Required K8s Secret (create in-cluster only, NEVER commit actual key):
+#     kubectl -n aither-inference create secret generic aither-siem-auth \
+#       --from-literal=SIEM_ADMIN_KEY=<random-64-char-hex>
+#   See reports/CHANGE-0022-FORCE-MAJEURE-FREEZE.md for full incident details.
 ---
 apiVersion: v1
 kind: ConfigMap

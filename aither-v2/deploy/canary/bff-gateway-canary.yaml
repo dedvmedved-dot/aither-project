@@ -50,15 +50,31 @@ spec:
           value: "10"
         - name: BFF_REQUEST_TIMEOUT_SECONDS
           value: "300"
-        # ── Auth secrets ─────────────────────────────────────────────
+        # ── Auth secrets (K8s Secret reference — no literal values) ────
+        # SEC-INC-CHANGE-0022-C4-01 / SEC-INC-CHANGE-0022-C5-01:
+        #   Literal ADMIN_PASSWORD_HASH, SESSION_SECRET, AUTH_TOKEN_HASH_SECRET
+        #   were previously committed. Values rotated 2026-07-28 FM-01.
+        #   See reports/CHANGE-0022-FORCE-MAJEURE-FREEZE.md for rotation details.
         - name: ADMIN_USERNAME
           value: "admin"
         - name: ADMIN_PASSWORD_HASH
-          value: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+          valueFrom:
+            secretKeyRef:
+              name: aither-bff-canary-secrets
+              key: ADMIN_PASSWORD_HASH
+              optional: false
         - name: SESSION_SECRET
-          value: "change-0022-c5-canary-session"
+          valueFrom:
+            secretKeyRef:
+              name: aither-bff-canary-secrets
+              key: SESSION_SECRET
+              optional: false
         - name: AUTH_TOKEN_HASH_SECRET
-          value: "change-0022-c5-canary-auth"
+          valueFrom:
+            secretKeyRef:
+              name: aither-bff-canary-secrets
+              key: AUTH_TOKEN_HASH_SECRET
+              optional: false
         - name: BFF_14B_UPSTREAM_AUTH_TOKEN
           value: "placeholder-unused-in-gateway-mode"
         - name: BFF_32B_GATEWAY_AUTH_TOKEN
