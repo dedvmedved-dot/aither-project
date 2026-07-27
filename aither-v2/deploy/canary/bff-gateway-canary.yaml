@@ -1,598 +1,19 @@
 # Aither BFF Gateway-Canary Deployment
-# CHANGE-0022-C3 R7-R5-EMG-GW-R5 — Section 6
+# CHANGE-0022-C4 — R7-R5-EMG-GW-R6 Section 2
 #
-# Production-representative Canary BFF:
-#   Uses SAME source code as production aither-bff (v0.6.0-r7r7-c2-d18).
-#   Routes ALL model traffic through Aither Gateway.
-#   RS256 per-request delegation JWT (not static token).
-#   Real SSE StreamingResponse.
-#   Fail-closed: Redis outage → 503.
-#   /ready: Redis + Gateway /health + delegation key + Gateway model catalog.
-#   /health: process-only (no dependency checks).
+# Uses production BFF source built as a Docker image (NOT inline ConfigMap Python).
+# Routes ALL model traffic through Aither Gateway.
+# RS256 per-request delegation JWT (TTL <= 60s).
+# Real SSE StreamingResponse.
+# /ready: Redis + Gateway /health + delegation key + Gateway model catalog.
+# /health: process-only (no dependency checks).
+# org_id/user_id/tier/scopes from real session identity.
+#
+# Image: 10.129.13.78:5000/aither-bff:change-0022-c4-canary
+#   Built from aither-v2/tools/bff/ with pyjwt[crypto] for RS256 delegation.
 #
 # kubectl apply -f deploy/canary/bff-gateway-canary.yaml
 # kubectl port-forward -n aither-inference svc/aither-bff-gateway-canary 8001:8000
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: aither-bff-gateway-canary-config
-  namespace: aither-inference
-  labels:
-    app: aither-bff-gateway-canary
-    change: CHANGE-0022-C3
-data:
-  app.py: |
-    import os,json,time,uuid,secrets,hashlib,logging,hmac
-    from datetime import datetime,timezone
-    from contextlib import asynccontextmanager
-    from fastapi import FastAPI,HTTPException,Request,Response
-    from fastapi.responses import JSONResponse,StreamingResponse
-    from pydantic import BaseModel
-    import httpx,redis.asyncio as ra
-    import jwt as pyjwt
-
-    # ── MODEL IDs (same as production) ─────────────────────────────────
-    M14="qwen-14b";M32="qwen-32b-base"
-
-    # ── CONFIGURATION: ALL model routes go through GATEWAY ──────────────
-    GW=os.environ.get("BFF_GATEWAY_URL",
-        "http://aither-gateway.aither-inference.svc.cluster.local:8000")
-    TO=int(os.environ.get("BFF_REQUEST_TIMEOUT_SECONDS","300"))
-    RL_EN=os.environ.get("RATE_LIMIT_ENABLED","true").lower()=="true"
-    RURL=os.environ.get("REDIS_URL",
-        "redis://aither-redis-rate-limit.aither-inference.svc:6379/0")
-    RL_W=int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS","60"))
-    RL_M=int(os.environ.get("RATE_LIMIT_MAX_REQUESTS","10"))
-    ADM_U=os.environ.get("ADMIN_USERNAME","")
-    ADM_PH=os.environ.get("ADMIN_PASSWORD_HASH","")
-    SESS_S=os.environ.get("SESSION_SECRET","")
-    ATH_S=os.environ.get("AUTH_TOKEN_HASH_SECRET","")
-    # ── Delegation RS256 private key path ──────────────────────────────
-    DEL_KEY_PATH=os.environ.get("DELEGATION_PRIVATE_KEY_PATH",
-        "/app/delegation/private.pem")
-    # Production BFF auth tokens (NOT used for Gateway call; delegation JWT instead)
-    B14T=os.environ.get("BFF_14B_UPSTREAM_AUTH_TOKEN","")
-    B32T=os.environ.get("BFF_32B_GATEWAY_AUTH_TOKEN","")
-
-    TP="athr_";RNS="aither-auth";TNS=f"{RNS}:token";SNS=f"{RNS}:session"
-    # Identity service URL for delegate auth
-    IDH=os.environ.get("AITHER_IDENTITY_SERVICE_HOST","aither-identity")
-    IDP=os.environ.get("AITHER_IDENTITY_SERVICE_PORT_HTTP","8000")
-    IDURL=f"http://{IDH}:{IDP}/v1/identity/auth"
-
-    log=logging.getLogger("aither-bff-canary");cli=None;rcli=None;ravail=False
-    _del_key=None  # cached RS256 private key
-
-    # ── Load delegation private key (fail-closed) ───────────────────────
-    def _load_del_key():
-        global _del_key
-        if _del_key is not None:
-            return _del_key
-        try:
-            with open(DEL_KEY_PATH,"r") as f:
-                _del_key=f.read()
-            log.info("Delegation RS256 key loaded")
-        except Exception as e:
-            log.error("Delegation key missing: %s",e)
-            _del_key=False
-        return _del_key
-
-    # ── Sign delegation JWT (per-request, RS256) ────────────────────────
-    def sign_delegation_jwt(org_id:str,user_id:str,tier:str,scopes:list,
-                             role:str="")->str:
-        """Sign RS256 JWT for Gateway delegation. One per request."""
-        key=_load_del_key()
-        if not key or key is False:
-            raise RuntimeError("delegation_key_unavailable")
-        now=int(time.time())
-        payload={
-            "iss":"aither-bff","aud":"aither-gateway","sub":user_id,
-            "org_id":org_id,"user_id":user_id,"tier":tier,
-            "scopes":scopes if isinstance(scopes,list) else [scopes],
-            "role":role,"jti":uuid.uuid4().hex[:16],
-            "iat":now,"nbf":now,"exp":now+300,
-        }
-        return pyjwt.encode(payload,key,algorithm="RS256")
-
-    # ── Rate limit key ──────────────────────────────────────────────────
-    async def rlkey(req):
-        a=req.headers.get("authorization") or req.headers.get("Authorization") or ""
-        if a: return f"rl:{hashlib.sha256(a.encode()).hexdigest()}"
-        fwd=req.headers.get("x-forwarded-for","")
-        ip=fwd.split(",")[0].strip() if fwd else (
-            req.client.host if req.client else "unknown")
-        return f"rl:ip:{ip}"
-
-    async def check_rl(req):
-        global ravail
-        if not RL_EN: return True
-        if not ravail:
-            # ── FAIL-CLOSED: no Redis → 503 (caller handles) ──────────
-            return None
-        try:
-            k=await rlkey(req);w=int(time.time())//RL_W;rk=f"{k}:{w}"
-            c=await rcli.incr(rk)
-            if c==1: await rcli.expire(rk,RL_W+5)
-            if c>RL_M:
-                log.warning("RL exceeded %s count=%d",k[:20],c)
-                return False
-            return True
-        except Exception as e:
-            log.error("RL error: %s",e)
-            ravail=False
-            return None
-
-    def vc():
-        m=[]
-        if not ADM_U: m.append("ADMIN_USERNAME")
-        if not ADM_PH: m.append("ADMIN_PASSWORD_HASH")
-        if not SESS_S: m.append("SESSION_SECRET")
-        if not ATH_S: m.append("AUTH_TOKEN_HASH_SECRET")
-        if not B14T: m.append("BFF_14B_UPSTREAM_AUTH_TOKEN")
-        if not B32T: m.append("BFF_32B_GATEWAY_AUTH_TOKEN")
-        return f"Missing: {', '.join(m)}" if m else ""
-
-    def htok(t): return hmac.new(ATH_S.encode(),t.encode(),hashlib.sha256).hexdigest()
-    def gentok(): r=TP+secrets.token_urlsafe(32); return r,htok(r)
-    def sk(s): return f"{SNS}:{s}"
-    def tmk(h): return f"{TNS}:{h}"
-    def thsk(): return f"{TNS}:all"
-    def ua(m): return B32T if m==M32 else B14T
-
-    async def load_tm(th):
-        if not ravail: return None
-        d=await rcli.get(tmk(th))
-        if not d: return None
-        try:
-            m=json.loads(d)
-            if m.get("revoked",False): return None
-            m["last_used_at"]=datetime.now(timezone.utc).isoformat()
-            await rcli.set(tmk(th),json.dumps(m))
-            return m
-        except: return None
-
-    async def auth_req(req):
-        sid=req.cookies.get("session_id","")
-        ah=req.headers.get("authorization") or req.headers.get("Authorization") or ""
-        if sid and ravail:
-            sd=await rcli.get(sk(sid))
-            if sd:
-                try:
-                    s=json.loads(sd)
-                    req.state.auth_user=s.get("username","")
-                    req.state.auth_role=s.get("role","user")
-                    req.state.auth_user_id=str(s.get("user_id",""))
-                    if s.get("username")==ADM_U: return True,"admin"
-                    return True,s.get("role","user")
-                except: pass
-        if ah.startswith("Bearer "):
-            rt=ah[7:].strip();th=htok(rt);meta=await load_tm(th)
-            if meta is None: return False,"Token not found or revoked"
-            req.state.auth_user=meta.get("owner","")
-            return True,meta.get("scopes",[])
-        return False,"Auth required"
-
-    def ck(req,rs):
-        sc=getattr(req.state,"auth_scope",None)
-        if isinstance(sc,str) and sc=="admin": return True
-        return isinstance(sc,list) and rs in sc
-
-    def cvt(messages):
-        lines=[f"<|{m.get('role','user')}|>\n{m.get('content','')}" for m in messages]
-        lines.append("<|assistant|>\n")
-        return "\n".join(lines)
-
-    @asynccontextmanager
-    async def lifespan(app):
-        global cli,rcli,ravail
-        cli=httpx.AsyncClient(timeout=TO)
-        ai=vc()
-        if ai: log.warning("Auth config issue: %s",ai)
-        else: log.info("Auth config OK")
-        try:
-            rcli=ra.from_url(RURL,decode_responses=True)
-            await rcli.ping();ravail=True;log.info("Redis connected")
-        except Exception as e:
-            rcli=None;ravail=False
-            log.warning("Redis unavailable: %s",e)
-        # Pre-load delegation key
-        _load_del_key()
-        yield
-        if rcli: await rcli.aclose()
-        await cli.aclose()
-
-    app=FastAPI(
-        title="Aither BFF Gateway-Canary",
-        version="0.6.0-r7r7-c2-d18-canary",
-        lifespan=lifespan,
-    )
-
-    class CTReq(BaseModel):
-        name:str=""
-        scopes:list=["model:14b:chat","model:32b:completion"]
-        expires_at:str=""
-
-    AEP={"/api/v1/models":{"GET"},"/api/v1/chat":{"POST"},
-         "/api/v1/completions":{"POST"},"/api/v1/tokens":{"GET","POST"}}
-
-    @app.middleware("http")
-    async def amw(req:Request,call_next):
-        p=req.url.path;m=req.method
-        if p=="/health" or p=="/ready" or p.startswith("/api/v1/auth/"):
-            return await call_next(req)
-        if p in AEP and m in AEP[p]:
-            ok,sc=await auth_req(req)
-            if not ok:
-                return JSONResponse(status_code=401,content={"error":sc})
-            req.state.auth_ok=ok;req.state.auth_scope=sc
-        return await call_next(req)
-
-    # ── /health: process-only (no dependency checks) ─────────────────────
-    @app.get("/health")
-    async def health():
-        return {
-            "status":"ok",
-            "version":"0.6.0-r7r7-c2-d18-canary",
-            "routes_through":"gateway",
-            "gateway_url":GW,
-            "rate_limit":"enabled" if RL_EN else "disabled",
-        }
-
-    # ── /ready: full dependency check ────────────────────────────────────
-    @app.get("/ready")
-    async def ready():
-        deps={};critical=False
-
-        # Redis (critical)
-        try:
-            if rcli:
-                await rcli.ping();deps["redis"]="ok"
-            else:
-                deps["redis"]="not_connected";critical=True
-        except Exception:
-            deps["redis"]="unavailable";critical=True
-
-        # Gateway /health (critical)
-        try:
-            hr=await cli.get(f"{GW}/health",timeout=5)
-            hr.raise_for_status()
-            deps["gateway_health"]="ok"
-        except Exception as e:
-            deps["gateway_health"]=f"error: {e}";critical=True
-
-        # Delegation key (critical)
-        key=_load_del_key()
-        if not key or key is False:
-            deps["delegation_key"]="missing"
-            critical=True
-        else:
-            deps["delegation_key"]="loaded"
-
-        # Gateway model catalog (critical)
-        try:
-            mr=await cli.get(f"{GW}/v1/models",timeout=5)
-            mr.raise_for_status()
-            models=mr.json().get("data",[])
-            deps["gateway_models"]=f"{len(models)} models"
-            if not models: critical=True
-        except Exception as e:
-            deps["gateway_models"]=f"error: {e}";critical=True
-
-        status_str="degraded" if critical else "ok"
-        return JSONResponse(
-            {"status":status_str,"dependencies":deps},
-            status_code=503 if critical else 200,
-        )
-
-    # ── Auth endpoints (same as production BFF) ──────────────────────────
-    @app.post("/api/v1/auth/login")
-    async def login(req:Request):
-        b=await req.json()
-        if not b or not b.get("username") or not b.get("password"):
-            raise HTTPException(400)
-        u=b["username"];p=b["password"]
-        # Try admin first
-        if hmac.compare_digest(u,ADM_U):
-            ph=hashlib.sha256(p.encode()).hexdigest()
-            if hmac.compare_digest(ph,ADM_PH):
-                if not ravail: raise HTTPException(503)
-                sid=uuid.uuid4().hex
-                sd=json.dumps({
-                    "username":u,"role":"administrator","user_id":0,
-                    "created_at":datetime.now(timezone.utc).isoformat(),
-                    "ip":req.client.host if req.client else "unknown",
-                })
-                await rcli.setex(sk(sid),86400,sd)
-                r=JSONResponse(content={
-                    "status":"ok","session_id":sid,
-                    "user":{"username":u,"role":"administrator","id":0},
-                })
-                r.set_cookie(
-                    key="session_id",value=sid,max_age=86400,
-                    httponly=True,samesite="strict",secure=False,
-                )
-                return r
-        # Delegate to identity service for non-admin users
-        try:
-            async with httpx.AsyncClient(timeout=10) as ic:
-                ir=await ic.post(IDURL,json={"username":u,"password":p})
-                if ir.status_code==200:
-                    data=ir.json();ui=data.get("user",{})
-                    if not ravail: raise HTTPException(503)
-                    sid=uuid.uuid4().hex
-                    role=ui.get("role","user")
-                    sd=json.dumps({
-                        "username":u,"role":role,"user_id":ui.get("id"),
-                        "created_at":datetime.now(timezone.utc).isoformat(),
-                        "ip":req.client.host if req.client else "unknown",
-                    })
-                    await rcli.setex(sk(sid),86400,sd)
-                    resp=JSONResponse(content={
-                        "status":"ok","session_id":sid,
-                        "user":{"username":u,"role":role,"id":ui.get("id")},
-                    })
-                    resp.set_cookie(
-                        key="session_id",value=sid,max_age=86400,
-                        httponly=True,samesite="strict",secure=False,
-                    )
-                    log.info("Login via identity: %s role=%s",u,role)
-                    return resp
-        except Exception as e:
-            log.warning("Identity login failed for %s: %s",u,e)
-        raise HTTPException(401)
-
-    @app.post("/api/v1/auth/logout")
-    async def logout():
-        r=JSONResponse(content={"status":"logged_out"})
-        r.delete_cookie("session_id")
-        return r
-
-    @app.get("/api/v1/auth/me")
-    async def auth_me(req:Request):
-        sid=req.cookies.get("session_id","")
-        if not sid or not ravail: raise HTTPException(401)
-        d=await rcli.get(sk(sid))
-        if not d: raise HTTPException(401)
-        try:
-            s=json.loads(d)
-            return {
-                "username":s.get("username"),"role":s.get("role","user"),
-                "id":s.get("user_id"),"created_at":s.get("created_at"),
-            }
-        except: raise HTTPException(500)
-
-    # ── Token management (same as production BFF) ────────────────────────
-    @app.post("/api/v1/tokens")
-    async def create_token(req:Request):
-        bd=await req.json();b=CTReq(**bd)
-        ok,sc=await auth_req(req)
-        if not ok: raise HTTPException(401)
-        if not ravail: raise HTTPException(503)
-        rt,th=gentok()
-        owner=getattr(req.state,"auth_user","")
-        meta={
-            "token_id":uuid.uuid4().hex[:12],"token_hash":th,
-            "name":b.name or "unnamed",
-            "scopes":b.scopes or ["model:14b:chat"],
-            "created_at":datetime.now(timezone.utc).isoformat(),
-            "last_used_at":"","revoked":False,"revoked_at":"",
-            "owner":owner,
-        }
-        await rcli.set(tmk(th),json.dumps(meta))
-        await rcli.sadd(thsk(),th)
-        return {
-            "token_id":meta["token_id"],"token":rt,
-            "name":meta["name"],"scopes":meta["scopes"],
-            "created_at":meta["created_at"],
-        }
-
-    @app.get("/api/v1/tokens")
-    async def list_tokens(req:Request):
-        ok,sc=await auth_req(req)
-        if not ok: raise HTTPException(401)
-        if not ravail: raise HTTPException(503)
-        owner=getattr(req.state,"auth_user","")
-        is_admin=isinstance(sc,str) and sc=="admin"
-        ths=await rcli.smembers(thsk());tokens=[]
-        for th in ths:
-            d=await rcli.get(tmk(th))
-            if d:
-                try:
-                    m=json.loads(d)
-                    if not is_admin and m.get("owner","")!=owner: continue
-                    tokens.append({
-                        "token_id":m.get("token_id"),"name":m.get("name"),
-                        "scopes":m.get("scopes"),
-                        "created_at":m.get("created_at"),
-                        "last_used_at":m.get("last_used_at"),
-                        "revoked":m.get("revoked",False),
-                        "revoked_at":m.get("revoked_at",""),
-                        "owner":m.get("owner",""),
-                    })
-                except: pass
-        return {"tokens":tokens}
-
-    @app.delete("/api/v1/tokens/{token_id}")
-    async def revoke_token(token_id:str,req:Request):
-        ok,sc=await auth_req(req)
-        if not ok: raise HTTPException(401)
-        if not ravail: raise HTTPException(503)
-        owner=getattr(req.state,"auth_user","")
-        is_admin=isinstance(sc,str) and sc=="admin"
-        ths=await rcli.smembers(thsk());found=False
-        for th in ths:
-            d=await rcli.get(tmk(th))
-            if d:
-                try:
-                    m=json.loads(d)
-                    if m.get("token_id")==token_id:
-                        if not is_admin and m.get("owner","")!=owner:
-                            raise HTTPException(403,detail="Not your token")
-                        m["revoked"]=True
-                        m["revoked_at"]=datetime.now(timezone.utc).isoformat()
-                        await rcli.set(tmk(th),json.dumps(m));found=True;break
-                except HTTPException: raise
-                except: pass
-        if not found: raise HTTPException(404)
-        return {"status":"revoked","token_id":token_id}
-
-    # ── Model endpoints: ALL through Gateway with RS256 delegation ───────
-    @app.get("/api/v1/models")
-    async def list_models(req:Request):
-        rl_result=await check_rl(req)
-        if rl_result is None: raise HTTPException(503,detail="rate_limit_unavailable")
-        if rl_result is False: raise HTTPException(429)
-        sc=getattr(req.state,"auth_scope",None)
-        has=isinstance(sc,str) and sc=="admin"
-        has=has or (isinstance(sc,list) and any(
-            s.startswith("model:") for s in sc))
-        if not has: raise HTTPException(403)
-        # Proxy to Gateway for real model list
-        jwt_token=sign_delegation_jwt(
-            org_id="canary",user_id=getattr(req.state,"auth_user","canary"),
-            tier="free",scopes=["model:14b:chat","model:32b:chat-adapter"],
-            role=getattr(req.state,"auth_role","user"),
-        )
-        hd={"Authorization":f"Bearer {jwt_token}"}
-        r=await cli.get(f"{GW}/v1/models",headers=hd)
-        return Response(content=r.content,status_code=r.status_code,
-                        media_type="application/json")
-
-    @app.post("/api/v1/chat")
-    async def chat(req:Request):
-        b=await req.json();m=b.get("model","")
-        # ── FAIL-CLOSED: Redis check ────────────────────────────────────
-        rl_result=await check_rl(req)
-        if rl_result is None:
-            raise HTTPException(503,detail="rate_limit_unavailable")
-        if rl_result is False: raise HTTPException(429)
-
-        # ── Build delegation JWT per request ────────────────────────────
-        user=getattr(req.state,"auth_user","canary")
-        user_id=str(getattr(req.state,"auth_user_id",user))
-        role=getattr(req.state,"auth_role","user")
-        scopes=getattr(req.state,"auth_scope",[])
-        if isinstance(scopes,str): scopes=[scopes]
-        tier="free"
-
-        try:
-            jwt_token=sign_delegation_jwt(
-                org_id="canary",user_id=user_id,tier=tier,
-                scopes=scopes,role=role,
-            )
-        except RuntimeError as e:
-            raise HTTPException(503,detail=str(e))
-
-        hd={
-            "Content-Type":"application/json",
-            "Authorization":f"Bearer {jwt_token}",
-        }
-
-        if m in ("32b",M32):
-            if not ck(req,"model:32b:chat-adapter"): raise HTTPException(403)
-            p=cvt(b.get("messages",[]))
-            cb={
-                "model":M32,"prompt":p,
-                "max_tokens":b.get("max_tokens",64),
-                "temperature":b.get("temperature",0.0),
-            }
-            stream=b.get("stream",False)
-            if stream:
-                return await _stream_gateway(
-                    f"{GW}/v1/completions",cb,hd)
-            r=await cli.post(f"{GW}/v1/completions",json=cb,headers=hd)
-            return Response(content=r.content,status_code=r.status_code,
-                            media_type="application/json")
-        if m in ("14b",M14):
-            if not ck(req,"model:14b:chat"): raise HTTPException(403)
-            b["model"]=M14
-            stream=b.get("stream",False)
-            if stream:
-                return await _stream_gateway(
-                    f"{GW}/v1/chat/completions",b,hd)
-            r=await cli.post(f"{GW}/v1/chat/completions",json=b,headers=hd)
-            return Response(content=r.content,status_code=r.status_code,
-                            media_type="application/json")
-        raise HTTPException(400,f"unknown model: {m}")
-
-    @app.post("/api/v1/completions")
-    async def completions(req:Request):
-        b=await req.json();m=b.get("model","")
-        rl_result=await check_rl(req)
-        if rl_result is None:
-            raise HTTPException(503,detail="rate_limit_unavailable")
-        if rl_result is False: raise HTTPException(429)
-
-        user=getattr(req.state,"auth_user","canary")
-        user_id=str(getattr(req.state,"auth_user_id",user))
-        role=getattr(req.state,"auth_role","user")
-        scopes=getattr(req.state,"auth_scope",[])
-        if isinstance(scopes,str): scopes=[scopes]
-
-        try:
-            jwt_token=sign_delegation_jwt(
-                org_id="canary",user_id=user_id,tier="free",
-                scopes=scopes,role=role,
-            )
-        except RuntimeError as e:
-            raise HTTPException(503,detail=str(e))
-
-        hd={
-            "Content-Type":"application/json",
-            "Authorization":f"Bearer {jwt_token}",
-        }
-
-        if m in ("32b",M32):
-            if not ck(req,"model:32b:completion"): raise HTTPException(403)
-            b["model"]=M32
-            stream=b.get("stream",False)
-            if stream:
-                return await _stream_gateway(
-                    f"{GW}/v1/completions",b,hd)
-            r=await cli.post(f"{GW}/v1/completions",json=b,headers=hd)
-            return Response(content=r.content,status_code=r.status_code,
-                            media_type="application/json")
-        elif m in ("14b",M14):
-            raise HTTPException(422,detail="14b is chat-only")
-        raise HTTPException(400,f"unknown model: {m}")
-
-    # ── Real SSE streaming (Section 6.7) ────────────────────────────────
-    async def _stream_gateway(url:str,payload:dict,headers:dict):
-        """Real SSE StreamingResponse — proxy stream from Gateway."""
-        async def event_stream():
-            try:
-                async with cli.stream("POST",url,json=payload,
-                                       headers=headers,timeout=TO) as resp:
-                    if resp.status_code!=200:
-                        yield f"data: {{\"error\":\"upstream_{resp.status_code}\"}}\n\n"
-                        yield "data: [DONE]\n\n"
-                        return
-                    async for line in resp.aiter_lines():
-                        if not line: continue
-                        yield f"{line}\n"
-                    yield "data: [DONE]\n\n"
-            except httpx.TimeoutException:
-                yield "data: {\"error\":\"upstream_timeout\"}\n\n"
-                yield "data: [DONE]\n\n"
-            except Exception as e:
-                log.error("Stream error: %s",e)
-                yield f"data: {{\"error\":\"stream_error\"}}\n\n"
-                yield "data: [DONE]\n\n"
-
-        return StreamingResponse(
-            event_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control":"no-cache",
-                "Connection":"keep-alive",
-                "X-Accel-Buffering":"no",
-            },
-        )
-
-    if __name__=="__main__":
-        import uvicorn
-        uvicorn.run("app:app",host="0.0.0.0",port=8000)
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -601,7 +22,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-bff-gateway-canary
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 spec:
   replicas: 1
   selector:
@@ -611,29 +32,31 @@ spec:
     metadata:
       labels:
         app: aither-bff-gateway-canary
-        change: CHANGE-0022-C3
+        change: CHANGE-0022-C4
     spec:
       containers:
       - name: bff-canary
-        image: python:3.11-slim
-        command:
-        - /bin/sh
-        - -c
-        - |
-          export HOME=/tmp
-          pip install -q fastapi uvicorn[standard] httpx pydantic redis pyjwt[crypto] 2>&1
-          exec python /app/app.py 2>&1
+        image: 10.129.13.78:5000/aither-bff:change-0022-c4-canary
+        imagePullPolicy: Always
         env:
+        # ── Gateway routing ──────────────────────────────────────────
         - name: BFF_GATEWAY_URL
           value: "http://aither-gateway.aither-inference.svc.cluster.local:8000"
+        # ── Redis ────────────────────────────────────────────────────
         - name: REDIS_URL
           value: "redis://aither-redis-rate-limit.aither-inference.svc:6379/0"
         - name: RATE_LIMIT_ENABLED
           value: "true"
         - name: RATE_LIMIT_MAX_REQUESTS
           value: "10"
+        - name: BFF_REQUEST_TIMEOUT_SECONDS
+          value: "300"
+        # ── Delegation JWT ───────────────────────────────────────────
         - name: DELEGATION_PRIVATE_KEY_PATH
           value: "/app/delegation/private.pem"
+        - name: DELEGATION_JWT_TTL_SECONDS
+          value: "60"
+        # ── Auth secrets (from aither-bff-auth Secret) ───────────────
         - name: ADMIN_USERNAME
           valueFrom:
             secretKeyRef:
@@ -668,37 +91,41 @@ spec:
         - containerPort: 8000
           name: http
         volumeMounts:
-        - name: app
-          mountPath: /app
-          readOnly: true
         - name: delegation-key
           mountPath: /app/delegation
           readOnly: true
         securityContext:
           allowPrivilegeEscalation: false
-          capabilities: { drop: ["ALL"] }
+          capabilities:
+            drop: ["ALL"]
           runAsNonRoot: true
           runAsUser: 1000
           runAsGroup: 1000
         resources:
-          requests: { cpu: "100m", memory: "128Mi" }
-          limits: { cpu: "300m", memory: "256Mi" }
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
         readinessProbe:
-          httpGet: { path: /ready, port: http }
+          httpGet:
+            path: /ready
+            port: http
           initialDelaySeconds: 15
           periodSeconds: 10
         livenessProbe:
-          httpGet: { path: /health, port: http }
+          httpGet:
+            path: /health
+            port: http
           initialDelaySeconds: 30
           periodSeconds: 30
       volumes:
-      - name: app
-        configMap:
-          name: aither-bff-gateway-canary-config
       - name: delegation-key
         secret:
           secretName: aither-delegation-key
           defaultMode: 0400
+      # NOTE: No ConfigMap volume — all code is in the Docker image.
 ---
 apiVersion: v1
 kind: Service
@@ -707,7 +134,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-bff-gateway-canary
-    change: CHANGE-0022-C3
+    change: CHANGE-0022-C4
 spec:
   selector:
     app: aither-bff-gateway-canary
