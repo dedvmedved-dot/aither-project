@@ -141,12 +141,12 @@ async def _check_rate_limit(req: Request) -> bool:
     if not RATE_LIMIT_ENABLED:
         return True
     if not redis_available:
-        logger.warning("Redis unavailable — fail-open, allowing request")
-        return True
+        logger.warning("Redis unavailable — fail-closed, denying request")
+        return False
     try:
         key = await _rate_limit_key(req)
         window = int(time.time()) // RATE_LIMIT_WINDOW_SECONDS
-        rl_key = f"{key}:{window}"
+        rl_key = f"rl:{key}:{window}"
         count = await redis_client.incr(rl_key)
         if count == 1:
             await redis_client.expire(rl_key, RATE_LIMIT_WINDOW_SECONDS + 5)
@@ -155,9 +155,37 @@ async def _check_rate_limit(req: Request) -> bool:
             return False
         return True
     except Exception as e:
-        logger.error("Redis rate check error: %s — fail-open", str(e))
+        logger.error("Redis rate check error: %s — fail-closed, denying request", str(e))
         redis_available = False
+        return False
+
+# Separate auth rate limiter — per-username key, tighter window, fail-closed
+AUTH_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("AUTH_RATE_LIMIT_WINDOW_SECONDS", "60"))
+AUTH_RATE_LIMIT_MAX_ATTEMPTS = int(os.environ.get("AUTH_RATE_LIMIT_MAX_ATTEMPTS", "10"))
+
+async def _check_auth_rate_limit(req: Request, identifier: str) -> bool:
+    """Per-identifier (username/IP) rate limit for auth endpoints. Fail-closed."""
+    global redis_available
+    if not RATE_LIMIT_ENABLED:
         return True
+    if not redis_available:
+        logger.warning("Redis unavailable — fail-closed, denying auth request")
+        return False
+    try:
+        forwarded = req.headers.get("x-forwarded-for", "")
+        client_ip = forwarded.split(",")[0].strip() if forwarded else (req.client.host if req.client else "unknown")
+        rl_key = f"auth_rl:{identifier}:{client_ip}:{int(time.time()) // AUTH_RATE_LIMIT_WINDOW_SECONDS}"
+        count = await redis_client.incr(rl_key)
+        if count == 1:
+            await redis_client.expire(rl_key, AUTH_RATE_LIMIT_WINDOW_SECONDS + 5)
+        if count > AUTH_RATE_LIMIT_MAX_ATTEMPTS:
+            logger.warning("Auth rate limit exceeded for identifier=%s ip=%s count=%d", identifier[:12], client_ip, count)
+            return False
+        return True
+    except Exception as e:
+        logger.error("Auth rate check error: %s — fail-closed, denying auth", str(e))
+        redis_available = False
+        return False
 
 # ---------------------------------------------------------------------------
 # Auth helpers (Stage 07.1)
@@ -265,7 +293,9 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
             try:
                 sess = json.loads(user_session_data)
                 role = sess.get("role", "registered_user")
-                scopes = _USER_SESSION_SCOPES.get(role, ["model:14b:chat", "model:32b:chat-adapter"])
+                # Issue 2: use model_scopes from session (populated from invite), fallback to role-based
+                scopes = sess.get("model_scopes") or _USER_SESSION_SCOPES.get(role, ["model:14b:chat", "model:32b:chat-adapter"])
+                req.state.user_id = sess.get("user_id", "")
                 return True, scopes
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -280,6 +310,7 @@ async def _authenticate_request(req: Request) -> tuple[bool, str]:
         if meta is None:
             return False, "Token not found or revoked"
         scopes = meta.get("scopes", [])
+        req.state.user_id = meta.get("owner_user_id", "")
         return True, scopes
 
     # 3. Handle auth endpoints
@@ -357,7 +388,7 @@ async def lifespan(app: FastAPI):
         await redis_client.aclose()
     await client.aclose()
 
-app = FastAPI(title="Aither BFF", version="0.5.0-r7r5", lifespan=lifespan)
+app = FastAPI(title="Aither BFF", version="0.5.0-r7r6", lifespan=lifespan)
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -427,7 +458,7 @@ async def health():
     auth_cfg = "configured" if not _validate_auth_config() else "partial"
     return {
         "status": "ok",
-        "version": "0.5.0-r7r5",
+        "version": "0.5.0-r7r6",
         "rate_limit": rl_status,
         "redis": redis_s,
         "auth": auth_cfg,
@@ -438,15 +469,16 @@ async def health():
 # ---------------------------------------------------------------------------
 @app.post("/api/v1/auth/login")
 async def login(req: Request):
-    # Rate limit: 5 attempts per minute per IP
-    if not await _check_rate_limit(req):
-        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     body = await req.json()
     if not body or not body.get("username") or not body.get("password"):
         raise HTTPException(status_code=400, detail="Username and password required")
 
     username = body["username"]
     password = body["password"]
+
+    # Auth rate limit: per-username, fail-closed
+    if not await _check_auth_rate_limit(req, username):
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
 
     # Try admin login
     if hmac.compare_digest(username, ADMIN_USERNAME):
@@ -574,9 +606,6 @@ async def auth_me(req: Request):
 # ---------------------------------------------------------------------------
 @app.post("/api/v1/auth/register")
 async def register(req: Request):
-    # Rate limit: 3 registrations per hour per IP
-    if not await _check_rate_limit(req):
-        raise HTTPException(status_code=429, detail="Too many registration attempts. Try again later.")
     if not redis_available:
         raise HTTPException(status_code=503, detail="Registration backend unavailable")
     body = await req.json()
@@ -595,6 +624,9 @@ async def register(req: Request):
         raise HTTPException(status_code=400, detail="Password confirmation does not match")
     if reg.password.lower() == username_normalized:
         raise HTTPException(status_code=400, detail="Password must not match username")
+    # Auth rate limit: per-username, fail-closed
+    if not await _check_auth_rate_limit(req, username_normalized):
+        raise HTTPException(status_code=429, detail="Too many registration attempts. Try again later.")
     invite_hash = hashlib.sha256(reg.invite_code.encode()).hexdigest()
     invite_key = _invite_key(invite_hash)
     invite_data_raw = await redis_client.get(invite_key)
@@ -626,6 +658,8 @@ async def register(req: Request):
         logger.error("Argon2id hash failed: %s", str(e))
         raise HTTPException(status_code=503, detail="Password hashing failed")
     # Atomic: check username uniqueness + consume invite via Lua
+    user_id = uuid.uuid4().hex
+    now_iso = datetime.now(timezone.utc).isoformat()
     lua = """
     local user_key = KEYS[1]
     local invite_key = KEYS[2]
@@ -636,28 +670,33 @@ async def register(req: Request):
     if d.status ~= 'active' then return {0, 'invite_not_active'} end
     if d.use_count >= d.use_limit then return {0, 'invite_used'} end
     redis.call('SET', user_key, ARGV[1])
-    d.status = 'used'
     d.use_count = d.use_count + 1
     d.used_at = ARGV[2]
     d.registered_user_id = ARGV[3]
+    if d.use_count >= d.use_limit then
+        d.status = 'used'
+    end
     redis.call('SET', invite_key, cjson.encode(d))
     return {1, 'ok'}
     """
-    user_id = uuid.uuid4().hex
     model_scopes = invite_data.get("model_scopes", ["model:14b:chat", "model:32b:chat-adapter"])
+    invite_id = invite_data.get("invite_id", "")
     user_data = json.dumps({
         "user_id": user_id, "username": username_raw, "username_normalized": username_normalized,
         "password_hash": password_hash, "role": "registered_user", "status": "active",
-        "model_scopes": model_scopes, "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(), "last_login_at": "",
-        "failed_login_count": 0, "locked_until": "", "invite_id": invite_data.get("invite_id", ""),
+        "model_scopes": model_scopes, "created_at": now_iso,
+        "updated_at": now_iso, "last_login_at": "",
+        "failed_login_count": 0, "locked_until": "", "invite_id": invite_id,
     })
-    invite_data["status"] = "used"
-    invite_data["use_count"] = use_count + 1
-    invite_data["used_at"] = datetime.now(timezone.utc).isoformat()
-    invite_data["registered_user_id"] = user_id
     try:
-        result = await redis_client.eval(lua, 2, _user_key(username_normalized), invite_key, user_data, json.dumps(invite_data))
+        result = await redis_client.eval(
+            lua, 2,
+            _user_key(username_normalized),
+            invite_key,
+            user_data,            # ARGV[1] — serialized user record
+            now_iso,              # ARGV[2] — used_at timestamp
+            user_id,              # ARGV[3] — registered_user_id
+        )
     except Exception as e:
         logger.error("Registration Lua failed: %s", str(e))
         raise HTTPException(status_code=503, detail="Registration failed — backend error")
@@ -665,10 +704,31 @@ async def register(req: Request):
         if result[1] == 'username_exists':
             raise HTTPException(status_code=409, detail="Username already taken")
         raise HTTPException(status_code=403, detail="Registration failed")
-    logger.info("User registered: %s (id=%s)", username_raw, user_id)
+    # Post-condition: re-read user record to verify status is active (Issue 4)
+    stored_user_raw = await redis_client.get(_user_key(username_normalized))
+    if not stored_user_raw:
+        logger.error("User record not found after registration: %s", username_normalized)
+        raise HTTPException(status_code=503, detail="Registration verification failed")
+    try:
+        stored_user = json.loads(stored_user_raw)
+    except (json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=503, detail="Registration data corrupted")
+    if stored_user.get("status") != "active":
+        logger.error("User status not active after registration: %s status=%s", username_normalized, stored_user.get("status"))
+        raise HTTPException(status_code=503, detail="Registration verification failed — user not active")
+    logger.info("User registered: %s (id=%s) scopes=%s", username_raw, user_id, model_scopes)
     session_id = _make_session_id()
-    await redis_client.setex(_user_session_key(session_id), 86400, json.dumps({"user_id": user_id, "username": username_raw, "role": "registered_user", "created_at": datetime.now(timezone.utc).isoformat()}))
-    response = JSONResponse(content={"status": "ok", "session_id": session_id, "user": {"user_id": user_id, "username": username_raw, "role": "registered_user", "model_scopes": model_scopes}})
+    session_data = json.dumps({
+        "user_id": user_id, "username": username_raw,
+        "role": "registered_user",
+        "model_scopes": model_scopes,   # Issue 2: invite scopes propagated to session
+        "created_at": now_iso,
+    })
+    await redis_client.setex(_user_session_key(session_id), 86400, session_data)
+    response = JSONResponse(content={
+        "status": "ok", "session_id": session_id,
+        "user": {"user_id": user_id, "username": username_raw, "role": "registered_user", "model_scopes": model_scopes}
+    })
     response.set_cookie(key="session_id", value=session_id, max_age=86400, httponly=True, samesite="strict", secure=(req.url.scheme == "https"))
     return response
 
@@ -689,10 +749,12 @@ async def create_token(req: Request):
         raise HTTPException(status_code=503, detail="Token backend unavailable (Redis)")
 
     raw_token, token_hash = _generate_api_token()
+    owner_user_id = getattr(req.state, "user_id", "")
 
     meta = {
         "token_id": uuid.uuid4().hex[:12],
         "token_hash": token_hash,
+        "owner_user_id": owner_user_id,
         "name": body.name or "unnamed",
         "scopes": body.scopes or ["model:14b:chat"],
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -750,13 +812,16 @@ async def list_tokens(req: Request):
 
 @app.delete("/api/v1/tokens/{token_id}")
 async def revoke_token(req: Request, token_id: str):
-    """Revoke a token by its token_id."""
+    """Revoke a token by its token_id. Ownership verification enforced."""
     auth_ok, scope = await _authenticate_request(req)
     if not auth_ok:
         raise HTTPException(status_code=401, detail=scope)
 
     if not redis_available:
         raise HTTPException(status_code=503, detail="Token backend unavailable (Redis)")
+
+    requester_user_id = getattr(req.state, "user_id", "")
+    is_admin = isinstance(scope, str) and scope == "admin"
 
     # Find the token by iterating token_hashes
     token_hashes = await redis_client.smembers(_token_hash_set_key())
@@ -767,10 +832,14 @@ async def revoke_token(req: Request, token_id: str):
             try:
                 meta = json.loads(data)
                 if meta.get("token_id") == token_id and not meta.get("revoked", False):
+                    # Issue 5: verify token ownership (admin bypass)
+                    owner_id = meta.get("owner_user_id", "")
+                    if not is_admin and requester_user_id and owner_id and requester_user_id != owner_id:
+                        raise HTTPException(status_code=403, detail="Cannot revoke another user's token")
                     meta["revoked"] = True
                     meta["revoked_at"] = datetime.now(timezone.utc).isoformat()
                     await redis_client.set(key, json.dumps(meta))
-                    logger.info("Token revoked: id=%s", token_id)
+                    logger.info("Token revoked: id=%s by=%s", token_id, requester_user_id or "admin")
                     return {"status": "revoked", "token_id": token_id, "revoked_at": meta["revoked_at"]}
             except (json.JSONDecodeError, TypeError):
                 pass
