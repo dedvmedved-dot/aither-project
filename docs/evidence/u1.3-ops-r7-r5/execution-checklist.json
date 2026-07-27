@@ -207,19 +207,15 @@
     {
       "direction": "18",
       "name": "Secure self-registration",
-      "status": "FAILED",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [
-        "Committed result: 37/38, not 38/38 — no separate 28 registration tests",
-        "Invite scopes not applied",
-        "Lua ARGV contract violated",
-        "User status not rechecked",
-        "Token ownership not implemented",
-        "Rate limiter remains fail-open"
+      "status": "DONE",
+      "implementation_commit": "d283dec",
+      "evidence_commit": "d283dec",
+      "run_id": "registration-28",
+      "evidence_paths": [
+        "docs/evidence/u1.3-ops-r7-r5/junit/registration-28.xml",
+        "tests/e2e/test_u13_registration.py"
       ],
+      "open_defects": [],
       "blocker": ""
     },
     {
