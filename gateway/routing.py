@@ -34,9 +34,14 @@ class ModelEntry:
 
 
 def is_model_drained(model_id: str, db_pool) -> bool:
-    """Check if model is drained in PostgreSQL (authoritative cross-replica state)."""
+    """Check if model is drained in PostgreSQL (authoritative cross-replica state).
+
+    FAIL-CLOSED: when PG is unavailable, drained state is UNKNOWN → treat as drained.
+    Never return False when the authoritative drain database is unreachable.
+    """
     if not db_pool:
-        return False
+        logger.warning("is_model_drained: no PG pool — fail-closed (treated as drained)")
+        return True  # fail-closed: without PG, can't verify drain state → block
     try:
         conn = db_pool.getconn()
         try:
@@ -50,23 +55,34 @@ def is_model_drained(model_id: str, db_pool) -> bool:
         finally:
             db_pool.putconn(conn)
     except Exception as e:
-        logger.warning("is_model_drained PG error for %s: %s", model_id, e)
-        return False
+        logger.warning("is_model_drained PG error for %s: %s — fail-closed", model_id, e)
+        return True  # fail-closed: PG error → can't verify → block
 
 
-def route_model(model_id: str, catalog: list, tier: str, db_pool=None) -> Optional[ModelEntry]:
-    """Find model by ID, check tier access and drain state."""
+def route_model(model_id: str, catalog: list, tier: str, db_pool=None) -> tuple[Optional[ModelEntry], Optional[str], Optional[int]]:
+    """Find model by ID, check tier access and drain state.
+
+    Returns (model, error_reason, suggested_http_status).
+    - (model, None, None) = success
+    - (None, reason, 403) = access denied
+    - (None, reason, 503) = dependency unavailable (PG down, drain unknown)
+    """
     for m in catalog:
         if m.id == model_id or m.served_model_name == model_id:
             if m.status != "active":
                 logger.warning("Model %s is %s", model_id, m.status)
-                return None
+                return None, f"model_{m.status}", 403
             # Check PG-backed drain state (cross-replica)
-            if is_model_drained(m.id, db_pool):
+            try:
+                drained = is_model_drained(m.id, db_pool)
+            except Exception:
+                logger.error("is_model_drained crashed for %s", model_id)
+                return None, "drain_dependency_unavailable", 503
+            if drained:
                 logger.warning("Model %s is drained (PG)", model_id)
-                return None
+                return None, "model_drained", 403
             if tier not in m.tier_access:
                 logger.warning("Model %s denied for tier %s", model_id, tier)
-                return None
-            return m
-    return None
+                return None, "tier_not_allowed", 403
+            return m, None, None
+    return None, "model_not_found", 403

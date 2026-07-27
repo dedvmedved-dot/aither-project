@@ -114,24 +114,27 @@ async def ready(request: Request):
     if not request.app.state.catalog:
         critical_fail = True
 
-    # Upstream model health (14B)
-    try:
-        await request.app.state.http.get(
-            f"{request.app.state.catalog[0].upstream_url}/health", timeout=5
-        )
-        deps["model_14b"] = "ok"
-    except Exception:
-        deps["model_14b"] = "unavailable" if request.app.state.catalog else "no_catalog"
-
-    # Upstream model health (32B)
-    if len(request.app.state.catalog) > 1:
+    # Upstream model health — look up by model ID, not catalog index
+    # Prohibit catalog[0]/catalog[1] — resolve by deterministic model IDs
+    REQUIRED_MODELS = ["qwen-14b", "qwen-32b-base"]
+    for mid in REQUIRED_MODELS:
+        model = None
+        for m in request.app.state.catalog:
+            if m.id == mid:
+                model = m
+                break
+        if model is None:
+            deps[f"model_{mid}"] = "missing_from_catalog"
+            critical_fail = True
+            continue
         try:
-            await request.app.state.http.get(
-                f"{request.app.state.catalog[1].upstream_url}/health", timeout=5
-            )
-            deps["model_32b"] = "ok"
+            health_url = f"{model.upstream_url}{model.health_endpoint}"
+            resp = await request.app.state.http.get(health_url, timeout=5)
+            resp.raise_for_status()
+            deps[f"model_{mid}"] = "ok"
         except Exception:
-            deps["model_32b"] = "unavailable"
+            deps[f"model_{mid}"] = "unavailable"
+            critical_fail = True
 
     status_str = "degraded" if critical_fail else "ok"
     status_code = 503 if critical_fail else 200
@@ -162,9 +165,12 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
         return _err(401, ar.reason)
     org_id, tier = ar.org_id, ar.tier
 
-    # Model routing — with PG drain check
-    model = route_model(model_id, request.app.state.catalog, tier, request.app.state.db)
-    if not model: return _err(403, f"model_not_available", tier=tier, model=model_id)
+    # Model routing — with PG drain check (returns tuple: model, error, status)
+    model, route_error, route_code = route_model(model_id, request.app.state.catalog, tier, request.app.state.db)
+    if not model:
+        if route_code == 503:
+            return _err(503, f"dependency_unavailable", detail=route_error)
+        return _err(route_code or 403, route_error or "model_not_available", tier=tier, model=model_id)
 
     # Rate limit — with real token estimate
     if settings.rate_limit_enabled:
