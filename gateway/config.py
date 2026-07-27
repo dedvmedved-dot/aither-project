@@ -1,60 +1,152 @@
-"""Gateway configuration from environment. CHANGE-0022."""
+"""
+Aither Gateway — Configuration (environment-based).
+
+All configuration is sourced from environment variables with sensible defaults.
+No credentials or secrets are hardcoded.
+"""
 import os
-from pydantic_settings import BaseSettings
+from dataclasses import dataclass, field
+from pathlib import Path
 
-class Settings(BaseSettings):
-    # Redis
-    REDIS_HOST: str = "aither-redis-rate-limit.aither-inference.svc"
-    REDIS_PORT: int = 6379
+# ── Paths ────────────────────────────────────────────────────────────────
+BASE_DIR = Path(__file__).resolve().parent
+CATALOG_PATH = os.environ.get("CATALOG_PATH", str(BASE_DIR / "catalog.yaml"))
+PUBLIC_KEY_PATH = os.environ.get("PUBLIC_KEY_PATH", "")
+WIKI_ROOT = os.environ.get("WIKI_ROOT", str(Path("/app/wiki")))
+SECURITY_LOG_DIR = os.environ.get("SECURITY_LOG_DIR", "/var/log/aither")
 
-    # PostgreSQL
-    PG_HOST: str = "postgres"
-    PG_PORT: str = "5432"
-    PG_USER: str = "aither"
-    PG_DB: str = "aither"
-    PGPASSWORD: str = ""
+# ── Networking ───────────────────────────────────────────────────────────
+HOST = os.environ.get("GATEWAY_HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", "8080"))
 
-    @property
-    def PG_URL(self) -> str:
-        return f"postgresql://{self.PG_USER}:{self.PGPASSWORD}@{self.PG_HOST}:{self.PG_PORT}/{self.PG_DB}"
+# ── Redis ────────────────────────────────────────────────────────────────
+REDIS_HOST = os.environ.get("REDIS_URL", "aither-redis-rate-limit")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+REDIS_DB = int(os.environ.get("REDIS_DB", "0"))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "") or None
+REDIS_CONNECT_TIMEOUT = float(os.environ.get("REDIS_CONNECT_TIMEOUT", "2.0"))
+REDIS_SOCKET_TIMEOUT = float(os.environ.get("REDIS_SOCKET_TIMEOUT", "5.0"))
 
-    # vLLM upstream auth
-    VLLM_API_KEY: str = ""
+# ── PostgreSQL ───────────────────────────────────────────────────────────
+PG_URL = os.environ.get("PG_URL", "postgresql://aither@postgres:5432/aither")
+PG_MIN_CONNECTIONS = int(os.environ.get("PG_MIN_CONN", "1"))
+PG_MAX_CONNECTIONS = int(os.environ.get("PG_MAX_CONN", "10"))
 
-    # JWT delegation
-    JWT_PUBLIC_KEY: str = ""
+# ── JWT / Auth ───────────────────────────────────────────────────────────
+JWT_PUBLIC_KEY = os.environ.get("JWT_PUBLIC_KEY", "")
+JWT_ALGORITHMS = os.environ.get("JWT_ALGORITHMS", "RS256").split(",")
+JWT_ISSUER = os.environ.get("JWT_ISSUER", "")
 
-    # Rate limits (defaults)
-    RATE_LIMIT_RPM: int = 300
-    RATE_LIMIT_TPM: int = 100_000
+# If JWT_PUBLIC_KEY not set via env, try file
+if not JWT_PUBLIC_KEY:
+    for p in [PUBLIC_KEY_PATH, str(BASE_DIR / "delegation" / "public.pem"), "/app/delegation/public.pem"]:
+        try:
+            with open(p) as f:
+                JWT_PUBLIC_KEY = f.read()
+            break
+        except (FileNotFoundError, PermissionError):
+            pass
 
-    # Catalog
-    CATALOG_PATH: str = "catalog.yaml"
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
+if not ADMIN_KEY:
+    admin_key_file = os.environ.get("ADMIN_KEY_FILE", "")
+    if admin_key_file:
+        try:
+            with open(admin_key_file) as f:
+                ADMIN_KEY = f.read().strip()
+        except (FileNotFoundError, PermissionError):
+            pass
 
-    # Feature flags
-    BILLING_ENABLED: bool = True
-    SECURITY_ENABLED: bool = True
-    RL_ENABLED: bool = True
-    RAG_ENABLED: bool = True
+# ── vLLM upstream ───────────────────────────────────────────────────────
+VLLM_API_KEY = os.environ.get("VLLM_API_KEY", "")
 
-    # Vault
-    VAULT_ENABLED: bool = False
-    VAULT_REQUIRED: bool = False
+# ── Rate Limiting ────────────────────────────────────────────────────────
+RATE_LIMIT_RPM_DEFAULT = int(os.environ.get("RATE_LIMIT_RPM", "300"))
+RATE_LIMIT_TPM_DEFAULT = int(os.environ.get("RATE_LIMIT_TPM", "100000"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_WINDOW", "60"))
+RATE_LIMIT_TIER_CACHE_TTL = int(os.environ.get("RATE_LIMIT_TIER_CACHE_TTL", "60"))
 
-    # SIEM
-    SIEM_ENABLED: bool = False
+# ── Billing ──────────────────────────────────────────────────────────────
+TOKEN_COST_MULTIPLIER = int(os.environ.get("TOKEN_COST", "1"))
+BILLING_DEFAULT_BALANCE = int(os.environ.get("BILLING_DEFAULT_BALANCE", "1000000"))
 
-    # Admin
-    ADMIN_API_KEY: str = ""
+# ── Timeouts ─────────────────────────────────────────────────────────────
+UPSTREAM_TIMEOUT_SECONDS = float(os.environ.get("UPSTREAM_TIMEOUT", "300.0"))
+UPSTREAM_CONNECT_TIMEOUT = float(os.environ.get("UPSTREAM_CONNECT_TIMEOUT", "10.0"))
+HEALTH_CHECK_TIMEOUT = float(os.environ.get("HEALTH_CHECK_TIMEOUT", "5.0"))
 
-    # Upstream
-    UPSTREAM_TIMEOUT: float = 300.0
-    UPSTREAM_CONNECT_TIMEOUT: float = 10.0
+# ── Reaper ───────────────────────────────────────────────────────────────
+REAP_INTERVAL_SECONDS = int(os.environ.get("REAP_INTERVAL", "60"))
+STUCK_THRESHOLD_SECONDS = int(os.environ.get("STUCK_THRESHOLD", "300"))
+
+# ── Vault ────────────────────────────────────────────────────────────────
+VAULT_ENABLED = os.environ.get("VAULT_ENABLED", "true").lower() == "true"
+
+# ── RAG / ONNX ──────────────────────────────────────────────────────────
+ONNX_ENABLED = os.environ.get("ONNX_ENABLED", "true").lower() == "true"
+CHROMA_URL = os.environ.get("CHROMA_URL", "http://chromadb:8000")
+
+# ── Logging ──────────────────────────────────────────────────────────────
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+LOG_FORMAT = os.environ.get("LOG_FORMAT", "json")
+
+# ── Tier cache ───────────────────────────────────────────────────────────
+TIER_CACHE_TTL = int(os.environ.get("TIER_CACHE_TTL", "60"))
+
+
+@dataclass
+class Settings:
+    """Aggregated settings for dependency injection."""
+    redis_host: str = REDIS_HOST
+    redis_port: int = REDIS_PORT
+    redis_db: int = REDIS_DB
+    redis_password: str | None = REDIS_PASSWORD
+    redis_connect_timeout: float = REDIS_CONNECT_TIMEOUT
+    redis_socket_timeout: float = REDIS_SOCKET_TIMEOUT
+
+    pg_url: str = PG_URL
+    pg_min_conn: int = PG_MIN_CONNECTIONS
+    pg_max_conn: int = PG_MAX_CONNECTIONS
+
+    jwt_public_key: str = JWT_PUBLIC_KEY
+    jwt_algorithms: list[str] = field(default_factory=lambda: JWT_ALGORITHMS)
+    jwt_issuer: str = JWT_ISSUER
+
+    admin_key: str = ADMIN_KEY
+
+    vllm_api_key: str = VLLM_API_KEY
+
+    rate_limit_rpm_default: int = RATE_LIMIT_RPM_DEFAULT
+    rate_limit_tpm_default: int = RATE_LIMIT_TPM_DEFAULT
+    rate_limit_window_seconds: int = RATE_LIMIT_WINDOW_SECONDS
+    rate_limit_tier_cache_ttl: int = RATE_LIMIT_TIER_CACHE_TTL
+
+    token_cost_multiplier: int = TOKEN_COST_MULTIPLIER
+    billing_default_balance: int = BILLING_DEFAULT_BALANCE
+
+    upstream_timeout_seconds: float = UPSTREAM_TIMEOUT_SECONDS
+    upstream_connect_timeout: float = UPSTREAM_CONNECT_TIMEOUT
+    health_check_timeout: float = HEALTH_CHECK_TIMEOUT
+
+    catalog_path: str = CATALOG_PATH
+
+    log_level: str = LOG_LEVEL
+    log_format: str = LOG_FORMAT
+
+    tier_cache_ttl: int = TIER_CACHE_TTL
+
+    vault_enabled: bool = VAULT_ENABLED
+    onnx_enabled: bool = ONNX_ENABLED
+
+    wiki_root: str = WIKI_ROOT
 
     # Reaper
-    REAPER_INTERVAL: int = 60
-    STUCK_THRESHOLD: int = 120
+    REAP_INTERVAL_SECONDS: int = REAP_INTERVAL_SECONDS
+    STUCK_THRESHOLD_SECONDS: int = STUCK_THRESHOLD_SECONDS
 
-    model_config = {"env_prefix": "", "case_sensitive": True}
+    # Server
+    HOST: str = HOST
+    PORT: int = PORT
+
 
 settings = Settings()

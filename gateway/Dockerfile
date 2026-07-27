@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application
 COPY app.py .
 COPY config.py .
-COPY dependencies.py .
 COPY auth.py .
 COPY routing.py .
 COPY rate_limit.py .
