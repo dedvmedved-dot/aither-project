@@ -39,6 +39,13 @@ except ImportError:
     ARGON2_AVAILABLE = False
     _argon2 = None
 
+try:
+    import jwt as pyjwt
+    JWT_AVAILABLE = True
+except ImportError:
+    JWT_AVAILABLE = False
+    pyjwt = None
+
 # ---------------------------------------------------------------------------
 # Model IDs
 # ---------------------------------------------------------------------------
@@ -301,8 +308,68 @@ def _check_scope(req: Request, required_scope: str) -> bool:
     return False
 
 # ---------------------------------------------------------------------------
-# Upstream credential helpers
+# Gateway routing (CHANGE-0022-C5)
 # ---------------------------------------------------------------------------
+BFF_GATEWAY_URL = os.environ.get("BFF_GATEWAY_URL", "")
+BFF_GATEWAY_MODE = os.environ.get("BFF_GATEWAY_MODE", "").lower() == "true" or bool(BFF_GATEWAY_URL)
+DELEGATION_PRIVATE_KEY_PATH = os.environ.get("DELEGATION_PRIVATE_KEY_PATH", "/app/delegation/private.pem")
+
+_del_key = None  # cached RS256 private key
+
+def _load_del_key() -> str:
+    """Load delegation RS256 private key (fail-closed)."""
+    global _del_key
+    if _del_key is not None:
+        return _del_key if _del_key is not False else ""
+    try:
+        with open(DELEGATION_PRIVATE_KEY_PATH) as f:
+            _del_key = f.read()
+        logger.info("Delegation RS256 key loaded from %s", DELEGATION_PRIVATE_KEY_PATH)
+        return _del_key
+    except Exception as e:
+        logger.error("Delegation key missing: %s", e)
+        _del_key = False
+        return ""
+
+def sign_delegation_jwt(org_id: str, user_id: str, tier: str, scopes: list, role: str = "") -> str:
+    """Sign RS256 JWT for Gateway delegation. One per request. TTL ≤ 60s."""
+    key = _load_del_key()
+    if not key:
+        raise RuntimeError("delegation_key_unavailable")
+    if not JWT_AVAILABLE:
+        raise RuntimeError("pyjwt not available")
+    now = int(time.time())
+    payload = {
+        "iss": "aither-bff", "aud": "aither-gateway", "sub": user_id,
+        "org_id": org_id, "user_id": user_id, "tier": tier,
+        "scopes": scopes if isinstance(scopes, list) else [scopes],
+        "role": role, "jti": uuid.uuid4().hex[:16],
+        "iat": now, "nbf": now, "exp": now + 60,
+    }
+    return pyjwt.encode(payload, key, algorithm="RS256")
+
+def _gateway_headers(req: Request) -> dict:
+    """Build headers for Gateway call with delegation JWT from session identity."""
+    user = getattr(req.state, "auth_user", "")
+    user_id = str(getattr(req.state, "auth_user_id", user or "bff"))
+    role = getattr(req.state, "auth_role", "user")
+    scopes = getattr(req.state, "auth_scope", [])
+    if isinstance(scopes, str):
+        scopes = [scopes] if scopes else ["model:14b:chat"]
+    if not isinstance(scopes, list):
+        scopes = []
+    # Extract org_id and tier from session if available
+    org_id = getattr(req.state, "auth_org_id", None)
+    tier = getattr(req.state, "auth_tier", "free")
+    if org_id is None:
+        org_id = user_id  # fallback to user_id as org_id
+    jwt_token = sign_delegation_jwt(org_id=org_id, user_id=user_id, tier=tier, scopes=scopes, role=role)
+    return {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {jwt_token}",
+    }
+
+# Upstream credential helpers
 async def _upstream_headers() -> dict:
     """Headers for upstream calls — use internal credentials, NOT user token."""
     h = {"Content-Type": "application/json"}
@@ -420,6 +487,51 @@ async def auth_middleware(req: Request, call_next):
 # ---------------------------------------------------------------------------
 # Health (no auth)
 # ---------------------------------------------------------------------------
+@app.get("/ready")
+async def ready():
+    """Readiness: checks Redis, Gateway health (if in Gateway mode), delegation key."""
+    deps = {}
+    critical = False
+    # Redis
+    try:
+        if redis_client:
+            await redis_client.ping()
+            deps["redis"] = "ok"
+        else:
+            deps["redis"] = "not_connected"
+            critical = True
+    except Exception:
+        deps["redis"] = "unavailable"
+        critical = True
+    # Gateway health (only in Gateway mode)
+    if BFF_GATEWAY_MODE:
+        try:
+            hr = await client.get(f"{BFF_GATEWAY_URL}/health", timeout=5)
+            hr.raise_for_status()
+            deps["gateway_health"] = "ok"
+        except Exception as e:
+            deps["gateway_health"] = f"error: {e}"
+            critical = True
+        # Delegation key
+        key = _load_del_key()
+        if key:
+            deps["delegation_key"] = "loaded"
+        else:
+            deps["delegation_key"] = "missing"
+            critical = True
+        # Gateway model catalog
+        try:
+            mr = await client.get(f"{BFF_GATEWAY_URL}/v1/models", timeout=5)
+            mr.raise_for_status()
+            models = mr.json().get("data", [])
+            deps["gateway_models"] = f"{len(models)} models"
+        except Exception as e:
+            deps["gateway_models"] = f"error: {e}"
+            critical = True
+    status_str = "degraded" if critical else "ok"
+    return JSONResponse({"status": status_str, "dependencies": deps}, status_code=503 if critical else 200)
+
+
 @app.get("/health")
 async def health():
     rl_status = "enabled" if RATE_LIMIT_ENABLED else "disabled"
@@ -745,6 +857,40 @@ async def chat(req: Request):
     body_data = await req.json()
     body = ChatRequest(**body_data)
 
+    # ── Gateway mode (CHANGE-0022-C5): route through Aither Gateway ──
+    if BFF_GATEWAY_MODE and BFF_GATEWAY_URL:
+        gw_model = "qwen-14b" if body.model == MODEL_14B else "qwen-32b-base"
+        if body.model == MODEL_32B:
+            payload = {
+                "model": gw_model,
+                "prompt": _chat_to_completion_prompt(body.messages),
+                "max_tokens": body.max_tokens,
+                "temperature": body.temperature,
+                "stream": False,
+            }
+            upstream_url = f"{BFF_GATEWAY_URL}/v1/completions"
+        else:
+            payload = {
+                "model": gw_model,
+                "messages": body.messages,
+                "max_tokens": body.max_tokens,
+                "temperature": body.temperature,
+                "stream": False,
+            }
+            upstream_url = f"{BFF_GATEWAY_URL}/v1/chat/completions"
+        headers = _gateway_headers(req)
+        try:
+            resp = await client.post(upstream_url, json=payload, headers=headers, timeout=TIMEOUT)
+            if resp.status_code != 200:
+                logger.error("Gateway returned %d: %s", resp.status_code, (await resp.aread()).decode()[:200])
+                raise HTTPException(status_code=502, detail=f"Gateway error: HTTP {resp.status_code}")
+            return JSONResponse(content=resp.json())
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Gateway timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=502, detail=f"Gateway error: {str(e)}")
+
+    # ── Direct mode (original production path) ──
     if body.model == MODEL_14B:
         upstream_url = f"{CHAT_14B_URL}/v1/chat/completions"
         upstream_model = "/models/Qwen2.5-14B-Instruct"
