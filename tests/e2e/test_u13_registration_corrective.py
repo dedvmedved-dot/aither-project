@@ -1,5 +1,5 @@
 """
-U1.3-OPS-R7-R5 D18 Corrective — 28 Mandatory Registration Scenarios
+U1.3-OPS-R7-R5-C2 D18 Corrective — 32 Mandatory Registration Scenarios
 
 Audit-required scenarios (each distinct, not zone-doubled):
 01. valid registration
@@ -19,17 +19,21 @@ Audit-required scenarios (each distinct, not zone-doubled):
 15. cross-zone
 16. cross-replica
 17. invite scope enforcement
-18. forbidden model denial
-19. Secure cookie
-20. server-side logout
-21. disabled-user session denial
-22. Redis unavailable (503 on register when Redis down — structural check)
-23. rate-limit positive
-24. rate-limit negative
-25. restart persistence
-26. used-invite persistence
-27. own-token list/revoke
-28. foreign-token list/revoke denial
+18. forbidden model denial through /chat
+19. forbidden model denial through /completions  [NEW C2]
+20. Secure cookie
+21. server-side logout
+22. disabled-user old-session denial
+23. disabled-user API-token denial  [NEW C2]
+24. blocked-user denial  [NEW C2]
+25. Redis unavailable (503)
+26. rate-limit positive
+27. rate-limit negative
+28. restart persistence
+29. used-invite persistence
+30. own-token list/revoke
+31. foreign-token list/revoke denial
+32. unowned-token revoke denial  [NEW C2]
 """
 import os
 import sys
@@ -572,4 +576,119 @@ def test_28_foreign_token_list_revoke_denial():
     # User B tries to revoke User A's token → 403
     r_revoke = _api(INTERNET_URL, f"/api/v1/tokens/{token_a_id}", method="DELETE",
                     cookies={"session_id": sid_b})
+    assert r_revoke.status_code == 403, f"Expected 403, got {r_revoke.status_code}: {r_revoke.text[:200]}"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  29. Forbidden model denial through /completions  [NEW C2]
+# ═══════════════════════════════════════════════════════════════
+def test_29_forbidden_model_denial_completions():
+    """User without 32B scope cannot access /completions endpoint."""
+    username, password = _gen_user()
+    r = _register(INTERNET_URL, username, password, INVITE_SCOPED)
+    assert r.status_code == 200
+    session_id = r.json()["session_id"]
+    r2 = _api(INTERNET_URL, "/api/v1/completions", json_data={
+        "model": "qwen-32b-base",
+        "prompt": "Hello",
+        "max_tokens": 5,
+    }, cookies={"session_id": session_id})
+    assert r2.status_code == 403, f"Expected 403, got {r2.status_code}: {r2.text[:200]}"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  30. Disabled-user API-token denial  [NEW C2]
+# ═══════════════════════════════════════════════════════════════
+def test_30_disabled_user_api_token_denial():
+    """After user disabled, their API token is rejected."""
+    import subprocess
+    username, password = _gen_user()
+    r = _register(INTERNET_URL, username, password, INVITE_VALID)
+    assert r.status_code == 200
+    session_id = r.json()["session_id"]
+    # Create API token
+    r_tok = _api(INTERNET_URL, "/api/v1/tokens", json_data={
+        "name": "disabled-test-token", "scopes": ["model:14b:chat"],
+    }, cookies={"session_id": session_id})
+    assert r_tok.status_code == 200
+    raw_token = r_tok.json()["raw_token"]
+    # Verify token works
+    r_check = _api(INTERNET_URL, "/api/v1/tokens", method="GET",
+                   headers={"Authorization": f"Bearer {raw_token}"})
+    assert r_check.status_code == 200
+    # Disable the user via Redis
+    norm = username.strip().lower()
+    subprocess.run([
+        "kubectl", "exec", "-n", "aither-inference",
+        "aither-redis-rate-limit-7c597687b7-62nbm", "--",
+        "redis-cli", "SET", f"aither-auth:user:{norm}",
+        '{"user_id":"x","username":"' + username + '","username_normalized":"' + norm + '","password_hash":"x","role":"registered_user","status":"disabled","model_scopes":["model:14b:chat"],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","last_login_at":"","failed_login_count":0,"locked_until":"","invite_id":""}'
+    ], capture_output=True)
+    # API token should now be denied
+    r_denied = _api(INTERNET_URL, "/api/v1/tokens", method="GET",
+                    headers={"Authorization": f"Bearer {raw_token}"})
+    assert r_denied.status_code in (401, 403), f"Expected 401/403, got {r_denied.status_code}: {r_denied.text[:200]}"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  31. Blocked-user denial  [NEW C2]
+# ═══════════════════════════════════════════════════════════════
+def test_31_blocked_user_denial():
+    """User with status=blocked cannot login or use session."""
+    import subprocess
+    username, password = _gen_user()
+    r = _register(INTERNET_URL, username, password, INVITE_VALID)
+    assert r.status_code == 200
+    session_id = r.json()["session_id"]
+    # Verify session works
+    r_me = _api(INTERNET_URL, "/api/v1/auth/me", method="GET",
+                cookies={"session_id": session_id})
+    assert r_me.status_code == 200
+    # Block the user via Redis
+    norm = username.strip().lower()
+    subprocess.run([
+        "kubectl", "exec", "-n", "aither-inference",
+        "aither-redis-rate-limit-7c597687b7-62nbm", "--",
+        "redis-cli", "SET", f"aither-auth:user:{norm}",
+        '{"user_id":"x","username":"' + username + '","username_normalized":"' + norm + '","password_hash":"x","role":"registered_user","status":"blocked","model_scopes":["model:14b:chat"],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","last_login_at":"","failed_login_count":0,"locked_until":"","invite_id":""}'
+    ], capture_output=True)
+    # Old session should be denied
+    r_denied = _api(INTERNET_URL, "/api/v1/auth/me", method="GET",
+                    cookies={"session_id": session_id})
+    assert r_denied.status_code == 401, f"Expected 401, got {r_denied.status_code}: {r_denied.text[:200]}"
+    # New login should also be denied
+    r_login = requests.post(f"{INTERNET_URL}/api/v1/auth/login", json={
+        "username": username, "password": password
+    }, verify=False, timeout=15)
+    assert r_login.status_code == 401, f"Expected 401, got {r_login.status_code}: {r_login.text[:200]}"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  32. Unowned-token revoke denial  [NEW C2]
+# ═══════════════════════════════════════════════════════════════
+def test_32_unowned_token_revoke_denial():
+    """User cannot revoke a token that has no owner (legacy/unowned)."""
+    import subprocess
+    # Create user
+    username, password = _gen_user()
+    r = _register(INTERNET_URL, username, password, INVITE_VALID)
+    assert r.status_code == 200
+    session_id = r.json()["session_id"]
+    # Create an unowned token directly in Redis (no owner_user_id, no owner_username)
+    token_hash = hashlib.sha256(f"athr_unowned_test_{uuid.uuid4().hex[:8]}".encode()).hexdigest()
+    token_id = uuid.uuid4().hex[:12]
+    subprocess.run([
+        "kubectl", "exec", "-n", "aither-inference",
+        "aither-redis-rate-limit-7c597687b7-62nbm", "--",
+        "redis-cli", "SET", f"aither-auth:token:{token_hash}",
+        '{"token_id":"' + token_id + '","token_hash":"' + token_hash + '","owner_user_id":"","owner_username":"","name":"unowned-legacy","scopes":["model:14b:chat"],"created_at":"2026-01-01T00:00:00Z","last_used_at":"","revoked":false,"revoked_at":""}'
+    ], capture_output=True)
+    subprocess.run([
+        "kubectl", "exec", "-n", "aither-inference",
+        "aither-redis-rate-limit-7c597687b7-62nbm", "--",
+        "redis-cli", "SADD", "aither-auth:token:all", token_hash
+    ], capture_output=True)
+    # User tries to revoke the unowned token → 403
+    r_revoke = _api(INTERNET_URL, f"/api/v1/tokens/{token_id}", method="DELETE",
+                    cookies={"session_id": session_id})
     assert r_revoke.status_code == 403, f"Expected 403, got {r_revoke.status_code}: {r_revoke.text[:200]}"
