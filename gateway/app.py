@@ -326,10 +326,11 @@ async def rag_status(request: Request):
 # Metrics endpoint
 if settings.metrics_enabled:
     try:
-        from metrics import MetricsRegistry
-        _metrics_registry = MetricsRegistry()
+        from metrics import Metrics
+        from fastapi.responses import PlainTextResponse
+        _metrics_registry = Metrics()
         @app.get("/metrics")
         async def metrics():
-            return _metrics_registry.prometheus_text()
-    except ImportError:
-        logger.warning("metrics module not available")
+            return PlainTextResponse(_metrics_registry.prometheus_text(), media_type="text/plain; charset=utf-8")
+    except ImportError as e:
+        logger.warning("metrics module not available: %s", e)
