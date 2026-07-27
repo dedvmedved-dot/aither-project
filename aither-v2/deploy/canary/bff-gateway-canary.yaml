@@ -7,7 +7,7 @@
 # /ready: Redis + Gateway /health + delegation key + Gateway model catalog.
 # /health: process-only.
 #
-# Image: 10.129.13.78:5000/aither-bff@sha256:885154deb8b9790676b5be458299e23570224e92c5f726b86d8198e9fc271b25
+# Image: 10.129.13.78:5000/aither-bff@sha256:7eabeba5083306920172496235e2f1a7b926295504124f632d9de9e4d419b455
 #   Built from aither-v2/tools/bff/ — commit 4523f98, non-root (uid 1000)
 ---
 apiVersion: apps/v1
@@ -33,7 +33,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: bff-canary
-        image: 10.129.13.78:5000/aither-bff@sha256:885154deb8b9790676b5be458299e23570224e92c5f726b86d8198e9fc271b25
+        image: 10.129.13.78:5000/aither-bff@sha256:7eabeba5083306920172496235e2f1a7b926295504124f632d9de9e4d419b455
         imagePullPolicy: Always
         env:
         # ── Gateway routing (CHANGE-0022-C5) ──────────────────────────

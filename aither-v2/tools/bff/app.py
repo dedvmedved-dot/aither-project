@@ -47,10 +47,12 @@ except ImportError:
     pyjwt = None
 
 # ---------------------------------------------------------------------------
-# Model IDs
-# ---------------------------------------------------------------------------
+# ── Model IDs
+# ───────────────────────────────────────────────────────────────────────
 MODEL_14B = "qwen-14b"
 MODEL_32B = "qwen-32b-base"
+# Aliases users may send
+_MODEL_ALIASES = {"14b": MODEL_14B, "32b": MODEL_32B, "qwen-14b": MODEL_14B, "qwen-32b-base": MODEL_32B}
 
 # ---------------------------------------------------------------------------
 # Upstream URLs
@@ -867,8 +869,10 @@ async def chat(req: Request):
 
     # ── Gateway mode (CHANGE-0022-C5): route through Aither Gateway ──
     if BFF_GATEWAY_MODE and BFF_GATEWAY_URL:
-        gw_model = "qwen-14b" if body.model == MODEL_14B else "qwen-32b-base"
-        if body.model == MODEL_32B:
+        # Resolve model alias to canonical name
+        gw_model = _MODEL_ALIASES.get(body.model, body.model)
+        is_32b = (body.model == MODEL_32B or body.model in ("32b",))
+        if is_32b:
             payload = {
                 "model": gw_model,
                 "prompt": _chat_to_completion_prompt(body.messages),
