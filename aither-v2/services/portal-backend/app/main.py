@@ -88,7 +88,7 @@ class UserInfo(BaseModel):
 
 app = FastAPI(
     title="Aither Portal Backend (BFF)",
-    version="1.0.0",
+    version="0.6.0-r7r7-c2-d18",
     docs_url="/api/v1/docs",
     openapi_url="/api/v1/openapi.json",
 )
@@ -206,7 +206,7 @@ async def metrics():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "portal-backend"}
+    return {"status": "ok", "version": "0.6.0-r7r7-c2-d18"}
 
 @app.get("/ready")
 async def ready():
@@ -221,7 +221,7 @@ async def ready():
 
 @app.get("/version")
 async def version():
-    return {"service": "aither-portal-backend", "version": "1.0.0", "build": "stage15"}
+    return {"service": "aither-portal-backend", "version": "0.6.0-r7r7-c2-d18", "build": "stage15"}
 
 @app.post("/api/v1/auth/login")
 async def login(req: LoginRequest):
