@@ -195,7 +195,7 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
     # Security egress
     if settings.security_egress_enabled:
         try:
-            egr_ok, egr_reason = check_egress(json.dumps(data))
+            egr_ok, egr_reason, _ = check_egress(data)
             if not egr_ok:
                 if ref: refund(org_id, ref, request.app.state.db)
                 return _err(403, egr_reason)
@@ -232,7 +232,7 @@ async def _stream_response(url: str, payload: dict, headers: dict, org_id: str, 
                             chunk_data = json.loads(chunk)
                             # Egress check per chunk
                             if settings.security_egress_enabled:
-                                egr_ok, egr_reason = check_egress(chunk)
+                                egr_ok, egr_reason, _ = check_egress(chunk_data)
                                 if not egr_ok:
                                     yield f"data: {{\"error\":\"content_blocked\"}}\n\n"
                                     if ref: refund(org_id, ref, request.app.state.db)

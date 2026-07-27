@@ -31,6 +31,7 @@ COPY metrics.py .
 COPY hybrid_rag.py .
 COPY wiki_graph.py .
 COPY reaper.py .
+COPY siem.py .
 COPY catalog.yaml .
 
 # Create writable dirs for non-root

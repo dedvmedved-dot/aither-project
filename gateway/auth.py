@@ -64,7 +64,9 @@ async def _check_api_key(token: str, app) -> AuthResult:
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT org_id, status, tier FROM portal_api_keys JOIN billing_accounts USING (org_id) WHERE api_key = %s",
+                    "SELECT pk.org_id, pk.status, COALESCE(ba.tier, pk.tier, 'free') as tier "
+                    "FROM portal_api_keys pk LEFT JOIN billing_accounts ba USING (org_id) "
+                    "WHERE pk.api_key = %s",
                     (token,),
                 )
                 row = cur.fetchone()
