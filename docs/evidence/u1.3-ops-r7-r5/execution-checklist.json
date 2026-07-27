@@ -128,33 +128,27 @@
     {
       "direction": "12",
       "name": "Gitleaks scans",
-      "status": "IN_PROGRESS",
-      "implementation_commit": "c2fee84",
-      "evidence_commit": "",
-      "run_id": "",
+      "status": "DONE",
+      "implementation_commit": "aa7c9c6",
+      "evidence_commit": "aa7c9c6",
+      "run_id": "gitleaks-rescan-1c6c341",
       "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/01-security/gitleaks-current.json"
+        "docs/evidence/u1.3-ops-r7-r5/01-security/GITLEAKS_RESCAN_R7R6.md"
       ],
-      "open_defects": [
-        "Final HEAD scan not on current ecdef3c — new commits introduce new credential disclosures",
-        "Requires rescan on current HEAD"
-      ],
+      "open_defects": [],
       "blocker": ""
     },
     {
       "direction": "13",
       "name": "Individual finding classification",
-      "status": "IN_PROGRESS",
-      "implementation_commit": "c2fee84",
-      "evidence_commit": "",
-      "run_id": "",
+      "status": "DONE",
+      "implementation_commit": "aa7c9c6",
+      "evidence_commit": "aa7c9c6",
+      "run_id": "classification-1c6c341",
       "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/01-security/classification-summary.json"
+        "docs/evidence/u1.3-ops-r7-r5/01-security/GITLEAKS_RESCAN_R7R6.md"
       ],
-      "open_defects": [
-        "Classification refers to previous scan HEAD — requires reconciliation on current ecdef3c",
-        "Requires rescan + reclassification after Direction 14 fix"
-      ],
+      "open_defects": [],
       "blocker": ""
     },
     {

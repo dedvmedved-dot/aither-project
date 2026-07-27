@@ -15,8 +15,8 @@
 | 09 | HTTP 503 dependency behavior | **TODO** |
 | 10 | Full revoke matrix | **TODO** |
 | 11 | Session invalidation | **TODO** |
-| 12 | Gitleaks scans | **IN_PROGRESS** |
-| 13 | Individual finding classification | **IN_PROGRESS** |
+| 12 | Gitleaks scans | **DONE** |
+| 13 | Individual finding classification | **DONE** |
 | 14 | Credential redaction | **FIXED** |
 | 15 | Credential revocation or rotation | **BLOCKED** |
 | 16 | Unified Critical Gate | **TODO** |
@@ -36,8 +36,8 @@
 | 30 | Limited-test-operation handover dossier | **TODO** |
 
 ## Status Summary
-- DONE: **1/30** (18)
-- IN_PROGRESS: **2/30** (12, 13)
+- DONE: **3/30** (12, 13, 18)
+- IN_PROGRESS: **0/30**
 - TODO: **25/30**
 - FAILED: **1/30** (14 — FIXED, pending rescan)
 - BLOCKED: **1/30** (15)
