@@ -1,0 +1,135 @@
+================================================================================
+CHANGE-0022-C5 CANARY E2E TEST SUITE
+================================================================================
+PASS   | CANARY-002-login                         | HTTP 200 |  0.0s | {'status': 'ok', 'session_id': '596c2e46b24c48cf896a8d8b667669a4', 'user': {'username': 'admin', 'role': 'admin'}}
+PASS   | CANARY-001-health                        | HTTP 200 |  0.0s | {'status': 'ok', 'version': '0.5.0-r7r4', 'rate_limit': 'enabled', 'redis': 'connected', 'auth': 'configured'}
+PASS   | CANARY-001-ready                         | HTTP 200 |  0.1s | {'status': 'ok', 'dependencies': {'redis': 'ok', 'gateway_health': 'ok', 'delegation_key': 'loaded', 'gateway_models': '
+PASS   | CANARY-003-auth-me                       | HTTP 200 |  0.0s | {'username': 'admin', 'role': 'admin', 'created_at': '2026-07-27T23:03:13.591944+00:00'}
+PASS   | CANARY-006-14b-chat                      | HTTP 200 |  1.0s | {'id': 'chatcmpl-8a5bf199e5574510b43703dd9db416c2', 'object': 'chat.completion', 'created': 1785193394, 'model': 'qwen-1
+PASS   | CANARY-008-32b-chat                      | HTTP 200 |  0.9s | {'id': 'cmpl-d5a7a3c6125c493e80e745190422c5e6', 'object': 'text_completion', 'created': 1785193394, 'model': 'qwen-32b-b
+PASS   | CANARY-013-rl-0                          | HTTP 200 |  0.8s | {'id': 'chatcmpl-d2a1b730232f4f42b280817c74302ecc', 'object': 'chat.completion', 'created': 1785193396, 'model': 'qwen-1
+PASS   | CANARY-013-rl-1                          | HTTP 200 |  0.4s | {'id': 'chatcmpl-23a0590227144d73a1ca1e8586d73cb3', 'object': 'chat.completion', 'created': 1785193396, 'model': 'qwen-1
+PASS   | CANARY-013-rl-2                          | HTTP 200 |  0.6s | {'id': 'chatcmpl-ce41c39c7df14bbfb319a62373abcc5a', 'object': 'chat.completion', 'created': 1785193397, 'model': 'qwen-1
+PASS   | CANARY-014-security                      | HTTP 200 |  0.8s | {'id': 'chatcmpl-0e605c2f9cf54bd380ef89c199d494fd', 'object': 'chat.completion', 'created': 1785193397, 'model': 'qwen-1
+PASS   | CANARY-010-scope-deny                    | HTTP 200 |  0.6s | {'id': 'chatcmpl-cfdfee10372446ef9f518c68eb3981ff', 'object': 'chat.completion', 'created': 1785193398, 'model': 'qwen-1
+PASS   | CANARY-012-idempotent                    | HTTP 200 |  0.8s | {'id': 'chatcmpl-17c163f7473d46f1845815b90fbe0e93', 'object': 'chat.completion', 'created': 1785193399, 'model': 'qwen-1
+PASS   | CANARY-012-replay                        | HTTP 200 |  1.0s | {'id': 'chatcmpl-ee5bea5b03c24b299e4fa8d55f4caf90', 'object': 'chat.completion', 'created': 1785193399, 'model': 'qwen-1
+PASS   | CANARY-models                            | HTTP 200 |  0.0s | {'data': [{'id': 'qwen-14b', 'object': 'model', 'owned_by': 'aither'}, {'id': 'qwen-32b-base', 'object': 'model', 'owned
+
+================================================================================
+RESULTS: PASS=14 FAIL=0 TOTAL=14
+================================================================================
+
+---EVIDENCE_JSON---
+{
+  "timestamp": "2026-07-27T23:03:20Z",
+  "suite": "CHANGE-0022-C5-Canary-E2E",
+  "results": [
+    {
+      "test": "CANARY-002-login",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 0.0
+    },
+    {
+      "test": "CANARY-001-health",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 0.0
+    },
+    {
+      "test": "CANARY-001-ready",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 0.1
+    },
+    {
+      "test": "CANARY-003-auth-me",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 0.0
+    },
+    {
+      "test": "CANARY-006-14b-chat",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 1.0
+    },
+    {
+      "test": "CANARY-008-32b-chat",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 0.9
+    },
+    {
+      "test": "CANARY-013-rl-0",
+      "code": 200,
+      "expected": null,
+      "status": "PASS",
+      "time": 0.8
+    },
+    {
+      "test": "CANARY-013-rl-1",
+      "code": 200,
+      "expected": null,
+      "status": "PASS",
+      "time": 0.4
+    },
+    {
+      "test": "CANARY-013-rl-2",
+      "code": 200,
+      "expected": null,
+      "status": "PASS",
+      "time": 0.6
+    },
+    {
+      "test": "CANARY-014-security",
+      "code": 200,
+      "expected": [
+        200,
+        403
+      ],
+      "status": "PASS",
+      "time": 0.8
+    },
+    {
+      "test": "CANARY-010-scope-deny",
+      "code": 200,
+      "expected": null,
+      "status": "PASS",
+      "time": 0.6
+    },
+    {
+      "test": "CANARY-012-idempotent",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 0.8
+    },
+    {
+      "test": "CANARY-012-replay",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 1.0
+    },
+    {
+      "test": "CANARY-models",
+      "code": 200,
+      "expected": 200,
+      "status": "PASS",
+      "time": 0.0
+    }
+  ],
+  "summary": {
+    "pass": 14,
+    "fail": 0,
+    "total": 14
+  }
+}
