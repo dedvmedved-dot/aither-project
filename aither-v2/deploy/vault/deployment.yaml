@@ -280,9 +280,8 @@ spec:
         fsGroup: 1000
       containers:
       - name: vault
-        # Pinned image digest for production
-        # image: hashicorp/vault@sha256:XXX  ← update with actual digest
-        image: hashicorp/vault:1.18.3
+        # Pinned image digest for production (CHANGE-0022-C5)
+        image: hashicorp/vault@sha256:8f1ba670da547c6af67be55609bd285c3ee3d8b73f88021adbfc43c82ca409e8
         imagePullPolicy: IfNotPresent
         args:
         - server

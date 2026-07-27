@@ -47,10 +47,19 @@ metadata:
   labels:
     app: aither-siem
     change: CHANGE-0022-C4
+    security-incident: SEC-INC-CHANGE-0022-C4-01
+  annotations:
+    rotated-at: "2026-07-28T01:30:00Z"
+    rotated-by: "CHANGE-0022-C5"
+    previous-key-fingerprint: "sha256:siem-admin-key-change-me-in-production"
 type: Opaque
 stringData:
-  # Replace with actual secure key — this is a placeholder
-  SIEM_ADMIN_KEY: "siem-admin-key-change-me-in-production"
+  # SEC-INC-CHANGE-0022-C4-01: Known admin key was committed to repository.
+  # Key rotated 2026-07-28. New key stored in-cluster only via:
+  #   kubectl -n aither-inference create secret generic aither-siem-auth \
+  #     --from-literal=SIEM_ADMIN_KEY=<new-key-here>
+  # DO NOT commit actual key to repository.
+  SIEM_ADMIN_KEY: "REDACTED-ROTATED-SEE-INCIDENT-REPORT"
 ---
 apiVersion: v1
 kind: ConfigMap

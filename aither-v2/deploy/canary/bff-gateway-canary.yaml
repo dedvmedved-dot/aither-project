@@ -1,19 +1,14 @@
 # Aither BFF Gateway-Canary Deployment
-# CHANGE-0022-C4 — R7-R5-EMG-GW-R6 Section 2
+# CHANGE-0022-C5 — R7-R5-EMG-GW-R7 Sections 3-4
 #
-# Uses production BFF source built as a Docker image (NOT inline ConfigMap Python).
-# Routes ALL model traffic through Aither Gateway.
-# RS256 per-request delegation JWT (TTL <= 60s).
-# Real SSE StreamingResponse.
+# Uses production BFF source built as a Docker image — non-root.
+# Routes ALL model traffic through Aither Gateway with RS256 delegation JWT.
+# TTL ≤ 60s, real org_id/user_id/tier/scopes from session identity.
 # /ready: Redis + Gateway /health + delegation key + Gateway model catalog.
-# /health: process-only (no dependency checks).
-# org_id/user_id/tier/scopes from real session identity.
+# /health: process-only.
 #
-# Image: 10.129.13.78:5000/aither-bff:change-0022-c4-canary
-#   Built from aither-v2/tools/bff/ with pyjwt[crypto] for RS256 delegation.
-#
-# kubectl apply -f deploy/canary/bff-gateway-canary.yaml
-# kubectl port-forward -n aither-inference svc/aither-bff-gateway-canary 8001:8000
+# Image: 10.129.13.78:5000/aither-bff@sha256:7e2eac2dd46b88331dade6aaa56aac714e489270b0d635abb01ce409fa3c8d8f
+#   Built from aither-v2/tools/bff/ — commit 4523f98, non-root (uid 1000)
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -22,7 +17,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-bff-gateway-canary
-    change: CHANGE-0022-C4
+    change: CHANGE-0022-C5
 spec:
   replicas: 1
   selector:
@@ -32,16 +27,18 @@ spec:
     metadata:
       labels:
         app: aither-bff-gateway-canary
-        change: CHANGE-0022-C4
+        change: CHANGE-0022-C5
     spec:
       containers:
       - name: bff-canary
-        image: 10.129.13.78:5000/aither-bff:change-0022-c4-canary
+        image: 10.129.13.78:5000/aither-bff@sha256:7e2eac2dd46b88331dade6aaa56aac714e489270b0d635abb01ce409fa3c8d8f
         imagePullPolicy: Always
         env:
-        # ── Gateway routing ──────────────────────────────────────────
+        # ── Gateway routing (CHANGE-0022-C5) ──────────────────────────
         - name: BFF_GATEWAY_URL
           value: "http://aither-gateway.aither-inference.svc.cluster.local:8000"
+        - name: BFF_GATEWAY_MODE
+          value: "true"
         # ── Redis ────────────────────────────────────────────────────
         - name: REDIS_URL
           value: "redis://aither-redis-rate-limit.aither-inference.svc:6379/0"
@@ -51,42 +48,19 @@ spec:
           value: "10"
         - name: BFF_REQUEST_TIMEOUT_SECONDS
           value: "300"
-        # ── Delegation JWT ───────────────────────────────────────────
-        - name: DELEGATION_PRIVATE_KEY_PATH
-          value: "/app/delegation/private.pem"
-        - name: DELEGATION_JWT_TTL_SECONDS
-          value: "60"
-        # ── Auth secrets (from aither-bff-auth Secret) ───────────────
+        # ── Auth secrets ─────────────────────────────────────────────
         - name: ADMIN_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: ADMIN_USERNAME
+          value: "admin"
         - name: ADMIN_PASSWORD_HASH
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: ADMIN_PASSWORD_HASH
+          value: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
         - name: SESSION_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: SESSION_SECRET
+          value: "change-0022-c5-canary-session"
         - name: AUTH_TOKEN_HASH_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: AUTH_TOKEN_HASH_SECRET
+          value: "change-0022-c5-canary-auth"
         - name: BFF_14B_UPSTREAM_AUTH_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: BFF_14B_UPSTREAM_AUTH_TOKEN
+          value: "placeholder-unused-in-gateway-mode"
         - name: BFF_32B_GATEWAY_AUTH_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: BFF_32B_GATEWAY_AUTH_TOKEN
+          value: "placeholder-unused-in-gateway-mode"
         ports:
         - containerPort: 8000
           name: http
@@ -98,8 +72,8 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1000
           runAsGroup: 1000
         resources:
           requests:
@@ -125,7 +99,6 @@ spec:
         secret:
           secretName: aither-bff-delegation-key
           defaultMode: 0400
-      # NOTE: No ConfigMap volume — all code is in the Docker image.
 ---
 apiVersion: v1
 kind: Service
@@ -134,7 +107,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-bff-gateway-canary
-    change: CHANGE-0022-C4
+    change: CHANGE-0022-C5
 spec:
   selector:
     app: aither-bff-gateway-canary

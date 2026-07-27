@@ -669,7 +669,9 @@ async def rag_status(request: Request):
         stats = wiki_status()
         return {"ready": True, "org_id": org_id, "tier": tier, **stats}
     except Exception as e:
-        return {"ready": False, "message": str(e)}
+        logger.error("RAG status error: %s", e)
+        correlation_id = getattr(request.state, 'rid', uuid.uuid4().hex[:8])
+        return _err(500, "rag_query_error", detail=str(e), correlation_id=correlation_id)
 
 
 @app.post("/v1/rag/ingest")
@@ -690,18 +692,24 @@ async def rag_ingest(request: Request):
     if not _rag_available or not settings.rag_enabled:
         return _err(503, "rag_disabled")
 
+    rid = request.state.rid
+
     try:
         body = await request.json()
         docs = body.get("documents", [])
         if not docs:
             return _err(400, "missing_documents")
 
-        # Security ingress on document content
+        # Security ingress on document content (FAIL-CLOSED)
         if settings.security_enabled:
-            for doc in docs:
-                sec_ok, sec_reason = check_security([{"role": "user", "content": doc.get("text", "")}])
-                if not sec_ok:
-                    return _err(403, "security_violation", reason=sec_reason)
+            try:
+                for doc in docs:
+                    sec_ok, sec_reason = check_security([{"role": "user", "content": doc.get("text", "")}])
+                    if not sec_ok:
+                        return _err(403, "security_violation", reason=sec_reason)
+            except Exception as sec_err:
+                logger.error("Security ingress check failed for RAG ingest: %s", sec_err)
+                return _err(503, "rag_ingest_error", detail="Security ingress check failed", correlation_id=rid)
 
         # Add org_id to metadata for isolation
         for doc in docs:
@@ -727,7 +735,8 @@ async def rag_ingest(request: Request):
         return {"ingested": len(docs), "ids": ids, "org_id": org_id, "collection": coll_name}
     except Exception as e:
         logger.error("RAG ingest error: %s", e)
-        return _err(500, f"rag_ingest_error: {e}")
+        correlation_id = getattr(request.state, 'rid', uuid.uuid4().hex[:8])
+        return _err(500, "rag_ingest_error", detail=str(e), correlation_id=correlation_id)
 
 
 @app.post("/v1/rag/query")
@@ -760,12 +769,14 @@ async def rag_wiki_ingest(request: Request):
     if not _rag_available or not settings.rag_enabled:
         return _err(503, "rag_disabled")
 
+    rid = request.state.rid
+
     try:
         result = wiki_ingest()
         return {"org_id": org_id, **result}
     except Exception as e:
         logger.error("Wiki ingest error: %s", e)
-        return _err(500, f"wiki_ingest_error: {e}")
+        return _err(500, "rag_ingest_error", detail=str(e), correlation_id=rid)
 
 
 async def _rag_pipeline(mode: str, request: Request):
@@ -799,7 +810,8 @@ async def _rag_pipeline(mode: str, request: Request):
     except Exception:
         return _err(400, "invalid_json")
 
-    # 5. Security ingress on query
+    # 5. Security ingress on query (FAIL-CLOSED: exception → 503)
+    rid = request.state.rid
     if settings.security_enabled:
         try:
             sec_ok, sec_reason = check_security([{"role": "user", "content": query}])
@@ -807,12 +819,13 @@ async def _rag_pipeline(mode: str, request: Request):
                 return _err(403, "security_violation", reason=sec_reason)
         except Exception as e:
             logger.error("Security ingress error: %s", e)
+            return _err(503, "rag_query_error", detail="Security ingress check failed", correlation_id=rid)
 
     # 6. Execute query with ORG ISOLATION
     try:
         if mode == "hybrid-query":
             wiki_radius = body.get("wiki_radius", 1)
-            results = hybrid_query(query, top_k=top_k, wiki_radius=wiki_radius)
+            results = hybrid_query(query, top_k=top_k, wiki_radius=wiki_radius, org_id=org_id)
         else:
             # Semantic search in org-scoped collection
             chroma = _get_chroma()
@@ -839,10 +852,11 @@ async def _rag_pipeline(mode: str, request: Request):
                         chroma_results["documents"][0],
                         chroma_results.get("metadatas", [[{}] * len(chroma_results["ids"][0])])[0],
                         chroma_results.get("distances", [[1] * len(chroma_results["ids"][0])])[0])]
-            except Exception:
-                results = []
+            except Exception as chroma_err:
+                logger.error("ChromaDB error for org=%s: %s", org_id, chroma_err)
+                return _err(503, "rag_backend_unavailable", detail="ChromaDB operation failed", correlation_id=rid)
 
-        # 7. Security egress on retrieved context
+        # 7. Security egress on retrieved context (FAIL-CLOSED: exception → 503, violation → text removal)
         if settings.security_egress_enabled:
             for r in results:
                 try:
@@ -850,10 +864,15 @@ async def _rag_pipeline(mode: str, request: Request):
                         {"choices": [{"message": {"content": r.get("text", "")}}]},
                         org_id=org_id)
                     if not egr_ok:
+                        logger.warning("RAG egress violation org=%s: %s", org_id, egr_reason)
                         r["filtered"] = True
                         r["filter_reason"] = egr_reason
-                except Exception:
-                    pass
+                        # Remove original text to prevent data leak
+                        r["text"] = ""
+                        r["redacted"] = True
+                except Exception as egr_err:
+                    logger.error("Security egress check failed org=%s: %s", org_id, egr_err)
+                    return _err(503, "rag_query_error", detail="Security egress check failed", correlation_id=rid)
 
         return {
             "query": query, "results": results, "count": len(results),
@@ -861,7 +880,7 @@ async def _rag_pipeline(mode: str, request: Request):
         }
     except Exception as e:
         logger.error("RAG %s error: %s", mode, e)
-        return _err(500, f"rag_{mode}_error: {e}")
+        return _err(500, "rag_query_error", detail=str(e), correlation_id=rid)
 
 
 # ── Metrics ─────────────────────────────────────────────────────────────

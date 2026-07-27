@@ -48,8 +48,18 @@ def hybrid_query(
     top_k: int = 5,
     wiki_radius: int = 1,
     vector_weight: float = 0.7,  # Now: keyword_weight
+    org_id: str = "",
 ) -> list[dict]:
-    """Hybrid RAG: keyword search + Wiki graph traversal."""
+    """Hybrid RAG: keyword search + Wiki graph traversal.
+
+    Args:
+        query: Search query string.
+        top_k: Max results to return.
+        wiki_radius: Neighbor expansion radius.
+        vector_weight: Keyword vs wiki connectivity weight.
+        org_id: Organisation ID for isolation — if provided, results
+            are filtered to pages tagged or owned by this org.
+    """
     graph = get_wiki_graph()
 
     # Phase 1: Keyword search
@@ -128,6 +138,15 @@ def hybrid_query(
                     })
 
     merged.sort(key=lambda x: x["score"], reverse=True)
+
+    # Org isolation: filter results by org_id if provided
+    if org_id:
+        merged = [
+            r for r in merged
+            if r.get("metadata", {}).get("org_id", "") == org_id
+            or not r.get("metadata", {}).get("org_id")  # unowned pages pass through
+        ]
+
     return merged[:top_k]
 
 
