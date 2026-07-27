@@ -22,6 +22,7 @@ from usage import record_usage
 from security import check_security
 from security_egress import check_egress
 from catalog import ModelEntry, load_catalog, resolve
+from token_estimator import estimate_tokens as _est_tok
 from reaper import start_reaper
 from metrics import metrics as mtr
 
@@ -172,9 +173,9 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
             return _err(503, f"dependency_unavailable", detail=route_error)
         return _err(route_code or 403, route_error or "model_not_available", tier=tier, model=model_id)
 
-    # Rate limit — with real token estimate
+    # Rate limit — with conservative token estimate (Section 5, documented error bound)
     if settings.rate_limit_enabled:
-        est_tokens = len(str(messages)) // 3 + max_tokens  # rough input estimate + max output
+        est_tokens = _est_tok(messages, max_tokens)  # conservative estimator, minimum ~22% overestimate
         ok, reason = await check_rate_limit(org_id, tier, request.app.state.redis, est_tokens, request.app.state.db)
         if not ok:
             mtr.rate_limit_denied(tier)
