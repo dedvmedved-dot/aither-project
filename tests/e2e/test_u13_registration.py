@@ -15,8 +15,8 @@ def _env(name, fallback=None):
     return val or fallback
 
 BETA01_USER = _env("E2E_BETA01_USERNAME")
-INVITE_A = _env("E2E_INVITE_A", "hj_GFaoJFq7KFeg3uclyOfCLS6D6P56Y")
-INVITE_B = _env("E2E_INVITE_B", "aLHmu-2OI5L5nu9Z44mlZ-Zikoc5qmBH")
+INVITE_A = _env("E2E_INVITE_A")
+INVITE_B = _env("E2E_INVITE_B")
 
 ZONES = {
     "Internet":  "https://fb1.spb.ru:443",

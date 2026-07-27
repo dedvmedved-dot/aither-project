@@ -589,21 +589,64 @@ code {
         } catch (e) {
             return { status: 0, ok: false, data: { detail: 'Ошибка сети — проверьте подключение' } };
         }
+    const pages = ['login','dashboard','chat','api-keys','agent','docs','feedback','status','profile'];
+    // Public pages accessible without authentication
+    const PUBLIC_PAGES = ['login'];
+    // Auth-required pages
+    const PROTECTED_PAGES = pages.filter(p => !PUBLIC_PAGES.includes(p));
+
+    // ── Explicit Authorization Guard ──────────────────────────────
+    let _authChecked = false;
+    let _isAuthenticated = false;
+
+    async function checkAuth() {
+        if (_authChecked) return _isAuthenticated;
+        try {
+            const res = await api('/auth/me', { method: 'GET' });
+            if (res.ok && res.data && res.data.username) {
+                authToken = res.data.session_id || authToken || 'session';
+                currentUser = res.data;
+                _isAuthenticated = true;
+                localStorage.setItem('aither_token', authToken);
+                updateNav();
+            } else {
+                _isAuthenticated = false;
+                authToken = null;
+                currentUser = null;
+                localStorage.removeItem('aither_token');
+            }
+        } catch {
+            _isAuthenticated = false;
+        }
+        _authChecked = true;
+        return _isAuthenticated;
     }
 
-    // ── Page Navigation ─────────────────────────────────────────
     function showPage(id) {
+        // Enforce explicit authorization for protected pages
+        if (PROTECTED_PAGES.includes(id) && !_isAuthenticated) {
+            // Not authenticated — redirect to login
+            id = 'login';
+            if (currentUser === null) {
+                // Clear stale state
+                authToken = null;
+                localStorage.removeItem('aither_token');
+                updateNav();
+            }
+        }
         pages.forEach(p => { const el = $(`page-${p}`); if (el) el.classList.remove('active'); });
         const target = $(`page-${id}`);
         if (target) target.classList.add('active');
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.toggle('active', link.dataset.page === id);
         });
-        // Trigger data loading when showing a page
-        if (id === 'dashboard') loadDashboardInfo();
-        if (id === 'api-keys') loadApiKeys();
-        if (id === 'agent') renderAgentPage();
-        if (id === 'profile') loadProfile();
+        // Trigger data loading only for authenticated protected pages
+        if (_isAuthenticated) {
+            if (id === 'dashboard') loadDashboardInfo();
+            if (id === 'api-keys') loadApiKeys();
+            if (id === 'agent') renderAgentPage();
+            if (id === 'profile') loadProfile();
+        }
     }
 
     function showAlert(id, msg, type) {
@@ -669,6 +712,8 @@ code {
                 // Store session ID for reference; auth works via cookie
                 authToken = res.data.session_id || res.data.token || 'session';
                 currentUser = res.data.user || { username: username, role: 'admin' };
+                _isAuthenticated = true;
+                _authChecked = true;
                 localStorage.setItem('aither_token', authToken);
                 updateNav();
                 showPage('dashboard');
@@ -691,6 +736,7 @@ code {
         setLoading(true);
         try { await api('/auth/logout', { method: 'POST' }); } catch {}
         authToken = null; currentUser = null; chatHistory = [];
+        _isAuthenticated = false; _authChecked = false;
         localStorage.removeItem('aither_token');
         updateNav(); showPage('login');
         setLoading(false);
@@ -1170,6 +1216,8 @@ code {
             if (res.ok && res.data) {
                 authToken = res.data.session_id || 'session';
                 currentUser = res.data.user || { username, role: 'registered_user' };
+                _isAuthenticated = true;
+                _authChecked = true;
                 localStorage.setItem('aither_token', authToken);
                 updateNav();
                 showAlert('register-success', '✅ Аккаунт создан! Перенаправление...', 'success');
@@ -1233,7 +1281,10 @@ code {
 
         updateModelInfo();
 
-        if (authToken) checkSession();
+        // Check auth on page load — redirect to dashboard if authenticated
+        checkAuth().then(authed => {
+            if (authed) { showPage('dashboard'); loadDashboardInfo(); }
+        });
     }
 
     if (document.readyState === 'loading') {
