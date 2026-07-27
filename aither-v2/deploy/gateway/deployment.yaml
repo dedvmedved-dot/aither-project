@@ -26,6 +26,7 @@ spec:
         change: CHANGE-0022-C2
     spec:
       automountServiceAccountToken: false
+      serviceAccountName: aither-gateway
       terminationGracePeriodSeconds: 120
       securityContext:
         seccompProfile:
@@ -101,8 +102,23 @@ spec:
           value: "true"
         - name: VAULT_REQUIRED
           value: "true"
+        # Vault K8s auth (CHANGE-0022-C5) — no static token, projected SA
+        - name: VAULT_ADDR
+          value: "https://vault.vault.svc:8200"
+        - name: VAULT_ROLE
+          value: "aither-gateway"
+        - name: VAULT_AUTH_PATH
+          value: "kubernetes"
+        - name: VAULT_CA_CERT
+          value: "/vault/ca/ca.crt"
+        - name: VAULT_SA_TOKEN_PATH
+          value: "/var/run/secrets/vault/token"
         - name: SIEM_ENABLED
           value: "true"
+        - name: SIEM_HOST
+          value: "aither-siem.aither-inference.svc"
+        - name: SIEM_PORT
+          value: "1514"
         - name: RAG_ENABLED
           value: "true"
         # Rate limits (defaults for free tier)
@@ -139,6 +155,12 @@ spec:
           name: tmp
         - mountPath: /var/log/aither
           name: varlog
+        - mountPath: /var/run/secrets/vault
+          name: vault-sa-token
+          readOnly: true
+        - mountPath: /vault/ca
+          name: vault-ca
+          readOnly: true
         readinessProbe:
           httpGet:
             path: /ready
@@ -168,3 +190,16 @@ spec:
         emptyDir: {}
       - name: varlog
         emptyDir: {}
+      # CHANGE-0022-C5: Projected SA token for Vault K8s auth
+      - name: vault-sa-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+              audience: vault
+      # CHANGE-0022-C5: Vault CA cert for TLS verification
+      - name: vault-ca
+        configMap:
+          name: vault-ca-cert
+          defaultMode: 0444

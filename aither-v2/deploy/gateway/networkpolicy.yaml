@@ -49,3 +49,14 @@ spec:
     ports:
     - protocol: UDP
       port: 53
+  # CHANGE-0022-C5: Vault access
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: vault
+      podSelector:
+        matchLabels:
+          app: vault
+    ports:
+    - protocol: TCP
+      port: 8200

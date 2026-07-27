@@ -103,6 +103,11 @@ STUCK_THRESHOLD_SECONDS = int(os.environ.get("STUCK_THRESHOLD", "300"))
 # ── Vault ────────────────────────────────────────────────────────────────
 VAULT_ENABLED = os.environ.get("VAULT_ENABLED", "false").lower() == "true"
 VAULT_REQUIRED = os.environ.get("VAULT_REQUIRED", "false").lower() == "true"
+VAULT_ADDR = os.environ.get("VAULT_ADDR", "https://vault.vault.svc:8200")
+VAULT_ROLE = os.environ.get("VAULT_ROLE", "aither-gateway")
+VAULT_AUTH_PATH = os.environ.get("VAULT_AUTH_PATH", "kubernetes")
+VAULT_CA_CERT = os.environ.get("VAULT_CA_CERT", "/vault/ca/ca.crt")
+VAULT_SA_TOKEN_PATH = os.environ.get("VAULT_SA_TOKEN_PATH", "/var/run/secrets/vault/token")
 
 # ── SIEM ─────────────────────────────────────────────────────────────────
 SIEM_ENABLED = os.environ.get("SIEM_ENABLED", "false").lower() == "true"
@@ -151,6 +156,11 @@ class Settings:
     metrics_enabled: bool = METRICS_ENABLED
     vault_enabled: bool = VAULT_ENABLED
     vault_required: bool = VAULT_REQUIRED
+    vault_addr: str = VAULT_ADDR
+    vault_role: str = VAULT_ROLE
+    vault_auth_path: str = VAULT_AUTH_PATH
+    vault_ca_cert: str = VAULT_CA_CERT
+    vault_sa_token_path: str = VAULT_SA_TOKEN_PATH
     siem_enabled: bool = SIEM_ENABLED
     rag_enabled: bool = RAG_ENABLED
     chroma_url: str = CHROMA_URL

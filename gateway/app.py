@@ -34,7 +34,7 @@ from metrics import metrics as mtr
 _vault_available = False
 _rag_available = False
 try:
-    from vault import vault_validate_key, vault_health
+    from vault import vault_validate_key, vault_health, vault_login_and_check
     _vault_available = True
 except ImportError:
     pass
@@ -167,6 +167,21 @@ async def ready(request: Request):
         except Exception:
             deps[f"model_{mid}"] = "unavailable"
             critical_fail = True
+
+    # Vault (critical if VAULT_REQUIRED)
+    if settings.vault_enabled and settings.vault_required:
+        try:
+            vault_check = vault_login_and_check()
+            deps["vault"] = vault_check
+            if not vault_check.get("login") or not vault_check.get("policy_read"):
+                critical_fail = True
+        except Exception as e:
+            deps["vault"] = {"reachable": False, "error": str(e)}
+            critical_fail = True
+    elif settings.vault_enabled:
+        deps["vault"] = vault_health() if _vault_available else {"enabled": False, "status": "unknown"}
+    else:
+        deps["vault"] = "disabled"
 
     status_str = "degraded" if critical_fail else "ok"
     status_code = 503 if critical_fail else 200

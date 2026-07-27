@@ -250,6 +250,13 @@ spec:
       ports:
         - port: 53
           protocol: UDP
+    # Allow K8s API for token review (K8s auth)
+    - to:
+        - namespaceSelector: {}
+          podSelector: {}
+      ports:
+        - port: 443
+          protocol: TCP
 ---
 apiVersion: apps/v1
 kind: StatefulSet

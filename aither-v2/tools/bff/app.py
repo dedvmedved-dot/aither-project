@@ -352,12 +352,20 @@ def _gateway_headers(req: Request) -> dict:
     """Build headers for Gateway call with delegation JWT from session identity."""
     user = getattr(req.state, "auth_user", "")
     user_id = str(getattr(req.state, "auth_user_id", user or "bff"))
-    role = getattr(req.state, "auth_role", "user")
-    scopes = getattr(req.state, "auth_scope", [])
-    if isinstance(scopes, str):
-        scopes = [scopes] if scopes else ["model:14b:chat"]
-    if not isinstance(scopes, list):
-        scopes = []
+    scope = getattr(req.state, "auth_scope", [])
+    # Admin scope sets admin role with all model scopes
+    if isinstance(scope, str) and scope == "admin":
+        role = "admin"
+        scopes = ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"]
+    elif isinstance(scope, str):
+        role = "user"
+        scopes = [scope]
+    elif isinstance(scope, list):
+        role = getattr(req.state, "auth_role", "user")
+        scopes = scope
+    else:
+        role = "user"
+        scopes = ["model:14b:chat"]
     # Extract org_id and tier from session if available
     org_id = getattr(req.state, "auth_org_id", None)
     tier = getattr(req.state, "auth_tier", "free")
