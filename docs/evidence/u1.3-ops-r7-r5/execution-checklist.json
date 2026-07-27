@@ -128,46 +128,47 @@
     {
       "direction": "12",
       "name": "Gitleaks scans",
-      "status": "DONE",
-      "implementation_commit": "TBD-commit-B",
+      "status": "IN_PROGRESS",
+      "implementation_commit": "c2fee84",
       "evidence_commit": "",
       "run_id": "",
       "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/01-security/gitleaks-current.json",
-        "docs/evidence/u1.3-ops-r7-r4/00-preflight/gitleaks-baseline.json"
+        "docs/evidence/u1.3-ops-r7-r5/01-security/gitleaks-current.json"
       ],
       "open_defects": [
-        "Missing: implementation diff, evidence staged, final HEAD scans"
+        "Final HEAD scan not on current ecdef3c — new commits introduce new credential disclosures",
+        "Requires rescan on current HEAD"
       ],
       "blocker": ""
     },
     {
       "direction": "13",
       "name": "Individual finding classification",
-      "status": "DONE",
-      "implementation_commit": "TBD-commit-B",
+      "status": "IN_PROGRESS",
+      "implementation_commit": "c2fee84",
       "evidence_commit": "",
       "run_id": "",
       "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/01-security/individual-classification.jsonl",
         "docs/evidence/u1.3-ops-r7-r5/01-security/classification-summary.json"
       ],
       "open_defects": [
-        "187 findings from current scan not yet individually classified"
+        "Classification refers to previous scan HEAD — requires reconciliation on current ecdef3c",
+        "Requires rescan + reclassification after Direction 14 fix"
       ],
       "blocker": ""
     },
     {
       "direction": "14",
       "name": "Credential redaction",
-      "status": "DONE",
-      "implementation_commit": "TBD-commit-B",
-      "evidence_commit": "TBD-commit-B",
+      "status": "FAILED",
+      "implementation_commit": "",
+      "evidence_commit": "",
       "run_id": "",
-      "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/01-security/gitleaks-current.json"
+      "evidence_paths": [],
+      "open_defects": [
+        "Committed JUnit track-a-full-wui-r7r5.xml contains raw credential in Playwright aria snapshot",
+        "Fix pending: sanitize JUnit XML, verify no other disclosures"
       ],
-      "open_defects": [],
       "blocker": ""
     },
     {
@@ -206,12 +207,19 @@
     {
       "direction": "18",
       "name": "Secure self-registration",
-      "status": "IN_PROGRESS",
+      "status": "FAILED",
       "implementation_commit": "",
       "evidence_commit": "",
       "run_id": "",
       "evidence_paths": [],
-      "open_defects": [],
+      "open_defects": [
+        "Committed result: 37/38, not 38/38 — no separate 28 registration tests",
+        "Invite scopes not applied",
+        "Lua ARGV contract violated",
+        "User status not rechecked",
+        "Token ownership not implemented",
+        "Rate limiter remains fail-open"
+      ],
       "blocker": ""
     },
     {
