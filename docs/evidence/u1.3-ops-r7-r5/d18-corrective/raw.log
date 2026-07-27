@@ -1,0 +1,43 @@
+============================= test session starts ==============================
+collecting ... collected 31 items
+
+tests/e2e/test_u13_registration_corrective.py::test_01_valid_registration PASSED [  3%]
+tests/e2e/test_u13_registration_corrective.py::test_02_invalid_invite PASSED [  6%]
+tests/e2e/test_u13_registration_corrective.py::test_03_expired_invite PASSED [  9%]
+tests/e2e/test_u13_registration_corrective.py::test_04_revoked_invite PASSED [ 12%]
+tests/e2e/test_u13_registration_corrective.py::test_05_used_invite PASSED [ 16%]
+tests/e2e/test_u13_registration_corrective.py::test_06_duplicate_username PASSED [ 19%]
+tests/e2e/test_u13_registration_corrective.py::test_07_case_normalized_duplicate PASSED [ 22%]
+tests/e2e/test_u13_registration_corrective.py::test_08_reserved_username[admin] PASSED [ 25%]
+tests/e2e/test_u13_registration_corrective.py::test_08_reserved_username[root] PASSED [ 29%]
+tests/e2e/test_u13_registration_corrective.py::test_08_reserved_username[system] PASSED [ 32%]
+tests/e2e/test_u13_registration_corrective.py::test_08_reserved_username[administrator] PASSED [ 35%]
+tests/e2e/test_u13_registration_corrective.py::test_09_password_mismatch PASSED [ 38%]
+tests/e2e/test_u13_registration_corrective.py::test_10_weak_password PASSED [ 41%]
+tests/e2e/test_u13_registration_corrective.py::test_11_argon2id_verification PASSED [ 45%]
+tests/e2e/test_u13_registration_corrective.py::test_12_same_invite_concurrency PASSED [ 48%]
+tests/e2e/test_u13_registration_corrective.py::test_13_same_username_concurrency PASSED [ 51%]
+tests/e2e/test_u13_registration_corrective.py::test_14_atomic_expiry_race PASSED [ 54%]
+tests/e2e/test_u13_registration_corrective.py::test_15_cross_zone PASSED [ 58%]
+tests/e2e/test_u13_registration_corrective.py::test_16_cross_replica PASSED [ 61%]
+tests/e2e/test_u13_registration_corrective.py::test_17_invite_scope_enforcement PASSED [ 64%]
+tests/e2e/test_u13_registration_corrective.py::test_18_forbidden_model_denial PASSED [ 67%]
+tests/e2e/test_u13_registration_corrective.py::test_19_secure_cookie PASSED [ 70%]
+tests/e2e/test_u13_registration_corrective.py::test_20_server_side_logout PASSED [ 74%]
+tests/e2e/test_u13_registration_corrective.py::test_21_disabled_user_session_denial PASSED [ 77%]
+tests/e2e/test_u13_registration_corrective.py::test_22_redis_unavailable PASSED [ 80%]
+tests/e2e/test_u13_registration_corrective.py::test_23_rate_limit_positive PASSED [ 83%]
+tests/e2e/test_u13_registration_corrective.py::test_24_rate_limit_negative PASSED [ 87%]
+tests/e2e/test_u13_registration_corrective.py::test_25_restart_persistence PASSED [ 90%]
+tests/e2e/test_u13_registration_corrective.py::test_26_used_invite_persistence PASSED [ 93%]
+tests/e2e/test_u13_registration_corrective.py::test_27_own_token_list_revoke PASSED [ 96%]
+tests/e2e/test_u13_registration_corrective.py::test_28_foreign_token_list_revoke_denial PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/e2e/test_u13_registration_corrective.py: 31 warnings
+  /usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/urllib3/connectionpool.py:1110: InsecureRequestWarning: Unverified HTTPS request is being made to host 'fb1.spb.ru'. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.io/en/latest/advanced-usage.html#tls-warnings
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /root/aither-project-r7-canonical/docs/evidence/u1.3-ops-r7-r5/d18-corrective/junit.xml -
+======================= 31 passed, 31 warnings in 40.84s =======================

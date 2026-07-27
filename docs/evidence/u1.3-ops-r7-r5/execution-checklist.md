@@ -1,6 +1,7 @@
 # U1.3-OPS-R7-R5 — Execution Checklist
 
-**Starting HEAD:** 12c8be6 | **Created:** 2026-07-26T17:52:46Z
+**Starting HEAD:** 12c8be6 | **Last updated:** 2026-07-27T02:10:00Z
+**Corrective HEAD:** 91723da48a23c8e160005a933eaa301967193844
 
 | # | Direction | Status |
 |---|---|---|
@@ -17,7 +18,7 @@
 | 11 | Session invalidation | **TODO** |
 | 12 | Gitleaks scans | **DONE** |
 | 13 | Individual finding classification | **DONE** |
-| 14 | Credential redaction | **FIXED** |
+| 14 | Credential redaction | **FAILED** |
 | 15 | Credential revocation or rotation | **BLOCKED** |
 | 16 | Unified Critical Gate | **TODO** |
 | 17 | Complete raw evidence | **TODO** |
@@ -39,5 +40,5 @@
 - DONE: **3/30** (12, 13, 18)
 - IN_PROGRESS: **0/30**
 - TODO: **25/30**
-- FAILED: **1/30** (14 — FIXED, pending rescan)
-- BLOCKED: **1/30** (15)
+- FAILED: **1/30** (14 — pending final security confirmation rescan)
+- BLOCKED: **1/30** (15 — requires Owner BMC credentials action)

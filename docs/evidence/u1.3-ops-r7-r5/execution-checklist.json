@@ -1,348 +1,88 @@
 {
   "stage": "U1.3-OPS-R7-R5",
   "starting_head": "12c8be6179d6bd20d49edd68b7ee7b78f8e9efe2",
-  "created_utc": "2026-07-26T17:52:46.060646+00:00",
+  "corrective_head": "91723da48a23c8e160005a933eaa301967193844",
+  "last_updated_utc": "2026-07-27T02:10:00Z",
   "total_directions": 30,
   "directions": [
+    {"direction":"01","name":"Strict model-switch contract","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"02","name":"Portal source and explicit authorization","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"03","name":"Track A final bound run","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"04","name":"Full WUI final bound run","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"05","name":"Bound-run artifact integrity","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"06","name":"Foreground process control","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"07","name":"Exact token correlation","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"08","name":"Redis/Lua unit and integration tests","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"09","name":"HTTP 503 dependency behavior","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"10","name":"Full revoke matrix","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"11","name":"Session invalidation","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
     {
-      "direction": "01",
-      "name": "Strict model-switch contract",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
+      "direction":"12","name":"Gitleaks scans","status":"DONE",
+      "implementation_commit":"91723da","evidence_commit":"91723da",
+      "run_id":"gitleaks-rescan-91723da",
+      "evidence_paths":["docs/evidence/u1.3-ops-r7-r5/01-security/GITLEAKS_RESCAN_R7R6.md"],
+      "open_defects":[],
+      "blocker":"",
+      "notes":"Rescanned corrective HEAD 91723da. 0 new leaks in corrective commits (1c6c341..91723da). 182 total historical findings unchanged from 1c6c341 classification."
     },
     {
-      "direction": "02",
-      "name": "Portal source and explicit authorization",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
+      "direction":"13","name":"Individual finding classification","status":"DONE",
+      "implementation_commit":"91723da","evidence_commit":"91723da",
+      "run_id":"classification-91723da",
+      "evidence_paths":["docs/evidence/u1.3-ops-r7-r5/01-security/GITLEAKS_RESCAN_R7R6.md"],
+      "open_defects":[],
+      "blocker":"",
+      "notes":"Classification reconciled: all 182 findings same as 1c6c341 baseline. ~174 REMEDIATED (historical artifacts), 8 REQUIRES_REVIEW (historical, not R7-R5). New source-tree findings (25) are all pre-existing false positives or test fixtures. No new active leaks."
     },
     {
-      "direction": "03",
-      "name": "Track A final bound run",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "04",
-      "name": "Full WUI final bound run",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "05",
-      "name": "Bound-run artifact integrity",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "06",
-      "name": "Foreground process control",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "07",
-      "name": "Exact token correlation",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "08",
-      "name": "Redis/Lua unit and integration tests",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "09",
-      "name": "HTTP 503 dependency behavior",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "10",
-      "name": "Full revoke matrix",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "11",
-      "name": "Session invalidation",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "12",
-      "name": "Gitleaks scans",
-      "status": "DONE",
-      "implementation_commit": "aa7c9c6",
-      "evidence_commit": "aa7c9c6",
-      "run_id": "gitleaks-rescan-1c6c341",
-      "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/01-security/GITLEAKS_RESCAN_R7R6.md"
+      "direction":"14","name":"Credential redaction","status":"FAILED",
+      "implementation_commit":"91723da","evidence_commit":"91723da",
+      "run_id":"d14-corrective",
+      "evidence_paths":[
+        "docs/evidence/u1.3-ops-r7-r5/01-security/CREDENTIAL_REDACTION_EVIDENCE.md",
+        "docs/evidence/u1.3-ops-r7-r5/01-security/classification-summary.json"
       ],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "13",
-      "name": "Individual finding classification",
-      "status": "DONE",
-      "implementation_commit": "aa7c9c6",
-      "evidence_commit": "aa7c9c6",
-      "run_id": "classification-1c6c341",
-      "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/01-security/GITLEAKS_RESCAN_R7R6.md"
+      "open_defects":[
+        "D14 stays FAILED per audit rule: 'Direction 14 оставить FAILED до final security confirmation'",
+        "Corrective work complete: fallback invite codes removed from test files, published invites revoked in Redis, controlled denial verified (403 on old codes)"
       ],
-      "open_defects": [],
-      "blocker": ""
+      "blocker":"Awaiting final security confirmation rescan by external auditor"
     },
     {
-      "direction": "14",
-      "name": "Credential redaction",
-      "status": "FAILED",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [
-        "Committed JUnit track-a-full-wui-r7r5.xml contains raw credential in Playwright aria snapshot",
-        "Fix pending: sanitize JUnit XML, verify no other disclosures"
+      "direction":"15","name":"Credential revocation or rotation","status":"BLOCKED",
+      "implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],
+      "open_defects":[],
+      "blocker":"Requires Owner action: BMC credentials and JWT secret"
+    },
+    {"direction":"16","name":"Unified Critical Gate","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"17","name":"Complete raw evidence","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {
+      "direction":"18","name":"Secure self-registration","status":"DONE",
+      "implementation_commit":"91723da","evidence_commit":"91723da",
+      "run_id":"d18-corrective-final2-20260727T020809Z",
+      "evidence_paths":[
+        "docs/evidence/u1.3-ops-r7-r5/d18-corrective/raw.log",
+        "docs/evidence/u1.3-ops-r7-r5/d18-corrective/junit.xml",
+        "docs/evidence/u1.3-ops-r7-r5/d18-corrective/summary.json",
+        "docs/evidence/u1.3-ops-r7-r5/d18-corrective/metadata.json",
+        "docs/evidence/u1.3-ops-r7-r5/d18-corrective/exit-code.txt",
+        "tests/e2e/test_u13_registration_corrective.py"
       ],
-      "blocker": ""
+      "open_defects":[],
+      "blocker":"",
+      "notes":"31/31 mandatory scenarios PASSED, EXIT_CODE=0. All 6 D18 corrective fixes deployed (Lua expires_at, session recheck, session invalidation, list_tokens ownership, revoke fail-closed, scope restriction). BFF v0.5.0-r7r7-d18corrective."
     },
-    {
-      "direction": "15",
-      "name": "Credential revocation or rotation",
-      "status": "BLOCKED",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "16",
-      "name": "Unified Critical Gate",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "17",
-      "name": "Complete raw evidence",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "18",
-      "name": "Secure self-registration",
-      "status": "DONE",
-      "implementation_commit": "d283dec",
-      "evidence_commit": "d283dec",
-      "run_id": "registration-28",
-      "evidence_paths": [
-        "docs/evidence/u1.3-ops-r7-r5/junit/registration-28.xml",
-        "tests/e2e/test_u13_registration.py"
-      ],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "19",
-      "name": "User lifecycle administration",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "20",
-      "name": "Test cohort and invite governance",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "21",
-      "name": "User onboarding documentation",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "22",
-      "name": "Test-operation rules, privacy and acceptable use",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "23",
-      "name": "Monitoring, SLO and alerting",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "24",
-      "name": "Incident response and user support",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "25",
-      "name": "Backup, restore and disaster recovery",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "26",
-      "name": "Capacity, performance and rate-limit validation",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "27",
-      "name": "Audit logging and data-retention controls",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "28",
-      "name": "Release, change and rollback management",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "29",
-      "name": "Synthetic user dress rehearsal and UAT",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    },
-    {
-      "direction": "30",
-      "name": "Limited-test-operation handover dossier",
-      "status": "TODO",
-      "implementation_commit": "",
-      "evidence_commit": "",
-      "run_id": "",
-      "evidence_paths": [],
-      "open_defects": [],
-      "blocker": ""
-    }
+    {"direction":"19","name":"User lifecycle administration","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"20","name":"Test cohort and invite governance","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"21","name":"User onboarding documentation","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"22","name":"Test-operation rules, privacy and acceptable use","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"23","name":"Monitoring, SLO and alerting","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"24","name":"Incident response and user support","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"25","name":"Backup, restore and disaster recovery","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"26","name":"Capacity, performance and rate-limit validation","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"27","name":"Audit logging and data-retention controls","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"28","name":"Release, change and rollback management","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"29","name":"Synthetic user dress rehearsal and UAT","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""},
+    {"direction":"30","name":"Limited-test-operation handover dossier","status":"TODO","implementation_commit":"","evidence_commit":"","run_id":"","evidence_paths":[],"open_defects":[],"blocker":""}
   ]
 }

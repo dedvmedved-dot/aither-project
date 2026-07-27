@@ -1,1 +1,19 @@
-2026-07-27T01:47:26Z
+{
+  "run_id": "d18-corrective-final2-20260727T020933Z",
+  "source_commit": "91723da48a23c8e160005a933eaa301967193844",
+  "deployed_commit": "91723da48a23c8e160005a933eaa301967193844",
+  "command": "pytest tests/e2e/test_u13_registration_corrective.py",
+  "pid": 2758961,
+  "start_utc": "2026-07-27T02:09:33Z",
+  "zones": [
+    "Internet",
+    "Test Zone"
+  ],
+  "browsers": [
+    "chromium",
+    "firefox"
+  ],
+  "replicas": 2,
+  "end_utc": "2026-07-27T02:10:14Z",
+  "exit_code": 0
+}
