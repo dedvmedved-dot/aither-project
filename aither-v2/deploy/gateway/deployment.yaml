@@ -54,27 +54,18 @@ spec:
             secretKeyRef:
               name: vllm-api-key
               key: VLLM_API_KEY
-        # PostgreSQL — use PG_URL when available via Secret, fallback to individual vars
-        - name: PG_HOST
-          value: "aither-postgres"
-        - name: PG_PORT
-          value: "5432"
-        - name: PG_USER
-          value: "aither"
-        - name: PG_DB
-          value: "aither"
-        - name: PGPASSWORD
+        # PostgreSQL — direct PG_URL from Secret
+        - name: PG_URL
           valueFrom:
             secretKeyRef:
               name: aither-gateway-postgres
-              key: password
-              optional: true
+              key: PG_URL
         # Redis
         - name: REDIS_HOST
           value: "aither-redis-rate-limit.aither-inference.svc"
         - name: REDIS_PORT
           value: "6379"
-        # JWT delegation — proper public key (NOT auth hash secret)
+        # JWT delegation public key
         - name: JWT_PUBLIC_KEY
           valueFrom:
             secretKeyRef:
@@ -93,7 +84,7 @@ spec:
           value: "/app/catalog.yaml"
         # Feature flags
         - name: BILLING_ENABLED
-          value: "false"  # enable after PG is ready
+          value: "true"  # PG is ready
         - name: SECURITY_ENABLED
           value: "true"
         - name: SECURITY_EGRESS_ENABLED
