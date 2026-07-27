@@ -20,7 +20,7 @@ HOST = os.environ.get("GATEWAY_HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
 
 # ── Redis ────────────────────────────────────────────────────────────────
-REDIS_HOST = os.environ.get("REDIS_URL", "aither-redis-rate-limit")
+REDIS_HOST = os.environ.get("REDIS_HOST", "aither-redis-rate-limit.aither-inference.svc")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 REDIS_DB = int(os.environ.get("REDIS_DB", "0"))
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "") or None
@@ -28,7 +28,19 @@ REDIS_CONNECT_TIMEOUT = float(os.environ.get("REDIS_CONNECT_TIMEOUT", "2.0"))
 REDIS_SOCKET_TIMEOUT = float(os.environ.get("REDIS_SOCKET_TIMEOUT", "5.0"))
 
 # ── PostgreSQL ───────────────────────────────────────────────────────────
-PG_URL = os.environ.get("PG_URL", "postgresql://aither@postgres:5432/aither")
+# Accept PG_URL directly (preferred) or build from PG_HOST/PG_PORT/PG_USER/PG_DB/PGPASSWORD
+PG_URL = os.environ.get("PG_URL", "")
+if not PG_URL:
+    _pg_host = os.environ.get("PG_HOST", "aither-postgres")
+    _pg_port = os.environ.get("PG_PORT", "5432")
+    _pg_user = os.environ.get("PG_USER", "aither")
+    _pg_pass = os.environ.get("PGPASSWORD", "")
+    _pg_db = os.environ.get("PG_DB", "aither")
+    if _pg_pass:
+        PG_URL = f"postgresql://{_pg_user}:{_pg_pass}@{_pg_host}:{_pg_port}/{_pg_db}"
+    else:
+        PG_URL = f"postgresql://{_pg_user}@{_pg_host}:{_pg_port}/{_pg_db}"
+
 PG_MIN_CONNECTIONS = int(os.environ.get("PG_MIN_CONN", "1"))
 PG_MAX_CONNECTIONS = int(os.environ.get("PG_MAX_CONN", "10"))
 
@@ -47,18 +59,27 @@ if not JWT_PUBLIC_KEY:
         except (FileNotFoundError, PermissionError):
             pass
 
-ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
-if not ADMIN_KEY:
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+if not ADMIN_API_KEY:
     admin_key_file = os.environ.get("ADMIN_KEY_FILE", "")
     if admin_key_file:
         try:
             with open(admin_key_file) as f:
-                ADMIN_KEY = f.read().strip()
+                ADMIN_API_KEY = f.read().strip()
         except (FileNotFoundError, PermissionError):
             pass
 
 # ── vLLM upstream ───────────────────────────────────────────────────────
 VLLM_API_KEY = os.environ.get("VLLM_API_KEY", "")
+
+# ── Feature flags ────────────────────────────────────────────────────────
+AUTH_ENABLED = os.environ.get("AUTH_ENABLED", "true").lower() == "true"
+RATE_LIMIT_ENABLED = os.environ.get("RATE_LIMIT_ENABLED", "true").lower() == "true"
+BILLING_ENABLED = os.environ.get("BILLING_ENABLED", "false").lower() == "true"  # default false until PG ready
+SECURITY_ENABLED = os.environ.get("SECURITY_ENABLED", "true").lower() == "true"
+SECURITY_EGRESS_ENABLED = os.environ.get("SECURITY_EGRESS_ENABLED", "true").lower() == "true"
+USAGE_ENABLED = os.environ.get("USAGE_ENABLED", "true").lower() == "true"
+METRICS_ENABLED = os.environ.get("METRICS_ENABLED", "true").lower() == "true"
 
 # ── Rate Limiting ────────────────────────────────────────────────────────
 RATE_LIMIT_RPM_DEFAULT = int(os.environ.get("RATE_LIMIT_RPM", "300"))
@@ -80,10 +101,14 @@ REAP_INTERVAL_SECONDS = int(os.environ.get("REAP_INTERVAL", "60"))
 STUCK_THRESHOLD_SECONDS = int(os.environ.get("STUCK_THRESHOLD", "300"))
 
 # ── Vault ────────────────────────────────────────────────────────────────
-VAULT_ENABLED = os.environ.get("VAULT_ENABLED", "true").lower() == "true"
+VAULT_ENABLED = os.environ.get("VAULT_ENABLED", "false").lower() == "true"
+VAULT_REQUIRED = os.environ.get("VAULT_REQUIRED", "false").lower() == "true"
 
-# ── RAG / ONNX ──────────────────────────────────────────────────────────
-ONNX_ENABLED = os.environ.get("ONNX_ENABLED", "true").lower() == "true"
+# ── SIEM ─────────────────────────────────────────────────────────────────
+SIEM_ENABLED = os.environ.get("SIEM_ENABLED", "false").lower() == "true"
+
+# ── RAG ──────────────────────────────────────────────────────────────────
+RAG_ENABLED = os.environ.get("RAG_ENABLED", "false").lower() == "true"
 CHROMA_URL = os.environ.get("CHROMA_URL", "http://chromadb:8000")
 
 # ── Logging ──────────────────────────────────────────────────────────────
@@ -112,9 +137,22 @@ class Settings:
     jwt_algorithms: list[str] = field(default_factory=lambda: JWT_ALGORITHMS)
     jwt_issuer: str = JWT_ISSUER
 
-    admin_key: str = ADMIN_KEY
+    admin_api_key: str = ADMIN_API_KEY
 
     vllm_api_key: str = VLLM_API_KEY
+
+    # Feature flags
+    auth_enabled: bool = AUTH_ENABLED
+    rate_limit_enabled: bool = RATE_LIMIT_ENABLED
+    billing_enabled: bool = BILLING_ENABLED
+    security_enabled: bool = SECURITY_ENABLED
+    security_egress_enabled: bool = SECURITY_EGRESS_ENABLED
+    usage_enabled: bool = USAGE_ENABLED
+    metrics_enabled: bool = METRICS_ENABLED
+    vault_enabled: bool = VAULT_ENABLED
+    vault_required: bool = VAULT_REQUIRED
+    siem_enabled: bool = SIEM_ENABLED
+    rag_enabled: bool = RAG_ENABLED
 
     rate_limit_rpm_default: int = RATE_LIMIT_RPM_DEFAULT
     rate_limit_tpm_default: int = RATE_LIMIT_TPM_DEFAULT
@@ -135,18 +173,15 @@ class Settings:
 
     tier_cache_ttl: int = TIER_CACHE_TTL
 
-    vault_enabled: bool = VAULT_ENABLED
-    onnx_enabled: bool = ONNX_ENABLED
-
     wiki_root: str = WIKI_ROOT
 
     # Reaper
-    REAP_INTERVAL_SECONDS: int = REAP_INTERVAL_SECONDS
-    STUCK_THRESHOLD_SECONDS: int = STUCK_THRESHOLD_SECONDS
+    reaper_interval_seconds: int = REAP_INTERVAL_SECONDS
+    stuck_threshold_seconds: int = STUCK_THRESHOLD_SECONDS
 
     # Server
-    HOST: str = HOST
-    PORT: int = PORT
+    host: str = HOST
+    port: int = PORT
 
 
 settings = Settings()

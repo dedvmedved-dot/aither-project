@@ -1,5 +1,5 @@
 # Aither Gateway — K8s Deployment
-# CHANGE-0022: Full Gateway restoration as FastAPI/ASGI application
+# CHANGE-0022-C2: Corrected deployment with proper readiness, env contract, secrets
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +7,7 @@ metadata:
   namespace: aither-inference
   labels:
     app: aither-gateway
-    change: CHANGE-0022
+    change: CHANGE-0022-C2
 spec:
   replicas: 2
   minReadySeconds: 10
@@ -23,6 +23,7 @@ spec:
     metadata:
       labels:
         app: aither-gateway
+        change: CHANGE-0022-C2
     spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 120
@@ -40,7 +41,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: gateway
-        image: aither-gateway:latest
+        image: 10.129.13.78:5000/aither-gateway:change-0022-190545  # pinned tag; replace with digest after rebuild
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
@@ -53,9 +54,9 @@ spec:
             secretKeyRef:
               name: vllm-api-key
               key: VLLM_API_KEY
-        # PostgreSQL
+        # PostgreSQL — use PG_URL when available via Secret, fallback to individual vars
         - name: PG_HOST
-          value: "aither-postgres"  # adjust to actual PG service
+          value: "aither-postgres"
         - name: PG_PORT
           value: "5432"
         - name: PG_USER
@@ -65,55 +66,64 @@ spec:
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
-              name: aither-bff-auth
-              key: AUTH_TOKEN_HASH_SECRET
+              name: aither-gateway-postgres
+              key: password
               optional: true
         # Redis
-        - name: REDIS_URL
+        - name: REDIS_HOST
           value: "aither-redis-rate-limit.aither-inference.svc"
         - name: REDIS_PORT
           value: "6379"
+        # JWT delegation — proper public key (NOT auth hash secret)
+        - name: JWT_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aither-gateway-delegation-public
+              key: public.pem
+              optional: true
+        # Admin API key
+        - name: ADMIN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aither-gateway-admin
+              key: ADMIN_API_KEY
+              optional: true
+        # Model catalog
+        - name: CATALOG_PATH
+          value: "/app/catalog.yaml"
+        # Feature flags
+        - name: BILLING_ENABLED
+          value: "false"  # enable after PG is ready
+        - name: SECURITY_ENABLED
+          value: "true"
+        - name: SECURITY_EGRESS_ENABLED
+          value: "true"
+        - name: RATE_LIMIT_ENABLED
+          value: "true"
+        - name: AUTH_ENABLED
+          value: "true"
+        - name: USAGE_ENABLED
+          value: "true"
+        - name: METRICS_ENABLED
+          value: "true"
+        - name: VAULT_ENABLED
+          value: "false"
+        - name: VAULT_REQUIRED
+          value: "false"
+        - name: SIEM_ENABLED
+          value: "false"
+        - name: RAG_ENABLED
+          value: "false"
         # Rate limits (defaults for free tier)
         - name: RATE_LIMIT_RPM
           value: "300"
         - name: RATE_LIMIT_TPM
           value: "100000"
-        # JWT delegation
-        - name: JWT_PUBLIC_KEY
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: AUTH_TOKEN_HASH_SECRET
-              optional: true
-        # Admin
-        - name: ADMIN_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: aither-bff-auth
-              key: ADMIN_PASSWORD_HASH
-              optional: true
-        # Model catalog
-        - name: CATALOG_PATH
-          value: "/app/catalog.yaml"
-        # Vault (optional — dev mode by default)
-        - name: VAULT_ENABLED
-          value: "false"
-        - name: VAULT_REQUIRED
-          value: "false"
-        # SIEM (optional)
-        - name: SIEM_ENABLED
-          value: "false"
         # Timeouts
-        - name: UPSTREAM_TIMEOUT_SECONDS
+        - name: UPSTREAM_TIMEOUT
           value: "300"
         - name: UPSTREAM_CONNECT_TIMEOUT
           value: "10"
-        - name: BILLING_ENABLED
-          value: "true"
-        - name: SECURITY_ENABLED
-          value: "true"
-        - name: RAG_ENABLED
-          value: "true"
         resources:
           requests:
             cpu: "200m"
@@ -140,7 +150,7 @@ spec:
           name: varlog
         readinessProbe:
           httpGet:
-            path: /health
+            path: /ready
             port: http
           initialDelaySeconds: 10
           periodSeconds: 10
