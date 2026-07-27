@@ -41,7 +41,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: gateway
-        image: 10.129.13.78:5000/aither-gateway:change-0022-190545  # pinned tag; replace with digest after rebuild
+        image: 10.129.13.78:5000/aither-gateway@sha256:b2abbe54223bd6873a60cd03a2fe77974e69d181e9f29bf850a69548f1654090  # CHANGE-0022-C2-R4: pinned by digest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
