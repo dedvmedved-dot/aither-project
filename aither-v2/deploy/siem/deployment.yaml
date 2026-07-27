@@ -1,0 +1,201 @@
+# Aither SIEM Receiver — K8s Deployment + Service
+# CHANGE-0022-C2 R7-R5-EMG-GW-R4
+#
+# Deployed as aither-siem service in aither-inference namespace.
+# Listens on UDP 514 (CEF syslog) and HTTP 8080 (health/query API).
+#
+# kubectl apply -f deploy/siem/deployment.yaml
+# kubectl port-forward -n aither-inference svc/aither-siem 8080:8080 &
+# curl http://localhost:8080/events/summary
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aither-siem-config
+  namespace: aither-inference
+  labels:
+    app: aither-siem
+    change: CHANGE-0022-C2
+data:
+  siem_receiver.py: |
+    #!/usr/bin/env python3
+    """Aither SIEM Receiver — inline for ConfigMap deployment."""
+    import os, sys, json, signal, socket, threading, time, hashlib
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from collections import defaultdict, deque
+    from datetime import datetime, timezone
+
+    LISTEN_HOST = os.environ.get("SIEM_LISTEN_HOST", "0.0.0.0")
+    UDP_PORT = int(os.environ.get("SIEM_UDP_PORT", "514"))
+    HTTP_PORT = int(os.environ.get("SIEM_HTTP_PORT", "8080"))
+    RING_SIZE = int(os.environ.get("SIEM_RING_SIZE", "10000"))
+
+    events = deque(maxlen=RING_SIZE)
+    counters = defaultdict(int)
+    lock = threading.Lock()
+
+    EXPECTED_TYPES = {
+        "auth_failure", "rate_limit_exceeded", "security_input_block",
+        "security_output_block", "billing_reserve", "billing_settle",
+        "billing_refund", "admin_drain", "admin_undrain",
+        "upstream_timeout", "dependency_failure",
+    }
+
+    def classify_event(msg):
+        msg_lower = msg.lower()
+        for etype in sorted(EXPECTED_TYPES, key=len, reverse=True):
+            if etype in msg_lower:
+                return etype
+        return "unknown"
+
+    def udp_listener():
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((LISTEN_HOST, UDP_PORT))
+            print(f"[SIEM] UDP bound {LISTEN_HOST}:{UDP_PORT}", flush=True)
+        except PermissionError:
+            sock.bind((LISTEN_HOST, 1514))
+            print(f"[SIEM] UDP bound {LISTEN_HOST}:1514 (fallback)", flush=True)
+        while True:
+            try:
+                data, addr = sock.recvfrom(4096)
+                msg = data.decode("utf-8", errors="replace").strip()
+                if not msg: continue
+                ts = datetime.now(timezone.utc).isoformat()
+                etype = classify_event(msg)
+                evt = {"timestamp": ts, "event_type": etype,
+                       "source": f"{addr[0]}:{addr[1]}",
+                       "raw": msg[:1000], "id": hashlib.sha256(msg.encode()).hexdigest()[:16]}
+                with lock:
+                    events.append(evt); counters[etype] += 1; counters["total"] += 1
+                if etype != "unknown":
+                    print(f"[SIEM] [{etype}] from {addr[0]}:{addr[1]}", flush=True)
+            except Exception as e:
+                print(f"[SIEM] UDP error: {e}", flush=True)
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            p = self.path.rstrip("/")
+            if p == "/health":
+                with lock: total = counters.get("total", 0)
+                self._j(200, {"status":"ok","service":"aither-siem","total_events":total,"ring_size":RING_SIZE})
+            elif p == "/events/count":
+                with lock: c = dict(counters)
+                self._j(200, {"counters": c})
+            elif p == "/events/summary":
+                with lock: c = dict(counters)
+                covered = set(c.keys()) - {"total","unknown"}
+                missing = EXPECTED_TYPES - covered
+                self._j(200, {"total":c.get("total",0),"covered":sorted(covered),
+                              "missing":sorted(missing),"all_present":len(missing)==0,"counters":c})
+            elif p == "/events":
+                with lock: recent = list(events)[-100:]
+                self._j(200, {"count":len(recent),"events":recent})
+            else:
+                self._j(404, {"error":"not_found"})
+        def _j(self, code, data):
+            body = json.dumps(data, ensure_ascii=False, default=str).encode()
+            self.send_response(code); self.send_header("Content-Type","application/json")
+            self.send_header("Content-Length", str(len(body))); self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *a): pass
+
+    signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+    signal.signal(signal.SIGINT, lambda *a: sys.exit(0))
+
+    threading.Thread(target=udp_listener, daemon=True).start()
+    httpd = HTTPServer((LISTEN_HOST, HTTP_PORT), Handler)
+    print(f"[SIEM] HTTP {LISTEN_HOST}:{HTTP_PORT}", flush=True)
+    httpd.serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aither-siem
+  namespace: aither-inference
+  labels:
+    app: aither-siem
+    change: CHANGE-0022-C2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aither-siem
+  template:
+    metadata:
+      labels:
+        app: aither-siem
+        change: CHANGE-0022-C2
+    spec:
+      containers:
+      - name: siem
+        image: python:3.11-slim
+        command:
+        - /bin/sh
+        - -c
+        - |
+          pip install -q --user 2>&1 >/dev/null; exec python3 /app/siem_receiver.py 2>&1
+        env:
+        - name: SIEM_LISTEN_HOST
+          value: "0.0.0.0"
+        - name: SIEM_UDP_PORT
+          value: "514"
+        - name: SIEM_HTTP_PORT
+          value: "8080"
+        - name: SIEM_RING_SIZE
+          value: "10000"
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 514
+          name: syslog-udp
+          protocol: UDP
+        volumeMounts:
+        - name: script
+          mountPath: /app
+          readOnly: true
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 30
+      volumes:
+      - name: script
+        configMap:
+          name: aither-siem-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aither-siem
+  namespace: aither-inference
+  labels:
+    app: aither-siem
+    change: CHANGE-0022-C2
+spec:
+  selector:
+    app: aither-siem
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  - port: 514
+    targetPort: 514
+    name: syslog-udp
+    protocol: UDP
+  type: ClusterIP
