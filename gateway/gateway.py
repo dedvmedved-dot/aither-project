@@ -21,7 +21,7 @@ VLLM_URL = os.environ.get("VLLM_URL", "http://vllm:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis")
 RATE_LIMIT_RPM = int(os.environ.get("RATE_LIMIT_RPM", "300"))
 RATE_LIMIT_TPM = int(os.environ.get("RATE_LIMIT_TPM", "100000"))
-PG_URL = os.environ.get("PG_URL", "postgresql://aither@postgres:5432/aither")
+PG_URL = os.environ["PG_URL"]  # mandatory — no hardcoded fallback
 TOKEN_COST = int(os.environ.get("TOKEN_COST", "1"))  # tokens to reserve per request token
 
 r = redis.Redis(host=REDIS_URL, port=6379, decode_responses=True, socket_connect_timeout=2)

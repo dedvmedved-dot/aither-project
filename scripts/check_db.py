@@ -2,7 +2,7 @@
 """Check DB schema."""
 import os, psycopg2
 
-PG_URL = os.environ.get("PG_URL", "postgresql://postgres:aiops_pass@postgres.aiops.svc:5432/aither")
+PG_URL = os.environ["PG_URL"]  # mandatory
 
 conn = psycopg2.connect(PG_URL)
 cur = conn.cursor()

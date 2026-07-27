@@ -8,7 +8,7 @@ import time
 import psycopg2
 import psycopg2.pool
 
-PG_URL = os.environ.get("PG_URL", "postgresql://aither@postgres:5432/aither")
+PG_URL = os.environ["PG_URL"]  # mandatory — no hardcoded fallback
 REAP_INTERVAL = int(os.environ.get("REAP_INTERVAL", "60"))
 STUCK_THRESHOLD = int(os.environ.get("STUCK_THRESHOLD", "300"))
 

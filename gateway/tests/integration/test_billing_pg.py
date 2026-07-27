@@ -7,7 +7,7 @@ import psycopg2
 import psycopg2.pool
 
 TEST_ORG = f"test-billing-{uuid.uuid4().hex[:8]}"
-PG_URL = os.environ.get("PG_URL", "postgresql://postgres@localhost:5432/aither")
+PG_URL = os.environ["PG_URL"]  # mandatory — tests must fail without it
 
 @pytest.fixture(scope="module")
 def db_pool():

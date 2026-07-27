@@ -23,7 +23,7 @@ import psycopg2
 import psycopg2.pool
 
 GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://aither-gateway.aither-inference.svc:8000")
-PG_URL = os.environ.get("PG_URL", "postgresql://postgres:aiops_pass@postgres.aiops.svc:5432/aither")
+PG_URL = os.environ["PG_URL"]  # mandatory — tests must fail without it
 REDIS_HOST = os.environ.get("REDIS_HOST", "aither-redis-rate-limit.aither-inference.svc")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 TEST_ORG = f"idem-test-{uuid.uuid4().hex[:8]}"
