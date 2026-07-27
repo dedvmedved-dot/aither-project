@@ -1,0 +1,13 @@
+{
+  "total_unique": 175,
+  "total_findings": 184,
+  "unclassified": 0,
+  "duplicate_fingerprints": 0,
+  "classification_counts": {
+    "REMEDIATED": 151,
+    "OWNER_ACTION_REQUIRED": 7,
+    "TEMPLATE_PLACEHOLDER_PROVEN": 2,
+    "TEST_FIXTURE_PROVEN": 4,
+    "FALSE_POSITIVE_PROVEN": 11
+  }
+}

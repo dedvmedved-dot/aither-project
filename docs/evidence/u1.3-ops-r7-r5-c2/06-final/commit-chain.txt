@@ -1,0 +1,10 @@
+916f04a (HEAD -> aither-v2, origin/aither-v2) evidence(u1.3-ops-r7-r5-c2): D18 acceptance — 32 scenarios ALL PASSED, EXIT=0
+75dd903 fix(u1.3-ops-r7-r5-c2): complete registration authorization and atomic invite enforcement
+8c8ed8c fix(u1.3-ops-r7-r5-c2): complete registration authorization and atomic invite enforcement
+05febdc chore(u1.3-ops-r7-r5-c2): reset authoritative checklist after external audit
+d2d96e1 evidence(u1.3-ops-r7-r5): D12-D13 rescan on corrective HEAD 91723da, D18 final evidence 31/31 PASSED, update checklist
+91723da fix(u1.3-ops-r7-r5): D14+D18 corrective — remove fallback invites, 31 mandatory scenarios, full auth enforcement
+98ec77a chore(u1.3-ops-r7-r5): update checklist — directions 12, 13 → DONE (3/30)
+aa7c9c6 evidence(u1.3-ops-r7-r5): directions 12-13 — gitleaks rescan on 1c6c341, full classification (0 new leaks), remove raw scan JSONs
+1c6c341 chore(u1.3-ops-r7-r5): update checklist — direction 14 FIXED, direction 18 DONE (1/30)
+d283dec fix(u1.3-ops-r7-r5): direction 18 — secure self-registration (6 fixes + 28 registration tests)

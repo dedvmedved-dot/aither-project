@@ -1,0 +1,4 @@
+?? docs/evidence/u1.3-ops-r7-r5-c2/02-direction-12/
+?? docs/evidence/u1.3-ops-r7-r5-c2/03-direction-13/
+?? docs/evidence/u1.3-ops-r7-r5-c2/04-direction-14/
+?? docs/evidence/u1.3-ops-r7-r5-c2/06-final/
