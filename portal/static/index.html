@@ -335,7 +335,7 @@ code {
           <div class="card-body">
             <p><a href="#" onclick="showPage('chat');return false;">💬 Открыть чат</a></p>
             <p><a href="#" onclick="showPage('api-keys');return false;">🔑 Управление ключами</a></p>
-            <p><a href="/docs/user-package/00_INDEX.md" target="_blank">📖 Документация</a></p>
+            <p><a href="/docs/00_INDEX.md" target="_blank">📖 Документация</a></p>
           </div>
         </div>
       </div>
@@ -468,35 +468,39 @@ code {
     <div class="container">
       <h1>📖 Документация</h1>
       <div class="cards-grid" id="docs-grid">
-        <div class="card" onclick="window.open('/docs/user-package/02_QUICK_START.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/02_QUICK_START.md','_blank')" style="cursor:pointer;">
           <div class="card-title">🚀 Быстрый старт</div>
           <div class="card-body"><p>Первые шаги: вход, создание ключа, чат с моделями.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/03_USER_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/03_USER_GUIDE.md','_blank')" style="cursor:pointer;">
           <div class="card-title">📘 Руководство пользователя</div>
           <div class="card-body"><p>Полное описание платформы и всех функций.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/14_API_KEY_USER_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/14_API_KEY_USER_GUIDE.md','_blank')" style="cursor:pointer;">
           <div class="card-title">🔑 API-ключи</div>
           <div class="card-body"><p>Создание, использование и отзыв ключей.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/15_DUAL_ZONE_ACCESS_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/15_DUAL_ZONE_ACCESS_GUIDE.md','_blank')" style="cursor:pointer;">
           <div class="card-title">🌐 Двухзонный доступ</div>
           <div class="card-body"><p>Internet и Test Zone — как подключиться.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/16_AI_AGENT_CONNECTION_PRIMER.md','_blank')" style="cursor:pointer;">
           <div class="card-title">🤖 Подключение AI Agent</div>
           <div class="card-body"><p>Инструкция для разработчиков агентов.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/04_API_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/04_API_GUIDE.md','_blank')" style="cursor:pointer;">
           <div class="card-title">⚡ API Reference</div>
           <div class="card-body"><p>Техническое описание API-эндпоинтов.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/08_FAQ.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/08_FAQ.md','_blank')" style="cursor:pointer;">
           <div class="card-title">❓ FAQ</div>
           <div class="card-body"><p>Часто задаваемые вопросы.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/00_INDEX.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="window.open('/docs/17_MODEL_USAGE_GUIDE.md','_blank')" style="cursor:pointer;border-left:3px solid var(--primary);">
+          <div class="card-title">🧠 Использование моделей</div>
+          <div class="card-body"><p>Как устроены и работают 14B и 32B — когда что использовать.</p></div>
+        </div>
+        <div class="card" onclick="window.open('/docs/00_INDEX.md','_blank')" style="cursor:pointer;">
           <div class="card-title">📋 Все документы</div>
           <div class="card-body"><p>Полный индекс документации.</p></div>
         </div>
@@ -575,21 +579,33 @@ code {
     const ZONE_CLASS = ZONE === 'INTERNET' ? 'zone-internet' : 'zone-test';
 
     // ── API ────────────────────────────────────────────────────
+    const FETCH_TIMEOUT_MS = 300000; // 5 min client-side timeout
+
     async function api(path, opts = {}) {
         const headers = { 'Content-Type': 'application/json', ...opts.headers };
         // Use session cookie (set by login) for web auth; Bearer token for API
         if (authToken && !path.startsWith('/auth/')) {
             headers['Authorization'] = 'Bearer ' + authToken;
         }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
         try {
-            const res = await fetch(API_URL + path, { ...opts, headers, credentials: 'same-origin' });
+            const res = await fetch(API_URL + path, {
+                ...opts, headers, credentials: 'same-origin',
+                signal: controller.signal,
+            });
             let data;
             try { data = await res.json(); } catch { data = null; }
             return { status: res.status, ok: res.ok, data };
         } catch (e) {
+            if (e.name === 'AbortError') {
+                return { status: 504, ok: false, data: { detail: 'Таймаут — сервер не ответил за 5 минут' } };
+            }
             return { status: 0, ok: false, data: { detail: 'Ошибка сети — проверьте подключение' } };
+        } finally {
+            clearTimeout(timer);
         }
-    const pages = ['login','dashboard','chat','api-keys','agent','docs','feedback','status','profile'];
+    }
     // Public pages accessible without authentication
     const PUBLIC_PAGES = ['login'];
     // Auth-required pages
@@ -667,6 +683,7 @@ code {
         overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = 'none'; };
     }
     function closeModal() { $('modal-overlay').style.display = 'none'; }
+    window.closeModal = closeModal;
 
     function escHtml(s) {
         const d = document.createElement('div');
@@ -1253,9 +1270,32 @@ code {
         $('btn-create-apikey')?.addEventListener('click', showCreateTokenModal);
         $('btn-send-message')?.addEventListener('click', sendChatMessage);
         $('btn-clear-chat')?.addEventListener('click', clearChat);
-        $('btn-submit-feedback')?.addEventListener('click', function() {
-            showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
-            $('feedback-message').value = '';
+        $('btn-submit-feedback')?.addEventListener('click', async function() {
+            const topic = $('feedback-topic')?.value || 'other';
+            const message = $('feedback-message')?.value?.trim();
+            if (!message) { showAlert('feedback-success', 'Введите сообщение.', 'warning'); return; }
+            setLoading(true);
+            try {
+                // Save feedback to localStorage + try sending to BFF
+                const feedback = {
+                    topic, message,
+                    user: currentUser?.username || 'anonymous',
+                    timestamp: new Date().toISOString(),
+                    zone: ZONE,
+                };
+                // Always save locally
+                const history = JSON.parse(localStorage.getItem('aither_feedback') || '[]');
+                history.push(feedback);
+                localStorage.setItem('aither_feedback', JSON.stringify(history));
+                // Try sending to BFF
+                try {
+                    await api('/feedback', { method: 'POST', body: JSON.stringify(feedback) });
+                } catch {}
+                showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
+                $('feedback-message').value = '';
+            } finally {
+                setLoading(false);
+            }
         });
         $('chat-model-select')?.addEventListener('change', updateModelInfo);
         $('chat-temperature')?.addEventListener('input', function() {
