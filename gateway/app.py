@@ -111,6 +111,27 @@ async def ready(request: Request):
 
     # Catalog (critical)
     deps["catalog"] = f"{len(request.app.state.catalog)} models" if request.app.state.catalog else "empty"
+    if not request.app.state.catalog:
+        critical_fail = True
+
+    # Upstream model health (14B)
+    try:
+        await request.app.state.http.get(
+            f"{request.app.state.catalog[0].upstream_url}/health", timeout=5
+        )
+        deps["model_14b"] = "ok"
+    except Exception:
+        deps["model_14b"] = "unavailable" if request.app.state.catalog else "no_catalog"
+
+    # Upstream model health (32B)
+    if len(request.app.state.catalog) > 1:
+        try:
+            await request.app.state.http.get(
+                f"{request.app.state.catalog[1].upstream_url}/health", timeout=5
+            )
+            deps["model_32b"] = "ok"
+        except Exception:
+            deps["model_32b"] = "unavailable"
 
     status_str = "degraded" if critical_fail else "ok"
     status_code = 503 if critical_fail else 200
@@ -141,8 +162,8 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
         return _err(401, ar.reason)
     org_id, tier = ar.org_id, ar.tier
 
-    # Model routing
-    model = route_model(model_id, request.app.state.catalog, tier)
+    # Model routing — with PG drain check
+    model = route_model(model_id, request.app.state.catalog, tier, request.app.state.db)
     if not model: return _err(403, f"model_not_available", tier=tier, model=model_id)
 
     # Rate limit — with real token estimate
@@ -319,7 +340,7 @@ async def a_drain(mid: str, request: Request):
             request.app.state.db.putconn(conn)
     # Also update local catalog
     for m in request.app.state.catalog:
-        if m.model_id == mid:
+        if m.id == mid:
             m.drained = True
             logger.info("Model %s drained", mid)
             return {"drained": mid, "status": "ok"}
@@ -340,7 +361,7 @@ async def a_undrain(mid: str, request: Request):
         finally:
             request.app.state.db.putconn(conn)
     for m in request.app.state.catalog:
-        if m.model_id == mid:
+        if m.id == mid:
             m.drained = False
             logger.info("Model %s undrained", mid)
             return {"undrained": mid, "status": "ok"}
