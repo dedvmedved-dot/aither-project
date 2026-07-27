@@ -23,6 +23,7 @@ from security import check_security
 from security_egress import check_egress
 from catalog import ModelEntry, load_catalog, resolve
 from reaper import start_reaper
+from metrics import metrics as mtr
 
 logger = logging.getLogger("aither.gateway")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
@@ -80,17 +81,17 @@ async def health(): return {"status":"ok","service":"aither-gateway","change":"C
 
 @app.get("/ready")
 async def ready(request: Request):
-    """Readiness: 503 if critical dependency is missing."""
+    """Readiness: 503 if critical dependency is missing. No raw exceptions."""
     deps = {}
-    critical_ok = True
+    critical_fail = False
 
     # Redis (critical)
     try:
         await request.app.state.redis.ping()
         deps["redis"] = "ok"
-    except Exception as e:
-        deps["redis"] = f"failed: {e}"
-        critical_ok = False
+    except Exception:
+        deps["redis"] = "unavailable"
+        critical_fail = True
 
     # PostgreSQL (critical if billing_enabled)
     if settings.billing_enabled:
@@ -101,18 +102,18 @@ async def ready(request: Request):
                 deps["postgres"] = "ok"
             else:
                 deps["postgres"] = "not_configured"
-                critical_ok = False
-        except Exception as e:
-            deps["postgres"] = f"failed: {e}"
-            critical_ok = False
+                critical_fail = True
+        except Exception:
+            deps["postgres"] = "unavailable"
+            critical_fail = True
     else:
         deps["postgres"] = "disabled"
 
     # Catalog (critical)
     deps["catalog"] = f"{len(request.app.state.catalog)} models" if request.app.state.catalog else "empty"
 
-    status_code = 200 if critical_ok else 503
-    status_str = "ok" if critical_ok else "degraded"
+    status_str = "degraded" if critical_fail else "ok"
+    status_code = 503 if critical_fail else 200
     return JSONResponse({"status": status_str, "dependencies": deps}, status_code=status_code)
 
 @app.get("/v1/models")
@@ -135,7 +136,9 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
 
     # Auth
     ar = await check_auth(token, request.app)
-    if ar.status != "ok": return _err(401, ar.reason)
+    if ar.status != "ok":
+        mtr.auth_denied(ar.reason)
+        return _err(401, ar.reason)
     org_id, tier = ar.org_id, ar.tier
 
     # Model routing
@@ -210,6 +213,8 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
 
     if ref: settle(org_id, ref, total, request.app.state.db)
     record_usage(org_id, rid, model_id, usage_data.get("prompt_tokens",0), usage_data.get("completion_tokens",0), 200, "settle", request.app.state.db)
+    mtr.request_total(model_id, "200")
+    mtr.tokens(model_id, usage_data.get("prompt_tokens", 0), usage_data.get("completion_tokens", 0))
     return data
 
 
@@ -279,7 +284,8 @@ def _admin(request: Request):
 @app.get("/admin/queues")
 async def a_queues(request: Request):
     _admin(request)
-    return {"queues": [], "active_requests": 0}
+    active = getattr(request.app.state, "active_requests", 0)
+    return {"queues": [], "active_requests": active}
 
 @app.get("/admin/models")
 async def a_models(request: Request):
@@ -288,27 +294,52 @@ async def a_models(request: Request):
     for m in request.app.state.catalog:
         d = m.to_dict()
         d["drained"] = getattr(m, "drained", False)
-        d["health"] = "unknown"
+        d["health"] = "serving" if not d.get("drained") else "drained"
         models_data.append(d)
     return {"models": models_data}
 
 @app.post("/admin/models/{mid}/drain")
 async def a_drain(mid: str, request: Request):
     _admin(request)
+    # Persist drain state to PostgreSQL for cross-replica visibility
+    if request.app.state.db:
+        conn = request.app.state.db.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO model_drain_state (model_id, drained, drained_at) VALUES (%s, %s, NOW()) "
+                "ON CONFLICT (model_id) DO UPDATE SET drained = true, drained_at = NOW()",
+                (mid, True),
+            )
+            conn.commit()
+        finally:
+            request.app.state.db.putconn(conn)
+    # Also update local catalog
     for m in request.app.state.catalog:
         if m.model_id == mid:
             m.drained = True
-            logger.info("Model %s drained by admin", mid)
+            logger.info("Model %s drained", mid)
             return {"drained": mid, "status": "ok"}
     raise HTTPException(404, "model_not_found")
 
 @app.post("/admin/models/{mid}/undrain")
 async def a_undrain(mid: str, request: Request):
     _admin(request)
+    if request.app.state.db:
+        conn = request.app.state.db.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE model_drain_state SET drained = false WHERE model_id = %s",
+                (mid,),
+            )
+            conn.commit()
+        finally:
+            request.app.state.db.putconn(conn)
     for m in request.app.state.catalog:
         if m.model_id == mid:
             m.drained = False
-            logger.info("Model %s undrained by admin", mid)
+            logger.info("Model %s undrained", mid)
             return {"undrained": mid, "status": "ok"}
     raise HTTPException(404, "model_not_found")
 
@@ -327,14 +358,13 @@ async def a_reaper(request: Request):
 async def rag_status(request: Request):
     return {"ready": False, "message": "RAG backend not configured"}
 
-# Metrics endpoint
+# Metrics endpoint — singleton registry
 if settings.metrics_enabled:
     try:
-        from metrics import Metrics
+        from metrics import metrics as _metrics
         from fastapi.responses import PlainTextResponse
-        _metrics_registry = Metrics()
         @app.get("/metrics")
-        async def metrics():
-            return PlainTextResponse(_metrics_registry.prometheus_text(), media_type="text/plain; charset=utf-8")
+        async def metrics_endpoint():
+            return PlainTextResponse(_metrics.prometheus_text(), media_type="text/plain; charset=utf-8")
     except ImportError as e:
         logger.warning("metrics module not available: %s", e)
