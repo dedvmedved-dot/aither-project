@@ -9,15 +9,26 @@ import psycopg2
 import psycopg2.pool
 
 PG_URL = os.environ.get("PG_URL", "postgresql://aither@postgres:5432/aither")
-REAP_INTERVAL = int(os.environ.get("REAP_INTERVAL", "60"))  # seconds between sweeps
-STUCK_THRESHOLD = int(os.environ.get("STUCK_THRESHOLD", "300"))  # seconds before refund
+REAP_INTERVAL = int(os.environ.get("REAP_INTERVAL", "60"))
+STUCK_THRESHOLD = int(os.environ.get("STUCK_THRESHOLD", "300"))
 
-db_pool = psycopg2.pool.SimpleConnectionPool(1, 3, PG_URL)
+_db_pool = None
+
+def _get_pool():
+    global _db_pool
+    if _db_pool is None:
+        _db_pool = psycopg2.pool.SimpleConnectionPool(1, 3, PG_URL)
+    return _db_pool
+
+def start_reaper(db_pool, redis_client=None):
+    """Start reaper thread with injected pool."""
+    global _db_pool
+    _db_pool = db_pool
 
 
 def reap():
     """Find and refund stuck reservations."""
-    conn = db_pool.getconn()
+    conn = _get_pool().getconn()
     try:
         with conn:
             with conn.cursor() as cur:
@@ -67,7 +78,7 @@ def reap():
         print(f"[Reaper] Error: {e}", flush=True)
         return -1
     finally:
-        db_pool.putconn(conn)
+        _get_pool().putconn(conn)
 
 
 def reaper_loop():

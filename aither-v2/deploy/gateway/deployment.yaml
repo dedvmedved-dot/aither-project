@@ -136,6 +136,8 @@ spec:
           readOnly: true
         - mountPath: /tmp
           name: tmp
+        - mountPath: /var/log/aither
+          name: varlog
         readinessProbe:
           httpGet:
             path: /health
@@ -162,4 +164,6 @@ spec:
         configMap:
           name: aither-gateway-catalog
       - name: tmp
+        emptyDir: {}
+      - name: varlog
         emptyDir: {}
