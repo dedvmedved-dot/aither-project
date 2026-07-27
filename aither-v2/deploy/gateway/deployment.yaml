@@ -98,13 +98,13 @@ spec:
         - name: METRICS_ENABLED
           value: "true"
         - name: VAULT_ENABLED
-          value: "false"
+          value: "true"
         - name: VAULT_REQUIRED
-          value: "false"
+          value: "true"
         - name: SIEM_ENABLED
           value: "true"
         - name: RAG_ENABLED
-          value: "false"
+          value: "true"
         # Rate limits (defaults for free tier)
         - name: RATE_LIMIT_RPM
           value: "300"

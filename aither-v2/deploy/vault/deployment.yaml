@@ -272,11 +272,11 @@ spec:
         change: CHANGE-0022-C4
     spec:
       serviceAccountName: vault
-      # Pod security context — non-root
+      # Pod security context — Vault requires root for CAP_SETFCAP
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 100
-        runAsGroup: 1000
+        runAsNonRoot: false
+        runAsUser: 0
+        runAsGroup: 0
         fsGroup: 1000
       containers:
       - name: vault
@@ -286,6 +286,12 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - server
+        securityContext:
+          capabilities:
+            add:
+            - IPC_LOCK
+            - SETFCAP
+            - SETPCAP
         env:
         - name: VAULT_LOCAL_CONFIG
           value: |
