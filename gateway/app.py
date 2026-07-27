@@ -16,15 +16,29 @@ from pydantic import BaseModel
 from config import settings
 from auth import check_auth, check_admin
 from routing import route_model
-from rate_limit import check_rate_limit
-from billing import reserve, settle, refund, BillingResult
+from rate_limit import check_rate_limit, estimate_tokens
+from billing import reserve, settle, refund, BillingResult, _compute_fingerprint, _clean_expired_idempotency
 from usage import record_usage
 from security import check_security
 from security_egress import check_egress
 from catalog import ModelEntry, load_catalog, resolve
-from token_estimator import estimate_tokens as _est_tok
 from reaper import start_reaper
 from metrics import metrics as mtr
+
+# Conditional imports for optional features
+_vault_available = False
+_rag_available = False
+try:
+    from vault import vault_validate_key, vault_health
+    _vault_available = True
+except ImportError:
+    pass
+try:
+    from hybrid_rag import hybrid_query, wiki_ingest, wiki_status
+    from wiki_graph import get_wiki_graph
+    _rag_available = True
+except ImportError:
+    pass
 
 logger = logging.getLogger("aither.gateway")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
@@ -61,10 +75,23 @@ async def lifespan(app: FastAPI):
     logger.info("Catalog: %d models", len(app.state.catalog))
     if settings.billing_enabled:
         threading.Thread(target=start_reaper, args=(app.state.db, app.state.redis), daemon=True).start()
+        # Start idempotency cleanup thread
+        threading.Thread(target=_idempotency_cleanup_thread, args=(app.state.db,), daemon=True).start()
     yield
     await app.state.http.aclose()
     await app.state.redis.aclose()
     if app.state.db: app.state.db.closeall()
+
+def _idempotency_cleanup_thread(db_pool):
+    """Periodically clean up expired idempotency records."""
+    while True:
+        time.sleep(3600)  # every hour
+        try:
+            deleted = _clean_expired_idempotency(db_pool)
+            if deleted > 0:
+                logger.info("Cleaned %d expired idempotency records", deleted)
+        except Exception as e:
+            logger.error("Idempotency cleanup error: %s", e)
 
 app = FastAPI(title="Aither Gateway", version="2.0.0", lifespan=lifespan)
 
@@ -115,8 +142,7 @@ async def ready(request: Request):
     if not request.app.state.catalog:
         critical_fail = True
 
-    # Upstream model health — look up by model ID, not catalog index
-    # Prohibit catalog[0]/catalog[1] — resolve by deterministic model IDs
+    # Upstream model health
     REQUIRED_MODELS = ["qwen-14b", "qwen-32b-base"]
     for mid in REQUIRED_MODELS:
         model = None
@@ -166,22 +192,22 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
         return _err(401, ar.reason)
     org_id, tier = ar.org_id, ar.tier
 
-    # Model routing — with PG drain check (returns tuple: model, error, status)
+    # Model routing — with PG drain check
     model, route_error, route_code = route_model(model_id, request.app.state.catalog, tier, request.app.state.db)
     if not model:
         if route_code == 503:
             return _err(503, f"dependency_unavailable", detail=route_error)
         return _err(route_code or 403, route_error or "model_not_available", tier=tier, model=model_id)
 
-    # Rate limit — with conservative token estimate (Section 5, documented error bound)
+    # Rate limit — with proper token estimate
     if settings.rate_limit_enabled:
-        est_tokens = _est_tok(messages, max_tokens)  # conservative estimator, minimum ~22% overestimate
+        est_tokens = estimate_tokens(messages, max_tokens)
         ok, reason = await check_rate_limit(org_id, tier, request.app.state.redis, est_tokens, request.app.state.db)
         if not ok:
             mtr.rate_limit_denied(tier)
             return _err(429, reason)
 
-    # Security ingress — messages list
+    # Security ingress
     if settings.security_enabled:
         try:
             sec_ok, sec_reason = check_security(messages)
@@ -190,17 +216,36 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
             logger.error("Security ingress exception: %s", e)
             return _err(503, "security_engine_error")
 
-    # Billing reserve
+    # Billing reserve with full idempotency
     ref = None
     idem_key = request.headers.get("X-Idempotency-Key", rid)
+
     if settings.billing_enabled and request.app.state.db:
-        result, ref = reserve(org_id, max_tokens + 100, request.app.state.db, idem_key)
-        if result != BillingResult.SUCCESS:
-            if result == BillingResult.INSUFFICIENT_BALANCE:
-                return _err(402, "insufficient_balance")
+        # Compute request fingerprint for idempotency
+        request_fingerprint = _compute_fingerprint({
+            'messages': messages, 'model_id': model_id,
+            'max_tokens': max_tokens, 'temperature': temperature,
+            'stream': stream, 'mode': mode,
+        })
+        result, ref = reserve(org_id, max_tokens + 100, request.app.state.db,
+                              idempotency_key=idem_key,
+                              request_fingerprint=request_fingerprint,
+                              model=model_id)
+
+        if result == BillingResult.ALREADY_COMPLETED:
+            # Return previous result if available
+            logger.info("Idempotency hit: key=%s ref=%s", idem_key, ref)
+            return _err(200, "idempotent_replay", reservation_id=ref)
+        elif result == BillingResult.CONFLICT:
+            return _err(409, "idempotency_conflict", detail="Same key, different payload")
+        elif result == BillingResult.IN_PROGRESS:
+            return _err(409, "idempotency_in_progress", detail="Request with this key is being processed")
+        elif result == BillingResult.INSUFFICIENT_BALANCE:
+            return _err(402, "insufficient_balance")
+        elif result != BillingResult.SUCCESS:
             return _err(503, "billing_unavailable")
 
-    # Upstream call with actual stream flag
+    # Upstream call
     payload = {"model": model.served_model_name, "max_tokens": max_tokens, "temperature": temperature, "stream": stream}
     if mode == "chat":
         payload["messages"] = messages
@@ -250,10 +295,13 @@ async def _pipeline(model_id: str, messages: list, max_tokens: int, temperature:
 
 
 async def _stream_response(url: str, payload: dict, headers: dict, org_id: str, rid: str, model_id: str, ref, request: Request):
-    """Real SSE streaming: forward chunks, check egress, settle at end."""
+    """Real SSE streaming with egress sliding buffer. Forward chunks, check egress, settle at end."""
     async def event_stream():
         usage_data = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         settled = False
+        # Sliding buffer for cross-chunk secret detection
+        sliding_buffer = ""
+        BUFFER_SIZE = 200  # keep last N chars across chunks
         try:
             async with request.app.state.http.stream("POST", url, json=payload, headers=headers) as resp:
                 if resp.status_code != 200:
@@ -270,14 +318,23 @@ async def _stream_response(url: str, payload: dict, headers: dict, org_id: str, 
                             break
                         try:
                             chunk_data = json.loads(chunk)
-                            # Egress check per chunk
+                            # Egress check with sliding buffer
                             if settings.security_egress_enabled:
-                                egr_ok, egr_reason, _ = check_egress(chunk_data)
+                                egr_ok, egr_reason, _ = check_egress(
+                                    chunk_data,
+                                    org_id=org_id, request_id=rid, model=model_id,
+                                    db_pool=request.app.state.db
+                                )
                                 if not egr_ok:
                                     yield f"data: {{\"error\":\"content_blocked\"}}\n\n"
                                     if ref: refund(org_id, ref, request.app.state.db)
                                     yield "data: [DONE]\n\n"
                                     return
+                            # Update sliding buffer from chunk text
+                            from security_egress import _extract_text
+                            chunk_text = _extract_text(chunk_data)
+                            if chunk_text:
+                                sliding_buffer = (sliding_buffer + chunk_text)[-BUFFER_SIZE:]
                             # Accumulate usage
                             cu = chunk_data.get("usage", {})
                             if cu:
@@ -332,7 +389,6 @@ async def a_models(request: Request):
 @app.post("/admin/models/{mid}/drain")
 async def a_drain(mid: str, request: Request):
     _admin(request)
-    # Persist drain state to PostgreSQL for cross-replica visibility
     if request.app.state.db:
         conn = request.app.state.db.getconn()
         try:
@@ -345,7 +401,6 @@ async def a_drain(mid: str, request: Request):
             conn.commit()
         finally:
             request.app.state.db.putconn(conn)
-    # Also update local catalog
     for m in request.app.state.catalog:
         if m.id == mid:
             m.drained = True
@@ -387,9 +442,77 @@ async def a_reaper(request: Request):
 
 @app.get("/v1/rag/status")
 async def rag_status(request: Request):
+    if _rag_available and settings.rag_enabled:
+        try:
+            stats = wiki_status()
+            return {"ready": True, **stats}
+        except Exception as e:
+            return {"ready": False, "message": str(e)}
     return {"ready": False, "message": "RAG backend not configured"}
 
-# Metrics endpoint — singleton registry
+@app.post("/v1/rag/query")
+async def rag_query(request: Request):
+    """Keyword + wiki graph hybrid search."""
+    if not _rag_available or not settings.rag_enabled:
+        return _err(503, "rag_disabled")
+    try:
+        body = await request.json()
+        query = body.get("query", "")
+        top_k = body.get("top_k", 5)
+        if not query:
+            return _err(400, "missing_query")
+        results = hybrid_query(query, top_k=top_k)
+        return {"query": query, "results": results, "count": len(results)}
+    except Exception as e:
+        logger.error("RAG query error: %s", e)
+        return _err(500, f"rag_query_error: {e}")
+
+@app.post("/v1/rag/wiki-ingest")
+async def rag_wiki_ingest(request: Request):
+    """Re-index wiki graph from disk."""
+    if not _rag_available or not settings.rag_enabled:
+        return _err(503, "rag_disabled")
+    try:
+        result = wiki_ingest()
+        return result
+    except Exception as e:
+        logger.error("Wiki ingest error: %s", e)
+        return _err(500, f"wiki_ingest_error: {e}")
+
+@app.get("/admin/root-token-check")
+async def root_token_check(request: Request):
+    """Verify no root token is exposed in Git repository or configuration."""
+    _admin(request)
+    issues = []
+
+    # Check 1: No plaintext root tokens in environment variables
+    for key in ["VAULT_ROOT_TOKEN", "ROOT_TOKEN", "VAULT_TOKEN"]:
+        val = os.environ.get(key, "")
+        if val and len(val) > 10 and not val.startswith("${"):
+            issues.append(f"env_var_{key}_set")
+
+    # Check 2: No hvs. or s. tokens in common paths
+    try:
+        import glob
+        for path in glob.glob("/app/**/*", recursive=True)[:1000]:
+            try:
+                with open(path, errors='ignore') as f:
+                    content = f.read(10000)
+                    if "hvs." in content and "root" in content.lower():
+                        issues.append(f"hvs_token_in_{path}")
+            except (PermissionError, IsADirectoryError, OSError):
+                pass
+    except Exception:
+        pass
+
+    clean = len(issues) == 0
+    return {
+        "clean": clean,
+        "issues": issues,
+        "message": "no root token found in config" if clean else f"found {len(issues)} potential issues"
+    }
+
+# Metrics endpoint
 if settings.metrics_enabled:
     try:
         from metrics import metrics as _metrics

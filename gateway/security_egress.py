@@ -240,10 +240,16 @@ def _extract_text(data: dict) -> str:
     # OpenAI-compatible chat response
     choices = data.get("choices", [])
     for choice in choices:
+        # Full message (non-streaming)
         msg = choice.get("message", {})
         content = msg.get("content", "")
         if isinstance(content, str):
             parts.append(content)
+        # Delta (SSE streaming chunk)
+        delta = choice.get("delta", {})
+        delta_content = delta.get("content", "")
+        if isinstance(delta_content, str):
+            parts.append(delta_content)
         # Reasoning/thinking (for deepseek, qwen3, etc.)
         reasoning = msg.get("reasoning_content", "") or msg.get("thinking", "")
         if reasoning:
@@ -340,25 +346,16 @@ def log_security_event(record: dict, db_pool=None):
             print(f"[Security Egress] DB log error: {e}", flush=True)
 
 
-def check_egress(response_data: dict, org_id: str = "unknown",
-                 request_id: str = "", model: str = "unknown",
-                 request_hash: str = "", db_pool=None) -> tuple:
-    """
-    Check LLM response for DSP/PII/system leaks/toxicity BEFORE sending to client.
-
-    Returns (ok: bool, reason: str, audit_record: dict or None).
-    """
-    text = _extract_text(response_data)
-
+def _scan_text_for_violations(text: str, org_id: str, request_id: str,
+                              model: str, request_hash: str, db_pool) -> tuple:
+    """Scan text for egress violations and return (ok, reason, audit_record)."""
     if not text.strip():
         return True, "", None
 
-    # Check each rule category
     for category, patterns in ALL_EGRESS_RULES.items():
         for pattern, rule_name in patterns:
             match = re.search(pattern, text)
             if match:
-                # Determine severity
                 if category == "dsp":
                     severity = "critical"
                 elif category == "system_leak":
@@ -394,5 +391,53 @@ def check_egress(response_data: dict, org_id: str = "unknown",
 
                 reason = f"egress_{category}: {rule_name}"
                 return False, reason, audit
+
+    return True, "", None
+
+
+def check_egress(response_data: dict, org_id: str = "unknown",
+                 request_id: str = "", model: str = "unknown",
+                 request_hash: str = "", db_pool=None) -> tuple:
+    """
+    Check LLM response for DSP/PII/system leaks/toxicity BEFORE sending to client.
+
+    Returns (ok: bool, reason: str, audit_record: dict or None).
+    """
+    text = _extract_text(response_data)
+    return _scan_text_for_violations(text, org_id, request_id, model, request_hash, db_pool)
+
+
+def check_egress_streaming(chunk_data: dict, sliding_buffer: str = "",
+                           org_id: str = "unknown", request_id: str = "",
+                           model: str = "unknown", request_hash: str = "",
+                           db_pool=None) -> tuple:
+    """
+    Check a single SSE chunk with sliding buffer for cross-chunk secret detection.
+
+    The sliding buffer retains the last N characters from previous chunks,
+    so secrets split across chunk boundaries are detected.
+
+    Returns (ok: bool, reason: str, audit_record: dict or None).
+    """
+    chunk_text = _extract_text(chunk_data)
+
+    if not chunk_text:
+        return True, "", None
+
+    # Check chunk text alone first
+    ok, reason, audit = _scan_text_for_violations(
+        chunk_text, org_id, request_id, model, request_hash, db_pool
+    )
+    if not ok:
+        return False, reason, audit
+
+    # Check boundary: sliding_buffer + chunk_text merged
+    if sliding_buffer:
+        merged = sliding_buffer + chunk_text
+        ok, reason, audit = _scan_text_for_violations(
+            merged, org_id, request_id, model, request_hash, db_pool
+        )
+        if not ok:
+            return False, reason, audit
 
     return True, "", None

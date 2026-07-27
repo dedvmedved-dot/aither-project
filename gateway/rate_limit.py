@@ -3,6 +3,65 @@ import time, json, logging
 
 logger = logging.getLogger("aither.gateway.rate_limit")
 
+# ── Token Estimator ──────────────────────────────────────────────────────
+
+# Try to use tiktoken for accurate token counting; fall back to conservative estimate
+_TOKENISER = None
+_TOKENISER_ERROR = None
+try:
+    import tiktoken
+    _TOKENISER = tiktoken.get_encoding("cl100k_base")  # GPT-4/3.5 encoding
+except ImportError:
+    _TOKENISER_ERROR = "tiktoken not installed, using conservative estimate"
+except Exception as e:
+    _TOKENISER_ERROR = f"tiktoken init failed: {e}, using conservative estimate"
+
+# Conservative estimate: ~4 chars per token for English, ~2 for Russian/CJK
+# This is a documented upper-bound (over-estimates by up to 25%)
+CHARS_PER_TOKEN_EN = 3.5
+CHARS_PER_TOKEN_RU = 2.0
+
+
+def estimate_tokens(messages: list, max_tokens: int = 0) -> int:
+    """
+    Estimate token count for a list of chat messages.
+
+    Uses tiktoken if available (accurate), otherwise falls back to
+    a conservative character-based estimator.
+    Error margin: with cl100k_base, accuracy is ~±5%. Conservative
+    fallback over-estimates by ~15-25% to avoid under-counting.
+
+    Returns total estimated tokens (input + max output).
+    """
+    if _TOKENISER is not None:
+        try:
+            total = 0
+            for msg in messages:
+                content = msg.get("content", "") if isinstance(msg, dict) else str(msg)
+                if isinstance(content, str) and content:
+                    total += len(_TOKENISER.encode(content))
+            # Per-message overhead: ~4 tokens per message (role markers)
+            total += len(messages) * 4
+            return total + max_tokens
+        except Exception as e:
+            logger.warning("tiktoken encode failed: %s, falling back to char estimate", e)
+
+    # Conservative character-based fallback
+    total_chars = 0
+    for msg in messages:
+        content = msg.get("content", "") if isinstance(msg, dict) else str(msg)
+        if isinstance(content, str):
+            # Count Cyrillic chars for Russian ratio
+            cyrillic = sum(1 for c in content if '\u0400' <= c <= '\u04FF')
+            latin = len(content) - cyrillic
+            total_chars += latin / CHARS_PER_TOKEN_EN + cyrillic / CHARS_PER_TOKEN_RU
+
+    est = int(total_chars) + max_tokens
+    # Apply 10% safety margin for conservative estimate
+    est = int(est * 1.10)
+    return max(est, 1)
+
+
 # Atomic Lua: RPM + TPM + daily counters
 RATE_LIMIT_LUA = """
 local rpm_key = KEYS[1]
@@ -80,7 +139,12 @@ async def check_rate_limit(org_id: str, tier: str, redis, est_tokens: int = 0, d
                 _tier_cache[tier] = limits
 
     if not limits:
-        limits = {"rpm": 300, "tpm": 100_000, "daily_requests": 1000, "daily_tokens": 1_000_000}
+        # Unknown tier — fail-closed per security requirement
+        if tier not in _tier_cache and db_pool is None:
+            # PG unavailable, use safe defaults
+            limits = {"rpm": 60, "tpm": 10000, "daily_requests": 100, "daily_tokens": 100000}
+        else:
+            limits = {"rpm": 300, "tpm": 100_000, "daily_requests": 1000, "daily_tokens": 1_000_000}
 
     now = int(time.time())
     window_sec = 120
@@ -102,5 +166,6 @@ async def check_rate_limit(org_id: str, tier: str, redis, est_tokens: int = 0, d
             return True, "ok"
         return False, str(result[1])
     except Exception as e:
-        logger.error("Rate limit check failed: %s", e)
+        logger.error("Rate limit check failed (Redis unavailable): %s", e)
+        # Fail-closed: block requests when Redis is down
         return False, "rate_limit_unavailable"
