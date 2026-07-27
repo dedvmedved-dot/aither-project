@@ -359,23 +359,26 @@ def _gateway_headers(req: Request) -> dict:
     if isinstance(scope, str) and scope == "admin":
         role = "admin"
         scopes = ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"]
-        # Admin uses known admin org
+        # Admin uses known admin org with standard tier
         org_id = "admin"
+        tier = "standard"
         if not user:
             user_id = "admin"
     elif isinstance(scope, str):
         role = "user"
         scopes = [scope]
         org_id = getattr(req.state, "auth_org_id", None)
+        tier = getattr(req.state, "auth_tier", "free")
     elif isinstance(scope, list):
         role = getattr(req.state, "auth_role", "user")
         scopes = scope
         org_id = getattr(req.state, "auth_org_id", None)
+        tier = getattr(req.state, "auth_tier", "free")
     else:
         role = "user"
         scopes = ["model:14b:chat"]
         org_id = None
-    tier = getattr(req.state, "auth_tier", "free")
+        tier = "free"
     if org_id is None:
         org_id = user_id
     jwt_token = sign_delegation_jwt(org_id=org_id, user_id=user_id, tier=tier, scopes=scopes, role=role)
