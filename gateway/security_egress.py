@@ -243,22 +243,22 @@ def _extract_text(data: dict) -> str:
         # Full message (non-streaming)
         msg = choice.get("message", {})
         content = msg.get("content", "")
-        if isinstance(content, str):
+        if isinstance(content, str) and content:
             parts.append(content)
         # Delta (SSE streaming chunk)
         delta = choice.get("delta", {})
         delta_content = delta.get("content", "")
-        if isinstance(delta_content, str):
+        if isinstance(delta_content, str) and delta_content:
             parts.append(delta_content)
         # Reasoning/thinking (for deepseek, qwen3, etc.)
         reasoning = msg.get("reasoning_content", "") or msg.get("thinking", "")
         if reasoning:
             parts.append(reasoning)
     # Raw text field (some models)
-    if "text" in data and isinstance(data["text"], str):
+    if "text" in data and isinstance(data["text"], str) and data["text"]:
         parts.append(data["text"])
     # Response field
-    if "response" in data and isinstance(data["response"], str):
+    if "response" in data and isinstance(data["response"], str) and data["response"]:
         parts.append(data["response"])
     return "\n".join(parts)
 
