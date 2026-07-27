@@ -1,17 +1,7 @@
-"""
-Idempotency Integration Tests — IDEM-001..008. CHANGE-0022-C2.
+"""Idempotency Integration Tests - IDEM-001..008. CHANGE-0022-C3.
 
-Tests cover:
-  IDEM-001: duplicate completed request → replay previous result
-  IDEM-002: duplicate concurrent request → only one executes
-  IDEM-003: same key, different payload → HTTP 409 conflict
-  IDEM-004: retry after timeout/expiry → fresh execution
-  IDEM-005: retry after settlement failure → reconciliation
-  IDEM-006: streaming request retry → idempotent replay
-  IDEM-007: idempotency key expiry → new execution
-  IDEM-008: org isolation → different orgs with same key are separate
-
-Evidence format: test ID, command, timestamp, expected, actual, PASS/FAIL.
+Direct function tests for billing.py idempotency.
+For HTTP-level tests, see test_idempotency_http.py.
 """
 import os, sys, uuid, time, json, hashlib, threading
 import urllib.request
@@ -212,7 +202,7 @@ def test_idem_004(db_pool):
     fp = _compute_fingerprint({"test": "idem004"})
 
     # Simulate: mark as failed
-    _mark_idempotency_failed(ikey, "test_settlement_error", db_pool)
+    _mark_idempotency_failed(ikey, TEST_ORG, "test_settlement_error", db_pool)
 
     # Retry — should succeed (status=failed → reset to pending then process)
     r, ref = reserve(TEST_ORG, 100, db_pool, idempotency_key=ikey, request_fingerprint=fp)

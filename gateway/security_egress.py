@@ -414,30 +414,37 @@ def check_egress_streaming(chunk_data: dict, sliding_buffer: str = "",
     """
     Check a single SSE chunk with sliding buffer for cross-chunk secret detection.
 
-    The sliding buffer retains the last N characters from previous chunks,
+    The sliding buffer retains the last BUFFER_SIZE characters from previous chunks,
     so secrets split across chunk boundaries are detected.
 
-    Returns (ok: bool, reason: str, audit_record: dict or None).
+    Algorithm:
+      1. Extract text from current chunk
+      2. Merge: previous_tail (from sliding_buffer) + current_chunk_text
+      3. Scan merged text for violations
+      4. If violation: return (False, reason, audit_record) — chunk must NOT be released
+      5. If safe: return (True, "", None) — chunk can be released to client
+
+    Returns (ok: bool, reason: str, audit_record: dict or None, new_sliding_buffer: str).
+    The caller MUST use new_sliding_buffer to update the buffer for the next chunk.
     """
+    BUFFER_SIZE = 200  # keep last N chars across chunks
     chunk_text = _extract_text(chunk_data)
 
     if not chunk_text:
-        return True, "", None
+        return True, "", None, sliding_buffer
 
-    # Check chunk text alone first
+    # Merge: previous tail + current chunk
+    merged = (sliding_buffer + chunk_text)
+
+    # Scan merged text (catches cross-chunk secrets)
     ok, reason, audit = _scan_text_for_violations(
-        chunk_text, org_id, request_id, model, request_hash, db_pool
+        merged, org_id, request_id, model, request_hash, db_pool
     )
     if not ok:
-        return False, reason, audit
+        # Forbidden bytes must NEVER be delivered before verdict
+        # Return immediately — caller closes upstream AND stream
+        return False, reason, audit, merged[-BUFFER_SIZE:]
 
-    # Check boundary: sliding_buffer + chunk_text merged
-    if sliding_buffer:
-        merged = sliding_buffer + chunk_text
-        ok, reason, audit = _scan_text_for_violations(
-            merged, org_id, request_id, model, request_hash, db_pool
-        )
-        if not ok:
-            return False, reason, audit
-
-    return True, "", None
+    # Safe: update sliding buffer with merged text tail
+    new_buffer = merged[-BUFFER_SIZE:]
+    return True, "", None, new_buffer

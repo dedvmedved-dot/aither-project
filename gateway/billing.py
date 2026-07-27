@@ -1,4 +1,14 @@
-"""Billing: transactional reserve → settle → refund with idempotency. CHANGE-0022-C2."""
+"""Billing: transactional reserve → settle → refund with org-scoped idempotency. CHANGE-0022-C3.
+
+Key changes from C2:
+  - Identity scope: (org_id, idempotency_key) — NOT global key alone
+  - UNIQUE (organisation, idempotency_key) in billing_idempotency table
+  - State machine: pending → inference_started → settlement_pending → completed | failed | expired
+  - completed ONLY after: inference done + egress security passed + settle SUCCESS + replay result saved
+  - NEVER set completed during reserve()
+  - Replay: same org+key+fingerprint → return original HTTP status + original response
+  - Settlement: check settle_result and refund_result. DATABASE_ERROR must NOT return normal success.
+"""
 import uuid, logging, enum, hashlib, json, time
 from typing import Optional
 from siem import billing_reserve, billing_settle, billing_refund
@@ -15,8 +25,9 @@ class BillingResult(enum.Enum):
     INSUFFICIENT_BALANCE = "insufficient_balance"
     INVALID_STATE = "invalid_state"
     DATABASE_ERROR = "database_error"
-    CONFLICT = "conflict"               # same key, different payload
-    IN_PROGRESS = "in_progress"         # concurrent request with same key
+    CONFLICT = "conflict"               # same org+key, different fingerprint
+    IN_PROGRESS = "in_progress"         # concurrent request with same org+key
+    SETTLE_FAILED = "settle_failed"
 
 
 def _compute_fingerprint(request_data: dict) -> str:
@@ -25,19 +36,58 @@ def _compute_fingerprint(request_data: dict) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
-def _get_idempotency_key(app, request) -> str:
-    """Extract idempotency key: X-Idempotency-Key header or request_id fallback."""
-    return uuid.uuid4().hex[:16]
+# ── State machine ────────────────────────────────────────────────────────
 
+# Valid state transitions for billing_idempotency.processing_status
+# pending → inference_started → settlement_pending → completed | failed | expired
+VALID_TRANSITIONS = {
+    'pending': {'inference_started', 'failed', 'expired'},
+    'inference_started': {'settlement_pending', 'failed', 'expired'},
+    'settlement_pending': {'completed', 'failed', 'expired'},
+    'completed': set(),        # terminal
+    'failed': {'pending'},     # retry resets to pending
+    'expired': set(),          # terminal
+}
+
+
+def _transition_status(cur, ikey: str, org_id: str, new_status: str) -> bool:
+    """Transition processing_status with validation. Returns True if transition was made."""
+    cur.execute(
+        "SELECT processing_status FROM billing_idempotency "
+        "WHERE idempotency_key = %s AND organisation = %s FOR UPDATE",
+        (ikey, org_id),
+    )
+    row = cur.fetchone()
+    if not row:
+        return False
+    current = row[0]
+    allowed = VALID_TRANSITIONS.get(current, set())
+    if new_status not in allowed:
+        logger.warning(
+            "Invalid state transition: %s → %s for key=%s org=%s",
+            current, new_status, ikey, org_id,
+        )
+        return False
+    cur.execute(
+        "UPDATE billing_idempotency SET processing_status = %s "
+        "WHERE idempotency_key = %s AND organisation = %s",
+        (new_status, ikey, org_id),
+    )
+    return True
+
+
+# ── Core idempotency check (org-scoped) ──────────────────────────────────
 
 def _check_billing_idempotency(ikey: str, fingerprint: str, org_id: str, db_pool) -> tuple:
     """
-    Check billing_idempotency table for existing request.
+    Check billing_idempotency by (organisation, idempotency_key) — org-scoped.
+
     Returns (status, result_tuple) where status is:
-      - 'new': no existing record
-      - 'completed': previous result available
-      - 'conflict': same key, different fingerprint → 409
-      - 'in_progress': same key, same fingerprint, still pending → wait/retry
+      - 'new': no existing record → caller should create one and proceed
+      - 'completed': previous result available → replay
+      - 'conflict': same org+key, different fingerprint → 409
+      - 'in_progress': same org+key+fingerprint, still processing → wait/retry
+      - 'failed': same org+key+fingerprint, previous failure → allow retry
       - 'error': database error
     """
     try:
@@ -46,22 +96,19 @@ def _check_billing_idempotency(ikey: str, fingerprint: str, org_id: str, db_pool
             cur = conn.cursor()
             cur.execute("BEGIN")
 
-            # Check billing_idempotency by key
+            # Org-scoped lookup: (organisation, idempotency_key)
             cur.execute(
-                "SELECT request_fingerprint, processing_status, reservation_id, http_status, sanitized_response_ref "
-                "FROM billing_idempotency WHERE idempotency_key = %s FOR UPDATE",
-                (ikey,),
+                "SELECT request_fingerprint, processing_status, reservation_id, "
+                "http_status, sanitized_response_ref, settle_result, refund_result "
+                "FROM billing_idempotency "
+                "WHERE organisation = %s AND idempotency_key = %s FOR UPDATE",
+                (org_id, ikey),
             )
             row = cur.fetchone()
 
             if row is None:
-                # No existing record — insert a new pending one
-                cur.execute(
-                    "INSERT INTO billing_idempotency (idempotency_key, request_fingerprint, organisation, model, processing_status) "
-                    "VALUES (%s, %s, %s, %s, 'pending')",
-                    (ikey, fingerprint, org_id, 'unknown'),
-                )
-                cur.execute("COMMIT")
+                # No existing record — caller will INSERT 'pending'
+                cur.execute("ROLLBACK")
                 return 'new', None
 
             existing_fingerprint = row[0]
@@ -69,6 +116,8 @@ def _check_billing_idempotency(ikey: str, fingerprint: str, org_id: str, db_pool
             reservation_id = row[2]
             http_status = row[3]
             response_ref = row[4]
+            settle_result = row[5]
+            refund_result = row[6]
 
             if existing_fingerprint != fingerprint:
                 cur.execute("ROLLBACK")
@@ -76,18 +125,28 @@ def _check_billing_idempotency(ikey: str, fingerprint: str, org_id: str, db_pool
 
             if status == 'completed':
                 cur.execute("ROLLBACK")
-                return 'completed', (reservation_id, http_status, response_ref)
+                return 'completed', (reservation_id, http_status, response_ref, settle_result, refund_result)
 
-            if status == 'pending':
+            if status in ('pending', 'inference_started', 'settlement_pending'):
                 cur.execute("ROLLBACK")
                 return 'in_progress', None
 
             if status == 'failed':
-                # Retry allowed for failed settlements
+                # Retry allowed for failed — reset to pending
                 cur.execute(
-                    "UPDATE billing_idempotency SET processing_status = 'pending', created_at = NOW() "
-                    "WHERE idempotency_key = %s",
-                    (ikey,),
+                    "UPDATE billing_idempotency SET processing_status = 'pending', "
+                    "created_at = NOW(), reservation_id = NULL, http_status = NULL, "
+                    "sanitized_response_ref = NULL, settle_result = NULL, refund_result = NULL "
+                    "WHERE organisation = %s AND idempotency_key = %s",
+                    (org_id, ikey),
+                )
+                cur.execute("COMMIT")
+                return 'new', None
+
+            if status == 'expired':
+                cur.execute(
+                    "DELETE FROM billing_idempotency WHERE organisation = %s AND idempotency_key = %s",
+                    (org_id, ikey),
                 )
                 cur.execute("COMMIT")
                 return 'new', None
@@ -104,31 +163,93 @@ def _check_billing_idempotency(ikey: str, fingerprint: str, org_id: str, db_pool
         finally:
             db_pool.putconn(conn)
     except Exception as e:
-        logger.error("Idempotency check failed for key %s: %s", ikey, e)
+        logger.error("Idempotency check failed for org=%s key=%s: %s", org_id, ikey, e)
         return 'error', None
 
 
-def _mark_idempotency_completed(ikey: str, reservation_id: str, http_status: int,
-                                 response_ref: str, db_pool) -> None:
-    """Mark a billing_idempotency record as completed."""
+# ── Idempotency lifecycle helpers ────────────────────────────────────────
+
+def _insert_idempotency_pending(ikey: str, fingerprint: str, org_id: str,
+                                 model: str, db_pool) -> bool:
+    """Insert a new 'pending' billing_idempotency record. Returns True on success."""
     try:
         conn = db_pool.getconn()
         try:
             cur = conn.cursor()
             cur.execute(
+                "INSERT INTO billing_idempotency "
+                "(idempotency_key, request_fingerprint, organisation, model, processing_status) "
+                "VALUES (%s, %s, %s, %s, 'pending') "
+                "ON CONFLICT (organisation, idempotency_key) DO NOTHING",
+                (ikey, fingerprint, org_id, model),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            db_pool.putconn(conn)
+    except Exception as e:
+        logger.error("Failed to insert idempotency pending for org=%s key=%s: %s", org_id, ikey, e)
+        return False
+
+
+def _mark_idempotency_inference_started(ikey: str, org_id: str, db_pool) -> None:
+    """Transition: pending → inference_started."""
+    try:
+        conn = db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute("BEGIN")
+            _transition_status(cur, ikey, org_id, 'inference_started')
+            conn.commit()
+        finally:
+            db_pool.putconn(conn)
+    except Exception as e:
+        logger.error("Failed to mark inference_started for org=%s key=%s: %s", org_id, ikey, e)
+
+
+def _mark_idempotency_settlement_pending(ikey: str, org_id: str, db_pool) -> None:
+    """Transition: inference_started → settlement_pending."""
+    try:
+        conn = db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute("BEGIN")
+            _transition_status(cur, ikey, org_id, 'settlement_pending')
+            conn.commit()
+        finally:
+            db_pool.putconn(conn)
+    except Exception as e:
+        logger.error("Failed to mark settlement_pending for org=%s key=%s: %s", org_id, ikey, e)
+
+
+def _mark_idempotency_completed(ikey: str, org_id: str, reservation_id: str,
+                                 http_status: int, response_ref: str,
+                                 settle_result: str, db_pool) -> None:
+    """
+    Mark billing_idempotency as completed.
+    ONLY called after: inference done + egress security passed + settle SUCCESS + replay result saved.
+    """
+    try:
+        conn = db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute("BEGIN")
+            cur.execute(
                 "UPDATE billing_idempotency SET processing_status = 'completed', "
                 "reservation_id = %s, http_status = %s, sanitized_response_ref = %s, "
-                "completed_at = NOW() WHERE idempotency_key = %s",
-                (reservation_id, http_status, response_ref, ikey),
+                "settle_result = %s, completed_at = NOW() "
+                "WHERE organisation = %s AND idempotency_key = %s",
+                (reservation_id, http_status, response_ref, settle_result,
+                 org_id, ikey),
             )
             conn.commit()
         finally:
             db_pool.putconn(conn)
     except Exception as e:
-        logger.error("Failed to mark idempotency complete for %s: %s", ikey, e)
+        logger.error("Failed to mark idempotency complete for org=%s key=%s: %s", org_id, ikey, e)
 
 
-def _mark_idempotency_failed(ikey: str, reason: str, db_pool) -> None:
+def _mark_idempotency_failed(ikey: str, org_id: str, reason: str, db_pool) -> None:
     """Mark a billing_idempotency record as failed (allows retry)."""
     try:
         conn = db_pool.getconn()
@@ -136,15 +257,39 @@ def _mark_idempotency_failed(ikey: str, reason: str, db_pool) -> None:
             cur = conn.cursor()
             cur.execute(
                 "UPDATE billing_idempotency SET processing_status = 'failed', "
-                "sanitized_response_ref = %s WHERE idempotency_key = %s",
-                (reason, ikey),
+                "sanitized_response_ref = %s WHERE organisation = %s AND idempotency_key = %s",
+                (reason, org_id, ikey),
             )
             conn.commit()
         finally:
             db_pool.putconn(conn)
     except Exception as e:
-        logger.error("Failed to mark idempotency failed for %s: %s", ikey, e)
+        logger.error("Failed to mark idempotency failed for org=%s key=%s: %s", org_id, ikey, e)
 
+
+def _save_replay_result(ikey: str, org_id: str, reservation_id: str,
+                         http_status: int, response_ref: str,
+                         settle_result: str, db_pool) -> None:
+    """Save replay result for completed idempotency record (for later replay)."""
+    try:
+        conn = db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE billing_idempotency SET reservation_id = %s, "
+                "http_status = %s, sanitized_response_ref = %s, settle_result = %s "
+                "WHERE organisation = %s AND idempotency_key = %s",
+                (reservation_id, http_status, response_ref, settle_result,
+                 org_id, ikey),
+            )
+            conn.commit()
+        finally:
+            db_pool.putconn(conn)
+    except Exception as e:
+        logger.error("Failed to save replay for org=%s key=%s: %s", org_id, ikey, e)
+
+
+# ── Expiry cleanup ───────────────────────────────────────────────────────
 
 def _clean_expired_idempotency(db_pool) -> int:
     """Clean up expired idempotency records. Returns count deleted."""
@@ -164,6 +309,8 @@ def _clean_expired_idempotency(db_pool) -> int:
         logger.error("Idempotency cleanup failed: %s", e)
         return 0
 
+
+# ── Reconciliation ───────────────────────────────────────────────────────
 
 def _reconcile_settled_failed(org_id: str, reservation_id: str, db_pool) -> BillingResult:
     """
@@ -219,44 +366,85 @@ def _reconcile_settled_failed(org_id: str, reservation_id: str, db_pool) -> Bill
         return BillingResult.DATABASE_ERROR
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# PUBLIC API: reserve / settle / refund
+# ═══════════════════════════════════════════════════════════════════════════
+
 def reserve(org_id: str, estimated_tokens: int, db_pool,
             idempotency_key: str = None,
             request_fingerprint: str = None,
             model: str = "unknown") -> tuple:
     """
-    Atomic reserve with full idempotency.
+    Atomic reserve with org-scoped idempotency.
+
     Returns (BillingResult, reservation_id, extra_info).
 
-    Idempotency:
-      - Same key + same fingerprint → returns previous result
-      - Same key + different fingerprint → CONFLICT (409)
-      - Concurrent with same key → IN_PROGRESS
+    Idempotency (org-scoped):
+      - same org + same key + same fingerprint → returns previous result
+      - same org + same key + different fingerprint → CONFLICT (409)
+      - different org + same key → independent request
+      - DATABASE_ERROR must NOT return normal success
+
+    State machine:
+      pending → reserve() succeeds → transitions to inference_started outside
     """
     ikey = idempotency_key or uuid.uuid4().hex[:16]
     ref = uuid.uuid4().hex[:12]
     amount = max(estimated_tokens, RESERVE_AMOUNT)
 
-    # Check billing_idempotency first
+    # Compute fingerprint
     fingerprint = request_fingerprint or _compute_fingerprint({
         'org_id': org_id, 'estimated_tokens': estimated_tokens, 'model': model
     })
 
+    # 1. Check billing_idempotency (org-scoped)
     status, result_data = _check_billing_idempotency(ikey, fingerprint, org_id, db_pool)
 
     if status == 'completed':
-        existing_ref = result_data[0]
-        return BillingResult.ALREADY_COMPLETED, existing_ref
+        # Replay: return original HTTP status + original response
+        reservation_id = result_data[0]
+        http_status = result_data[1]
+        response_ref = result_data[2]
+        settle_result = result_data[3]
+        refund_result = result_data[4]
+        # DATABASE_ERROR settle_result must NOT return normal success
+        if settle_result == 'DATABASE_ERROR':
+            return BillingResult.DATABASE_ERROR, None
+        return BillingResult.ALREADY_COMPLETED, reservation_id
+
     elif status == 'conflict':
         return BillingResult.CONFLICT, None
+
     elif status == 'in_progress':
         # Wait briefly and check again
         time.sleep(0.5)
         status2, result_data2 = _check_billing_idempotency(ikey, fingerprint, org_id, db_pool)
         if status2 == 'completed':
-            return BillingResult.ALREADY_COMPLETED, result_data2[0]
+            reservation_id = result_data2[0]
+            settle_result = result_data2[3]
+            if settle_result == 'DATABASE_ERROR':
+                return BillingResult.DATABASE_ERROR, None
+            return BillingResult.ALREADY_COMPLETED, reservation_id
         elif status2 == 'in_progress':
             return BillingResult.IN_PROGRESS, None
-        # Fall through to new attempt if status changed
+        # Fall through to new attempt
+
+    elif status == 'error':
+        return BillingResult.DATABASE_ERROR, None
+
+    # status == 'new' — proceed
+
+    # 2. Insert pending record (will be transitioned later)
+    if not _insert_idempotency_pending(ikey, fingerprint, org_id, model, db_pool):
+        # Already exists (race) — check again
+        status2, result_data2 = _check_billing_idempotency(ikey, fingerprint, org_id, db_pool)
+        if status2 == 'completed':
+            return BillingResult.ALREADY_COMPLETED, result_data2[0]
+        elif status2 == 'conflict':
+            return BillingResult.CONFLICT, None
+        elif status2 == 'in_progress':
+            return BillingResult.IN_PROGRESS, None
+        return BillingResult.DATABASE_ERROR, None
 
     try:
         conn = db_pool.getconn()
@@ -264,11 +452,11 @@ def reserve(org_id: str, estimated_tokens: int, db_pool,
             cur = conn.cursor()
             cur.execute("BEGIN")
 
-            # Check gateway_idempotency — if already processed, return existing result
+            # Check gateway_idempotency (org-scoped) — if already processed, return existing result
             cur.execute(
                 "SELECT reservation_id, result_status FROM gateway_idempotency "
-                "WHERE idempotency_key = %s FOR UPDATE",
-                (ikey,),
+                "WHERE org_id = %s AND idempotency_key = %s FOR UPDATE",
+                (org_id, ikey),
             )
             idem_row = cur.fetchone()
             if idem_row:
@@ -288,14 +476,14 @@ def reserve(org_id: str, estimated_tokens: int, db_pool,
             if not row:
                 cur.execute("ROLLBACK")
                 logger.warning("No billing account for org %s", org_id)
-                _mark_idempotency_failed(ikey, "no_account", db_pool)
+                _mark_idempotency_failed(ikey, org_id, "no_account", db_pool)
                 return BillingResult.INSUFFICIENT_BALANCE, None
 
             available = row[0] - row[1]
             if available < amount:
                 cur.execute("ROLLBACK")
                 logger.warning("Insufficient balance: org=%s need=%d have=%d", org_id, amount, available)
-                _mark_idempotency_failed(ikey, "insufficient_balance", db_pool)
+                _mark_idempotency_failed(ikey, org_id, "insufficient_balance", db_pool)
                 return BillingResult.INSUFFICIENT_BALANCE, None
 
             # Reserve
@@ -319,16 +507,19 @@ def reserve(org_id: str, estimated_tokens: int, db_pool,
                 "DO UPDATE SET reservation_id = EXCLUDED.reservation_id, request_fingerprint = EXCLUDED.request_fingerprint",
                 (ikey, org_id, ref, fingerprint),
             )
-            # Mark billing_idempotency as completed
+
+            # Transition: pending → inference_started (NOT completed!)
             cur.execute(
-                "UPDATE billing_idempotency SET processing_status = 'completed', "
-                "reservation_id = %s, completed_at = NOW(), model = %s "
-                "WHERE idempotency_key = %s",
-                (ref, model, ikey),
+                "UPDATE billing_idempotency SET processing_status = 'inference_started', "
+                "reservation_id = %s, model = %s "
+                "WHERE organisation = %s AND idempotency_key = %s",
+                (ref, model, org_id, ikey),
             )
+
             cur.execute("COMMIT")
             billing_reserve(org_id, ref, amount)
             return BillingResult.SUCCESS, ref
+
         except Exception:
             try:
                 cur.execute("ROLLBACK")
@@ -339,12 +530,18 @@ def reserve(org_id: str, estimated_tokens: int, db_pool,
             db_pool.putconn(conn)
     except Exception as e:
         logger.error("Reserve failed for %s: %s", org_id, e)
-        _mark_idempotency_failed(ikey, str(e)[:200], db_pool)
+        _mark_idempotency_failed(ikey, org_id, str(e)[:200], db_pool)
         return BillingResult.DATABASE_ERROR, None
 
 
-def settle(org_id: str, reservation_id: str, actual_tokens: int, db_pool) -> BillingResult:
-    """Atomic settle: deduct from balance and reserved. Idempotent."""
+def settle(org_id: str, reservation_id: str, actual_tokens: int, db_pool,
+           idempotency_key: Optional[str] = None) -> BillingResult:
+    """
+    Atomic settle: deduct from balance and reserved. Idempotent.
+
+    Returns BillingResult — check settle_result for DATABASE_ERROR.
+    DATABASE_ERROR must NOT be treated as normal success.
+    """
     try:
         conn = db_pool.getconn()
         try:
@@ -394,11 +591,6 @@ def settle(org_id: str, reservation_id: str, actual_tokens: int, db_pool) -> Bil
             )
             cur.execute(
                 "UPDATE gateway_idempotency SET result_status = 'settled', completed_at = NOW() "
-                "WHERE reservation_id = %s",
-                (reservation_id,),
-            )
-            cur.execute(
-                "UPDATE billing_idempotency SET processing_status = 'settled', completed_at = NOW() "
                 "WHERE reservation_id = %s",
                 (reservation_id,),
             )
@@ -472,11 +664,6 @@ def refund(org_id: str, reservation_id: str, db_pool) -> BillingResult:
                 "WHERE reservation_id = %s",
                 (reservation_id,),
             )
-            cur.execute(
-                "UPDATE billing_idempotency SET processing_status = 'refunded', completed_at = NOW() "
-                "WHERE reservation_id = %s",
-                (reservation_id,),
-            )
             cur.execute("COMMIT")
             billing_refund(org_id, reservation_id, reserved_amount)
             return BillingResult.SUCCESS
@@ -491,3 +678,84 @@ def refund(org_id: str, reservation_id: str, db_pool) -> BillingResult:
     except Exception as e:
         logger.error("Refund failed for %s/%s: %s", org_id, reservation_id, e)
         return BillingResult.DATABASE_ERROR
+
+
+# ── Settlement result helpers for Gateway ────────────────────────────────
+
+def settle_and_complete(org_id: str, reservation_id: str, actual_tokens: int,
+                         db_pool, ikey: Optional[str] = None,
+                         response_data: Optional[dict] = None) -> tuple:
+    """
+    Settle + mark idempotency as completed (for non-streaming path).
+
+    Returns (BillingResult, settle_result_str).
+    Caller MUST check for DATABASE_ERROR — do NOT return normal success on DB error.
+    """
+    # Transition to settlement_pending
+    if ikey:
+        _mark_idempotency_settlement_pending(ikey, org_id, db_pool)
+
+    result = settle(org_id, reservation_id, actual_tokens, db_pool)
+
+    if result == BillingResult.SUCCESS:
+        # Save replay result, then mark completed
+        if ikey and response_data:
+            response_ref = json.dumps(response_data, ensure_ascii=False, default=str)
+            _save_replay_result(ikey, org_id, reservation_id, 200, response_ref,
+                                'SUCCESS', db_pool)
+        if ikey:
+            response_ref_str = json.dumps(response_data, ensure_ascii=False, default=str) if response_data else ''
+            _mark_idempotency_completed(ikey, org_id, reservation_id, 200,
+                                         response_ref_str, 'SUCCESS', db_pool)
+        return result, 'SUCCESS'
+
+    elif result == BillingResult.ALREADY_COMPLETED:
+        if ikey:
+            _mark_idempotency_completed(ikey, org_id, reservation_id, 200,
+                                         '', 'ALREADY_COMPLETED', db_pool)
+        return result, 'ALREADY_COMPLETED'
+
+    elif result == BillingResult.DATABASE_ERROR:
+        if ikey:
+            _mark_idempotency_failed(ikey, org_id, 'DATABASE_ERROR', db_pool)
+        return result, 'DATABASE_ERROR'
+
+    else:
+        if ikey:
+            _mark_idempotency_failed(ikey, org_id, result.name, db_pool)
+        return result, result.name
+
+
+def settle_and_complete_stream(org_id: str, reservation_id: str, actual_tokens: int,
+                                db_pool, ikey: Optional[str] = None) -> tuple:
+    """
+    Settle + mark idempotency as completed (for streaming path).
+    Returns (BillingResult, settle_result_str).
+    """
+    # Transition to settlement_pending
+    if ikey:
+        _mark_idempotency_settlement_pending(ikey, org_id, db_pool)
+
+    result = settle(org_id, reservation_id, actual_tokens, db_pool)
+
+    if result == BillingResult.SUCCESS:
+        if ikey:
+            _mark_idempotency_completed(ikey, org_id, reservation_id, 200,
+                                         '', 'SUCCESS', db_pool)
+        return result, 'SUCCESS'
+
+    elif result == BillingResult.ALREADY_COMPLETED:
+        if ikey:
+            _mark_idempotency_completed(ikey, org_id, reservation_id, 200,
+                                         '', 'ALREADY_COMPLETED', db_pool)
+        return result, 'ALREADY_COMPLETED'
+
+    elif result == BillingResult.DATABASE_ERROR:
+        if ikey:
+            _mark_idempotency_failed(ikey, org_id, 'DATABASE_ERROR', db_pool)
+        return result, 'DATABASE_ERROR'
+
+    else:
+        if ikey:
+            _mark_idempotency_failed(ikey, org_id, result.name, db_pool)
+        return result, result.name
