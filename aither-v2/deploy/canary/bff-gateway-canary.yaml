@@ -19,7 +19,7 @@ metadata:
     app: aither-bff-gateway-canary
     change: CHANGE-0022-C5
 spec:
-  replicas: 1
+  replicas: 0  # FROZEN — CHANGE-0022-FM-01 force majeure freeze
   selector:
     matchLabels:
       app: aither-bff-gateway-canary
