@@ -587,9 +587,11 @@ async def oauth_callback(request: Request, provider: str, code: str = None, stat
     )
 
     try:
-        # Pass full callback URL so authlib can extract code + validate state
-        authorization_response = str(request.url)
-        token = await client.fetch_token(cfg["token_url"], authorization_response=authorization_response)
+        token = await client.fetch_token(
+            cfg["token_url"],
+            code=code,
+            grant_type="authorization_code",
+        )
     except Exception as e:
         log.error("OAuth token exchange failed for %s: %s", provider, str(e))
         raise HTTPException(status_code=401, detail=f"OAuth token exchange failed: {str(e)}")
