@@ -430,6 +430,66 @@ async def proxy_delete_conversation(conv_id: int, request: Request):
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
 
+# ── Token (API Key) endpoints — frontend uses /tokens ───────────
+
+@app.get("/api/v1/tokens")
+async def list_tokens(request: Request):
+    """Proxy to AI Platform /api/v1/api-keys, transform to {tokens: [...]}."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.get("/api/v1/api-keys", headers={"Authorization": auth})
+            if r.status_code != 200:
+                return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+            keys = r.json()
+            tokens = []
+            for k in keys:
+                tokens.append({
+                    "token_id": k.get("id"),
+                    "name": k.get("name", ""),
+                    "scopes": [],  # AI Platform doesn't return scopes in list
+                    "created_at": k.get("created_at", ""),
+                    "revoked": bool(k.get("revoked_at")),
+                    "prefix": k.get("key_prefix", ""),
+                })
+            return JSONResponse({"tokens": tokens})
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.post("/api/v1/tokens")
+async def create_token(request: Request):
+    """Proxy to AI Platform /api/v1/api-keys, transform response."""
+    auth = request.headers.get("Authorization", "")
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.post("/api/v1/api-keys", content=body,
+                            headers={"Authorization": auth, "Content-Type": "application/json"})
+            if r.status_code != 201:
+                return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+            created = r.json()
+            return JSONResponse({
+                "token_id": created.get("id"),
+                "token": created.get("full_key", ""),
+                "name": created.get("name", ""),
+                "key_prefix": created.get("key_prefix", ""),
+                "created_at": created.get("created_at", ""),
+            })
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+@app.delete("/api/v1/tokens/{token_id}")
+async def revoke_token(token_id: str, request: Request):
+    """Proxy to AI Platform /api/v1/api-keys/{id}."""
+    auth = request.headers.get("Authorization", "")
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            r = await ac.delete(f"/api/v1/api-keys/{token_id}", headers={"Authorization": auth})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+
 # ── Shutdown ───────────────────────────────────────────────────
 
 @app.post("/api/v1/chat")
