@@ -643,9 +643,10 @@ async def oauth_callback(request: Request, provider: str, code: str = None, stat
         create_session(conn, row["id"], token_str)
         conn.commit()
         log.info("OAuth login: provider=%s user='%s'", provider, row["username"])
-        # Redirect to portal SPA with token
-        portal_base = f"{request.url.scheme}://{request.headers.get('host', '')}"
-        return RedirectResponse(url=f"{portal_base}/?aither_token={token_str}")
+        # Redirect to portal SPA with token — use OAUTH_REDIRECT_BASE (preserves port)
+        redirect_url = f"{OAUTH_REDIRECT_BASE}/?aither_token={token_str}"
+        log.info("OAuth redirect: %s", redirect_url)
+        return RedirectResponse(url=redirect_url)
     finally:
         conn.close()
 
