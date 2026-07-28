@@ -852,25 +852,36 @@
         var q = ($('rag-query-input') && $('rag-query-input').value) || '';
         if (!q) return;
         setLoading(true);
+        $('rag-query-result').innerHTML = '<p class="text-muted">⏳ Ищу в базе знаний и генерирую ответ...</p>';
         try {
-            var r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q,top_k:8})});
+            var r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q,top_k:5})});
             var html = '';
-            if (r.ok && r.data && r.data.results && r.data.results.length > 0) {
-                html = '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">🔎 Найдено: <b>' + r.data.total + '</b> по запросу «' + escHtml(q) + '»</div>';
-                r.data.results.forEach(function(d, i) {
-                    html += '<div style="margin-bottom:10px;padding:10px;background:var(--bg-input);border-radius:6px;border-left:3px solid var(--primary);">' +
-                        '<div style="font-weight:600;font-size:13px;color:var(--text);">' + (i+1) + '. ' + escHtml(d.title||d.source) + '</div>' +
-                        '<div style="font-size:11px;color:var(--primary);margin:3px 0;">Score: ' + (d.score||0).toFixed(3) + ' | 📄 ' + escHtml(d.source) + '</div>' +
-                        '<div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:4px;">' + escHtml((d.text||'').substring(0,400)) + '...</div>' +
-                        '</div>';
-                });
-            } else if (r.ok) {
-                html = '<p class="text-muted">Ничего не найдено по запросу «' + escHtml(q) + '»</p>';
+            if (r.ok && r.data) {
+                // Answer from LLM
+                var answer = r.data.answer || 'Нет ответа';
+                html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;">' +
+                    '<div style="font-size:10px;color:var(--primary);margin-bottom:6px;">🤖 Ответ модели (' + (r.data.model||'RAG') + ')</div>' +
+                    '<div style="font-size:13px;line-height:1.6;white-space:pre-wrap;">' + formatMessage(answer) + '</div>' +
+                    '</div>';
+                // Sources
+                var sources = r.data.sources || [];
+                if (sources.length > 0) {
+                    html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">📚 Источники (' + sources.length + '):</div>';
+                    sources.forEach(function(s, i) {
+                        html += '<div style="font-size:11px;padding:4px 8px;margin:2px 0;background:var(--bg-input);border-radius:4px;">' +
+                            (i+1) + '. <b>' + escHtml(s.title||s.source) + '</b> ' +
+                            '<span style="color:var(--primary);">(' + (s.score||0).toFixed(2) + ')</span> ' +
+                            '<span style="color:var(--text-muted);">— ' + escHtml(s.source) + '</span>' +
+                            '</div>';
+                    });
+                }
             } else {
                 html = '<div style="color:var(--danger);">Ошибка: ' + (r.data?.detail||r.status) + '</div>';
             }
             $('rag-query-result').innerHTML = html;
-        } catch(e) {}
+        } catch(e) {
+            $('rag-query-result').innerHTML = '<div style="color:var(--danger);">Ошибка сети</div>';
+        }
         setLoading(false);
     };
 
@@ -880,32 +891,31 @@
     }
 
     window._chatRagSearch = async function() {
-        const q = ($('chat-rag-input') && $('chat-rag-input').value) || '';
+        var q = ($('chat-rag-input') && $('chat-rag-input').value) || '';
         if (!q) return;
         setLoading(true);
         try {
-            const r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q})});
-            const resultDiv = $('chat-rag-result');
-            if (resultDiv) {
-                resultDiv.style.display = 'block';
-                if (r.ok && r.data) {
-                    const results = r.data.results || [];
-                    if (results.length > 0) {
-                        resultDiv.innerHTML = '<b>🔍 RAG (' + results.length + ' док.):</b> ' +
-                            results.slice(0,3).map(function(d) {
-                                return '<span title="' + escHtml(d.text||'').substring(0,200) + '">' +
-                                    escHtml((d.title||d.source||'').substring(0,80)) +
-                                    ' (' + (d.score||0).toFixed(2) + ')</span>';
-                            }).join(' | ');
-                    } else {
-                        resultDiv.innerHTML = '<b>🔍 RAG:</b> ничего не найдено по запросу «' + escHtml(q) + '»';
-                    }
-                } else {
-                    resultDiv.innerHTML = '<b>❌ RAG:</b> ' + (r.data?.detail || 'Ошибка');
+            var r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q,top_k:3})});
+            if (r.ok && r.data) {
+                var answer = r.data.answer || 'Не удалось получить ответ.';
+                var sources = r.data.sources || [];
+                var srcInfo = '';
+                if (sources.length > 0) {
+                    srcInfo = '\n\n📚 Источники: ' + sources.map(function(s) {
+                        return s.title || s.source;
+                    }).join('; ');
                 }
+                addChatMessage('assistant', '🔍 RAG-ответ:\n\n' + answer + srcInfo, 'qwen-14b (RAG)');
+            } else {
+                addChatMessage('error', '❌ RAG: ' + (r.data?.detail || 'Ошибка'));
             }
             $('chat-rag-input').value = '';
-        } catch(e) {}
+            // Hide inline result div
+            var resultDiv = $('chat-rag-result');
+            if (resultDiv) resultDiv.style.display = 'none';
+        } catch(e) {
+            addChatMessage('error', '❌ RAG: ошибка сети');
+        }
         setLoading(false);
     };
 

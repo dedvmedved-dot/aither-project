@@ -946,26 +946,83 @@ async def rag_status(request: Request):
 
 @app.post("/api/v1/rag/query")
 async def rag_query(request: Request):
-    """Semantic search over RAG documents (token-overlap)."""
+    """True RAG: retrieve documents + generate answer with LLM context.
+
+    1. Search SimpleRAG for relevant documents
+    2. Build augmented prompt with retrieved context
+    3. Call LLM (qwen-14b) to generate answer from context
+    4. Return answer + sources
+    """
     user = await _get_user_from_token(request)
     _require_rag_scope(user, "rag:query")
     body = await request.json()
     query = (body.get("query") or "").strip()
     if not query:
         raise HTTPException(status_code=400, detail="query is required")
-    results = _rag.query(query, top_k=int(body.get("top_k", 5)))
+
+    # 1. Retrieve relevant documents
+    top_k = int(body.get("top_k", 5))
+    results = _rag.query(query, top_k=top_k)
+
+    if not results:
+        return {
+            "query": query,
+            "answer": "В базе знаний не найдено релевантных документов по вашему запросу.",
+            "sources": [],
+            "model": "rag-local",
+        }
+
+    # 2. Build context from retrieved documents
+    context_parts = []
+    for i, r in enumerate(results):
+        context_parts.append(f"[Документ {i+1}: {r['title']} (источник: {r['source']})]\n{r['text']}")
+    context = "\n\n---\n\n".join(context_parts)
+
+    # 3. Build augmented prompt
+    system_msg = (
+        "Ты — AI-ассистент платформы Aither. Отвечай на русском языке. "
+        "Используй ТОЛЬКО информацию из предоставленного контекста. "
+        "Если в контексте нет ответа, скажи об этом честно. "
+        "Не придумывай факты. Указывай источники в ответе."
+    )
+    user_msg = f"Контекст из базы знаний Aither:\n\n{context}\n\n---\n\nВопрос пользователя: {query}\n\nОтветь на вопрос, используя только информацию из контекста выше."
+
+    # 4. Call LLM
+    try:
+        async with httpx.AsyncClient(base_url=UPSTREAM_14B_URL, timeout=120.0) as ac:
+            chat_resp = await ac.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "qwen-14b",
+                    "messages": [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg},
+                    ],
+                    "max_tokens": 800,
+                    "temperature": 0.3,
+                    "stream": False,
+                },
+                headers={"Authorization": f"Bearer {UPSTREAM_14B_TOKEN}"},
+            )
+            if chat_resp.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"LLM error: {chat_resp.status_code}")
+
+            llm_data = chat_resp.json()
+            answer = llm_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if not answer:
+                answer = "Модель не смогла сгенерировать ответ."
+
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"LLM unreachable: {e}")
+
     return {
         "query": query,
-        "results": [
-            {
-                "source": r["source"],
-                "title": r["title"],
-                "score": r["score"],
-                "text": r["text"][:500],
-            }
+        "answer": answer,
+        "sources": [
+            {"source": r["source"], "title": r["title"], "score": r["score"]}
             for r in results
         ],
-        "total": len(results),
+        "model": "qwen-14b (RAG)",
     }
 
 
