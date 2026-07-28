@@ -505,9 +505,16 @@
     async function checkSession() {
         if (!authToken) return false;
         try {
-            const res = await api('/auth/me');
-            if (res.ok && res.data) {
-                currentUser = res.data;
+            // Direct fetch with Bearer token — OAuth flow has no cookie
+            const res = await fetch(API_URL + '/auth/me', {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                credentials: 'same-origin'
+            });
+            if (res.ok) {
+                currentUser = await res.json();
                 updateNav();
                 showPage('dashboard');
                 loadDashboardInfo();
