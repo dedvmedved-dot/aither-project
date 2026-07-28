@@ -90,14 +90,15 @@ async def get_client() -> httpx.AsyncClient:
         client = httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0)
     return client
 
-# In-memory cache of full API keys per user (key returned only at creation)
-# Maps username -> full_key
-_user_api_keys: dict[str, str] = {}
+# In-memory cache of full API keys per user — REMOVED (R7-R5-EMG-FE-02 S4)
+# Chat now uses delegation JWT (Variant A), not raw API keys.
+# No automatic key creation on cache miss. No process-memory credential storage.
+# _user_api_keys: dict[str, str] = {}
 
 # ── Auth helpers ────────────────────────────────────────────────
 
 async def _get_user_from_token(request: Request) -> dict:
-    """Validate Bearer token against Identity, return user dict."""
+    """Validate Bearer token against Identity, return user dict with org_id, scopes, disabled."""
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -106,7 +107,10 @@ async def _get_user_from_token(request: Request) -> dict:
             r = await ic.get("/v1/identity/me", headers={"Authorization": auth})
             if r.status_code != 200:
                 raise HTTPException(status_code=401, detail="Invalid token")
-            return r.json()
+            user_data = r.json()
+            if user_data.get("disabled"):
+                raise HTTPException(status_code=403, detail="Account disabled")
+            return user_data
     except httpx.RequestError:
         raise HTTPException(status_code=503, detail="Identity service unreachable")
 
@@ -115,20 +119,29 @@ def _require_admin(user: dict) -> None:
     if user.get("role") not in ("admin", "administrator"):
         raise HTTPException(status_code=403, detail="Admin role required")
 
-def _mint_delegation_jwt(user: dict, org_id: str = "") -> str:
-    """Create a short-lived RS256 delegation JWT for Gateway."""
+def _mint_delegation_jwt(user: dict) -> str:
+    """Create a short-lived RS256 delegation JWT for Gateway.
+
+    Claims: iss=aither-bff, aud=aither-gateway, org_id from identity,
+    tier from billing, actual scopes from identity. TTL ≤ 60s.
+    """
     if not _JWT_PRIVATE_KEY:
         raise HTTPException(status_code=500, detail="Delegation JWT signing key not configured")
     now = int(time.time())
+    org_id = str(user.get("org_id") or "1")  # "1" = default org, not "unknown"
+    scopes_str = user.get("scopes", "")
+    scopes = [s.strip() for s in scopes_str.split(",") if s.strip()] if scopes_str else [
+        "model:14b:chat", "model:32b:chat-adapter", "model:32b:completion",
+    ]
     payload = {
         "iss": "aither-bff",
         "aud": "aither-gateway",
         "sub": user.get("username", ""),
         "user_id": str(user.get("id", "")),
-        "org_id": org_id or "unknown",
+        "org_id": org_id,
         "role": user.get("role", "user"),
-        "tier": "free",
-        "scopes": ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"],
+        "tier": user.get("tier", "free"),  # from billing config
+        "scopes": scopes,
         "jti": uuid.uuid4().hex[:16],
         "iat": now,
         "nbf": now,
@@ -740,11 +753,15 @@ async def monitoring_summary(request: Request):
         raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 
 
-# ── Shutdown ───────────────────────────────────────────────────
+# ── Chat (Delegation JWT — Variant A) ────────────────────────────
 
 @app.post("/api/v1/chat")
 async def chat_completions(request: Request):
-    """Chat completions — validates user, gets API key, proxies to AI Platform."""
+    """Chat completions — delegation JWT auth (no raw API key storage).
+
+    Flow: Browser token → validate Identity → mint delegation JWT → Gateway → AI Platform.
+    No API keys stored in process memory. No automatic key creation.
+    """
     auth = request.headers.get("Authorization", "")
     body = await request.body()
 
@@ -759,53 +776,15 @@ async def chat_completions(request: Request):
     temperature = body_json.get("temperature", 0.7)
 
     # 1. Verify user identity
+    user = await _get_user_from_token(request)
+
+    # 2. Mint delegation JWT for Gateway (no raw API key!)
+    delegation_jwt = _mint_delegation_jwt(user)
+
+    # 3. Forward chat through Gateway with delegation JWT
     try:
-        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
-            user_resp = await ic.get("/v1/identity/me", headers={"Authorization": auth})
-            if user_resp.status_code != 200:
-                raise HTTPException(status_code=401, detail="Invalid token")
-            user = user_resp.json()
-    except httpx.RequestError:
-        raise HTTPException(status_code=503, detail="Identity service unreachable")
-
-    # 2. Get or create an API key for the user (cache full key in memory)
-    username = user.get("username", "unknown")
-    key_value = _user_api_keys.get(username)
-
-    if not key_value:
-        try:
-            async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
-                # Check if user already has keys
-                keys_resp = await ac.get("/api/v1/api-keys", headers={"Authorization": auth})
-                if keys_resp.status_code == 200:
-                    keys = keys_resp.json()
-                    active_keys = [k for k in keys if not k.get("revoked_at")]
-                    if active_keys:
-                        # Key exists but we don't have the full key — create a fresh one
-                        pass
-
-                # Create a new key (full key returned only on creation)
-                create_resp = await ac.post(
-                    "/api/v1/api-keys",
-                    json={
-                        "name": f"chat-{username}",
-                        "scopes": ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"],
-                    },
-                    headers={"Authorization": auth, "Content-Type": "application/json"},
-                )
-                if create_resp.status_code != 201:
-                    raise HTTPException(status_code=502, detail=f"Failed to create API key (status {create_resp.status_code})")
-                created = create_resp.json()
-                key_value = created.get("key") or created.get("full_key") or created.get("secret", "")
-                if key_value:
-                    _user_api_keys[username] = key_value
-        except httpx.HTTPError:
-            raise HTTPException(status_code=503, detail="AI Platform unreachable")
-
-    # 3. Forward to AI Platform chat completions
-    try:
-        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=120.0) as ac:
-            chat_resp = await ac.post(
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=120.0) as gc:
+            chat_resp = await gc.post(
                 "/v1/chat/completions",
                 json={
                     "model": model,
@@ -814,7 +793,10 @@ async def chat_completions(request: Request):
                     "temperature": temperature,
                     "stream": False,
                 },
-                headers={"Authorization": f"Bearer {key_value}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {delegation_jwt}",
+                    "Content-Type": "application/json",
+                },
             )
             return Response(
                 content=chat_resp.content,
@@ -822,7 +804,7 @@ async def chat_completions(request: Request):
                 media_type="application/json",
             )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 
 
 @app.on_event("startup")

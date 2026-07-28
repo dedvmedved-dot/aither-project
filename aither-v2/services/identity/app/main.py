@@ -185,11 +185,41 @@ def init_db():
             UNIQUE(provider, provider_user_id)
         );
 
-        CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
-        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-        CREATE INDEX IF NOT EXISTS idx_oauth_provider ON oauth_accounts(provider, provider_user_id);
+        CREATE TABLE IF NOT EXISTS organisations (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT UNIQUE NOT NULL,
+            tier        TEXT NOT NULL DEFAULT 'free',
+            status      TEXT NOT NULL DEFAULT 'active',
+            balance     INTEGER NOT NULL DEFAULT 0,
+            quota_daily INTEGER NOT NULL DEFAULT 1000,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        );
     """)
     conn.commit()
+
+    # Migration: add org_id to users if missing
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+    if "org_id" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN org_id INTEGER DEFAULT NULL REFERENCES organisations(id)")
+        conn.commit()
+
+    # Migration: add scopes to users if missing
+    if "scopes" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN scopes TEXT DEFAULT ''")
+        conn.commit()
+
+    # Ensure default organisation exists
+    org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
+    if not org:
+        conn.execute("INSERT INTO organisations (name, tier, status) VALUES ('default', 'free', 'active')")
+        conn.commit()
+        org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
+
+    # Assign default org to users without one
+    if org:
+        conn.execute("UPDATE users SET org_id=? WHERE org_id IS NULL", (org["id"],))
+        conn.commit()
+
     conn.close()
 
 # ── Utilities ──────────────────────────────────────────────────
@@ -210,13 +240,16 @@ def verify_password(plain: str, hashed: str) -> bool:
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
-def make_jwt(user_id: int, username: str, role: str) -> str:
+def make_jwt(user_id: int, username: str, role: str, org_id: int | None = None, scopes: str = "", disabled: bool = False) -> str:
     """Simple HMAC-based stateless token."""
     token = generate_token()
     payload = json.dumps({
         "uid": user_id,
         "sub": username,
         "role": role,
+        "org_id": org_id,
+        "scopes": scopes,
+        "disabled": disabled,
         "iat": int(time.time()),
         "exp": int(time.time()) + TOKEN_TTL,
         "jti": token,
@@ -347,6 +380,9 @@ class MeResponse(BaseModel):
     id: int
     username: str
     role: str
+    org_id: int | None = None
+    scopes: str = ""
+    disabled: bool = False
 
 class TokenResponse(BaseModel):
     token: str
@@ -634,12 +670,13 @@ async def oauth_callback(request: Request, provider: str, code: str = None, stat
     try:
         user_id = get_or_create_oauth_user(conn, provider, provider_user_id, email)
         row = conn.execute(
-            "SELECT id, username, role, disabled FROM users WHERE id=?",
+            "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE id=?",
             (user_id,),
         ).fetchone()
         if row["disabled"]:
             raise HTTPException(status_code=403, detail="Account disabled")
-        token_str = make_jwt(row["id"], row["username"], row["role"])
+        token_str = make_jwt(row["id"], row["username"], row["role"],
+                            org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]))
         create_session(conn, row["id"], token_str)
         conn.commit()
         log.info("OAuth login: provider=%s user='%s'", provider, row["username"])
@@ -667,7 +704,7 @@ async def ldap_login(req: LdapLoginRequest):
     conn = get_db()
     try:
         row = conn.execute(
-            "SELECT id, username, role, disabled FROM users WHERE username=?",
+            "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE username=?",
             (ldap_user["username"],),
         ).fetchone()
         if not row:
@@ -678,7 +715,7 @@ async def ldap_login(req: LdapLoginRequest):
             )
             user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             row = conn.execute(
-                "SELECT id, username, role, disabled FROM users WHERE id=?",
+                "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE id=?",
                 (user_id,),
             ).fetchone()
             log.info("LDAP: auto-created user '%s'", ldap_user["username"])
@@ -687,7 +724,8 @@ async def ldap_login(req: LdapLoginRequest):
             conn.close()
             raise HTTPException(status_code=403, detail="Account disabled")
 
-        token_str = make_jwt(row["id"], row["username"], row["role"])
+        token_str = make_jwt(row["id"], row["username"], row["role"],
+                            org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]))
         create_session(conn, row["id"], token_str)
         conn.commit()
         log.info("LDAP login: user='%s'", row["username"])
@@ -734,7 +772,7 @@ async def login(req: LoginRequest):
     """Authenticate a user and return a bearer token."""
     conn = get_db()
     row = conn.execute(
-        "SELECT id, username, password, role, disabled FROM users WHERE username=?",
+        "SELECT id, username, password, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE username=?",
         (req.username,),
     ).fetchone()
     conn.close()
@@ -750,7 +788,8 @@ async def login(req: LoginRequest):
         log.warning("Login failed: wrong password for '%s'", req.username)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = make_jwt(row["id"], row["username"], row["role"])
+    token = make_jwt(row["id"], row["username"], row["role"],
+                     org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]))
 
     conn = get_db()
     create_session(conn, row["id"], token)
@@ -781,11 +820,24 @@ async def logout(user: dict = Depends(get_current_user)):
 
 @app.get("/v1/identity/me")
 async def me(user: dict = Depends(get_current_user)):
-    """Get current user information."""
+    """Get current user information including org and scopes."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE id=?",
+        (user["uid"],),
+    ).fetchone()
+    conn.close()
+    if row is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    if row["disabled"]:
+        raise HTTPException(status_code=403, detail="Account disabled")
     return MeResponse(
-        id=user["uid"],
-        username=user["sub"],
-        role=user["role"],
+        id=row["id"],
+        username=row["username"],
+        role=row["role"],
+        org_id=row["org_id"],
+        scopes=row["scopes"],
+        disabled=bool(row["disabled"]),
     )
 
 # ── Routes: User Management ────────────────────────────────────
