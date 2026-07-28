@@ -671,6 +671,136 @@ async def admin_list_users(request: Request):
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Identity unreachable: {e}")
 
+@app.post("/api/v1/admin/users", status_code=201)
+async def admin_create_user(request: Request):
+    """Create a new user (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.post("/v1/identity/users", content=body,
+                            headers={"Authorization": request.headers.get("Authorization", ""),
+                                     "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity unreachable: {e}")
+
+@app.patch("/api/v1/admin/users/{user_id}/role")
+async def admin_patch_user_role(user_id: int, request: Request):
+    """Change user role (admin only). Cannot demote last admin."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.patch(f"/v1/identity/users/{user_id}/role", content=body,
+                             headers={"Authorization": request.headers.get("Authorization", ""),
+                                      "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity unreachable: {e}")
+
+@app.patch("/api/v1/admin/users/{user_id}/status")
+async def admin_patch_user_status(user_id: int, request: Request):
+    """Enable/disable user (admin only). Cannot disable last admin."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.patch(f"/v1/identity/users/{user_id}/status", content=body,
+                             headers={"Authorization": request.headers.get("Authorization", ""),
+                                      "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity unreachable: {e}")
+
+# ── Admin Organisation Management ────────────────────────────────
+
+@app.get("/api/v1/admin/orgs")
+async def admin_list_orgs(request: Request):
+    """List all organisations (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/organisations", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/admin/orgs/{org_id}")
+async def admin_get_org(org_id: int, request: Request):
+    """Get organisation details (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get(f"/admin/organisations/{org_id}", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.patch("/api/v1/admin/orgs/{org_id}/tier")
+async def admin_patch_org_tier(org_id: int, request: Request):
+    """Change organisation tier (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.patch(f"/admin/organisations/{org_id}/tier", content=body,
+                             headers={"Authorization": f"Bearer {jwt_token}",
+                                      "X-Admin-Key": GATEWAY_ADMIN_KEY,
+                                      "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.post("/api/v1/admin/orgs/{org_id}/credit")
+async def admin_org_credit(org_id: int, request: Request):
+    """Add credit to organisation (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.post(f"/admin/organisations/{org_id}/credit", content=body,
+                            headers={"Authorization": f"Bearer {jwt_token}",
+                                     "X-Admin-Key": GATEWAY_ADMIN_KEY,
+                                     "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.post("/api/v1/admin/orgs/{org_id}/debit")
+async def admin_org_debit(org_id: int, request: Request):
+    """Debit from organisation (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.post(f"/admin/organisations/{org_id}/debit", content=body,
+                            headers={"Authorization": f"Bearer {jwt_token}",
+                                     "X-Admin-Key": GATEWAY_ADMIN_KEY,
+                                     "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
 # ── Billing & Usage Facade (Portal Backend → Gateway) ──────────
 
 async def _proxy_to_gateway_user(request: Request, gw_path: str) -> Response:
@@ -695,6 +825,14 @@ async def billing_ledger(request: Request):
 @app.get("/api/v1/usage/me")
 async def usage_me(request: Request):
     return await _proxy_to_gateway_user(request, "/v1/usage/me")
+
+@app.get("/api/v1/usage/me/daily")
+async def usage_me_daily(request: Request):
+    return await _proxy_to_gateway_user(request, "/v1/usage/me/daily")
+
+@app.get("/api/v1/usage/me/models")
+async def usage_me_models(request: Request):
+    return await _proxy_to_gateway_user(request, "/v1/usage/me/models")
 
 # ── RAG Facade ──────────────────────────────────────────────────
 
@@ -729,6 +867,37 @@ async def rag_hybrid(request: Request):
         raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 
 
+# ── RAG Ingest (S9) ─────────────────────────────────────────────
+
+@app.post("/api/v1/rag/ingest")
+async def rag_ingest(request: Request):
+    """Ingest documents into RAG (requires rag:ingest scope)."""
+    user = await _get_user_from_token(request)
+    jwt_token = _mint_delegation_jwt(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=60.0) as gc:
+            r = await gc.post("/v1/rag/ingest", content=body,
+                            headers={"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.post("/api/v1/rag/wiki-ingest")
+async def rag_wiki_ingest(request: Request):
+    """Ingest wiki pages into RAG (requires rag:wiki-admin scope)."""
+    user = await _get_user_from_token(request)
+    jwt_token = _mint_delegation_jwt(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=120.0) as gc:
+            r = await gc.post("/v1/rag/wiki-ingest", content=body,
+                            headers={"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+
 # ── Monitoring Facade ────────────────────────────────────────────
 
 @app.get("/api/v1/monitoring/summary")
@@ -749,6 +918,62 @@ async def monitoring_summary(request: Request):
                 "dependencies": health_data.get("dependencies", {}),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/monitoring/models")
+async def monitoring_models(request: Request):
+    """Model metrics (admin/operator)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    return await _proxy_to_gateway_user(request, "/admin/models")
+
+@app.get("/api/v1/monitoring/security")
+async def monitoring_security(request: Request):
+    """Security events (admin/operator)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/security/events", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/monitoring/billing")
+async def monitoring_billing(request: Request):
+    """Billing metrics (admin/operator)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/billing/stats", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/monitoring/dependencies")
+async def monitoring_dependencies(request: Request):
+    """Service dependency status (admin/operator)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/health", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            health_data = r.json() if r.status_code == 200 else {}
+            return {"dependencies": health_data.get("dependencies", {})}
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 

@@ -880,6 +880,74 @@ async def create_user(req: UserCreate, admin: dict = Depends(require_admin)):
     finally:
         conn.close()
 
+@app.patch("/v1/identity/users/{user_id}/role")
+async def patch_user_role(
+    user_id: int,
+    request: Request,
+    admin: dict = Depends(require_admin),
+):
+    """Change a user's role (admin only). Cannot demote the last administrator."""
+    body = await request.json()
+    new_role = body.get("role")
+    if new_role not in ("administrator", "user"):
+        raise HTTPException(status_code=400, detail="Role must be 'administrator' or 'user'")
+
+    conn = get_db()
+    try:
+        # Prevent demoting last admin
+        if new_role != "administrator":
+            admin_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM users WHERE role='administrator' AND disabled=0"
+            ).fetchone()["cnt"]
+            target_role = conn.execute(
+                "SELECT role FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            if target_role and target_role["role"] == "administrator" and admin_count <= 1:
+                raise HTTPException(status_code=400, detail="Cannot demote the last administrator")
+
+        conn.execute("UPDATE users SET role=? WHERE id=?", (new_role, user_id))
+        conn.commit()
+        log.info("Admin '%s' changed role of user %d to '%s'", admin.get("sub"), user_id, new_role)
+        return {"message": f"User {user_id} role updated to '{new_role}'"}
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@app.patch("/v1/identity/users/{user_id}/status")
+async def patch_user_status(
+    user_id: int,
+    request: Request,
+    admin: dict = Depends(require_admin),
+):
+    """Enable or disable a user (admin only). Cannot disable the last administrator."""
+    body = await request.json()
+    disabled = body.get("disabled", False)
+
+    conn = get_db()
+    try:
+        # Prevent disabling last admin
+        if disabled:
+            admin_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM users WHERE role='administrator' AND disabled=0"
+            ).fetchone()["cnt"]
+            target = conn.execute(
+                "SELECT role FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            if target and target["role"] == "administrator" and admin_count <= 1:
+                raise HTTPException(status_code=400, detail="Cannot disable the last administrator")
+
+        conn.execute("UPDATE users SET disabled=? WHERE id=?", (1 if disabled else 0, user_id))
+        conn.commit()
+        log.info("Admin '%s' %s user %d", admin.get("sub"),
+                 "disabled" if disabled else "enabled", user_id)
+        return {"message": f"User {user_id} {'disabled' if disabled else 'enabled'}"}
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 # ── Routes: Status ─────────────────────────────────────────────
 
 @app.get("/v1/identity/status")
