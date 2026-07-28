@@ -69,6 +69,10 @@ async def get_client() -> httpx.AsyncClient:
         client = httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0)
     return client
 
+# In-memory cache of full API keys per user (key returned only at creation)
+# Maps username -> full_key
+_user_api_keys: dict[str, str] = {}
+
 # ── Models ─────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
@@ -454,33 +458,39 @@ async def chat_completions(request: Request):
     except httpx.RequestError:
         raise HTTPException(status_code=503, detail="Identity service unreachable")
 
-    # 2. Get or create an API key for the user
-    try:
-        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
-            # List existing keys
-            keys_resp = await ac.get("/api/v1/api-keys", headers={"Authorization": auth})
-            if keys_resp.status_code == 200:
-                keys = keys_resp.json()
-                active_keys = [k for k in keys if not k.get("revoked", False)]
-                if active_keys:
-                    key_value = active_keys[0].get("key") or active_keys[0].get("full_key", "")
-                else:
-                    # Create a new key
-                    create_resp = await ac.post(
-                        "/api/v1/api-keys",
-                        json={"name": f"chat-{user.get('username', 'user')}", "scopes": ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"]},
-                        headers={"Authorization": auth, "Content-Type": "application/json"},
-                    )
-                    if create_resp.status_code != 201:
-                        raise HTTPException(status_code=502, detail="Failed to create API key")
-                    key_value = create_resp.json().get("key") or create_resp.json().get("full_key", "")
-            else:
-                raise HTTPException(status_code=502, detail="Failed to list API keys")
-    except httpx.HTTPError:
-        raise HTTPException(status_code=503, detail="AI Platform unreachable")
+    # 2. Get or create an API key for the user (cache full key in memory)
+    username = user.get("username", "unknown")
+    key_value = _user_api_keys.get(username)
 
     if not key_value:
-        raise HTTPException(status_code=502, detail="No API key available")
+        try:
+            async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+                # Check if user already has keys
+                keys_resp = await ac.get("/api/v1/api-keys", headers={"Authorization": auth})
+                if keys_resp.status_code == 200:
+                    keys = keys_resp.json()
+                    active_keys = [k for k in keys if not k.get("revoked_at")]
+                    if active_keys:
+                        # Key exists but we don't have the full key — create a fresh one
+                        pass
+
+                # Create a new key (full key returned only on creation)
+                create_resp = await ac.post(
+                    "/api/v1/api-keys",
+                    json={
+                        "name": f"chat-{username}",
+                        "scopes": ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"],
+                    },
+                    headers={"Authorization": auth, "Content-Type": "application/json"},
+                )
+                if create_resp.status_code != 201:
+                    raise HTTPException(status_code=502, detail=f"Failed to create API key (status {create_resp.status_code})")
+                created = create_resp.json()
+                key_value = created.get("key") or created.get("full_key") or created.get("secret", "")
+                if key_value:
+                    _user_api_keys[username] = key_value
+        except httpx.HTTPError:
+            raise HTTPException(status_code=503, detail="AI Platform unreachable")
 
     # 3. Forward to AI Platform chat completions
     try:
