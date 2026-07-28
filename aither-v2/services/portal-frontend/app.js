@@ -70,6 +70,7 @@
         overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = 'none'; };
     }
     function closeModal() { $('modal-overlay').style.display = 'none'; }
+    window.closeModal = closeModal;
 
     function escHtml(s) {
         const d = document.createElement('div');
@@ -424,7 +425,7 @@
             </div>
             <div style="display:flex;gap:8px;margin-top:16px;">
                 <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать</button>
-                <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
+                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>
             </div>
         `);
     }
