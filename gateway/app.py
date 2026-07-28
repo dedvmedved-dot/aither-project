@@ -617,6 +617,132 @@ async def a_reaper(request: Request):
     return {"reaper": "running" if (db_ok and settings.billing_enabled) else "disabled", "db_available": db_ok}
 
 
+# ── Billing & Usage read endpoints ──────────────────────────────
+
+async def _auth(request: Request):
+    """Authenticate request and return AuthResult."""
+    token = request.headers.get("Authorization","").removeprefix("Bearer ").strip()
+    ar = await check_auth(token, request.app)
+    if ar.status != "ok":
+        raise HTTPException(401, detail="Authentication required")
+    return ar
+
+@app.get("/v1/billing/me")
+async def billing_me(request: Request):
+    """Get current user's billing balance from JWT org_id."""
+    ar = await _auth(request)
+    org_id = ar.org_id
+    db_pool = request.app.state.db
+    if not db_pool:
+        raise HTTPException(503, detail="Database unavailable")
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT balance, reserved, tier FROM billing_accounts WHERE org_id=%s",
+                (org_id,))
+            row = cur.fetchone()
+            if not row:
+                return {"org_id": org_id, "balance": 0, "reserved": 0, "available": 0, "tier": "free"}
+            balance, reserved, tier = row
+            return {
+                "org_id": org_id,
+                "tier": tier or "free",
+                "balance": int(balance or 0),
+                "reserved": int(reserved or 0),
+                "available": int(balance or 0) - int(reserved or 0),
+            }
+    finally:
+        db_pool.putconn(conn)
+
+@app.get("/v1/billing/me/ledger")
+async def billing_ledger(request: Request, limit: int = 20):
+    """Get billing ledger for current user's org."""
+    ar = await _auth(request)
+    org_id = ar.org_id
+    db_pool = request.app.state.db
+    if not db_pool:
+        raise HTTPException(503, detail="Database unavailable")
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT amount, operation, reservation_id, balance_after, created_at "
+                "FROM billing_ledger WHERE org_id=%s ORDER BY id DESC LIMIT %s",
+                (org_id, min(limit, 100)))
+            rows = cur.fetchall()
+            return {
+                "org_id": org_id,
+                "ledger": [
+                    {"amount": int(r[0]), "operation": r[1], "reference": r[2],
+                     "balance_after": int(r[3]), "created_at": r[4].isoformat() if r[4] else None}
+                    for r in rows
+                ]
+            }
+    finally:
+        db_pool.putconn(conn)
+
+@app.get("/v1/usage/me")
+async def usage_me(request: Request):
+    """Get usage summary for current user's org."""
+    ar = await _auth(request)
+    org_id = ar.org_id
+    db_pool = request.app.state.db
+    if not db_pool:
+        raise HTTPException(503, detail="Database unavailable")
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            # Total
+            cur.execute(
+                "SELECT count(*), coalesce(sum(amount),0) FROM billing_ledger "
+                "WHERE org_id=%s AND operation='settle'", (org_id,))
+            cnt, total_tokens = cur.fetchone()
+            # Today
+            cur.execute(
+                "SELECT count(*), coalesce(sum(amount),0) FROM billing_ledger "
+                "WHERE org_id=%s AND operation='settle' AND created_at > now() - interval '24 hours'",
+                (org_id,))
+            today_cnt, today_tokens = cur.fetchone()
+            return {
+                "org_id": org_id,
+                "total_requests": cnt or 0,
+                "total_tokens": int(total_tokens or 0),
+                "requests_today": today_cnt or 0,
+                "tokens_today": int(today_tokens or 0),
+            }
+    finally:
+        db_pool.putconn(conn)
+
+# ── Admin org billing ───────────────────────────────────────────
+
+@app.get("/admin/orgs/{org_id}/billing")
+async def admin_org_billing(org_id: str, request: Request):
+    _admin(request)
+    db_pool = request.app.state.db
+    if not db_pool:
+        raise HTTPException(503, detail="Database unavailable")
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT balance, reserved, tier FROM billing_accounts WHERE org_id=%s",
+                (org_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(404, detail="Org not found")
+            balance, reserved, tier = row
+            return {
+                "org_id": org_id,
+                "tier": tier or "free",
+                "balance": int(balance or 0),
+                "reserved": int(reserved or 0),
+                "available": int(balance or 0) - int(reserved or 0),
+            }
+    finally:
+        db_pool.putconn(conn)
+
+
 # ── RAG endpoints with FULL security pipeline (CHANGE-0022-C3) ─────────
 
 def _has_rag_scope(ar) -> bool:

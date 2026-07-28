@@ -121,7 +121,7 @@ def _mint_delegation_jwt(user: dict, org_id: str = "") -> str:
         raise HTTPException(status_code=500, detail="Delegation JWT signing key not configured")
     now = int(time.time())
     payload = {
-        "iss": "aither-portal-backend",
+        "iss": "aither-bff",
         "aud": "aither-gateway",
         "sub": user.get("username", ""),
         "user_id": str(user.get("id", "")),
@@ -657,6 +657,63 @@ async def admin_list_users(request: Request):
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Identity unreachable: {e}")
+
+# ── Billing & Usage Facade (Portal Backend → Gateway) ──────────
+
+async def _proxy_to_gateway_user(request: Request, gw_path: str) -> Response:
+    """Proxy request to Gateway with delegation JWT for the authenticated user."""
+    user = await _get_user_from_token(request)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get(gw_path, headers={"Authorization": f"Bearer {jwt_token}"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/billing/me")
+async def billing_me(request: Request):
+    return await _proxy_to_gateway_user(request, "/v1/billing/me")
+
+@app.get("/api/v1/billing/me/ledger")
+async def billing_ledger(request: Request):
+    return await _proxy_to_gateway_user(request, "/v1/billing/me/ledger")
+
+@app.get("/api/v1/usage/me")
+async def usage_me(request: Request):
+    return await _proxy_to_gateway_user(request, "/v1/usage/me")
+
+# ── RAG Facade ──────────────────────────────────────────────────
+
+@app.get("/api/v1/rag/status")
+async def rag_status(request: Request):
+    return await _proxy_to_gateway_user(request, "/v1/rag/status")
+
+@app.post("/api/v1/rag/query")
+async def rag_query(request: Request):
+    user = await _get_user_from_token(request)
+    jwt_token = _mint_delegation_jwt(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=30.0) as gc:
+            r = await gc.post("/v1/rag/query", content=body,
+                            headers={"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.post("/api/v1/rag/hybrid-query")
+async def rag_hybrid(request: Request):
+    user = await _get_user_from_token(request)
+    jwt_token = _mint_delegation_jwt(user)
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=30.0) as gc:
+            r = await gc.post("/v1/rag/hybrid-query", content=body,
+                            headers={"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 
 
 # ── Shutdown ───────────────────────────────────────────────────
