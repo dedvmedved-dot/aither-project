@@ -143,20 +143,69 @@ textarea { resize: vertical; min-height: 60px; }
 .badge-disabled { color: var(--warning); font-weight: 500; }
 .badge-revoked { color: var(--danger); font-weight: 500; }
 
-/* Chat */
-.chat-container {
+/* Chat layout — sidebar + main */
+.chat-layout {
+  display: flex; height: calc(100vh - 80px);
+  max-width: 1100px; margin: 0 auto; gap: 0;
+}
+.chat-list-panel {
+  width: 230px; min-width: 200px; flex-shrink: 0;
   display: flex; flex-direction: column;
-  height: calc(100vh - 130px);
-  max-width: 800px; margin: 0 auto;
+  background: var(--bg-card); border-right: 1px solid var(--border);
+  border-radius: 8px 0 0 8px;
 }
-.chat-sidebar {
-  display: flex; gap: 10px; flex-wrap: wrap;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
+.chat-list {
+  flex: 1; overflow-y: auto; padding: 4px;
 }
-.chat-sidebar .token-counter {
-  font-size: 11px; padding: 4px 10px; border-radius: 20px;
+.chat-list-item {
+  position: relative;
+  padding: 10px 12px; margin: 2px 0;
+  border-radius: 6px; cursor: pointer;
+  transition: background 0.15s; border: 1px solid transparent;
+}
+.chat-list-item:hover { background: var(--bg-card-hover); border-color: var(--border); }
+.chat-list-item.active {
+  background: rgba(99,102,241,0.12); border-color: var(--primary);
+}
+.chat-list-title {
+  font-size: 12px; font-weight: 500; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding-right: 18px; line-height: 1.3;
+}
+.chat-list-item.active .chat-list-title { color: var(--primary); }
+.chat-list-meta {
+  font-size: 10px; color: var(--text-muted); margin-top: 3px;
+}
+.btn-chat-delete {
+  position: absolute; top: 8px; right: 8px;
+  width: 18px; height: 18px; border: none; background: transparent;
+  color: var(--text-muted); font-size: 16px; cursor: pointer;
+  line-height: 1; padding: 0; border-radius: 3px;
+  display: none; align-items: center; justify-content: center;
+}
+.chat-list-item:hover .btn-chat-delete { display: flex; }
+.btn-chat-delete:hover { color: var(--danger); background: rgba(239,68,68,0.15); }
+.chat-list-footer {
+  padding: 8px 10px; border-top: 1px solid var(--border);
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.chat-list-footer .token-counter {
+  font-size: 10px; padding: 3px 8px; border-radius: 20px;
   background: rgba(99,102,241,0.1); color: var(--primary); font-weight: 500;
   white-space: nowrap;
+}
+.btn-new-chat {
+  margin: 8px; width: auto;
+  font-size: 12px; padding: 8px 14px;
+  border-radius: 6px;
+}
+.chat-list-empty {
+  padding: 20px 12px; text-align: center; font-size: 11px;
+}
+
+.chat-main {
+  flex: 1; display: flex; flex-direction: column;
+  min-width: 0; padding: 0 16px;
 }
 /* RAG search bar — above messages, full width */
 .rag-search-bar {
@@ -300,7 +349,9 @@ code {
   .nav-links { order: 3; width: 100%; justify-content: center; }
   .chat-msg { max-width: 95%; }
   .cards-grid { grid-template-columns: 1fr; }
-  .chat-container { max-width: 100%; }
+  .chat-layout { flex-direction: column; }
+  .chat-list-panel { width: 100%; min-width: 0; max-height: 120px; border-right: none; border-bottom: 1px solid var(--border); border-radius: 8px 8px 0 0; }
+  .chat-main { padding: 0; }
   .chat-textarea { max-width: 100%; }
   .rag-search-bar { flex-direction: column; }
   .rag-search-bar input { min-width: 100%; }

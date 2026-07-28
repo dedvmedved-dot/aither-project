@@ -5,7 +5,8 @@
     const API_URL = '/api/v1';
     let authToken = localStorage.getItem('aither_token') || null;
     let currentUser = null;
-    let chatHistory = []; // client-side chat history
+    let chatSessions = []; // all saved chat sessions
+    let currentSessionId = null; // active session ID
 
     function getBackendUrl() {
         return '';  // same-origin — nginx proxies /v1/identity/ to identity service
@@ -14,9 +15,119 @@
     const $ = (id) => document.getElementById(id);
     const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile','admin','tariffs','billing','usage','wiki','rag','monitoring'];
 
-    // Token counter state
-    let chatTokensUsed = 0;
-    let chatRequestsMade = 0;
+    // generate a simple unique ID
+    function uid() {
+        return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // ── Multi-session Chat Model ─────────────────────────────────
+    function getCurrentSession() {
+        if (!currentSessionId) {
+            // Create a new session if none active
+            currentSessionId = uid();
+            var s = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen-14b', history: [], tokens: 0, requests: 0 };
+            chatSessions.unshift(s);
+            saveChatSessions();
+            return s;
+        }
+        var found = null;
+        for (var i = 0; i < chatSessions.length; i++) {
+            if (chatSessions[i].id === currentSessionId) { found = chatSessions[i]; break; }
+        }
+        if (!found) {
+            found = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen-14b', history: [], tokens: 0, requests: 0 };
+            chatSessions.unshift(found);
+            saveChatSessions();
+        }
+        return found;
+    }
+
+    function getChatHistory() { return getCurrentSession().history; }
+    function getChatTokens() { return getCurrentSession().tokens; }
+    function getChatRequests() { return getCurrentSession().requests; }
+
+    function saveChatSessions() {
+        try {
+            // Keep max 30 sessions, trim oldest
+            if (chatSessions.length > 30) chatSessions = chatSessions.slice(0, 30);
+            localStorage.setItem('aither_chats', JSON.stringify(chatSessions));
+            localStorage.setItem('aither_current_chat', currentSessionId || '');
+        } catch(e) {}
+    }
+
+    function loadChatSessions() {
+        try {
+            var raw = localStorage.getItem('aither_chats');
+            if (raw) {
+                chatSessions = JSON.parse(raw);
+                if (!Array.isArray(chatSessions)) chatSessions = [];
+            }
+            // Migrate from old single-chat format
+            if (chatSessions.length === 0) {
+                var oldRaw = localStorage.getItem('aither_chat');
+                if (oldRaw) {
+                    var old = JSON.parse(oldRaw);
+                    if (old && old.history && old.history.length > 0) {
+                        var sid = uid();
+                        chatSessions = [{
+                            id: sid, title: titleFromHistory(old.history),
+                            timestamp: new Date().toISOString(), model: 'qwen-14b',
+                            history: old.history, tokens: old.tokens || 0, requests: old.requests || 0
+                        }];
+                        localStorage.removeItem('aither_chat');
+                    }
+                }
+            }
+            var savedId = localStorage.getItem('aither_current_chat') || '';
+            currentSessionId = savedId || (chatSessions.length > 0 ? chatSessions[0].id : null);
+        } catch(e) {
+            chatSessions = [];
+            currentSessionId = null;
+        }
+    }
+
+    function titleFromHistory(history) {
+        if (!history || history.length === 0) return 'Новый чат';
+        for (var i = 0; i < history.length; i++) {
+            if (history[i].role === 'user') {
+                var t = history[i].content || '';
+                return t.length > 50 ? t.substring(0, 47) + '...' : t;
+            }
+        }
+        return 'Новый чат';
+    }
+
+    function updateTokenCounters() {
+        var s = getCurrentSession();
+        if ($('chat-token-count')) $('chat-token-count').textContent = (s.tokens || 0).toLocaleString();
+        if ($('chat-request-count')) $('chat-request-count').textContent = s.requests || 0;
+    }
+
+    function renderChatList() {
+        var list = $('chat-list');
+        if (!list) return;
+        if (chatSessions.length === 0) {
+            list.innerHTML = '<p class="text-muted chat-list-empty">Нет сохранённых чатов</p>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < chatSessions.length; i++) {
+            var s = chatSessions[i];
+            var isActive = s.id === currentSessionId;
+            var dateStr = '';
+            try { dateStr = new Date(s.timestamp).toLocaleDateString('ru-RU', {day:'numeric',month:'short'}); } catch(e) {}
+            html += '<div class="chat-list-item' + (isActive ? ' active' : '') + '" data-sid="' + escAttr(s.id) + '" onclick="window._switchChat(\'' + escAttr(s.id) + '\')">' +
+                '<div class="chat-list-title">' + escHtml(s.title || 'Новый чат') + '</div>' +
+                '<div class="chat-list-meta">' + (dateStr || '—') + ' · ' + (s.history ? s.history.length : 0) + ' сообщ.</div>' +
+                '<button class="btn-chat-delete" onclick="event.stopPropagation();window._deleteChat(\'' + escAttr(s.id) + '\')" title="Удалить">×</button>' +
+                '</div>';
+        }
+        list.innerHTML = html;
+    }
+
+    function escAttr(s) {
+        return (s || '').replace(/&/g, '&amp;').replace(/\"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
+    }
 
     // Zone detection
     function detectZone() {
@@ -281,8 +392,12 @@
     async function handleLogout() {
         setLoading(true);
         try { await api('/auth/logout', { method: 'POST' }); } catch {}
-        authToken = null; currentUser = null; chatHistory = [];
+        authToken = null; currentUser = null;
+        chatSessions = [];
+        currentSessionId = null;
         localStorage.removeItem('aither_token');
+        localStorage.removeItem('aither_chats');
+        localStorage.removeItem('aither_current_chat');
         localStorage.removeItem('aither_chat');
         localStorage.removeItem('aither_page');
         updateNav(); showPage('login');
@@ -377,9 +492,9 @@
     }
 
     async function sendChatMessage() {
-        const input = $('chat-input');
-        const model = $('chat-model-select')?.value || 'qwen-14b';
-        const content = input.value.trim();
+        var input = $('chat-input');
+        var model = $('chat-model-select')?.value || 'qwen-14b';
+        var content = input.value.trim();
         if (!content) return;
 
         if (authToken === null) {
@@ -392,18 +507,25 @@
         addChatMessage('assistant', '⏳ Генерация ответа...', model);
         $('btn-send-message').disabled = true;
 
-        const maxTokens = parseInt($('chat-max-tokens')?.value) || 512;
-        const temperature = parseFloat($('chat-temperature')?.value) || 0.7;
-        // Update chat history
-        chatHistory.push({ role: 'user', content: content });
-        saveChatState();
+        var maxTokens = parseInt($('chat-max-tokens')?.value) || 512;
+        var temperature = parseFloat($('chat-temperature')?.value) || 0.7;
+        // Update session history
+        var session = getCurrentSession();
+        session.history.push({ role: 'user', content: content });
+        session.model = model;
+        // Auto-title from first user message
+        if (session.title === 'Новый чат') {
+            session.title = content.length > 50 ? content.substring(0, 47) + '...' : content;
+        }
+        saveChatSessions();
+        renderChatList();
 
         try {
             const res = await api('/chat', {
                 method: 'POST',
                 body: JSON.stringify({
                     model: model,
-                    messages: chatHistory.slice(-20),
+                    messages: session.history.slice(-20),
                     max_tokens: maxTokens,
                     temperature: temperature,
                 }),
@@ -430,16 +552,17 @@
                     reply = res.data.choices?.[0]?.text || 'Пустой ответ от модели.';
                 }
 
-                chatHistory.push({ role: 'assistant', content: reply, model: model });
+                session.history.push({ role: 'assistant', content: reply, model: model });
                 addChatMessage('assistant', reply, model);
                 if (res.data.usage) {
-                    chatTokensUsed += (res.data.usage.total_tokens || 0);
+                    session.tokens += (res.data.usage.total_tokens || 0);
                 } else {
-                    chatTokensUsed += Math.round(reply.length / 4);
+                    session.tokens += Math.round(reply.length / 4);
                 }
-                chatRequestsMade++;
+                session.requests++;
                 updateTokenCounters();
-                saveChatState();
+                saveChatSessions();
+                renderChatList();
             } else {
                 const detail = res.data?.detail || res.data?.error || '';
                 showChatError(res.status, detail);
@@ -455,51 +578,37 @@
     }
 
     function clearChat() {
-        chatHistory = [];
-        chatTokensUsed = 0;
-        chatRequestsMade = 0;
+        var s = getCurrentSession();
+        s.history = [];
+        s.tokens = 0;
+        s.requests = 0;
+        s.title = 'Новый чат';
         updateTokenCounters();
         var msgs = $('chat-messages');
         if (msgs) { msgs.innerHTML = ''; }
-        saveChatState();
+        saveChatSessions();
+        renderChatList();
     }
 
-    // ── Chat persistence ────────────────────────────────────────
-    function saveChatState() {
-        try {
-            var state = {
-                history: chatHistory.slice(-50),  // last 50 messages
-                tokens: chatTokensUsed,
-                requests: chatRequestsMade,
-            };
-            localStorage.setItem('aither_chat', JSON.stringify(state));
-        } catch(e) {}
-    }
-
-    function loadChatState() {
-        try {
-            var raw = localStorage.getItem('aither_chat');
-            if (!raw) return null;
-            var state = JSON.parse(raw);
-            if (state.history && Array.isArray(state.history)) {
-                chatHistory = state.history;
-                chatTokensUsed = state.tokens || 0;
-                chatRequestsMade = state.requests || 0;
-                updateTokenCounters();
-                return chatHistory;
-            }
-        } catch(e) {}
-        return null;
-    }
-
-    function restoreChatMessages() {
-        var history = loadChatState();
-        if (!history || history.length === 0) return;
+    // ── Multi-session chat ops ────────────────────────────────────
+    window._switchChat = function(sessionId) {
+        // Save current before switching
+        saveChatSessions();
+        currentSessionId = sessionId;
+        localStorage.setItem('aither_current_chat', currentSessionId);
+        var s = getCurrentSession();
+        // Restore model
+        if (s.model && $('chat-model-select')) {
+            $('chat-model-select').value = s.model;
+        }
+        updateModelInfo();
+        // Restore messages
         var msgs = $('chat-messages');
         if (!msgs) return;
         msgs.innerHTML = '';
-        for (var i = 0; i < history.length; i++) {
-            var msg = history[i];
+        var h = s.history || [];
+        for (var i = 0; i < h.length; i++) {
+            var msg = h[i];
             if (msg.role === 'user') {
                 addChatMessage('user', msg.content);
             } else if (msg.role === 'assistant') {
@@ -508,6 +617,75 @@
                 addChatMessage('error', msg.content);
             }
         }
+        updateTokenCounters();
+        renderChatList();
+    };
+
+    window._deleteChat = function(sessionId) {
+        var filtered = [];
+        for (var i = 0; i < chatSessions.length; i++) {
+            if (chatSessions[i].id !== sessionId) filtered.push(chatSessions[i]);
+        }
+        chatSessions = filtered;
+        saveChatSessions();
+        if (sessionId === currentSessionId) {
+            currentSessionId = chatSessions.length > 0 ? chatSessions[0].id : null;
+            if (currentSessionId) {
+                window._switchChat(currentSessionId);
+            } else {
+                // No sessions left, create new
+                currentSessionId = uid();
+                var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen-14b', history: [], tokens: 0, requests: 0 };
+                chatSessions = [ns];
+                saveChatSessions();
+                var msgs = $('chat-messages');
+                if (msgs) msgs.innerHTML = '';
+                updateTokenCounters();
+            }
+        }
+        renderChatList();
+    };
+
+    window._newChat = function() {
+        saveChatSessions();
+        currentSessionId = uid();
+        var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: $('chat-model-select')?.value || 'qwen-14b', history: [], tokens: 0, requests: 0 };
+        chatSessions.unshift(ns);
+        // Reset UI
+        var msgs = $('chat-messages');
+        if (msgs) msgs.innerHTML = '';
+        // Reset model select to default if needed
+        if ($('chat-model-select')) $('chat-model-select').value = 'qwen-14b';
+        updateModelInfo();
+        updateTokenCounters();
+        saveChatSessions();
+        renderChatList();
+    };
+
+    // Legacy names for backward compat (used by checkSession and other parts)
+    function saveChatState() { saveChatSessions(); }
+    function loadChatState() {
+        loadChatSessions();
+        return getCurrentSession().history;
+    }
+    function restoreChatMessages() {
+        var s = getCurrentSession();
+        var msgs = $('chat-messages');
+        if (!msgs) return;
+        msgs.innerHTML = '';
+        var h = s.history || [];
+        for (var i = 0; i < h.length; i++) {
+            var msg = h[i];
+            if (msg.role === 'user') {
+                addChatMessage('user', msg.content);
+            } else if (msg.role === 'assistant') {
+                addChatMessage('assistant', msg.content, msg.model || '');
+            } else if (msg.role === 'error') {
+                addChatMessage('error', msg.content);
+            }
+        }
+        updateTokenCounters();
+        renderChatList();
     }
 
     // ── API Keys ───────────────────────────────────────────────
@@ -762,12 +940,15 @@
 
     // ── Init ──────────────────────────────────────────────────
     function init() {
+        // Load sessions early
+        loadChatSessions();
         updateNav();
         $('login-form')?.addEventListener('submit', handleLogin);
         $('btn-logout')?.addEventListener('click', handleLogout);
         $('btn-create-apikey')?.addEventListener('click', showCreateTokenModal);
         $('btn-send-message')?.addEventListener('click', sendChatMessage);
         $('btn-clear-chat')?.addEventListener('click', clearChat);
+        $('btn-new-chat')?.addEventListener('click', window._newChat);
         $('btn-submit-feedback')?.addEventListener('click', function() {
             showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
             $('feedback-message').value = '';
@@ -901,7 +1082,7 @@
                 // Fallback: show user's tier and current counters
                 $('billing-balance').innerHTML = '<div>Баланс: <b>0</b></div><div class="text-muted">Биллинг-сервис недоступен</div>';
                 $('billing-tier').innerHTML = '<div>Тариф: <b style="color:var(--primary)">' + (currentUser?.tier || 'free') + '</b></div><div class="text-muted">Для изменения перейдите на вкладку 💳 Тарифы</div>';
-                $('billing-stats').innerHTML = '<div>Запросов (сессия): <b>' + chatRequestsMade + '</b></div><div>Токенов (сессия): <b>' + chatTokensUsed + '</b></div>';
+                $('billing-stats').innerHTML = '<div>Запросов (сессия): <b>' + getCurrentSession().requests + '</b></div><div>Токенов (сессия): <b>' + getCurrentSession().tokens + '</b></div>';
             }
             // Ledger
             try {
@@ -930,10 +1111,10 @@
                 $('usage-today').innerHTML = '\n                    <div>Запросов сегодня: <b>' + (u.data.requests_today||0) + '</b></div>\n                    <div>Всего запросов: ' + (u.data.total_requests||0) + '</div>';
                 $('usage-tokens').innerHTML = '\n                    <div>Входных токенов: <b>' + (u.data.input_tokens||u.data.tokens_today||0) + '</b></div>\n                    <div>Выходных токенов: <b>' + (u.data.output_tokens||0) + '</b></div>\n                    <div>Всего токенов: ' + (u.data.total_tokens||0) + '</div>';
             } else {
-                $('usage-today').innerHTML = '<div>Запросов (сессия): <b>' + chatRequestsMade + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
-                $('usage-tokens').innerHTML = '<div>Токенов (сессия): <b>' + chatTokensUsed + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
+                $('usage-today').innerHTML = '<div>Запросов (сессия): <b>' + getCurrentSession().requests + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
+                $('usage-tokens').innerHTML = '<div>Токенов (сессия): <b>' + getCurrentSession().tokens + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
             }
-            $('usage-models').innerHTML = '<div class="text-muted">📊 По моделям — статистика сессии:</div>\n                <div>qwen-14b: используется ' + (chatRequestsMade > 0 ? '✓' : '—') + '</div>\n                <div>qwen-32b-base: используется ' + (chatRequestsMade > 0 ? '✓' : '—') + '</div>';
+            $('usage-models').innerHTML = '<div class="text-muted">📊 По моделям — статистика сессии:</div>\n                <div>qwen-14b: используется ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>\n                <div>qwen-32b-base: используется ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>';
         } catch(e) {
             $('usage-today').innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
         }
@@ -998,11 +1179,6 @@
         setLoading(false);
     };
 
-    function updateTokenCounters() {
-        if ($('chat-token-count')) $('chat-token-count').textContent = chatTokensUsed.toLocaleString();
-        if ($('chat-request-count')) $('chat-request-count').textContent = chatRequestsMade;
-    }
-
     window._chatRagSearch = async function() {
         var q = ($('chat-rag-input') && $('chat-rag-input').value) || '';
         if (!q) return;
@@ -1019,8 +1195,10 @@
                     }).join('; ');
                 }
                 addChatMessage('assistant', '🔍 RAG-ответ:\n\n' + answer + srcInfo, 'qwen-14b (RAG)');
-                chatHistory.push({ role: 'assistant', content: '🔍 RAG-ответ:\n\n' + answer + srcInfo, model: 'qwen-14b (RAG)' });
-                saveChatState();
+                var session = getCurrentSession();
+                session.history.push({ role: 'assistant', content: '🔍 RAG-ответ:\n\n' + answer + srcInfo, model: 'qwen-14b (RAG)' });
+                saveChatSessions();
+                renderChatList();
             } else {
                 addChatMessage('error', '❌ RAG: ' + (r.data?.detail || 'Ошибка'));
             }

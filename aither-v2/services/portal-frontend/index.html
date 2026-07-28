@@ -116,35 +116,45 @@
 
   <!-- Chat Page -->
   <div class="page" id="page-chat">
-    <div class="chat-container">
-      <div class="chat-sidebar">
-        <span class="token-counter">🪙 Токены: <b id="chat-token-count">0</b></span>
-        <span class="token-counter">📝 Запросов: <b id="chat-request-count">0</b></span>
+    <div class="chat-layout">
+      <!-- Chat list sidebar -->
+      <div class="chat-list-panel" id="chat-list-panel">
+        <button class="btn btn-primary btn-block btn-new-chat" id="btn-new-chat">＋ Новый чат</button>
+        <div class="chat-list" id="chat-list">
+          <p class="text-muted chat-list-empty">Нет сохранённых чатов</p>
+        </div>
+        <div class="chat-list-footer">
+          <span class="token-counter">🪙 <b id="chat-token-count">0</b></span>
+          <span class="token-counter">📝 <b id="chat-request-count">0</b></span>
+        </div>
       </div>
-      <div class="chat-controls">
-        <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Модель:</label>
-        <select id="chat-model-select" class="form-input" style="min-width:200px;">
-          <option value="qwen-14b">qwen-14b (Чат-модель)</option>
-          <option value="qwen-32b-base">qwen-32b-base (Базовая)</option>
-        </select>
-        <span id="chat-model-info" class="text-muted"></span>
-        <button class="btn btn-sm btn-outline" id="btn-clear-chat" style="margin-left:auto;">Очистить</button>
-      </div>
-      <!-- RAG search above chat messages -->
-      <div class="rag-search-bar" id="rag-search-bar">
-        <input type="text" id="chat-rag-input" placeholder="🔍 RAG-поиск по базе знаний (Wiki-Graph)..." class="form-input" style="flex:1;">
-        <button class="btn btn-sm btn-outline" onclick="window._chatRagSearch()">Искать в RAG</button>
-        <div id="chat-rag-result" class="rag-result-inline" style="display:none;"></div>
-      </div>
-      <div class="chat-label">
-        <span>💬 qwen-14b — чат-модель для диалогов</span>
-        <span style="color:var(--text-muted);">|</span>
-        <span>qwen-32b-base — базовая модель для продолжения текста</span>
-      </div>
-      <div class="chat-messages" id="chat-messages"></div>
-      <div class="chat-input-area">
-        <textarea id="chat-input" class="form-input chat-textarea" placeholder="Введите сообщение... (Enter — отправить, Shift+Enter — новая строка)" rows="2"></textarea>
-        <button class="btn btn-primary" id="btn-send-message">▶ Отправить</button>
+      <!-- Main chat area -->
+      <div class="chat-main">
+        <div class="chat-controls">
+          <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Модель:</label>
+          <select id="chat-model-select" class="form-input" style="min-width:180px;">
+            <option value="qwen-14b">qwen-14b (Чат-модель)</option>
+            <option value="qwen-32b-base">qwen-32b-base (Базовая)</option>
+          </select>
+          <span id="chat-model-info" class="text-muted"></span>
+          <button class="btn btn-sm btn-outline" id="btn-clear-chat" style="margin-left:auto;">Очистить</button>
+        </div>
+        <!-- RAG search above chat messages -->
+        <div class="rag-search-bar" id="rag-search-bar">
+          <input type="text" id="chat-rag-input" placeholder="🔍 RAG-поиск по базе знаний (Wiki-Graph)..." class="form-input" style="flex:1;">
+          <button class="btn btn-sm btn-outline" onclick="window._chatRagSearch()">Искать в RAG</button>
+          <div id="chat-rag-result" class="rag-result-inline" style="display:none;"></div>
+        </div>
+        <div class="chat-label">
+          <span>💬 qwen-14b — чат-модель для диалогов</span>
+          <span style="color:var(--text-muted);">|</span>
+          <span>qwen-32b-base — базовая модель для продолжения текста</span>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-area">
+          <textarea id="chat-input" class="form-input chat-textarea" placeholder="Введите сообщение... (Enter — отправить, Shift+Enter — новая строка)" rows="2"></textarea>
+          <button class="btn btn-primary" id="btn-send-message">▶ Отправить</button>
+        </div>
       </div>
     </div>
   </div>
