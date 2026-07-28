@@ -53,6 +53,8 @@
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.toggle('active', link.dataset.page === id);
         });
+        // Persist current page
+        try { localStorage.setItem('aither_page', id); } catch(e) {}
     }
 
     function showAlert(id, msg, type) {
@@ -281,6 +283,8 @@
         try { await api('/auth/logout', { method: 'POST' }); } catch {}
         authToken = null; currentUser = null; chatHistory = [];
         localStorage.removeItem('aither_token');
+        localStorage.removeItem('aither_chat');
+        localStorage.removeItem('aither_page');
         updateNav(); showPage('login');
         setLoading(false);
     }
@@ -390,8 +394,9 @@
 
         const maxTokens = parseInt($('chat-max-tokens')?.value) || 512;
         const temperature = parseFloat($('chat-temperature')?.value) || 0.7;
-
+        // Update chat history
         chatHistory.push({ role: 'user', content: content });
+        saveChatState();
 
         try {
             const res = await api('/chat', {
@@ -425,7 +430,7 @@
                     reply = res.data.choices?.[0]?.text || 'Пустой ответ от модели.';
                 }
 
-                chatHistory.push({ role: 'assistant', content: reply });
+                chatHistory.push({ role: 'assistant', content: reply, model: model });
                 addChatMessage('assistant', reply, model);
                 if (res.data.usage) {
                     chatTokensUsed += (res.data.usage.total_tokens || 0);
@@ -434,6 +439,7 @@
                 }
                 chatRequestsMade++;
                 updateTokenCounters();
+                saveChatState();
             } else {
                 const detail = res.data?.detail || res.data?.error || '';
                 showChatError(res.status, detail);
@@ -455,6 +461,53 @@
         updateTokenCounters();
         var msgs = $('chat-messages');
         if (msgs) { msgs.innerHTML = ''; }
+        saveChatState();
+    }
+
+    // ── Chat persistence ────────────────────────────────────────
+    function saveChatState() {
+        try {
+            var state = {
+                history: chatHistory.slice(-50),  // last 50 messages
+                tokens: chatTokensUsed,
+                requests: chatRequestsMade,
+            };
+            localStorage.setItem('aither_chat', JSON.stringify(state));
+        } catch(e) {}
+    }
+
+    function loadChatState() {
+        try {
+            var raw = localStorage.getItem('aither_chat');
+            if (!raw) return null;
+            var state = JSON.parse(raw);
+            if (state.history && Array.isArray(state.history)) {
+                chatHistory = state.history;
+                chatTokensUsed = state.tokens || 0;
+                chatRequestsMade = state.requests || 0;
+                updateTokenCounters();
+                return chatHistory;
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    function restoreChatMessages() {
+        var history = loadChatState();
+        if (!history || history.length === 0) return;
+        var msgs = $('chat-messages');
+        if (!msgs) return;
+        msgs.innerHTML = '';
+        for (var i = 0; i < history.length; i++) {
+            var msg = history[i];
+            if (msg.role === 'user') {
+                addChatMessage('user', msg.content);
+            } else if (msg.role === 'assistant') {
+                addChatMessage('assistant', msg.content, msg.model || '');
+            } else if (msg.role === 'error') {
+                addChatMessage('error', msg.content);
+            }
+        }
     }
 
     // ── API Keys ───────────────────────────────────────────────
@@ -615,8 +668,12 @@
             if (res.ok) {
                 currentUser = await res.json();
                 updateNav();
-                showPage('dashboard');
-                loadDashboardInfo();
+                // Restore saved page, default to dashboard
+                var savedPage = 'dashboard';
+                try { savedPage = localStorage.getItem('aither_page') || 'dashboard'; } catch(e) {}
+                showPage(savedPage);
+                if (savedPage === 'dashboard') loadDashboardInfo();
+                if (savedPage === 'chat') { updateModelInfo(); restoreChatMessages(); }
                 return true;
             }
         } catch {}
@@ -962,6 +1019,8 @@
                     }).join('; ');
                 }
                 addChatMessage('assistant', '🔍 RAG-ответ:\n\n' + answer + srcInfo, 'qwen-14b (RAG)');
+                chatHistory.push({ role: 'assistant', content: '🔍 RAG-ответ:\n\n' + answer + srcInfo, model: 'qwen-14b (RAG)' });
+                saveChatState();
             } else {
                 addChatMessage('error', '❌ RAG: ' + (r.data?.detail || 'Ошибка'));
             }
