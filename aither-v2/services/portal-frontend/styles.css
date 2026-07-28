@@ -211,3 +211,29 @@ code {
   .chat-msg { max-width: 95%; }
   .cards-grid { grid-template-columns: 1fr; }
 }
+
+/* ── OAuth Buttons ─────────────────────────────────────────── */
+.oauth-section { margin-top: 16px; }
+.oauth-divider {
+  display: flex; align-items: center; margin: 12px 0;
+  color: var(--text-muted); font-size: 11px;
+}
+.oauth-divider::before, .oauth-divider::after {
+  content: ''; flex: 1; border-bottom: 1px solid var(--border-color);
+}
+.oauth-divider span { padding: 0 12px; }
+.oauth-buttons {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.btn-oauth {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
+  border: 1px solid var(--border-color); background: var(--bg-input);
+  color: var(--text); transition: all 0.2s;
+}
+.btn-oauth:hover { border-color: var(--accent); background: rgba(124, 58, 237, 0.1); }
+.oauth-icon { font-weight: 700; font-size: 14px; }
+.btn-oauth-github .oauth-icon { color: #f0f6fc; }
+.btn-oauth-google .oauth-icon { color: #4285f4; }
+.btn-oauth-yandex .oauth-icon { color: #fc3f1d; }
+.btn-oauth-ldap .oauth-icon { color: #f59e0b; }

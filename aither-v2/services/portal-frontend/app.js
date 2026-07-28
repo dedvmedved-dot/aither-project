@@ -559,4 +559,39 @@
     } else {
         init();
     }
+
+    /* ── OAuth Functions ──────────────────────────────────── */
+    window.oauthLogin = function (provider) {
+        var identityUrl = getBackendUrl();
+        window.location.href = identityUrl + '/v1/identity/auth/oauth/' + provider;
+    };
+
+    window.showLdapLogin = function () {
+        var username = prompt('LDAP: введите имя пользователя');
+        if (!username) return;
+        var password = prompt('LDAP: введите пароль');
+        if (!password) return;
+
+        setLoading(true);
+        fetch(getBackendUrl() + '/v1/identity/auth/ldap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, password: password })
+        })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(result) {
+            setLoading(false);
+            if (result.ok) {
+                authToken = result.data.token;
+                localStorage.setItem('aither_token', authToken);
+                showPage('dashboard');
+            } else {
+                showLoginError(result.data.detail || 'LDAP authentication failed');
+            }
+        })
+        .catch(function(e) {
+            setLoading(false);
+            showLoginError('LDAP service unavailable: ' + e.message);
+        });
+    };
 })();

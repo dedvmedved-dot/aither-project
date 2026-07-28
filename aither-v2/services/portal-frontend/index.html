@@ -46,6 +46,23 @@
         </div>
         <button type="submit" class="btn btn-primary btn-block" id="login-submit">Войти</button>
       </form>
+      <div class="oauth-section">
+        <div class="oauth-divider"><span>или войти через</span></div>
+        <div class="oauth-buttons" id="oauth-buttons">
+          <button class="btn btn-oauth btn-oauth-github" onclick="oauthLogin('github')" title="Войти через GitHub">
+            <span class="oauth-icon">⬡</span> GitHub
+          </button>
+          <button class="btn btn-oauth btn-oauth-google" onclick="oauthLogin('google')" title="Войти через Google">
+            <span class="oauth-icon">G</span> Google
+          </button>
+          <button class="btn btn-oauth btn-oauth-yandex" onclick="oauthLogin('yandex')" title="Войти через Яндекс">
+            <span class="oauth-icon">Я</span> Яндекс
+          </button>
+          <button class="btn btn-oauth btn-oauth-ldap" onclick="showLdapLogin()" title="Войти через LDAP">
+            <span class="oauth-icon">🔑</span> LDAP
+          </button>
+        </div>
+      </div>
       <div class="auth-footer">
         <p class="text-muted">Версия 2.0 — CB-WEBUI-01</p>
         <p class="text-muted" style="margin-top:4px;">Требуется учётная запись. Обратитесь к администратору.</p>
