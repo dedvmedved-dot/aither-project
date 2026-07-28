@@ -7,6 +7,10 @@
     let currentUser = null;
     let chatHistory = []; // client-side chat history
 
+    function getBackendUrl() {
+        return '';  // same-origin — nginx proxies /v1/identity/ to identity service
+    }
+
     const $ = (id) => document.getElementById(id);
     const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile'];
 
