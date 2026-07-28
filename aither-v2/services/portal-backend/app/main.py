@@ -731,11 +731,14 @@ async def admin_patch_user_status(user_id: int, request: Request):
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Identity unreachable: {e}")
 
-# ── Admin Organisation Management ────────────────────────────────
+# ── Admin Organisation Management (pending Gateway implementation) ─
+
+# NOTE: Gateway /admin/organisations endpoints not yet implemented.
+# These facade routes will return 501 until Gateway supports them.
 
 @app.get("/api/v1/admin/orgs")
 async def admin_list_orgs(request: Request):
-    """List all organisations (admin only)."""
+    """List all organisations (admin only) — pending Gateway implementation."""
     user = await _get_user_from_token(request)
     _require_admin(user)
     jwt_token = _mint_delegation_jwt(user)
@@ -745,6 +748,8 @@ async def admin_list_orgs(request: Request):
                 "Authorization": f"Bearer {jwt_token}",
                 "X-Admin-Key": GATEWAY_ADMIN_KEY,
             })
+            if r.status_code == 404:
+                raise HTTPException(status_code=501, detail="Gateway /admin/organisations not implemented")
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")

@@ -1,9 +1,9 @@
 # =====================================================================
-# TRANSITIONING — R7-R5-EMG-FE-02 (2026-07-28)
-# Authoritative source: ../../services/portal-backend/app/main.py
-# After Sections 4-6: this Dockerfile will build from portal-backend.
+# Aither BFF — authoritative source: ../../services/portal-backend/app/main.py
+# This Dockerfile builds from the single authoritative BFF source.
+# bff-prod/app.py is SUPERSEDED (archived, excluded from build context).
 # =====================================================================
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93
 
 # Non-root user for production (CHANGE-0022-C5)
 RUN groupadd -r bff -g 1000 && useradd -r -g bff -u 1000 -d /app bff
@@ -11,7 +11,6 @@ RUN groupadd -r bff -g 1000 && useradd -r -g bff -u 1000 -d /app bff
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-# TRANSITION: will switch to COPY ../../services/portal-backend/app/main.py app.py
 COPY app.py .
 
 # Fix ownership for non-root execution
