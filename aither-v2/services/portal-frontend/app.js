@@ -951,13 +951,43 @@
         setLoading(false);
     };
 
-    window._showWikiContent = function(text, title, source) {
+    window._showWikiContent = async function(text, title, source) {
         var el = $('wiki-content');
         if (!el) return;
-        el.innerHTML = '<div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">' + escHtml(title) + '</div>' +
-            '<div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;">📄 ' + escHtml(source) + '</div>' +
-            '<div style="white-space:pre-wrap;line-height:1.6;">' + escHtml(text) + '</div>';
-        el.scrollTop = 0;
+        el.innerHTML = '<p class="text-muted">⏳ Загрузка полного документа...</p>';
+        try {
+            var docRes = await api('/rag/doc?source=' + encodeURIComponent(source));
+            if (docRes.ok && docRes.data && docRes.data.content) {
+                var fullText = docRes.data.content;
+                // Simple markdown to HTML conversion
+                var html = fullText
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/^### (.+)$/gm, '<h4 style="margin:12px 0 4px;color:var(--text);">$1</h4>')
+                    .replace(/^## (.+)$/gm, '<h3 style="margin:14px 0 6px;color:var(--primary);">$1</h3>')
+                    .replace(/^# (.+)$/gm, '<h2 style="margin:16px 0 8px;color:var(--primary);font-size:16px;">$1</h2>')
+                    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+                    .replace(/\*(.+?)\*/g, '<i>$1</i>')
+                    .replace(/`(.+?)`/g, '<code>$1</code>')
+                    .replace(/\n/g, '<br>');
+                el.innerHTML =
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+                    '<div style="font-weight:600;font-size:14px;color:var(--primary);">' + escHtml(docRes.data.title||title) + '</div>' +
+                    '<button class="btn btn-sm btn-outline" onclick="window._closeWikiDoc()" style="font-size:10px;">✕ Закрыть</button>' +
+                    '</div>' +
+                    '<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">📄 ' + escHtml(docRes.data.source||source) + ' | ' + (docRes.data.size||0) + ' симв.</div>' +
+                    '<div style="font-size:12px;line-height:1.7;max-height:55vh;overflow-y:auto;">' + html + '</div>';
+                el.scrollTop = 0;
+            } else {
+                el.innerHTML = '<p class="text-muted">Не удалось загрузить документ</p>';
+            }
+        } catch(e) {
+            el.innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
+        }
+    };
+
+    window._closeWikiDoc = function() {
+        var el = $('wiki-content');
+        if (el) el.innerHTML = '<p class="text-muted">Нажмите на статью в результатах поиска, чтобы увидеть её содержание.</p>';
     };
 
     async function loadWikiPage() {

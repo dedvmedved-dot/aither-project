@@ -1065,6 +1065,35 @@ async def rag_hybrid(request: Request):
     }
 
 
+@app.get("/api/v1/rag/doc")
+async def rag_get_doc(request: Request, source: str = ""):
+    """Return full content of a RAG document by source filename."""
+    _ = await _get_user_from_token(request)
+    if not source:
+        raise HTTPException(status_code=400, detail="source parameter is required")
+    docs_dir = os.environ.get("RAG_DOCS_DIR", "/data/rag-docs")
+    # Security: prevent path traversal
+    safe_source = _Path(source).name
+    file_path = _Path(docs_dir) / safe_source
+    if not file_path.is_file():
+        # Try recursive search
+        for f in _Path(docs_dir).rglob(safe_source):
+            file_path = f
+            break
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Document not found: {source}")
+    try:
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to read document")
+    return {
+        "source": str(file_path.relative_to(docs_dir)),
+        "title": file_path.stem,
+        "content": content,
+        "size": len(content),
+    }
+
+
 @app.post("/api/v1/rag/ingest")
 async def rag_ingest(request: Request):
     """Re-scan docs directory (requires rag:ingest scope)."""
