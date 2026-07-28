@@ -3,10 +3,10 @@
 # R7-R5-EMG-FE-03 | 2026-07-28
 # Repository: dedvmedved-dot/aither-project
 # Branch: aither-v2
-# SHA: 5fa4df7
+# SHA: a39ad84
 
 ## Status
-IMPLEMENTATION COMPLETE
+IMPLEMENTATION COMPLETE — DEPLOYED + SESSION VERIFIED
 
 ## Sections Completed
 
@@ -44,6 +44,8 @@ IMPLEMENTATION COMPLETE
 
 ## Commit Chain (append-only, FE-03)
 ```
+a39ad84 docs: S13 — FE-03 routing doc + session evidence (logout→401 verified)
+bc5064e docs: S13 — FE-03 final report
 5fa4df7 fix: S5 — logout revokes full token hash
 594ac15 fix: S6-S8 — Gateway facade cleanup, RAG, BFF Dockerfile
 6c35b2c fix: S5 — session lifecycle
@@ -51,6 +53,22 @@ af63aea fix: S4 — remove entitlement fallbacks
 6738e35 fix: ROLLBACK chat route — Gateway→direct upstream
 67ad284 docs: BFF recovery report + test matrix (FE-02)
 ```
+
+## Deployed Image Digests (pinned)
+
+| Service | Digest |
+|---------|--------|
+| aither-identity | sha256:ed24f10028020c08ae288465d98bb55a9bbb47dc58b25f2fea5a025644c11c18 |
+| aither-portal-backend | sha256:b28b308c0bd4786336f92b91dedcc326e029225ba481edb36aea694116423b75 |
+
+## Session Lifecycle Verification (2026-07-28T14:58Z)
+
+| Test | Result |
+|------|--------|
+| SESSION-001: Login → /me | 200 ✓ |
+| SESSION-002: Logout | 200 ✓ |
+| SESSION-003: /me after logout | 401 ✓ |
+| SESSION-004: Chat after logout | 401 ✓ |
 
 ## Acceptable Outcome
 ```
