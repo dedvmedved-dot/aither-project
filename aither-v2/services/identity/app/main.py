@@ -417,6 +417,30 @@ async def get_current_user(
     payload = verify_jwt(credentials.credentials)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    # Check session: must exist, not revoked, not expired
+    conn = get_db()
+    try:
+        token_hash_val = hash_token(credentials.credentials)
+        session = conn.execute(
+            "SELECT id, revoked, expires_at FROM sessions WHERE token_hash=?",
+            (token_hash_val,),
+        ).fetchone()
+        if not session:
+            raise HTTPException(status_code=401, detail="Session not found")
+        if session["revoked"]:
+            raise HTTPException(status_code=401, detail="Session revoked")
+        if session["expires_at"] < datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"):
+            raise HTTPException(status_code=401, detail="Session expired")
+        # Check user not disabled
+        user_row = conn.execute(
+            "SELECT disabled FROM users WHERE id=?", (payload["uid"],)
+        ).fetchone()
+        if user_row and user_row["disabled"]:
+            raise HTTPException(status_code=403, detail="Account disabled")
+    finally:
+        conn.close()
+
     return payload
 
 async def require_admin(user: dict = Depends(get_current_user)):
@@ -960,6 +984,14 @@ async def patch_user_status(
                 raise HTTPException(status_code=400, detail="Cannot disable the last administrator")
 
         conn.execute("UPDATE users SET disabled=? WHERE id=?", (1 if disabled else 0, user_id))
+        # When disabling user, revoke all active sessions
+        if disabled:
+            revoked_count = conn.execute(
+                "UPDATE sessions SET revoked=1 WHERE user_id=? AND revoked=0",
+                (user_id,),
+            ).rowcount
+            log.info("Admin '%s' disabled user %d — revoked %d sessions",
+                     admin.get("sub"), user_id, revoked_count)
         conn.commit()
         log.info("Admin '%s' %s user %d", admin.get("sub"),
                  "disabled" if disabled else "enabled", user_id)
