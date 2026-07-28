@@ -580,46 +580,56 @@ async def oauth_callback(request: Request, provider: str, code: str = None, stat
         raise HTTPException(status_code=400, detail=f"OAuth provider '{provider}' is not configured")
 
     redirect_uri = f"{OAUTH_REDIRECT_BASE}{OAUTH_CALLBACK_PATH}/{provider}/callback"
-    client = AsyncOAuth2Client(
-        client_id=cfg["client_id"],
-        client_secret=cfg["client_secret"],
-        redirect_uri=redirect_uri,
-    )
 
+    # Exchange code for token using raw httpx (handles provider quirks)
+    import httpx as _httpx  # noqa: E402
     try:
-        token = await client.fetch_token(
-            cfg["token_url"],
-            code=code,
-            grant_type="authorization_code",
-        )
+        token_data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": cfg["client_id"],
+            "client_secret": cfg["client_secret"],
+            "redirect_uri": redirect_uri,
+        }
+        token_headers = {"Accept": "application/json"}
+        async with _httpx.AsyncClient(timeout=15.0) as token_client:
+            token_resp = await token_client.post(cfg["token_url"], data=token_data, headers=token_headers)
+            token_body = token_resp.text
+            try:
+                token = token_resp.json()
+            except Exception:
+                log.error("OAuth token response not JSON for %s: %s", provider, token_body[:200])
+                raise HTTPException(status_code=401, detail=f"Token exchange failed: {token_body[:100]}")
+
+            if "error" in token:
+                err = token.get("error_description", token["error"])
+                raise HTTPException(status_code=401, detail=f"OAuth error: {err}")
+
+            access_token = token.get("access_token")
+            if not access_token:
+                raise HTTPException(status_code=401, detail="No access_token in response")
+
+            # Fetch user info
+            user_headers = {"Authorization": f"Bearer {access_token}"}
+            user_resp = await token_client.get(cfg["userinfo_url"], headers=user_headers)
+            userinfo = user_resp.json()
+
+            provider_user_id = str(userinfo.get("id", userinfo.get("sub", "")))
+            email = userinfo.get("email", userinfo.get("default_email", ""))
+
+            # GitHub: email may be private — fetch from /user/emails
+            if not email and cfg.get("userinfo_emails_url"):
+                try:
+                    emails_resp = await token_client.get(cfg["userinfo_emails_url"], headers=user_headers)
+                    emails = emails_resp.json()
+                    primary = next((e for e in emails if e.get("primary")), emails[0] if emails else None)
+                    if primary:
+                        email = primary.get("email", "")
+                except Exception:
+                    pass
     except Exception as e:
-        log.error("OAuth token exchange failed for %s: %s", provider, str(e))
-        raise HTTPException(status_code=401, detail=f"OAuth token exchange failed: {str(e)}")
-
-    # Fetch user info
-    headers = {"Authorization": f"Bearer {token['access_token']}"}
-    try:
-        userinfo_resp = await client.get(cfg["userinfo_url"], headers=headers)
-        userinfo = userinfo_resp.json()
-    except Exception as e:
-        log.error("OAuth userinfo fetch failed for %s: %s", provider, str(e))
-        raise HTTPException(status_code=401, detail=f"Failed to fetch user info: {str(e)}")
-
-    provider_user_id = str(userinfo.get("id", userinfo.get("sub", "")))
-    email = userinfo.get("email", userinfo.get("default_email", ""))
-
-    # GitHub: email may be private — fetch from /user/emails
-    if not email and cfg.get("userinfo_emails_url"):
-        try:
-            emails_resp = await client.get(cfg["userinfo_emails_url"], headers=headers)
-            emails = emails_resp.json()
-            primary = next((e for e in emails if e.get("primary")), emails[0] if emails else None)
-            if primary:
-                email = primary.get("email", "")
-        except Exception:
-            pass
-
-    await client.aclose()
+        log.error("OAuth callback error for %s: %s", provider, str(e))
+        raise HTTPException(status_code=401, detail=f"OAuth error: {str(e)}")
 
     # Get or create user
     conn = get_db()
