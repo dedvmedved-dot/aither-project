@@ -1,18 +1,24 @@
 # Aither Portal Backend (BFF)
 #
 # Environment variables:
-#   PORTAL_IDENTITY_URL    — Identity service URL (default: http://aither-identity:8000)
-#   PORTAL_LOG_LEVEL       — logging level (default: INFO)
-#   PORTAL_CORS_ORIGIN     — Allowed CORS origin (default: *)
-#   PORTAL_BFF_TOKEN       — Token for BFF→Identity internal communication (optional)
+#   PORTAL_IDENTITY_URL      — Identity service URL (default: http://aither-identity:8000)
+#   PORTAL_AI_PLATFORM_URL   — AI Platform URL (default: http://aither-ai-platform:8000)
+#   PORTAL_LOG_LEVEL         — logging level (default: INFO)
+#   PORTAL_CORS_ORIGIN       — Allowed CORS origin (default: *)
+#   PORTAL_GATEWAY_URL       — Gateway URL (default: http://aither-gateway:8000)
+#   PORTAL_GATEWAY_ADMIN_KEY — Gateway X-Admin-Key for admin operations
+#   PORTAL_JWT_PRIVATE_KEY   — RS256 private key PEM for delegation JWT
+#   PORTAL_JWT_PRIVATE_KEY_FILE — alternative: path to private key file
 
 import os
 import json
 import logging
 import time
+import uuid
 from datetime import datetime, timezone
 
 import httpx
+import jwt as pyjwt
 from fastapi import FastAPI, HTTPException, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,8 +31,23 @@ from prometheus_client import Counter, Histogram, Gauge
 
 IDENTITY_URL = os.environ.get("PORTAL_IDENTITY_URL", "http://aither-identity:8000")
 AI_PLATFORM_URL = os.environ.get("PORTAL_AI_PLATFORM_URL", "http://aither-ai-platform:8000")
+GATEWAY_URL = os.environ.get("PORTAL_GATEWAY_URL", "http://aither-gateway.aither-inference.svc:8000")
+GATEWAY_ADMIN_KEY = os.environ.get("PORTAL_GATEWAY_ADMIN_KEY", "")
 LOG_LEVEL = os.environ.get("PORTAL_LOG_LEVEL", "INFO").upper()
 CORS_ORIGIN = os.environ.get("PORTAL_CORS_ORIGIN", "http://localhost:3000")
+
+# Delegation JWT private key
+_JWT_PRIVATE_KEY = os.environ.get("PORTAL_JWT_PRIVATE_KEY", "")
+if not _JWT_PRIVATE_KEY:
+    _key_file = os.environ.get("PORTAL_JWT_PRIVATE_KEY_FILE", "/app/delegation/private.pem")
+    try:
+        with open(_key_file) as f:
+            _JWT_PRIVATE_KEY = f.read()
+    except FileNotFoundError:
+        log = logging.getLogger("aither-portal-bff")
+        log.warning("JWT private key not found at %s — delegation JWTs will fail", _key_file)
+
+DELEGATION_JWT_TTL = 60  # seconds
 # In production, set PORTAL_CORS_ORIGIN to the Portal Frontend URL.
 # Example: PORTAL_CORS_ORIGIN=https://portal.aither.example.com
 # Multiple origins are not supported by this middleware — use a reverse proxy for complex rules.
@@ -72,6 +93,48 @@ async def get_client() -> httpx.AsyncClient:
 # In-memory cache of full API keys per user (key returned only at creation)
 # Maps username -> full_key
 _user_api_keys: dict[str, str] = {}
+
+# ── Auth helpers ────────────────────────────────────────────────
+
+async def _get_user_from_token(request: Request) -> dict:
+    """Validate Bearer token against Identity, return user dict."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.get("/v1/identity/me", headers={"Authorization": auth})
+            if r.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            return r.json()
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Identity service unreachable")
+
+def _require_admin(user: dict) -> None:
+    """Raise 403 if user is not admin."""
+    if user.get("role") not in ("admin", "administrator"):
+        raise HTTPException(status_code=403, detail="Admin role required")
+
+def _mint_delegation_jwt(user: dict, org_id: str = "") -> str:
+    """Create a short-lived RS256 delegation JWT for Gateway."""
+    if not _JWT_PRIVATE_KEY:
+        raise HTTPException(status_code=500, detail="Delegation JWT signing key not configured")
+    now = int(time.time())
+    payload = {
+        "iss": "aither-portal-backend",
+        "aud": "aither-gateway",
+        "sub": user.get("username", ""),
+        "user_id": str(user.get("id", "")),
+        "org_id": org_id or "unknown",
+        "role": user.get("role", "user"),
+        "tier": "free",
+        "scopes": ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"],
+        "jti": uuid.uuid4().hex[:16],
+        "iat": now,
+        "nbf": now,
+        "exp": now + DELEGATION_JWT_TTL,
+    }
+    return pyjwt.encode(payload, _JWT_PRIVATE_KEY, algorithm="RS256")
 
 # ── Models ─────────────────────────────────────────────────────
 
@@ -488,6 +551,112 @@ async def revoke_token(token_id: str, request: Request):
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+
+# ── Admin Gateway Facade ────────────────────────────────────────
+
+@app.get("/api/v1/admin/gateway/queues")
+async def admin_gateway_queues(request: Request):
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/queues", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/admin/gateway/models")
+async def admin_gateway_models(request: Request):
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/models", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.post("/api/v1/admin/gateway/models/{model}/drain")
+async def admin_gateway_drain(model: str, request: Request):
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.post(f"/admin/models/{model}/drain", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.post("/api/v1/admin/gateway/models/{model}/undrain")
+async def admin_gateway_undrain(model: str, request: Request):
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.post(f"/admin/models/{model}/undrain", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/admin/gateway/health")
+async def admin_gateway_health(request: Request):
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/health", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+@app.get("/api/v1/admin/gateway/reaper")
+async def admin_gateway_reaper(request: Request):
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/reaper", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+# ── Admin User Management ───────────────────────────────────────
+
+@app.get("/api/v1/admin/users")
+async def admin_list_users(request: Request):
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.get("/v1/identity/users", headers={"Authorization": request.headers.get("Authorization", "")})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity unreachable: {e}")
 
 
 # ── Shutdown ───────────────────────────────────────────────────
