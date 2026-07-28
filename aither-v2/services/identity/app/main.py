@@ -54,7 +54,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from prometheus_client import Counter, Histogram, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 
 # ── Configuration ──────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ OAUTH_PROVIDERS_CONFIG = {
         "token_url": "https://github.com/login/oauth/access_token",
         "userinfo_url": "https://api.github.com/user",
         "userinfo_emails_url": "https://api.github.com/user/emails",
-        "scope": "user:email",
+        "scope": "read:user user:email",
     },
     "google": {
         "name": "Google",
@@ -387,6 +387,8 @@ async def require_admin(user: dict = Depends(get_current_user)):
 
 # ── Application ────────────────────────────────────────────────
 
+import traceback  # noqa: E402
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -422,6 +424,18 @@ app = FastAPI(
     docs_url="/v1/identity/docs",
     openapi_url="/v1/identity/openapi.json",
 )
+
+# ── Global exception handler (log full tracebacks) ─────────────
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.error("Unhandled exception on %s %s: %s\n%s",
+              request.method, request.url.path, str(exc),
+              traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"},
+    )
 
 # ── Prometheus Metrics ─────────────────────────────────────────
 
