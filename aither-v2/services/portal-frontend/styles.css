@@ -131,7 +131,21 @@ textarea { resize: vertical; min-height: 60px; }
 .badge-revoked { color: var(--danger); font-weight: 500; }
 
 /* Chat */
-.chat-container { display: flex; flex-direction: column; height: calc(100vh - 130px); max-width: 33%; margin: 0 auto; }
+.chat-container { display: flex; flex-direction: column; height: calc(100vh - 130px); max-width: 100%; margin: 0 auto; }
+.chat-sidebar { display: flex; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.chat-sidebar .token-counter {
+  font-size: 11px; padding: 4px 10px; border-radius: 20px;
+  background: rgba(99,102,241,0.1); color: var(--primary); font-weight: 500;
+  white-space: nowrap;
+}
+.chat-sidebar .rag-search { display: flex; gap: 4px; align-items: center; }
+.chat-sidebar .rag-search input { width: 140px; font-size: 11px; padding: 4px 8px; }
+.chat-sidebar .rag-search button { font-size: 10px; padding: 3px 8px; }
+.rag-result-inline {
+  font-size: 11px; padding: 6px 10px; margin: 4px 0;
+  background: rgba(245,158,11,0.08); border-left: 2px solid var(--warning);
+  border-radius: 4px; max-height: 100px; overflow-y: auto;
+}
 .chat-controls {
   display: flex; gap: 10px; align-items: center; padding: 10px 0;
   border-bottom: 1px solid var(--border); flex-wrap: wrap;

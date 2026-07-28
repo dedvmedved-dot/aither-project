@@ -12,7 +12,11 @@
     }
 
     const $ = (id) => document.getElementById(id);
-    const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile','admin','billing','usage','rag','monitoring'];
+    const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile','admin','billing','usage','wiki','rag','monitoring'];
+
+    // Token counter state
+    let chatTokensUsed = 0;
+    let chatRequestsMade = 0;
 
     // Zone detection
     function detectZone() {
@@ -295,6 +299,14 @@
 
                 chatHistory.push({ role: 'assistant', content: reply });
                 addChatMessage('assistant', reply, model);
+                // Update token counters
+                if (res.data.usage) {
+                    chatTokensUsed += (res.data.usage.total_tokens || 0);
+                } else {
+                    chatTokensUsed += Math.round(reply.length / 4); // rough estimate
+                }
+                chatRequestsMade++;
+                updateTokenCounters();
             } else {
                 const detail = res.data?.detail || res.data?.error || '';
                 showChatError(res.status, detail);
@@ -574,6 +586,7 @@
                 if (page === 'admin') loadAdminPage();
                 if (page === 'billing') loadBillingPage();
                 if (page === 'usage') loadUsagePage();
+                if (page === 'wiki') loadWikiPage();
                 if (page === 'rag') loadRagPage();
                 if (page === 'monitoring') loadMonitoringPage();
             });
@@ -672,25 +685,31 @@
         if (res.ok) loadAdminPage();
     };
 
-    // ── Billing Dashboard ────────────────────────────────────────
     async function loadBillingPage() {
         setLoading(true);
         try {
             const b = await api('/billing/me');
             if (b.ok) {
                 $('billing-balance').innerHTML = `
-                    <div>Баланс: <b>${b.data.balance||0}</b> токенов</div>
+                    <div>Баланс: <b>${b.data.balance||0}</b></div>
                     <div>Зарезервировано: ${b.data.reserved||0}</div>
-                    <div>Доступно: ${b.data.available||0}</div>
-                    <div>Тариф: ${b.data.tier||'free'}</div>`;
+                    <div>Доступно: ${b.data.available||0}</div>`;
+                $('billing-tier').innerHTML = `
+                    <div>Тариф: <b style="color:var(--primary)">${b.data.tier||'free'}</b></div>
+                    <div>Лимит: ${b.data.quota_daily||'—'} запросов/день</div>`;
+                $('billing-stats').innerHTML = `
+                    <div>Запросов сегодня: <b>${b.data.requests_today||0}</b></div>
+                    <div>Токенов: ${b.data.tokens_today||0}</div>`;
+            } else {
+                $('billing-balance').innerHTML = '<p class="text-muted">Недоступно</p>';
+                $('billing-tier').innerHTML = '<p class="text-muted">Недоступно</p>';
+                $('billing-stats').innerHTML = '<p class="text-muted">Недоступно</p>';
             }
             const u = await api('/usage/me');
             if (u.ok) {
-                $('billing-usage').innerHTML = `
-                    <div>Запросов сегодня: <b>${u.data.requests_today||0}</b></div>
-                    <div>Токенов сегодня: <b>${u.data.tokens_today||0}</b></div>
-                    <div>Всего запросов: ${u.data.total_requests||0}</div>
-                    <div>Всего токенов: ${u.data.total_tokens||0}</div>`;
+                $('billing-stats').innerHTML += `
+                    <div>Всего токенов: ${u.data.total_tokens||0}</div>
+                    <div>Всего запросов: ${u.data.total_requests||0}</div>`;
             }
             const l = await api('/billing/me/ledger');
             if (l.ok) {
@@ -701,8 +720,12 @@
                         <td>${r.amount}</td><td>${r.operation}</td>
                         <td>${r.balance_after}</td><td>${(r.created_at||'').substring(0,16)}</td>
                     </tr>`).join('') + '</table>';
+            } else {
+                $('billing-ledger').innerHTML = '<p class="text-muted">Недоступно</p>';
             }
-        } catch(e) {}
+        } catch(e) {
+            $('billing-balance').innerHTML = '<p class="text-muted">Ошибка</p>';
+        }
         setLoading(false);
     };
 
@@ -756,6 +779,64 @@
         } catch(e) {}
         setLoading(false);
     };
+
+    function updateTokenCounters() {
+        if ($('chat-token-count')) $('chat-token-count').textContent = chatTokensUsed;
+        if ($('chat-request-count')) $('chat-request-count').textContent = chatRequestsMade;
+    }
+
+    window._chatRagSearch = async function() {
+        const q = ($('chat-rag-input') && $('chat-rag-input').value) || '';
+        if (!q) return;
+        setLoading(true);
+        try {
+            const r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q})});
+            const resultDiv = document.getElementById('chat-rag-result');
+            if (!resultDiv) {
+                const msgs = $('chat-messages');
+                const div = document.createElement('div');
+                div.id = 'chat-rag-result';
+                div.className = 'rag-result-inline';
+                msgs.insertBefore(div, msgs.firstChild);
+            }
+            const res = document.getElementById('chat-rag-result') || resultDiv;
+            if (res) {
+                res.innerHTML = r.ok ?
+                    '<b>🔍 RAG:</b> ' + JSON.stringify(r.data).substring(0, 300) :
+                    '<b>❌</b> ' + (r.data?.detail || 'Ошибка RAG');
+            }
+            $('chat-rag-input').value = '';
+        } catch(e) {}
+        setLoading(false);
+    };
+
+    window._wikiSearch = async function() {
+        const q = ($('wiki-search-input') && $('wiki-search-input').value) || '';
+        if (!q) return;
+        setLoading(true);
+        try {
+            const r = await api('/rag/hybrid-query', {method:'POST',body:JSON.stringify({query:q})});
+            $('wiki-search-result').innerHTML = r.ok ?
+                '<pre style="font-size:11px;">' + JSON.stringify(r.data,null,2).substring(0,500) + '</pre>' :
+                '<p class="text-muted">Недоступно: ' + (r.data?.detail || r.status) + '</p>';
+        } catch(e) { $('wiki-search-result').innerHTML = '<p class="text-muted">Ошибка</p>'; }
+        setLoading(false);
+    };
+
+    async function loadWikiPage() {
+        setLoading(true);
+        try {
+            $('wiki-pages').innerHTML = '<p class="text-muted">Загрузка...</p>';
+            const s = await api('/rag/status');
+            $('wiki-graph-status').innerHTML = s.ok ?
+                '<div style="color:var(--success)">✓ Доступен</div>' :
+                '<div class="text-muted">Недоступен</div>';
+            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki-Graph RAG — поиск информации по базе знаний. Введите запрос в поле выше.</p>';
+        } catch(e) {
+            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki недоступна</p>';
+        }
+        setLoading(false);
+    }
 
     // ── Monitoring Page ──────────────────────────────────────────
     async function loadMonitoringPage() {
