@@ -428,6 +428,83 @@ async def proxy_delete_conversation(conv_id: int, request: Request):
 
 # ── Shutdown ───────────────────────────────────────────────────
 
+@app.post("/api/v1/chat")
+async def chat_completions(request: Request):
+    """Chat completions — validates user, gets API key, proxies to AI Platform."""
+    auth = request.headers.get("Authorization", "")
+    body = await request.body()
+
+    try:
+        body_json = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    model = body_json.get("model", "qwen-14b")
+    messages = body_json.get("messages", [])
+    max_tokens = body_json.get("max_tokens", 512)
+    temperature = body_json.get("temperature", 0.7)
+
+    # 1. Verify user identity
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            user_resp = await ic.get("/v1/identity/me", headers={"Authorization": auth})
+            if user_resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            user = user_resp.json()
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Identity service unreachable")
+
+    # 2. Get or create an API key for the user
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
+            # List existing keys
+            keys_resp = await ac.get("/api/v1/api-keys", headers={"Authorization": auth})
+            if keys_resp.status_code == 200:
+                keys = keys_resp.json()
+                active_keys = [k for k in keys if not k.get("revoked", False)]
+                if active_keys:
+                    key_value = active_keys[0].get("key") or active_keys[0].get("full_key", "")
+                else:
+                    # Create a new key
+                    create_resp = await ac.post(
+                        "/api/v1/api-keys",
+                        json={"name": f"chat-{user.get('username', 'user')}", "scopes": ["model:14b:chat", "model:32b:chat-adapter", "model:32b:completion"]},
+                        headers={"Authorization": auth, "Content-Type": "application/json"},
+                    )
+                    if create_resp.status_code != 201:
+                        raise HTTPException(status_code=502, detail="Failed to create API key")
+                    key_value = create_resp.json().get("key") or create_resp.json().get("full_key", "")
+            else:
+                raise HTTPException(status_code=502, detail="Failed to list API keys")
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail="AI Platform unreachable")
+
+    if not key_value:
+        raise HTTPException(status_code=502, detail="No API key available")
+
+    # 3. Forward to AI Platform chat completions
+    try:
+        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=120.0) as ac:
+            chat_resp = await ac.post(
+                "/v1/chat/completions",
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "stream": False,
+                },
+                headers={"Authorization": f"Bearer {key_value}", "Content-Type": "application/json"},
+            )
+            return Response(
+                content=chat_resp.content,
+                status_code=chat_resp.status_code,
+                media_type="application/json",
+            )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+
 @app.on_event("startup")
 async def startup():
     """Initialize Prometheus metrics on service start."""
