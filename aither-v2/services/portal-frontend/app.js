@@ -127,16 +127,27 @@
     }
 
     function formatMessage(text) {
-        // Process ```code``` blocks with syntax highlighting
+        // Process ```code``` blocks with syntax highlighting + copy button
         var result = '';
         var parts = text.split(/(```(\w*)\n?([\s\S]*?)```)/g);
         var i = 0;
+        var blockIdx = 0;
         while (i < parts.length) {
             if (parts[i] && parts[i].startsWith('```')) {
                 var lang = (parts[i+1] || '').trim() || 'text';
-                var code = (parts[i+2] || '').replace(/\n$/, '');
-                var highlighted = highlightCode(code, lang);
-                result += '<div class="code-block"><div class="code-lang">' + escHtml(lang) + '</div><pre><code>' + highlighted + '</code></pre></div>';
+                var rawCode = (parts[i+2] || '').replace(/\n$/, '');
+                var highlighted = highlightCode(rawCode, lang);
+                var blockId = 'cb' + (blockIdx++);
+                // Encode code for safe data attribute
+                var encodedCode = rawCode.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                result +=
+                    '<div class="code-block">' +
+                    '<div class="code-header">' +
+                    '<span class="code-lang">' + escHtml(lang) + '</span>' +
+                    '<button class="btn btn-sm btn-copy-code" onclick="var el=document.getElementById(\'' + blockId + '\');var txt=el.textContent;navigator.clipboard.writeText(txt).then(function(){var b=document.getElementById(\'' + blockId + '-btn\');b.textContent=\'✓ Скопировано\';setTimeout(function(){b.textContent=\'📋 Копировать\';},2000);});" id="' + blockId + '-btn">📋 Копировать</button>' +
+                    '</div>' +
+                    '<pre><code id="' + blockId + '">' + highlighted + '</code></pre>' +
+                    '</div>';
                 i += 3;
             } else {
                 result += escHtml(parts[i] || '');
