@@ -243,8 +243,6 @@ def verify_jwt(token_str: str):
         return None
 
 def create_session(conn, user_id: int, token: str):
-    parts = token.split(".")
-    payload = json.loads(parts[0])
     conn.execute(
         "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, datetime('now', '+{} seconds'))".format(TOKEN_TTL),
         (user_id, hash_token(token)),
