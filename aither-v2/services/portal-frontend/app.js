@@ -555,6 +555,16 @@
 
         updateModelInfo();
 
+        // OAuth callback: extract token from URL and store it
+        var params = new URLSearchParams(window.location.search);
+        var oauthToken = params.get('aither_token');
+        if (oauthToken && oauthToken.length > 10) {
+            authToken = oauthToken;
+            localStorage.setItem('aither_token', authToken);
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         if (authToken) checkSession();
     }
 

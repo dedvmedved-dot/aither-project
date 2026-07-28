@@ -643,10 +643,9 @@ async def oauth_callback(request: Request, provider: str, code: str = None, stat
         create_session(conn, row["id"], token_str)
         conn.commit()
         log.info("OAuth login: provider=%s user='%s'", provider, row["username"])
-        return TokenResponse(
-            token=token_str,
-            user=MeResponse(id=row["id"], username=row["username"], role=row["role"]),
-        )
+        # Redirect to portal SPA with token
+        portal_base = f"{request.url.scheme}://{request.headers.get('host', '')}"
+        return RedirectResponse(url=f"{portal_base}/?aither_token={token_str}")
     finally:
         conn.close()
 
