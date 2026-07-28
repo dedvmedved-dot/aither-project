@@ -397,10 +397,8 @@
         chatTokensUsed = 0;
         chatRequestsMade = 0;
         updateTokenCounters();
-        const msgs = $('chat-messages');
-        if (msgs) {
-            msgs.innerHTML = '<div class="chat-msg system">\n                Выберите модель и начните диалог.<br>\n                <strong>qwen-14b</strong> — чат-модель для диалогов.<br>\n                <strong>qwen-32b-base</strong> — базовая модель для продолжения текста.\n            </div>';
-        }
+        var msgs = $('chat-messages');
+        if (msgs) { msgs.innerHTML = ''; }
     }
 
     // ── API Keys ───────────────────────────────────────────────
@@ -834,10 +832,15 @@
         setLoading(true);
         try {
             const s = await api('/rag/status');
-            if (s.ok) {
-                $('rag-status').innerHTML = '<div style="color:var(--success)">✓ Доступен</div><div>' + JSON.stringify(s.data) + '</div>';
+            if (s.ok && s.data) {
+                var d = s.data;
+                $('rag-status').innerHTML =
+                    '<div style="font-size:16px;font-weight:700;color:var(--success);margin-bottom:8px;">✓ Доступен</div>' +
+                    '<div class="info-row"><span class="info-label">Документов</span><span class="info-value">' + (d.documents||0) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Движок</span><span class="info-value" style="font-size:11px;">' + escHtml(d.engine||'—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Поиск</span><span class="info-value" style="color:var(--success);">Token-overlap + boost</span></div>';
             } else {
-                $('rag-status').innerHTML = '<div style="color:var(--warning)">⚠ Требуется scope rag:query</div><p class="text-muted">Для использования RAG необходим тариф Free+ и scope rag:query.</p>';
+                $('rag-status').innerHTML = '<div style="color:var(--warning);font-weight:600;">⚠ Требуется scope rag:query</div><p class="text-muted" style="font-size:11px;">Для использования RAG необходим тариф Free+ и scope rag:query.</p>';
             }
         } catch(e) {
             $('rag-status').innerHTML = '<p class="text-muted">RAG сервис недоступен</p>';
@@ -846,14 +849,27 @@
     }
 
     window._ragQuery = async function() {
-        const q = ($('rag-query-input') && $('rag-query-input').value) || '';
+        var q = ($('rag-query-input') && $('rag-query-input').value) || '';
         if (!q) return;
         setLoading(true);
         try {
-            const r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q})});
-            $('rag-query-result').innerHTML = r.ok ?
-                '<pre style="font-size:11px;max-height:300px;overflow-y:auto;">' + escHtml(JSON.stringify(r.data,null,2)) + '</pre>' :
-                '<div style="color:var(--danger)">Ошибка: ' + (r.data?.detail||r.status) + '</div>';
+            var r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q,top_k:8})});
+            var html = '';
+            if (r.ok && r.data && r.data.results && r.data.results.length > 0) {
+                html = '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">🔎 Найдено: <b>' + r.data.total + '</b> по запросу «' + escHtml(q) + '»</div>';
+                r.data.results.forEach(function(d, i) {
+                    html += '<div style="margin-bottom:10px;padding:10px;background:var(--bg-input);border-radius:6px;border-left:3px solid var(--primary);">' +
+                        '<div style="font-weight:600;font-size:13px;color:var(--text);">' + (i+1) + '. ' + escHtml(d.title||d.source) + '</div>' +
+                        '<div style="font-size:11px;color:var(--primary);margin:3px 0;">Score: ' + (d.score||0).toFixed(3) + ' | 📄 ' + escHtml(d.source) + '</div>' +
+                        '<div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:4px;">' + escHtml((d.text||'').substring(0,400)) + '...</div>' +
+                        '</div>';
+                });
+            } else if (r.ok) {
+                html = '<p class="text-muted">Ничего не найдено по запросу «' + escHtml(q) + '»</p>';
+            } else {
+                html = '<div style="color:var(--danger);">Ошибка: ' + (r.data?.detail||r.status) + '</div>';
+            }
+            $('rag-query-result').innerHTML = html;
         } catch(e) {}
         setLoading(false);
     };
@@ -894,34 +910,44 @@
     };
 
     window._wikiSearch = async function() {
-        const q = ($('wiki-search-input') && $('wiki-search-input').value) || '';
+        var q = ($('wiki-search-input') && $('wiki-search-input').value) || '';
         if (!q) return;
         setLoading(true);
         try {
-            const r = await api('/rag/hybrid-query', {method:'POST',body:JSON.stringify({query:q})});
+            var r = await api('/rag/hybrid-query', {method:'POST',body:JSON.stringify({query:q,top_k:10})});
             if (r.ok && r.data && r.data.results) {
-                const results = r.data.results;
+                var results = r.data.results;
                 if (results.length === 0) {
                     $('wiki-search-result').innerHTML = '<p class="text-muted">Ничего не найдено по запросу «' + escHtml(q) + '»</p>';
                 } else {
-                    let html = '<div style="font-size:12px;">';
-                    results.slice(0,8).forEach(function(r, i) {
-                        html += '<div style="margin-bottom:10px;padding:8px;background:var(--bg-input);border-radius:4px;">' +
-                            '<b>' + (i+1) + '. ' + escHtml(r.title||r.source) + '</b> ' +
-                            '<span style="color:var(--primary);font-size:10px;">(' + (r.score||0).toFixed(2) + ')</span>' +
-                            '<div style="color:var(--text-muted);font-size:11px;margin-top:4px;">' +
-                            escHtml((r.text||'').substring(0,300)) + '...</div>' +
-                            '<div style="font-size:10px;color:var(--text-muted);">📄 ' + escHtml(r.source) + '</div>' +
+                    var html = '<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Найдено статей: <b>' + results.length + '</b></div>';
+                    results.forEach(function(d, i) {
+                        var idx = i;
+                        html += '<div class="wiki-article-link" onclick="window._showWikiContent(\'' +
+                            escHtml((d.text||'').replace(/'/g, "\\'")) + '\', \'' +
+                            escHtml((d.title||d.source).replace(/'/g, "\\'")) + '\', \'' +
+                            escHtml((d.source||'').replace(/'/g, "\\'")) + '\')" style="cursor:pointer;padding:6px 8px;margin:2px 0;border-radius:4px;font-size:12px;transition:background 0.15s;" onmouseover="this.style.background=\'var(--bg-card-hover)\'" onmouseout="this.style.background=\'transparent\'">' +
+                            '<span style="color:var(--primary);font-weight:500;">' + (i+1) + '.</span> ' +
+                            escHtml((d.title||d.source).substring(0,80)) +
+                            ' <span style="color:var(--text-muted);font-size:10px;">(' + (d.score||0).toFixed(2) + ')</span>' +
                             '</div>';
                     });
-                    html += '</div>';
                     $('wiki-search-result').innerHTML = html;
                 }
             } else {
-                $('wiki-search-result').innerHTML = '<p class="text-muted">Поиск недоступен: ' + (r.data?.detail || r.status) + '</p>';
+                $('wiki-search-result').innerHTML = '<p class="text-muted">Поиск недоступен</p>';
             }
         } catch(e) { $('wiki-search-result').innerHTML = '<p class="text-muted">Ошибка</p>'; }
         setLoading(false);
+    };
+
+    window._showWikiContent = function(text, title, source) {
+        var el = $('wiki-content');
+        if (!el) return;
+        el.innerHTML = '<div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">' + escHtml(title) + '</div>' +
+            '<div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;">📄 ' + escHtml(source) + '</div>' +
+            '<div style="white-space:pre-wrap;line-height:1.6;">' + escHtml(text) + '</div>';
+        el.scrollTop = 0;
     };
 
     async function loadWikiPage() {

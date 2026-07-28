@@ -136,13 +136,12 @@
         <button class="btn btn-sm btn-outline" onclick="window._chatRagSearch()">Искать в RAG</button>
         <div id="chat-rag-result" class="rag-result-inline" style="display:none;"></div>
       </div>
-      <div class="chat-messages" id="chat-messages">
-        <div class="chat-msg system">
-          Выберите модель и начните диалог.<br>
-          <strong>qwen-14b</strong> — чат-модель для диалогов.<br>
-          <strong>qwen-32b-base</strong> — базовая модель для продолжения текста.
-        </div>
+      <div class="chat-label">
+        <span>💬 qwen-14b — чат-модель для диалогов</span>
+        <span style="color:var(--text-muted);">|</span>
+        <span>qwen-32b-base — базовая модель для продолжения текста</span>
       </div>
+      <div class="chat-messages" id="chat-messages"></div>
       <div class="chat-input-area">
         <textarea id="chat-input" class="form-input chat-textarea" placeholder="Введите сообщение... (Enter — отправить, Shift+Enter — новая строка)" rows="2"></textarea>
         <button class="btn btn-primary" id="btn-send-message">▶ Отправить</button>
@@ -297,17 +296,38 @@
   <div class="page" id="page-wiki">
     <div class="container">
       <h1>📚 Wiki</h1>
-      <div class="cards-grid">
-        <div class="card"><div class="card-title">Поиск</div><div class="card-body">
-          <input type="text" id="wiki-search-input" class="form-input" placeholder="Поиск по Wiki...">
-          <button class="btn btn-sm btn-primary" onclick="window._wikiSearch()" style="margin-top:8px;">🔍 Найти</button>
-          <div id="wiki-search-result" style="margin-top:8px;font-size:13px;"></div>
-        </div></div>
-        <div class="card"><div class="card-title">Страницы</div><div class="card-body" id="wiki-pages">Загрузка...</div></div>
-        <div class="card"><div class="card-title">Граф знаний</div><div class="card-body">
-          <p class="text-muted">Wiki-Graph RAG — поиск по связанным документам</p>
-          <div id="wiki-graph-status">Загрузка...</div>
-        </div></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <!-- Search + article list (main area) -->
+        <div style="flex:1;min-width:300px;">
+          <div class="card">
+            <div class="card-title">🔍 Поиск</div>
+            <div class="card-body">
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="wiki-search-input" class="form-input" placeholder="Поиск по Wiki..." style="flex:1;">
+                <button class="btn btn-sm btn-primary" onclick="window._wikiSearch()">Найти</button>
+              </div>
+              <div id="wiki-search-result" style="margin-top:8px;font-size:13px;max-height:450px;overflow-y:auto;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Article content side card -->
+        <div style="flex:1;min-width:280px;max-width:450px;">
+          <div class="card">
+            <div class="card-title">📄 Содержание</div>
+            <div class="card-body" id="wiki-content" style="max-height:450px;overflow-y:auto;font-size:13px;line-height:1.6;">
+              <p class="text-muted">Нажмите на статью в результатах поиска, чтобы увидеть её содержание.</p>
+            </div>
+          </div>
+          <!-- Info cards -->
+          <div class="card" style="margin-top:12px;">
+            <div class="card-title" style="font-size:11px;">📑 Страницы</div>
+            <div class="card-body" id="wiki-pages" style="font-size:11px;">Загрузка...</div>
+          </div>
+          <div class="card" style="margin-top:8px;">
+            <div class="card-title" style="font-size:11px;">🔗 Граф знаний</div>
+            <div class="card-body" id="wiki-graph-status" style="font-size:11px;">Загрузка...</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -316,13 +336,27 @@
   <div class="page" id="page-rag">
     <div class="container">
       <h1>🧠 RAG — Wiki-Graph</h1>
-      <div class="cards-grid">
-        <div class="card"><div class="card-title">Статус</div><div class="card-body" id="rag-status">Загрузка...</div></div>
-        <div class="card"><div class="card-title">Запрос</div><div class="card-body">
-          <textarea id="rag-query-input" placeholder="Введите запрос к базе знаний..."></textarea>
-          <button class="btn btn-sm btn-outline" onclick="window._ragQuery()" style="margin-top:8px;">🔍 Искать</button>
-          <div id="rag-query-result" style="margin-top:8px;"></div>
-        </div></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+        <!-- Status card (30% width, compact) -->
+        <div style="flex:0 0 240px;">
+          <div class="card">
+            <div class="card-title">📊 Статус</div>
+            <div class="card-body" id="rag-status" style="font-size:13px;">Загрузка...</div>
+          </div>
+        </div>
+        <!-- Query + results (wide, 2x) -->
+        <div style="flex:2;min-width:400px;">
+          <div class="card">
+            <div class="card-title">🔎 Запрос</div>
+            <div class="card-body">
+              <div style="display:flex;gap:8px;">
+                <textarea id="rag-query-input" placeholder="Введите запрос к базе знаний..." style="flex:1;min-height:50px;"></textarea>
+                <button class="btn btn-sm btn-primary" onclick="window._ragQuery()" style="align-self:flex-end;">🔍 Искать</button>
+              </div>
+              <div id="rag-query-result" style="margin-top:12px;font-size:13px;max-height:500px;overflow-y:auto;"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
