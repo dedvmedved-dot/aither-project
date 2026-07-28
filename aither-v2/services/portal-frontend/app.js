@@ -12,7 +12,7 @@
     }
 
     const $ = (id) => document.getElementById(id);
-    const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile'];
+    const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile','admin','billing','usage','rag','monitoring'];
 
     // Zone detection
     function detectZone() {
@@ -88,12 +88,13 @@
         if (authToken && currentUser) {
             nav.style.display = 'flex';
             $('nav-username').textContent = currentUser.username || 'Пользователь';
-            $('nav-role-badge').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Admin' : 'User';
-            // Show admin nav for admin users
+            $('nav-role-badge').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Admin' : (currentUser.role === 'operator' ? 'Operator' : 'User');
+            // Show admin nav for admin users only
             const isAdmin = currentUser.role === 'administrator' || currentUser.role === 'admin';
             if ($('nav-admin')) $('nav-admin').style.display = isAdmin ? '' : 'none';
             // Show monitoring for admin/operator
-            if ($('nav-mon')) $('nav-mon').style.display = isAdmin ? '' : 'none';
+            const canMonitor = isAdmin || currentUser.role === 'operator';
+            if ($('nav-mon')) $('nav-mon').style.display = canMonitor ? '' : 'none';
             // Show RAG for users with scopes (checked via /rag/status)
             if ($('nav-rag')) {
                 try {
@@ -705,28 +706,27 @@
         setLoading(false);
     };
 
-    // ── Usage Dashboard ──────────────────────────────────────────
     async function loadUsagePage() {
         setLoading(true);
         try {
             const u = await api('/usage/me');
             if (u.ok) {
                 $('usage-today').innerHTML = `
-                    <div>Запросов: <b>${u.data.requests_today||0}</b></div>
-                    <div>Всего: ${u.data.total_requests||0}</div>`;
+                    <div>Запросов сегодня: <b>${u.data.requests_today||0}</b></div>
+                    <div>Всего запросов: ${u.data.total_requests||0}</div>`;
                 $('usage-tokens').innerHTML = `
-                    <div>Входных: <b>${u.data.input_tokens||0}</b></div>
-                    <div>Выходных: <b>${u.data.output_tokens||0}</b></div>
-                    <div>Всего: ${u.data.total_tokens||0}</div>`;
+                    <div>Входных токенов: <b>${u.data.input_tokens||u.data.tokens_today||0}</b></div>
+                    <div>Выходных токенов: <b>${u.data.output_tokens||0}</b></div>
+                    <div>Всего токенов: ${u.data.total_tokens||0}</div>`;
+            } else {
+                $('usage-today').innerHTML = '<p class="text-muted">Недоступно</p>';
+                $('usage-tokens').innerHTML = '<p class="text-muted">Недоступно</p>';
             }
-            const m = await api('/usage/me/models');
-            if (m.ok) {
-                const models = m.data.models || m.data || [];
-                const arr = Array.isArray(models) ? models : Object.entries(models);
-                $('usage-models').innerHTML = arr.length === 0 ? 'Нет данных' :
-                    arr.map(item => `<div>${typeof item==='object'? (item.model||item[0]):item}: ${typeof item==='object'? (item.tokens||item.requests||item[1]||''):''}</div>`).join('');
-            }
-        } catch(e) {}
+            // /usage/me/models removed — Gateway does not support this endpoint
+            $('usage-models').innerHTML = '<p class="text-muted">По моделям — ожидает реализации Gateway</p>';
+        } catch(e) {
+            $('usage-today').innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
+        }
         setLoading(false);
     }
 
@@ -765,18 +765,23 @@
             if (s.ok) {
                 $('mon-gateway').innerHTML = `<div>Gateway: ${s.data.gateway||'?'}</div>
                     <div>${JSON.stringify(s.data.dependencies||{})}</div>`;
+            } else {
+                $('mon-gateway').innerHTML = '<p class="text-muted">Недоступно</p>';
             }
             const m = await api('/monitoring/models');
             if (m.ok) {
                 const models = m.data.models || [];
                 $('mon-models').innerHTML = Array.isArray(models) ? models.map(m =>
                     `<div>${m.id||m}: ${m.status||'?'}</div>`).join('') || 'Нет данных' : JSON.stringify(models);
+            } else {
+                $('mon-models').innerHTML = '<p class="text-muted">Недоступно</p>';
             }
-            const sec = await api('/monitoring/security');
-            if (sec.ok) $('mon-security').innerHTML = `<pre>${JSON.stringify(sec.data,null,2)}</pre>`;
-            const bill = await api('/monitoring/billing');
-            if (bill.ok) $('mon-billing').innerHTML = `<pre>${JSON.stringify(bill.data,null,2)}</pre>`;
-        } catch(e) {}
+            // security/billing removed — Gateway endpoints not implemented
+            $('mon-security').innerHTML = '<p class="text-muted">Ожидает реализации Gateway /admin/security/events</p>';
+            $('mon-billing').innerHTML = '<p class="text-muted">Ожидает реализации Gateway /admin/billing/stats</p>';
+        } catch(e) {
+            $('mon-gateway').innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
+        }
         setLoading(false);
     };
 })();

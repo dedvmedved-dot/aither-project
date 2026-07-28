@@ -121,7 +121,17 @@ async def _get_user_from_token(request: Request) -> dict:
         raise HTTPException(status_code=503, detail="Identity service unreachable")
 
 def _check_chat_entitlement(user: dict, model: str) -> None:
-    """Verify user has entitlement to use the specified model."""
+    """Verify user has entitlement to use the specified model.
+
+    Strict model allowlist: only qwen-14b and qwen-32b-base permitted.
+    Unknown models → 400 BEFORE any upstream call.
+    """
+    # Strict model allowlist
+    ALLOWED_MODELS = {"qwen-14b", "qwen-32b-base"}
+    model_lower = model.lower().strip()
+    if model_lower not in ALLOWED_MODELS:
+        raise HTTPException(status_code=400, detail=f"unknown_model: '{model}' not in allowlist. Available: qwen-14b, qwen-32b-base")
+
     # Organisation must be assigned and active
     org_id = user.get("org_id")
     if not org_id:
@@ -134,31 +144,25 @@ def _check_chat_entitlement(user: dict, model: str) -> None:
     # Model-specific scope enforcement
     scopes_str = (user.get("scopes") or "").strip()
     scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
-    if "32b" in model.lower():
-        required = "model:32b:chat-adapter"
-        if required not in scopes:
-            raise HTTPException(status_code=403, detail=f"entitlement_missing: scope '{required}' required for 32B chat")
-    else:
-        unknown = True
-        if "model:14b:chat" in scopes:
-            unknown = False
-        if not unknown:
-            pass  # has valid scope
-        else:
-            # If no recognized model scope, deny
-            raise HTTPException(status_code=403, detail="entitlement_missing: no valid model scope")
-    # Unknown model ID check: if model has no recognized scope, deny
-    has_14b = "model:14b:chat" in scopes
-    has_32b = "model:32b:chat-adapter" in scopes
-    if "32b" in model.lower() and not has_32b:
-        raise HTTPException(status_code=403, detail="entitlement_missing: 32B model not in user scopes")
-    if "32b" not in model.lower() and not has_14b:
-        raise HTTPException(status_code=400, detail=f"Model '{model}' not available for your entitlements")
+    if model_lower == "qwen-32b-base":
+        if "model:32b:chat-adapter" not in scopes:
+            raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:32b:chat-adapter' required for qwen-32b-base")
+    else:  # qwen-14b
+        if "model:14b:chat" not in scopes:
+            raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:14b:chat' required for qwen-14b")
 
 def _require_admin(user: dict) -> None:
     """Raise 403 if user is not admin."""
     if user.get("role") not in ("admin", "administrator"):
         raise HTTPException(status_code=403, detail="Admin role required")
+
+def _require_monitoring_role(user: dict) -> None:
+    """Raise 403 if user is not admin or operator.
+    Monitoring: administrator=full, operator=monitoring only, user=none.
+    """
+    role = user.get("role", "")
+    if role not in ("admin", "administrator", "operator"):
+        raise HTTPException(status_code=403, detail="Admin or operator role required")
 
 def _mint_delegation_jwt(user: dict) -> str:
     """Create a short-lived RS256 delegation JWT for Gateway.
@@ -857,9 +861,9 @@ async def rag_wiki_ingest(request: Request):
 
 @app.get("/api/v1/monitoring/summary")
 async def monitoring_summary(request: Request):
-    """Get monitoring summary (admin only)."""
+    """Get monitoring summary (admin/operator)."""
     user = await _get_user_from_token(request)
-    _require_admin(user)
+    _require_monitoring_role(user)
     jwt_token = _mint_delegation_jwt(user)
     try:
         async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
@@ -880,7 +884,7 @@ async def monitoring_summary(request: Request):
 async def monitoring_models(request: Request):
     """Model metrics (admin/operator) — passes X-Admin-Key."""
     user = await _get_user_from_token(request)
-    _require_admin(user)
+    _require_monitoring_role(user)
     jwt_token = _mint_delegation_jwt(user)
     try:
         async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
@@ -892,43 +896,15 @@ async def monitoring_models(request: Request):
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 
-@app.get("/api/v1/monitoring/security")
-async def monitoring_security(request: Request):
-    """Security events (admin/operator)."""
-    user = await _get_user_from_token(request)
-    _require_admin(user)
-    jwt_token = _mint_delegation_jwt(user)
-    try:
-        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
-            r = await gc.get("/admin/security/events", headers={
-                "Authorization": f"Bearer {jwt_token}",
-                "X-Admin-Key": GATEWAY_ADMIN_KEY,
-            })
-            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
-
-@app.get("/api/v1/monitoring/billing")
-async def monitoring_billing(request: Request):
-    """Billing metrics (admin/operator)."""
-    user = await _get_user_from_token(request)
-    _require_admin(user)
-    jwt_token = _mint_delegation_jwt(user)
-    try:
-        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
-            r = await gc.get("/admin/billing/stats", headers={
-                "Authorization": f"Bearer {jwt_token}",
-                "X-Admin-Key": GATEWAY_ADMIN_KEY,
-            })
-            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+# NOTE (FE-05): /api/v1/monitoring/security and /api/v1/monitoring/billing REMOVED.
+# Gateway /admin/security/events and /admin/billing/stats are not implemented.
+# Re-add when Gateway backend supports these endpoints.
 
 @app.get("/api/v1/monitoring/dependencies")
 async def monitoring_dependencies(request: Request):
     """Service dependency status (admin/operator)."""
     user = await _get_user_from_token(request)
-    _require_admin(user)
+    _require_monitoring_role(user)
     jwt_token = _mint_delegation_jwt(user)
     try:
         async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
