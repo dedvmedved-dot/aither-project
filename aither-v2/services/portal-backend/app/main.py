@@ -48,6 +48,12 @@ if not _JWT_PRIVATE_KEY:
         log.warning("JWT private key not found at %s — delegation JWTs will fail", _key_file)
 
 DELEGATION_JWT_TTL = 60  # seconds
+
+# Upstream model credentials (server-side, from K8s Secrets — never returned to browser)
+UPSTREAM_14B_URL = os.environ.get("UPSTREAM_14B_URL", "http://vllm-14b-instruct.aither-inference.svc:8000")
+UPSTREAM_14B_TOKEN = os.environ.get("UPSTREAM_14B_TOKEN", "")
+UPSTREAM_32B_URL = os.environ.get("UPSTREAM_32B_URL", "http://nginx-gateway-32b.aither-inference.svc:8000")
+UPSTREAM_32B_TOKEN = os.environ.get("UPSTREAM_32B_TOKEN", "")
 # In production, set PORTAL_CORS_ORIGIN to the Portal Frontend URL.
 # Example: PORTAL_CORS_ORIGIN=https://portal.aither.example.com
 # Multiple origins are not supported by this middleware — use a reverse proxy for complex rules.
@@ -982,14 +988,13 @@ async def monitoring_dependencies(request: Request):
 
 @app.post("/api/v1/chat")
 async def chat_completions(request: Request):
-    """Chat completions — delegation JWT auth (no raw API key storage).
+    """Chat completions — direct upstream with server-side credentials.
 
-    Flow: Browser token → validate Identity → mint delegation JWT → Gateway → AI Platform.
-    No API keys stored in process memory. No automatic key creation.
+    Flow: Browser → Portal Backend → direct upstream (14B) or nginx proxy (32B).
+    NOT routed through Gateway. Server-side credentials from K8s Secrets.
+    No raw API keys stored in process memory. No delegation JWT for chat.
     """
-    auth = request.headers.get("Authorization", "")
     body = await request.body()
-
     try:
         body_json = json.loads(body)
     except json.JSONDecodeError:
@@ -1000,16 +1005,24 @@ async def chat_completions(request: Request):
     max_tokens = body_json.get("max_tokens", 512)
     temperature = body_json.get("temperature", 0.7)
 
-    # 1. Verify user identity
+    # 1. Verify user identity (session + disabled check)
     user = await _get_user_from_token(request)
 
-    # 2. Mint delegation JWT for Gateway (no raw API key!)
-    delegation_jwt = _mint_delegation_jwt(user)
+    # 2. Determine upstream based on model
+    if "32b" in model.lower():
+        upstream_url = UPSTREAM_32B_URL
+        upstream_token = UPSTREAM_32B_TOKEN
+    else:
+        upstream_url = UPSTREAM_14B_URL
+        upstream_token = UPSTREAM_14B_TOKEN
 
-    # 3. Forward chat through Gateway with delegation JWT
+    if not upstream_token:
+        raise HTTPException(status_code=503, detail="Upstream credentials not configured")
+
+    # 3. Forward directly to upstream with server-side credential
     try:
-        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=120.0) as gc:
-            chat_resp = await gc.post(
+        async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
+            chat_resp = await ac.post(
                 "/v1/chat/completions",
                 json={
                     "model": model,
@@ -1019,7 +1032,7 @@ async def chat_completions(request: Request):
                     "stream": False,
                 },
                 headers={
-                    "Authorization": f"Bearer {delegation_jwt}",
+                    "Authorization": f"Bearer {upstream_token}",
                     "Content-Type": "application/json",
                 },
             )
@@ -1029,7 +1042,7 @@ async def chat_completions(request: Request):
                 media_type="application/json",
             )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+        raise HTTPException(status_code=503, detail=f"Upstream model unreachable: {e}")
 
 
 @app.on_event("startup")
