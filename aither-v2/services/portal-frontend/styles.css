@@ -28,17 +28,21 @@ body {
 
 /* Navigation */
 .nav {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center;
   background: var(--bg-card); border-bottom: 1px solid var(--border);
-  padding: 0 20px; height: 56px; position: sticky; top: 0; z-index: 100;
-  flex-wrap: wrap; gap: 8px;
+  padding: 0 16px; height: 48px; position: sticky; top: 0; z-index: 100;
+  gap: 8px;
 }
-.nav-brand { font-size: 20px; font-weight: 700; color: var(--primary); }
-.nav-links { display: flex; gap: 4px; flex-wrap: wrap; }
+.nav-brand { font-size: 18px; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+.nav-links {
+  display: flex; gap: 2px; overflow-x: auto; flex: 1;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.nav-links::-webkit-scrollbar { display: none; }
 .nav-link {
-  color: var(--text-muted); text-decoration: none; padding: 8px 14px;
-  border-radius: var(--radius); font-size: 13px; font-weight: 500;
-  transition: all 0.15s; white-space: nowrap;
+  color: var(--text-muted); text-decoration: none; padding: 6px 10px;
+  border-radius: var(--radius); font-size: 12px; font-weight: 500;
+  transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
 }
 .nav-link:hover { color: var(--text); background: var(--bg-card-hover); }
 .nav-link.active { color: #fff; background: var(--primary); }
