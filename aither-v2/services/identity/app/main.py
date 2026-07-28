@@ -240,7 +240,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
-def make_jwt(user_id: int, username: str, role: str, org_id: int | None = None, scopes: str = "", disabled: bool = False) -> str:
+def make_jwt(user_id: int, username: str, role: str, org_id: int | None = None, scopes: str = "", disabled: bool = False, tier: str = "") -> str:
     """Simple HMAC-based stateless token."""
     token = generate_token()
     payload = json.dumps({
@@ -250,6 +250,7 @@ def make_jwt(user_id: int, username: str, role: str, org_id: int | None = None, 
         "org_id": org_id,
         "scopes": scopes,
         "disabled": disabled,
+        "tier": tier,
         "iat": int(time.time()),
         "exp": int(time.time()) + TOKEN_TTL,
         "jti": token,
@@ -368,6 +369,8 @@ class UserCreate(BaseModel):
     username: str
     password: str
     role: str = "user"
+    org_id: int | None = None
+    scopes: str = ""
 
 class UserResponse(BaseModel):
     id: int
@@ -375,6 +378,8 @@ class UserResponse(BaseModel):
     role: str
     created_at: str
     disabled: bool
+    org_id: int | None = None
+    scopes: str = ""
 
 class MeResponse(BaseModel):
     id: int
@@ -670,13 +675,13 @@ async def oauth_callback(request: Request, provider: str, code: str = None, stat
     try:
         user_id = get_or_create_oauth_user(conn, provider, provider_user_id, email)
         row = conn.execute(
-            "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE id=?",
+            "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.id=?",
             (user_id,),
         ).fetchone()
         if row["disabled"]:
             raise HTTPException(status_code=403, detail="Account disabled")
         token_str = make_jwt(row["id"], row["username"], row["role"],
-                            org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]))
+                            org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]), tier=row["tier"])
         create_session(conn, row["id"], token_str)
         conn.commit()
         log.info("OAuth login: provider=%s user='%s'", provider, row["username"])
@@ -704,18 +709,20 @@ async def ldap_login(req: LdapLoginRequest):
     conn = get_db()
     try:
         row = conn.execute(
-            "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE username=?",
+            "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.username=?",
             (ldap_user["username"],),
         ).fetchone()
         if not row:
-            # Auto-create user from LDAP
+            # Auto-create user from LDAP — assign default org
+            default_org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
+            org_id = default_org["id"] if default_org else 1
             conn.execute(
-                "INSERT INTO users (username, password, role) VALUES (?, '', 'user')",
-                (ldap_user["username"],),
+                "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, '', 'user', ?, 'model:14b:chat')",
+                (ldap_user["username"], org_id),
             )
             user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             row = conn.execute(
-                "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE id=?",
+                "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.id=?",
                 (user_id,),
             ).fetchone()
             log.info("LDAP: auto-created user '%s'", ldap_user["username"])
@@ -725,7 +732,7 @@ async def ldap_login(req: LdapLoginRequest):
             raise HTTPException(status_code=403, detail="Account disabled")
 
         token_str = make_jwt(row["id"], row["username"], row["role"],
-                            org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]))
+                            org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]), tier=row["tier"])
         create_session(conn, row["id"], token_str)
         conn.commit()
         log.info("LDAP login: user='%s'", row["username"])
@@ -772,7 +779,7 @@ async def login(req: LoginRequest):
     """Authenticate a user and return a bearer token."""
     conn = get_db()
     row = conn.execute(
-        "SELECT id, username, password, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE username=?",
+        "SELECT u.id, u.username, u.password, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.username=?",
         (req.username,),
     ).fetchone()
     conn.close()
@@ -789,7 +796,7 @@ async def login(req: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = make_jwt(row["id"], row["username"], row["role"],
-                     org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]))
+                     org_id=row["org_id"], scopes=row["scopes"], disabled=bool(row["disabled"]), tier=row["tier"])
 
     conn = get_db()
     create_session(conn, row["id"], token)
@@ -858,21 +865,35 @@ async def list_users(admin: dict = Depends(require_admin)):
 
 @app.post("/v1/identity/users", status_code=201)
 async def create_user(req: UserCreate, admin: dict = Depends(require_admin)):
-    """Create a new user (admin only)."""
-    if req.role not in ("administrator", "user"):
-        raise HTTPException(status_code=400, detail="Role must be 'administrator' or 'user'")
+    """Create a new user (admin only). Requires org_id and scopes."""
+    if req.role not in ("administrator", "user", "operator"):
+        raise HTTPException(status_code=400, detail="Role must be 'administrator', 'operator' or 'user'")
     if len(req.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if not req.org_id:
+        raise HTTPException(status_code=400, detail="org_id is required")
+    if not req.scopes or not req.scopes.strip():
+        raise HTTPException(status_code=400, detail="scopes is required (comma-separated)")
 
     pw_hash = hash_password(req.password)
     conn = get_db()
     try:
+        # Validate organisation exists and is active
+        org = conn.execute(
+            "SELECT id, status FROM organisations WHERE id=?", (req.org_id,)
+        ).fetchone()
+        if not org:
+            raise HTTPException(status_code=400, detail=f"Organisation {req.org_id} does not exist")
+        if org["status"] != "active":
+            raise HTTPException(status_code=400, detail=f"Organisation {req.org_id} is not active")
+
         conn.execute(
-            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            (req.username, pw_hash, req.role),
+            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, ?, ?, ?)",
+            (req.username, pw_hash, req.role, req.org_id, req.scopes.strip()),
         )
         conn.commit()
-        log.info("Admin '%s' created user '%s' with role '%s'", admin.get("sub"), req.username, req.role)
+        log.info("Admin '%s' created user '%s' role='%s' org=%d scopes='%s'",
+                 admin.get("sub"), req.username, req.role, req.org_id, req.scopes)
         return {"message": f"User '{req.username}' created with role '{req.role}'"}
     except sqlite3.IntegrityError:
         conn.close()

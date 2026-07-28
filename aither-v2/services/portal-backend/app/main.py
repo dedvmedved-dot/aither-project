@@ -130,15 +130,24 @@ def _mint_delegation_jwt(user: dict) -> str:
 
     Claims: iss=aither-bff, aud=aither-gateway, org_id from identity,
     tier from billing, actual scopes from identity. TTL ≤ 60s.
+    NO FALLBACKS — empty org/scopes/tier → 403.
     """
     if not _JWT_PRIVATE_KEY:
         raise HTTPException(status_code=500, detail="Delegation JWT signing key not configured")
     now = int(time.time())
-    org_id = str(user.get("org_id") or "1")  # "1" = default org, not "unknown"
-    scopes_str = user.get("scopes", "")
-    scopes = [s.strip() for s in scopes_str.split(",") if s.strip()] if scopes_str else [
-        "model:14b:chat", "model:32b:chat-adapter", "model:32b:completion",
-    ]
+    org_id = user.get("org_id")
+    if not org_id:
+        raise HTTPException(status_code=403, detail="entitlement_missing: org_id not assigned")
+    org_id = str(org_id)
+    scopes_str = (user.get("scopes") or "").strip()
+    if not scopes_str:
+        raise HTTPException(status_code=403, detail="entitlement_missing: no scopes assigned")
+    scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
+    if not scopes:
+        raise HTTPException(status_code=403, detail="entitlement_missing: empty scopes")
+    tier = user.get("tier")
+    if not tier:
+        raise HTTPException(status_code=403, detail="entitlement_missing: tier not assigned")
     payload = {
         "iss": "aither-bff",
         "aud": "aither-gateway",
