@@ -1053,6 +1053,35 @@ async def patch_user_status(
     finally:
         conn.close()
 
+
+@app.patch("/v1/identity/orgs/{org_id}/tier")
+async def patch_org_tier(
+    org_id: int,
+    request: Request,
+    admin: dict = Depends(require_admin),
+):
+    """Update organisation tier (admin only)."""
+    body = await request.json()
+    tier = body.get("tier", "").strip()
+    valid_tiers = ["free", "starter", "pro", "enterprise"]
+    if tier not in valid_tiers:
+        raise HTTPException(status_code=400, detail=f"Invalid tier. Valid: {', '.join(valid_tiers)}")
+
+    conn = get_db()
+    try:
+        org = conn.execute("SELECT id, name FROM organisations WHERE id=?", (org_id,)).fetchone()
+        if not org:
+            raise HTTPException(status_code=404, detail=f"Organisation {org_id} not found")
+        conn.execute("UPDATE organisations SET tier=? WHERE id=?", (tier, org_id))
+        conn.commit()
+        log.info("Admin '%s' changed org %d ('%s') tier → '%s'",
+                 admin.get("sub"), org_id, org["name"], tier)
+        return {"message": f"Organisation {org_id} tier updated to '{tier}'", "tier": tier, "org_name": org["name"]}
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 # ── Routes: Status ─────────────────────────────────────────────
 
 @app.get("/v1/identity/status")

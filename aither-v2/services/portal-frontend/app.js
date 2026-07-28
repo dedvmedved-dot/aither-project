@@ -81,6 +81,72 @@
         return d.innerHTML;
     }
 
+    // ── Code syntax highlighting ─────────────────────────────────
+    const SYNTAX_KEYWORDS = {
+        python: ['def','class','import','from','return','if','elif','else','for','while','try','except','finally','with','as','yield','raise','pass','break','continue','and','or','not','in','is','None','True','False','async','await','lambda','global','nonlocal','assert','del'],
+        bash: ['if','then','else','elif','fi','for','while','do','done','case','esac','function','export','local','return','exit','echo','source','set','unset','read','declare','eval','exec','trap'],
+        js: ['function','var','let','const','if','else','for','while','return','try','catch','throw','new','class','extends','import','export','default','async','await','this','null','undefined','true','false','typeof','instanceof'],
+        json: ['true','false','null'],
+        sql: ['SELECT','FROM','WHERE','INSERT','INTO','UPDATE','DELETE','CREATE','TABLE','ALTER','DROP','JOIN','LEFT','RIGHT','INNER','ON','AND','OR','NOT','NULL','AS','ORDER','BY','GROUP','HAVING','LIMIT','OFFSET','SET','VALUES','INDEX','UNIQUE','PRIMARY','KEY','FOREIGN','REFERENCES','DEFAULT','CHECK','COUNT','SUM','AVG','MAX','MIN','EXISTS','BETWEEN','LIKE','IN','CASE','WHEN','THEN','ELSE','END','UNION','ALL','DISTINCT']
+    };
+
+    function highlightCode(code, lang) {
+        var escaped = escHtml(code);
+        var keywords = SYNTAX_KEYWORDS[lang] || [];
+        if (lang === 'py') { lang = 'python'; keywords = SYNTAX_KEYWORDS.python; }
+        if (lang === 'sh' || lang === 'shell') { lang = 'bash'; keywords = SYNTAX_KEYWORDS.bash; }
+        if (lang === 'javascript' || lang === 'js') { lang = 'js'; keywords = SYNTAX_KEYWORDS.js; }
+
+        if (keywords.length === 0) return escaped;
+
+        // Highlight strings (single/double quoted)
+        escaped = escaped.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="syn-string">$1</span>');
+        escaped = escaped.replace(/(["'][^"']*["'])/g, '<span class="syn-string">$1</span>');
+
+        // Highlight comments
+        if (lang === 'python' || lang === 'bash') {
+            escaped = escaped.replace(/(#.*)/g, '<span class="syn-comment">$1</span>');
+        }
+        if (lang === 'js') {
+            escaped = escaped.replace(/(\/\/.*)/g, '<span class="syn-comment">$1</span>');
+        }
+        if (lang === 'sql') {
+            escaped = escaped.replace(/(--.*)/g, '<span class="syn-comment">$1</span>');
+        }
+
+        // Highlight keywords
+        keywords.forEach(function(kw) {
+            var re = new RegExp('\\b(' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\b', 'g');
+            escaped = escaped.replace(re, '<span class="syn-keyword">$1</span>');
+        });
+
+        // Highlight numbers
+        escaped = escaped.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>');
+
+        return escaped;
+    }
+
+    function formatMessage(text) {
+        // Process ```code``` blocks with syntax highlighting
+        var result = '';
+        var parts = text.split(/(```(\w*)\n?([\s\S]*?)```)/g);
+        var i = 0;
+        while (i < parts.length) {
+            if (parts[i] && parts[i].startsWith('```')) {
+                var lang = (parts[i+1] || '').trim() || 'text';
+                var code = (parts[i+2] || '').replace(/\n$/, '');
+                var highlighted = highlightCode(code, lang);
+                result += '<div class="code-block"><div class="code-lang">' + escHtml(lang) + '</div><pre><code>' + highlighted + '</code></pre></div>';
+                i += 3;
+            } else {
+                result += escHtml(parts[i] || '');
+                i++;
+            }
+        }
+        if (!result) result = escHtml(text);
+        return result;
+    }
+
     async function updateNav() {
         const nav = $('main-nav');
         const badge = $('zone-badge');
@@ -227,7 +293,7 @@
         }
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg ' + role;
-        msgDiv.innerHTML = meta + escHtml(content) +
+        msgDiv.innerHTML = meta + formatMessage(content) +
             (role === 'assistant' ? '<div class="msg-actions"><button class="btn btn-sm btn-outline" onclick="var t=this.closest(\'.chat-msg\').textContent.replace(\'📋 Копировать\',\'\').trim();navigator.clipboard.writeText(t);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.remove(),2000);">📋 Копировать</button></div>' : '');
         msgs.appendChild(msgDiv);
         msgs.scrollTop = msgs.scrollHeight;

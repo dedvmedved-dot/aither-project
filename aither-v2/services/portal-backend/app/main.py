@@ -808,6 +808,33 @@ async def billing_ledger(request: Request):
 async def usage_me(request: Request):
     return await _proxy_to_gateway_user(request, "/v1/usage/me")
 
+@app.post("/api/v1/billing/tier")
+async def update_tier(request: Request):
+    """Update current user's organisation tier.
+    Calls Identity PATCH /v1/identity/orgs/{org_id}/tier — admin required."""
+    body = await request.json()
+    tier = body.get("tier", "").strip()
+    if not tier:
+        raise HTTPException(status_code=400, detail="tier is required")
+
+    user = await _get_user_from_token(request)
+    org_id = user.get("org_id")
+    if not org_id:
+        raise HTTPException(status_code=400, detail="No organisation assigned")
+
+    try:
+        c = await get_client()
+        r = await c.patch(
+            f"/v1/identity/orgs/{org_id}/tier",
+            json={"tier": tier},
+            headers={"Authorization": request.headers.get("Authorization", "")},
+        )
+        if r.status_code == 200:
+            return r.json()
+        raise HTTPException(status_code=r.status_code, detail=r.json().get("detail", "Identity error"))
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity service unavailable: {e}")
+
 # NOTE: /api/v1/usage/me/daily and /api/v1/usage/me/models removed (FE-04):
 # Gateway does not implement these endpoints. Re-add when Gateway backend supports them.
 
