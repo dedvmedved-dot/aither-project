@@ -1,11 +1,9 @@
 # Canonical Deployment Image Digests — aither-v2
-# Generated: 2026-07-28T11:30:00Z
+# Generated: 2026-07-28
 # Repository: dedvmedved-dot/aither-project
-# Commit: 9cefeb5 (R7-R5-EMG-FE-02)
+# Commit: 594ac15 (R7-R5-EMG-FE-03)
 
-aither-identity/identity: 10.129.13.78:5000/aither-identity@sha256:fa77e4fc7aaf7229071dfe06774f968e44d161b0f3d1fd6312c95de6c5e72c91
-aither-portal-backend/portal-backend: 10.129.13.78:5000/aither-portal-backend@sha256:819937c454540ca8d0497f7946d467535d408ae0318648d340de2d962a2de519
+aither-identity/identity: 10.129.13.78:5000/aither-identity@sha256:9235c80a3df8f13e517447bac180f4f8c27e9247a485d47ebeba1c9f10ddf401
+aither-portal-backend/portal-backend: 10.129.13.78:5000/aither-portal-backend@sha256:b28b308c0bd4786336f92b91dedcc326e029225ba481edb36aea694116423b75
 aither-bff/bff: 10.129.13.78:5000/aither-bff@sha256:98f4c3d0972e14cf607572ba0f1b5bd2acc33a6c0355bffe81db427e915b92c4
 aither-gateway/gateway: 10.129.13.78:5000/aither-gateway@sha256:0304b926cdfdd43f8b78675e3e096b19c7f276202652ee500c193e9e40f9e562
-aither-portal/nginx: nginx:stable-alpine
-aither-portal-frontend/portal-frontend: 10.129.13.78:5000/aither-portal-frontend:latest

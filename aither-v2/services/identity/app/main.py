@@ -836,13 +836,16 @@ async def login(req: LoginRequest):
 # ── Routes: Session Management ─────────────────────────────────
 
 @app.post("/v1/identity/logout")
-async def logout(user: dict = Depends(get_current_user)):
-    """Revoke the current token."""
-    jti = user.get("jti", "")
+async def logout(
+    user: dict = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Revoke the current token by hashing the full token (matches session)."""
+    token_hash_val = hash_token(credentials.credentials)
     conn = get_db()
     conn.execute(
         "UPDATE sessions SET revoked=1 WHERE token_hash=?",
-        (hash_token(jti),),
+        (token_hash_val,),
     )
     conn.commit()
     conn.close()
