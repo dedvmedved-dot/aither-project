@@ -961,7 +961,7 @@ async def rag_query(request: Request):
         raise HTTPException(status_code=400, detail="query is required")
 
     # 1. Retrieve relevant documents
-    top_k = int(body.get("top_k", 5))
+    top_k = int(body.get("top_k", 7))
     results = _rag.query(query, top_k=top_k)
 
     if not results:
@@ -978,14 +978,27 @@ async def rag_query(request: Request):
         context_parts.append(f"[Документ {i+1}: {r['title']} (источник: {r['source']})]\n{r['text']}")
     context = "\n\n---\n\n".join(context_parts)
 
-    # 3. Build augmented prompt
+    # 3. Build augmented prompt — detailed, structured answer
     system_msg = (
-        "Ты — AI-ассистент платформы Aither. Отвечай на русском языке. "
-        "Используй ТОЛЬКО информацию из предоставленного контекста. "
-        "Если в контексте нет ответа, скажи об этом честно. "
-        "Не придумывай факты. Указывай источники в ответе."
+        "Ты — AI-ассистент платформы Aither, эксперт по инфраструктуре AI-платформ. "
+        "Отвечай на русском языке. Твоя задача — дать ПОДРОБНЫЙ, СТРУКТУРИРОВАННЫЙ ответ, "
+        "используя информацию из предоставленного контекста.\n\n"
+        "ПРАВИЛА:\n"
+        "1. Отвечай развёрнуто: 2-5 абзацев, с примерами и пояснениями.\n"
+        "2. Используй ТОЛЬКО информацию из контекста — не придумывай факты.\n"
+        "3. Если в контексте нет полного ответа, опиши что известно и что отсутствует.\n"
+        "4. Структурируй ответ: начни с краткого вывода, затем детали, затем ограничения.\n"
+        "5. Указывай номера документов-источников в квадратных скобках: [1], [2].\n"
+        "6. Если уместно, используй маркированные списки для перечисления."
     )
-    user_msg = f"Контекст из базы знаний Aither:\n\n{context}\n\n---\n\nВопрос пользователя: {query}\n\nОтветь на вопрос, используя только информацию из контекста выше."
+    user_msg = (
+        f"КОНТЕКСТ ИЗ БАЗЫ ЗНАНИЙ AITHER:\n\n{context}\n\n"
+        f"==========\n\n"
+        f"ВОПРОС ПОЛЬЗОВАТЕЛЯ: {query}\n\n"
+        f"Дай подробный, структурированный ответ на вопрос, "
+        f"используя только информацию из контекста выше. "
+        f"Указывай источники в квадратных скобках, например [1]."
+    )
 
     # 4. Call LLM
     try:
@@ -998,8 +1011,8 @@ async def rag_query(request: Request):
                         {"role": "system", "content": system_msg},
                         {"role": "user", "content": user_msg},
                     ],
-                    "max_tokens": 800,
-                    "temperature": 0.3,
+                    "max_tokens": 1500,
+                    "temperature": 0.4,
                     "stream": False,
                 },
                 headers={"Authorization": f"Bearer {UPSTREAM_14B_TOKEN}"},
