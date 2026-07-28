@@ -1,4 +1,12 @@
-# Aither Portal Backend (BFF)
+# =====================================================================
+# SUPERSEDED / DO NOT BUILD — 2026-07-28 (R7-R5-EMG-FE-02)
+# =====================================================================
+# Authoritative BFF source: aither-v2/services/portal-backend/app/main.py
+# Chat endpoint (/api/v1/chat) now uses delegation JWT auth (Variant A).
+# In-memory API key cache removed. Raw API keys no longer stored in BFF.
+# This file is retained for reference only.
+# =====================================================================
+# Aither Portal Backend (BFF) — SUPERSEDED
 #
 # Environment variables:
 #   PORTAL_IDENTITY_URL    — Identity service URL (default: http://aither-identity:8000)

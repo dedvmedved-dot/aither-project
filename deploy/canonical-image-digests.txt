@@ -1,0 +1,10 @@
+# Canonical Deployment Image Digests — aither-v2
+# Generated: 2026-07-28
+# Repository: dedvmedved-dot/aither-project
+
+aither-portal/nginx: nginx:stable-alpine
+aither-portal-frontend/portal-frontend: 10.129.13.78:5000/aither-portal-frontend:latest
+aither-portal-backend/portal-backend: 10.129.13.78:5000/aither-portal-backend:latest
+aither-bff/bff: 10.129.13.78:5000/aither-bff@sha256:98f4c3d0972e14cf607572ba0f1b5bd2acc33a6c0355bffe81db427e915b92c4
+aither-identity/identity: 10.129.13.78:5000/aither-identity@sha256:6d79934eada4b0060729e1976367987e9f2a8ea609b771cd94f267b100dcdc35
+aither-gateway/gateway: 10.129.13.78:5000/aither-gateway@sha256:0304b926cdfdd43f8b78675e3e096b19c7f276202652ee500c193e9e40f9e562
