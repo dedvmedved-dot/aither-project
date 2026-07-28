@@ -15,6 +15,10 @@ import json
 import logging
 import time
 import uuid
+import random
+import smtplib
+import threading
+from email.mime.text import MIMEText
 from datetime import datetime, timezone
 
 import httpx
@@ -48,6 +52,18 @@ if not _JWT_PRIVATE_KEY:
         log.warning("JWT private key not found at %s — delegation JWTs will fail", _key_file)
 
 DELEGATION_JWT_TTL = 60  # seconds
+
+# ── SMTP / Email config ────────────────────────────────────────
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT") or "465")
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
+SMTP_FROM = os.environ.get("SMTP_FROM") or SMTP_USER or "aither@fb1.spb.ru"
+REGISTRATION_CODE_TTL = 90  # seconds
+
+# In-memory pending registrations: {reg_token: {username, password, email, code, created_at}}
+_pending_registrations: dict = {}
+_pending_lock = threading.Lock()
 
 # Upstream model credentials (server-side, from K8s Secrets — never returned to browser)
 UPSTREAM_14B_URL = os.environ.get("UPSTREAM_14B_URL", "http://vllm-14b-instruct.aither-inference.svc:8000")
@@ -218,6 +234,15 @@ class UserInfo(BaseModel):
     username: str
     role: str
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    email: str
+
+class VerifyRegistrationRequest(BaseModel):
+    registration_token: str
+    code: str
+
 # ── Application ────────────────────────────────────────────────
 
 app = FastAPI(
@@ -386,6 +411,155 @@ async def logout(request: Request):
         if r.status_code == 200:
             return r.json()
         raise HTTPException(status_code=r.status_code, detail=r.json().get("detail", "Logout failed"))
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity service unavailable: {e}")
+
+# ── Email sending ────────────────────────────────────────────────
+
+def _send_verification_email(to_email: str, code: str) -> bool:
+    """Send a 6-digit verification code via SMTP. Returns True on success."""
+    if not SMTP_HOST:
+        log.warning("SMTP_HOST not configured — cannot send email to %s (code: %s)", to_email, code)
+        return False
+    try:
+        subject = "Aither — Код подтверждения регистрации"
+        body = (
+            f"Здравствуйте!\n\n"
+            f"Ваш код подтверждения для регистрации в Aither: {code}\n\n"
+            f"Код действителен в течение {REGISTRATION_CODE_TTL} секунд.\n"
+            f"Если вы не запрашивали регистрацию, проигнорируйте это письмо.\n\n"
+            f"— Команда Aither"
+        )
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = SMTP_FROM
+        msg["To"] = to_email
+
+        if SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
+                if SMTP_USER and SMTP_PASS:
+                    smtp.login(SMTP_USER, SMTP_PASS)
+                smtp.send_message(msg)
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
+                smtp.starttls()
+                if SMTP_USER and SMTP_PASS:
+                    smtp.login(SMTP_USER, SMTP_PASS)
+                smtp.send_message(msg)
+        log.info("Verification code sent to %s", to_email)
+        return True
+    except Exception as e:
+        log.error("Failed to send verification email to %s: %s", to_email, e)
+        return False
+
+# ── Registration with email verification ─────────────────────────
+
+def _cleanup_expired_registrations():
+    """Remove expired pending registrations."""
+    now = time.time()
+    with _pending_lock:
+        expired = [k for k, v in _pending_registrations.items()
+                   if now - v["created_at"] > REGISTRATION_CODE_TTL + 30]
+        for k in expired:
+            del _pending_registrations[k]
+
+@app.post("/api/v1/auth/register")
+async def register(req: RegisterRequest):
+    """Step 1: Start registration — send verification code to email."""
+    # Cleanup expired first
+    _cleanup_expired_registrations()
+
+    # Validate inputs
+    if not req.username or len(req.username.strip()) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if not req.password or len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if not req.email or "@" not in req.email:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    # Check username uniqueness via Identity
+    try:
+        c = await get_client()
+        # Try a quick check — if user exists, identity returns their info
+        r = await c.get(f"/v1/identity/users/check?username={req.username.strip()}")
+        if r.status_code == 200:
+            raise HTTPException(status_code=409, detail="Username already taken")
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # If check endpoint doesn't exist, proceed
+
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
+    reg_token = uuid.uuid4().hex
+
+    # Store pending registration
+    with _pending_lock:
+        _pending_registrations[reg_token] = {
+            "username": req.username.strip(),
+            "password": req.password,
+            "email": req.email.strip(),
+            "code": code,
+            "created_at": time.time(),
+        }
+
+    # Send email
+    email_sent = _send_verification_email(req.email.strip(), code)
+    if not email_sent:
+        # If email not sent, still allow for testing (code returned in dev mode)
+        log.warning("Email not sent for %s — registration pending with code in logs only", req.email)
+
+    log.info("Registration started: user='%s' email='%s'", req.username, req.email)
+    return {
+        "status": "ok" if email_sent else "email_failed",
+        "registration_token": reg_token,
+        "message": "Код подтверждения отправлен на email" if email_sent
+                   else "Не удалось отправить email. Код доступен в логах.",
+        "expires_in": REGISTRATION_CODE_TTL,
+    }
+
+@app.post("/api/v1/auth/verify-registration")
+async def verify_registration(req: VerifyRegistrationRequest):
+    """Step 2: Verify code and create user in Identity."""
+    _cleanup_expired_registrations()
+
+    with _pending_lock:
+        pending = _pending_registrations.pop(req.registration_token, None)
+
+    if not pending:
+        raise HTTPException(status_code=404, detail="Registration session not found or expired")
+
+    # Check expiry
+    if time.time() - pending["created_at"] > REGISTRATION_CODE_TTL:
+        raise HTTPException(status_code=410, detail="Verification code expired — please register again")
+
+    # Check code
+    if pending["code"] != req.code.strip():
+        raise HTTPException(status_code=400, detail="Неверный код подтверждения")
+
+    # Create user via Identity
+    try:
+        c = await get_client()
+        r = await c.post("/v1/identity/register", json={
+            "username": pending["username"],
+            "password": pending["password"],
+        })
+        if r.status_code == 201 or r.status_code == 200:
+            user_data = r.json()
+            log.info("Registration complete: user='%s' email='%s'",
+                     pending["username"], pending["email"])
+            return {
+                "status": "ok",
+                "message": "Регистрация успешно завершена! Теперь вы можете войти.",
+                "user": user_data,
+            }
+        elif r.status_code == 409:
+            raise HTTPException(status_code=409, detail="Username already taken")
+        else:
+            raise HTTPException(status_code=r.status_code,
+                                detail=r.json().get("detail", "User creation failed"))
+    except HTTPException:
+        raise
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Identity service unavailable: {e}")
 

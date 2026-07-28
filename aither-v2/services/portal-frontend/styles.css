@@ -382,3 +382,14 @@ code {
 .btn-oauth-google .oauth-icon { color: #4285f4; }
 .btn-oauth-yandex .oauth-icon { color: #fc3f1d; }
 .btn-oauth-ldap .oauth-icon { color: #f59e0b; }
+
+/* ── Registration ───────────────────────────────────────────── */
+.code-input {
+  text-align: center; font-size: 24px !important;
+  letter-spacing: 12px; font-family: 'JetBrains Mono', monospace;
+  padding: 12px !important;
+}
+.reg-timer {
+  text-align: center; font-size: 14px; color: var(--warning);
+  margin-bottom: 12px; font-weight: 500;
+}

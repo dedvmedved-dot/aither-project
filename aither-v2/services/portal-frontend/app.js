@@ -404,6 +404,168 @@
         setLoading(false);
     }
 
+    // ── Registration with email verification ───────────────────────
+    var regToken = null;
+    var regTimer = null;
+    var regSecondsLeft = 0;
+
+    window.showRegisterForm = function() {
+        $('login-form').style.display = 'none';
+        $('register-form').style.display = 'block';
+        $('register-step1').style.display = 'block';
+        $('register-step2').style.display = 'none';
+        hideAlert('login-error');
+        hideAlert('register-error');
+        hideAlert('register-info');
+        // Copy username from login field if filled
+        var loginUser = $('login-username').value.trim();
+        if (loginUser && !$('reg-username').value) $('reg-username').value = loginUser;
+    };
+
+    window.hideRegisterForm = function() {
+        $('login-form').style.display = 'block';
+        $('register-form').style.display = 'none';
+        stopRegTimer();
+    };
+
+    window.cancelRegistration = function() {
+        stopRegTimer();
+        regToken = null;
+        $('login-form').style.display = 'block';
+        $('register-form').style.display = 'none';
+        $('register-step1').style.display = 'block';
+        $('register-step2').style.display = 'none';
+        hideAlert('register-error');
+        hideAlert('register-info');
+    };
+
+    function stopRegTimer() {
+        if (regTimer) { clearInterval(regTimer); regTimer = null; }
+        regSecondsLeft = 0;
+    }
+
+    async function handleRegisterStart() {
+        hideAlert('register-error');
+        hideAlert('register-info');
+        var username = $('reg-username').value.trim();
+        var email = $('reg-email').value.trim();
+        var pass = $('reg-password').value;
+        var pass2 = $('reg-password2').value;
+
+        if (!username || username.length < 3) {
+            showAlert('register-error', 'Имя пользователя должно быть не менее 3 символов', 'danger');
+            return;
+        }
+        if (!email || email.indexOf('@') === -1) {
+            showAlert('register-error', 'Введите корректный email', 'danger');
+            return;
+        }
+        if (!pass || pass.length < 6) {
+            showAlert('register-error', 'Пароль должен быть не менее 6 символов', 'danger');
+            return;
+        }
+        if (pass !== pass2) {
+            showAlert('register-error', 'Пароли не совпадают', 'danger');
+            return;
+        }
+
+        setLoading(true);
+        $('btn-register-start').disabled = true;
+        try {
+            var res = await api('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify({ username: username, password: pass, email: email }),
+            });
+            if (res.ok && res.data && res.data.registration_token) {
+                regToken = res.data.registration_token;
+                $('reg-email-display').textContent = email;
+                $('register-step1').style.display = 'none';
+                $('register-step2').style.display = 'block';
+                // Start 90s countdown
+                regSecondsLeft = res.data.expires_in || 90;
+                $('reg-timer-value').textContent = regSecondsLeft;
+                stopRegTimer();
+                regTimer = setInterval(function() {
+                    regSecondsLeft--;
+                    $('reg-timer-value').textContent = regSecondsLeft;
+                    if (regSecondsLeft <= 0) {
+                        stopRegTimer();
+                        // Auto-cancel on timeout
+                        showAlert('register-error', 'Время действия кода истекло. Начните регистрацию заново.', 'danger');
+                        $('register-step1').style.display = 'block';
+                        $('register-step2').style.display = 'none';
+                        regToken = null;
+                    }
+                }, 1000);
+                // Focus code input
+                setTimeout(function() { var ci = $('reg-code'); if (ci) ci.focus(); }, 200);
+                showAlert('register-info', '📧 Код отправлен! Проверьте почту.', 'info');
+            } else {
+                var msg = res.data?.detail || 'Ошибка регистрации. Попробуйте позже.';
+                showAlert('register-error', msg, 'danger');
+            }
+        } catch(e) {
+            showAlert('register-error', 'Ошибка сети. Проверьте подключение.', 'danger');
+        } finally {
+            setLoading(false);
+            $('btn-register-start').disabled = false;
+        }
+    }
+
+    async function handleRegisterConfirm() {
+        var code = $('reg-code').value.trim();
+        if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+            showAlert('register-error', 'Введите 6-значный код из письма', 'danger');
+            return;
+        }
+        if (!regToken) {
+            showAlert('register-error', 'Сессия регистрации истекла. Начните заново.', 'danger');
+            return;
+        }
+        if (regSecondsLeft <= 0) {
+            showAlert('register-error', 'Время действия кода истекло.', 'danger');
+            return;
+        }
+
+        setLoading(true);
+        $('btn-register-confirm').disabled = true;
+        try {
+            var res = await api('/auth/verify-registration', {
+                method: 'POST',
+                body: JSON.stringify({ registration_token: regToken, code: code }),
+            });
+            if (res.ok) {
+                stopRegTimer();
+                showAlert('register-info', '✅ Регистрация успешна! Теперь войдите.', 'success');
+                hideAlert('register-error');
+                // Switch back to login form with username pre-filled
+                setTimeout(function() {
+                    $('login-username').value = $('reg-username').value.trim();
+                    $('login-password').value = '';
+                    $('login-password').focus();
+                    hideRegisterForm();
+                    hideAlert('register-info');
+                }, 1500);
+            } else {
+                var msg = res.data?.detail || 'Неверный код или сессия истекла';
+                if (res.status === 410 || res.status === 404) {
+                    stopRegTimer();
+                    showAlert('register-error', 'Сессия истекла. Начните регистрацию заново.', 'danger');
+                    $('register-step1').style.display = 'block';
+                    $('register-step2').style.display = 'none';
+                    regToken = null;
+                } else {
+                    showAlert('register-error', msg, 'danger');
+                }
+            }
+        } catch(e) {
+            showAlert('register-error', 'Ошибка сети. Проверьте подключение.', 'danger');
+        } finally {
+            setLoading(false);
+            $('btn-register-confirm').disabled = false;
+        }
+    }
+
     // ── Dashboard ──────────────────────────────────────────────
     async function loadDashboardInfo() {
         if (!currentUser) return;
@@ -949,6 +1111,12 @@
         $('btn-send-message')?.addEventListener('click', sendChatMessage);
         $('btn-clear-chat')?.addEventListener('click', clearChat);
         $('btn-new-chat')?.addEventListener('click', window._newChat);
+        $('btn-register-start')?.addEventListener('click', handleRegisterStart);
+        $('btn-register-confirm')?.addEventListener('click', handleRegisterConfirm);
+        // Allow Enter in code input to confirm
+        $('reg-code')?.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); handleRegisterConfirm(); }
+        });
         $('btn-submit-feedback')?.addEventListener('click', function() {
             showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
             $('feedback-message').value = '';

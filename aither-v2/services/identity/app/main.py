@@ -939,6 +939,42 @@ async def list_users(admin: dict = Depends(require_admin)):
         for r in rows
     ]
 
+@app.post("/v1/identity/register", status_code=201)
+async def register_user(req: LoginRequest):
+    """Public self-registration — creates a user with default org and basic scopes.
+    No admin token required. Password must be >= 6 chars."""
+    if len(req.username.strip()) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    pw_hash = hash_password(req.password)
+    conn = get_db()
+    try:
+        # Assign default org (free tier, basic scopes)
+        org = conn.execute("SELECT id FROM organisations WHERE name='default' AND status='active'").fetchone()
+        org_id = org["id"] if org else None
+
+        conn.execute(
+            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, 'user', ?, 'model:14b:chat,rag:query')",
+            (req.username.strip(), pw_hash, org_id),
+        )
+        conn.commit()
+        user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        log.info("Self-registration: user='%s' id=%d", req.username, user_id)
+        return {
+            "id": user_id,
+            "username": req.username.strip(),
+            "role": "user",
+            "message": "User registered successfully"
+        }
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=409, detail="Username already taken")
+    finally:
+        conn.close()
+
+
 @app.post("/v1/identity/users", status_code=201)
 async def create_user(req: UserCreate, admin: dict = Depends(require_admin)):
     """Create a new user (admin only). Requires org_id and scopes."""
