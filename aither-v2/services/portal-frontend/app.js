@@ -78,7 +78,7 @@
         return d.innerHTML;
     }
 
-    function updateNav() {
+    async function updateNav() {
         const nav = $('main-nav');
         const badge = $('zone-badge');
         if (badge) {
@@ -92,6 +92,15 @@
             // Show admin nav for admin users
             const isAdmin = currentUser.role === 'administrator' || currentUser.role === 'admin';
             if ($('nav-admin')) $('nav-admin').style.display = isAdmin ? '' : 'none';
+            // Show monitoring for admin/operator
+            if ($('nav-mon')) $('nav-mon').style.display = isAdmin ? '' : 'none';
+            // Show RAG for users with scopes (checked via /rag/status)
+            if ($('nav-rag')) {
+                try {
+                    const rs = await api('/rag/status');
+                    $('nav-rag').style.display = rs.ok ? '' : 'none';
+                } catch(e) { $('nav-rag').style.display = 'none'; }
+            }
         } else {
             nav.style.display = 'none';
         }
@@ -563,6 +572,9 @@
                 if (page === 'profile') loadProfile();
                 if (page === 'admin') loadAdminPage();
                 if (page === 'billing') loadBillingPage();
+                if (page === 'usage') loadUsagePage();
+                if (page === 'rag') loadRagPage();
+                if (page === 'monitoring') loadMonitoringPage();
             });
         });
 
@@ -689,6 +701,81 @@
                         <td>${r.balance_after}</td><td>${(r.created_at||'').substring(0,16)}</td>
                     </tr>`).join('') + '</table>';
             }
+        } catch(e) {}
+        setLoading(false);
+    };
+
+    // ── Usage Dashboard ──────────────────────────────────────────
+    async function loadUsagePage() {
+        setLoading(true);
+        try {
+            const u = await api('/usage/me');
+            if (u.ok) {
+                $('usage-today').innerHTML = `
+                    <div>Запросов: <b>${u.data.requests_today||0}</b></div>
+                    <div>Всего: ${u.data.total_requests||0}</div>`;
+                $('usage-tokens').innerHTML = `
+                    <div>Входных: <b>${u.data.input_tokens||0}</b></div>
+                    <div>Выходных: <b>${u.data.output_tokens||0}</b></div>
+                    <div>Всего: ${u.data.total_tokens||0}</div>`;
+            }
+            const m = await api('/usage/me/models');
+            if (m.ok) {
+                const models = m.data.models || m.data || [];
+                const arr = Array.isArray(models) ? models : Object.entries(models);
+                $('usage-models').innerHTML = arr.length === 0 ? 'Нет данных' :
+                    arr.map(item => `<div>${typeof item==='object'? (item.model||item[0]):item}: ${typeof item==='object'? (item.tokens||item.requests||item[1]||''):''}</div>`).join('');
+            }
+        } catch(e) {}
+        setLoading(false);
+    }
+
+    // ── RAG Page ─────────────────────────────────────────────────
+    async function loadRagPage() {
+        setLoading(true);
+        try {
+            const s = await api('/rag/status');
+            if (s.ok) {
+                $('rag-status').innerHTML = `<div>Статус: ${JSON.stringify(s.data)}</div>`;
+            } else {
+                $('rag-status').innerHTML = '<div>Недоступен (требуется scope rag:query)</div>';
+            }
+        } catch(e) {}
+        setLoading(false);
+    }
+
+    window._ragQuery = async function() {
+        const q = ($('rag-query-input') && $('rag-query-input').value) || '';
+        if (!q) return;
+        setLoading(true);
+        try {
+            const r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q})});
+            $('rag-query-result').innerHTML = r.ok ?
+                `<pre>${JSON.stringify(r.data,null,2)}</pre>` :
+                `<div class="text-error">Ошибка: ${r.data?.detail||r.status}</div>`;
+        } catch(e) {}
+        setLoading(false);
+    };
+
+    // ── Monitoring Page ──────────────────────────────────────────
+    async function loadMonitoringPage() {
+        setLoading(true);
+        try {
+            const s = await api('/monitoring/summary');
+            if (s.ok) {
+                $('mon-gateway').innerHTML = `<div>Gateway: ${s.data.gateway||'?'}</div>
+                    <div>${JSON.stringify(s.data.dependencies||{})}</div>`;
+            }
+            const m = await api('/monitoring/models');
+            if (m.ok) {
+                const models = m.data.models || [];
+                $('mon-models').innerHTML = Array.isArray(models) ? models.map(m =>
+                    `<div>${m.id||m}: ${m.status||'?'}</div>`).join('') || 'Нет данных' : JSON.stringify(models);
+            }
+            const sec = await api('/monitoring/security');
+            if (sec.ok) $('mon-security').innerHTML = `<pre>${JSON.stringify(sec.data,null,2)}</pre>`;
+            const bill = await api('/monitoring/billing');
+            if (bill.ok) $('mon-billing').innerHTML = `<pre>${JSON.stringify(bill.data,null,2)}</pre>`;
         } catch(e) {}
         setLoading(false);
     };

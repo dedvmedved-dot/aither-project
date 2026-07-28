@@ -18,6 +18,9 @@
       <a href="#" data-page="feedback" class="nav-link">📝 Отзыв</a>
       <a href="#" data-page="status" class="nav-link">Статус</a>
       <a href="#" data-page="billing" class="nav-link">💰 Биллинг</a>
+      <a href="#" data-page="usage" class="nav-link">📊 Использование</a>
+      <a href="#" data-page="rag" class="nav-link" id="nav-rag" style="display:none;">🧠 RAG</a>
+      <a href="#" data-page="monitoring" class="nav-link" id="nav-mon" style="display:none;">📈 Мониторинг</a>
       <a href="#" data-page="admin" class="nav-link" id="nav-admin" style="display:none;">⚙️ Админ</a>
       <a href="#" data-page="profile" class="nav-link">Профиль</a>
     </div>
@@ -210,6 +213,46 @@
         <div class=\"card\"><div class=\"card-title\">Баланс</div><div class=\"card-body\" id=\"billing-balance\">Загрузка...</div></div>
         <div class=\"card\"><div class=\"card-title\">Использование</div><div class=\"card-body\" id=\"billing-usage\">Загрузка...</div></div>
         <div class=\"card\"><div class=\"card-title\">История операций</div><div class=\"card-body\" id=\"billing-ledger\">Загрузка...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Usage Dashboard -->
+  <div class="page" id="page-usage">
+    <div class="container">
+      <h1>📊 Использование</h1>
+      <div class="cards-grid">
+        <div class="card"><div class="card-title">Запросы сегодня</div><div class="card-body" id="usage-today">Загрузка...</div></div>
+        <div class="card"><div class="card-title">Токены</div><div class="card-body" id="usage-tokens">Загрузка...</div></div>
+        <div class="card"><div class="card-title">По моделям</div><div class="card-body" id="usage-models">Загрузка...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RAG Interface -->
+  <div class="page" id="page-rag">
+    <div class="container">
+      <h1>🧠 RAG — Wiki-Graph</h1>
+      <div class="cards-grid">
+        <div class="card"><div class="card-title">Статус</div><div class="card-body" id="rag-status">Загрузка...</div></div>
+        <div class="card"><div class="card-title">Запрос</div><div class="card-body">
+          <textarea id="rag-query-input" placeholder="Введите запрос к базе знаний..." style="width:100%;height:60px;"></textarea>
+          <button class="btn btn-sm btn-outline" onclick="window._ragQuery()" style="margin-top:8px;">🔍 Искать</button>
+          <div id="rag-query-result" style="margin-top:8px;"></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monitoring Dashboard -->
+  <div class="page" id="page-monitoring">
+    <div class="container">
+      <h1>📈 Мониторинг</h1>
+      <div class="cards-grid">
+        <div class="card"><div class="card-title">Gateway</div><div class="card-body" id="mon-gateway">Загрузка...</div></div>
+        <div class="card"><div class="card-title">Модели</div><div class="card-body" id="mon-models">Загрузка...</div></div>
+        <div class="card"><div class="card-title">Безопасность</div><div class="card-body" id="mon-security">Загрузка...</div></div>
+        <div class="card"><div class="card-title">Биллинг</div><div class="card-body" id="mon-billing">Загрузка...</div></div>
       </div>
     </div>
   </div>
