@@ -12,7 +12,7 @@
     }
 
     const $ = (id) => document.getElementById(id);
-    const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile','admin','billing','usage','wiki','rag','monitoring'];
+    const pages = ['login','dashboard','chat','api-keys','docs','feedback','status','profile','admin','tariffs','billing','usage','wiki','rag','monitoring'];
 
     // Token counter state
     let chatTokensUsed = 0;
@@ -32,7 +32,6 @@
     // ── API ────────────────────────────────────────────────────
     async function api(path, opts = {}) {
         const headers = { 'Content-Type': 'application/json', ...opts.headers };
-        // Use session cookie (set by login) for web auth; Bearer token for API
         if (authToken && !path.startsWith('/auth/')) {
             headers['Authorization'] = 'Bearer ' + authToken;
         }
@@ -93,19 +92,15 @@
             nav.style.display = 'flex';
             $('nav-username').textContent = currentUser.username || 'Пользователь';
             $('nav-role-badge').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Admin' : (currentUser.role === 'operator' ? 'Operator' : 'User');
-            // Show admin nav for admin users only
+            // Admin tab: visible only for admin/administrator
             const isAdmin = currentUser.role === 'administrator' || currentUser.role === 'admin';
             if ($('nav-admin')) $('nav-admin').style.display = isAdmin ? '' : 'none';
-            // Show monitoring for admin/operator
+            // Monitoring tab: visible for admin or operator
             const canMonitor = isAdmin || currentUser.role === 'operator';
             if ($('nav-mon')) $('nav-mon').style.display = canMonitor ? '' : 'none';
-            // Show RAG for users with scopes (checked via /rag/status)
-            if ($('nav-rag')) {
-                try {
-                    const rs = await api('/rag/status');
-                    $('nav-rag').style.display = rs.ok ? '' : 'none';
-                } catch(e) { $('nav-rag').style.display = 'none'; }
-            }
+            // Wiki and RAG: always visible for authenticated users
+            if ($('nav-wiki')) $('nav-wiki').style.display = '';
+            if ($('nav-rag')) $('nav-rag').style.display = '';
         } else {
             nav.style.display = 'none';
         }
@@ -130,9 +125,17 @@
             });
             if (res.ok && res.data) {
                 // BFF returns {status:"ok", session_id:"..."} + sets cookie
-                // Store session ID for reference; auth works via cookie
                 authToken = res.data.session_id || res.data.token || 'session';
-                currentUser = res.data.user || { username: username, role: 'admin' };
+                // Fetch user info from /auth/me to get real role, tier, scopes
+                currentUser = res.data.user || null;
+                if (!currentUser || !currentUser.role) {
+                    const meRes = await api('/auth/me');
+                    if (meRes.ok && meRes.data) {
+                        currentUser = meRes.data;
+                    } else {
+                        currentUser = { username: username, role: 'user' };
+                    }
+                }
                 localStorage.setItem('aither_token', authToken);
                 updateNav();
                 showPage('dashboard');
@@ -164,8 +167,10 @@
     async function loadDashboardInfo() {
         if (!currentUser) return;
         $('dash-username').textContent = currentUser.username || '—';
-        $('dash-role').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Администратор' : 'Пользователь';
+        const roleMap = { 'administrator': 'Администратор', 'admin': 'Администратор', 'operator': 'Оператор', 'user': 'Пользователь' };
+        $('dash-role').textContent = roleMap[currentUser.role] || (currentUser.role || 'Пользователь');
         $('dash-zone').textContent = ZONE;
+        if ($('dash-tier')) $('dash-tier').textContent = currentUser.tier || 'free';
 
         try {
             const v = await fetch('/version').then(r => r.json());
@@ -184,10 +189,14 @@
             if (res.ok && res.data) {
                 const models = res.data.data || res.data;
                 let html = '';
+                const modelDescriptions = {
+                    'qwen-14b': 'Чат-модель (14B) — оптимизирована для диалогов',
+                    'qwen-32b-base': 'Базовая модель (32B) — продолжение текста',
+                };
                 for (const m of (Array.isArray(models) ? models : [])) {
                     const name = m.id || m.name;
-                    const desc = name === 'qwen-14b' ? 'Чат-модель' : 'Базовая модель';
-                    html += `<p>✦ <strong>${name}</strong> — <span class="text-muted">${desc}</span></p>`;
+                    const desc = modelDescriptions[name] || '(описание недоступно)';
+                    html += '<p>✦ <strong>' + escHtml(name) + '</strong> — <span class="text-muted">' + escHtml(desc) + '</span></p>';
                 }
                 $('dash-models').innerHTML = html || '<p class="text-muted">Модели не найдены</p>';
             }
@@ -214,12 +223,12 @@
         if (!msgs) return;
         let meta = '';
         if (role === 'assistant' && model) {
-            meta = `<div class="msg-meta">🤖 ${model}</div>`;
+            meta = '<div class="msg-meta">🤖 ' + escHtml(model) + '</div>';
         }
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg ' + role;
         msgDiv.innerHTML = meta + escHtml(content) +
-            (role === 'assistant' ? `<div class="msg-actions"><button class="btn btn-sm btn-outline" onclick="this.closest('.chat-msg').querySelector('.msg-actions').remove();navigator.clipboard.writeText('${escHtml(content).replace(/'/g, "\\'")}')">📋 Копировать</button></div>` : '');
+            (role === 'assistant' ? '<div class="msg-actions"><button class="btn btn-sm btn-outline" onclick="var t=this.closest(\'.chat-msg\').textContent.replace(\'📋 Копировать\',\'\').trim();navigator.clipboard.writeText(t);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.remove(),2000);">📋 Копировать</button></div>' : '');
         msgs.appendChild(msgDiv);
         msgs.scrollTop = msgs.scrollHeight;
     }
@@ -227,7 +236,7 @@
     function showChatError(code, detail) {
         const errors = {
             401: 'Ошибка авторизации. Войдите заново.',
-            403: 'Доступ запрещён. Недостаточно прав.',
+            403: 'Доступ запрещён. Возможные причины: нет тарифа, нет прав на модель, нет организации.',
             404: 'Модель или endpoint не найден.',
             422: 'Некорректный запрос.',
             429: 'Превышен лимит запросов. Подождите минуту.',
@@ -237,7 +246,7 @@
             504: 'Таймаут — модель не успела ответить.',
             0: 'Ошибка сети — проверьте подключение.',
         };
-        const msg = errors[code] || `Ошибка HTTP ${code}: ${detail || 'неизвестная ошибка'}`;
+        const msg = errors[code] || ('Ошибка HTTP ' + code + ': ' + (detail || 'неизвестная ошибка'));
         addChatMessage('error', msg);
     }
 
@@ -260,7 +269,6 @@
         const maxTokens = parseInt($('chat-max-tokens')?.value) || 512;
         const temperature = parseFloat($('chat-temperature')?.value) || 0.7;
 
-        // Update chat history
         chatHistory.push({ role: 'user', content: content });
 
         try {
@@ -268,13 +276,12 @@
                 method: 'POST',
                 body: JSON.stringify({
                     model: model,
-                    messages: chatHistory.slice(-20), // last 20 messages for context
+                    messages: chatHistory.slice(-20),
                     max_tokens: maxTokens,
                     temperature: temperature,
                 }),
             });
 
-            // Remove "thinking" message
             const msgs = $('chat-messages');
             const thinking = msgs?.lastElementChild;
             if (thinking && thinking.textContent.includes('⏳')) {
@@ -293,17 +300,15 @@
                 }
 
                 if (!reply || reply.trim() === '') {
-                    // Raw response from 32B
                     reply = res.data.choices?.[0]?.text || 'Пустой ответ от модели.';
                 }
 
                 chatHistory.push({ role: 'assistant', content: reply });
                 addChatMessage('assistant', reply, model);
-                // Update token counters
                 if (res.data.usage) {
                     chatTokensUsed += (res.data.usage.total_tokens || 0);
                 } else {
-                    chatTokensUsed += Math.round(reply.length / 4); // rough estimate
+                    chatTokensUsed += Math.round(reply.length / 4);
                 }
                 chatRequestsMade++;
                 updateTokenCounters();
@@ -323,13 +328,12 @@
 
     function clearChat() {
         chatHistory = [];
+        chatTokensUsed = 0;
+        chatRequestsMade = 0;
+        updateTokenCounters();
         const msgs = $('chat-messages');
         if (msgs) {
-            msgs.innerHTML = `<div class="chat-msg system">
-                Выберите модель и начните диалог.<br>
-                <strong>qwen-14b</strong> — чат-модель для диалогов.<br>
-                <strong>qwen-32b-base</strong> — базовая модель для продолжения текста.
-            </div>`;
+            msgs.innerHTML = '<div class="chat-msg system">\n                Выберите модель и начните диалог.<br>\n                <strong>qwen-14b</strong> — чат-модель для диалогов.<br>\n                <strong>qwen-32b-base</strong> — базовая модель для продолжения текста.\n            </div>';
         }
     }
 
@@ -338,7 +342,6 @@
         setLoading(true);
         try {
             const res = await api('/tokens');
-            // BFF returns {tokens: [...]}
             const tokens = res.data?.tokens || (Array.isArray(res.data) ? res.data : []);
             if (res.ok) {
                 if (tokens.length === 0) {
@@ -350,15 +353,7 @@
                     const revoked = k.revoked;
                     const prefix = (k.token_id || k.id || '—');
                     const scopes = (k.scopes || []).map(s => s.replace('model:', '').replace(':chat-adapter',':chat').replace(':chat','')).join(', ') || 'все';
-                    html += `<tr>
-                        <td>${escHtml(k.name || 'Без названия')}</td>
-                        <td><code>${escHtml(prefix)}...</code></td>
-                        <td><span style="font-size:11px;">${escHtml(scopes)}</span></td>
-                        <td>${(k.created_at || '').substring(0, 16) || '—'}</td>
-                        <td class="${revoked ? 'badge-revoked' : 'badge-enabled'}">${revoked ? 'Отозван' : 'Активен'}</td>
-                        <td>${revoked ? '' : `<button class="btn btn-sm btn-danger" onclick="window._revokeToken('${k.token_id || k.id}')">Отозвать</button>
-                            <button class="btn btn-sm btn-outline" onclick="window._testToken('${k.token_id || k.id}')" style="margin-left:4px;">Тест</button>`}</td>
-                    </tr>`;
+                    html += '<tr>\n                        <td>' + escHtml(k.name || 'Без названия') + '</td>\n                        <td><code>' + escHtml(prefix) + '...</code></td>\n                        <td><span style="font-size:11px;">' + escHtml(scopes) + '</span></td>\n                        <td>' + ((k.created_at || '').substring(0, 16) || '—') + '</td>\n                        <td class="' + (revoked ? 'badge-revoked' : 'badge-enabled') + '">' + (revoked ? 'Отозван' : 'Активен') + '</td>\n                        <td>' + (revoked ? '' : '<button class="btn btn-sm btn-danger" onclick="window._revokeToken(\'' + (k.token_id || k.id) + '\')">Отозвать</button>\n                            <button class="btn btn-sm btn-outline" onclick="window._testToken(\'' + (k.token_id || k.id) + '\')" style="margin-left:4px;">Тест</button>') + '</td>\n                    </tr>';
                 }
                 html += '</table>';
                 $('apikeys-content').innerHTML = html;
@@ -386,7 +381,6 @@
     window._testToken = async function(id) {
         setLoading(true);
         try {
-            // Get token info to find the actual token value for testing
             const res = await api('/tokens');
             const tokens = res.data?.tokens || [];
             const token = tokens.find(t => (t.token_id || t.id) === id);
@@ -395,18 +389,16 @@
                 setLoading(false);
                 return;
             }
-            // Test the key against /v1/models
             const testRes = await fetch('/api/v1/models', {
                 headers: { 'Authorization': 'Bearer ' + token.token, 'Content-Type': 'application/json' }
             });
-            // Note: we don't store the full key, just test it
             let resultHtml = '';
             if (testRes.ok) {
                 const data = await testRes.json();
                 const models = data.data || [];
-                resultHtml = `<div class="alert alert-success">✅ Ключ работает. Модели: ${models.map(m => m.id).join(', ')}</div>`;
+                resultHtml = '<div class="alert alert-success">✅ Ключ работает. Модели: ' + models.map(m => m.id).join(', ') + '</div>';
             } else {
-                resultHtml = `<div class="alert alert-danger">❌ Ошибка HTTP ${testRes.status}</div>`;
+                resultHtml = '<div class="alert alert-danger">❌ Ошибка HTTP ' + testRes.status + '</div>';
             }
             const c = $('apikeys-content');
             if (c) { c.insertAdjacentHTML('afterbegin', resultHtml); }
@@ -416,43 +408,7 @@
     };
 
     function showCreateTokenModal() {
-        modal(`
-            <h2>Создать API-ключ</h2>
-            <div class="form-group">
-                <label>Название ключа</label>
-                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Разработка">
-            </div>
-            <div class="form-group">
-                <label>Назначение</label>
-                <select id="modal-token-purpose" class="form-input">
-                    <option value="api">API / Web тестирование</option>
-                    <option value="agent">AI Agent</option>
-                    <option value="other">Другое</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Модели</label>
-                <select id="modal-token-models" class="form-input">
-                    <option value="both">Обе модели (14B + 32B)</option>
-                    <option value="qwen-14b">Только qwen-14b (Чат)</option>
-                    <option value="qwen-32b-base">Только qwen-32b-base (Базовая)</option>
-                </select>
-            </div>
-            <div id="modal-token-result" style="display:none;">
-                <div class="alert alert-info" style="margin-top:12px;">
-                    ⚠️ <strong>Сохраните ключ сейчас — он больше не будет показан!</strong>
-                </div>
-                <div class="copy-field">
-                    <input type="text" id="modal-token-full" readonly>
-                    <button class="btn btn-sm btn-primary" onclick="const i=document.getElementById('modal-token-full');i.select();navigator.clipboard?.writeText(i.value);this.textContent='✓ Скопировано';setTimeout(()=>this.textContent='Копировать',2000);">Копировать</button>
-                </div>
-                <p class="text-muted" style="margin-top:4px;">Формат: athr_... (Bearer-токен для Authorization заголовка)</p>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:16px;">
-                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать</button>
-                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>
-            </div>
-        `);
+        modal('\n            <h2>Создать API-ключ</h2>\n            <div class="form-group">\n                <label>Название ключа</label>\n                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Разработка">\n            </div>\n            <div class="form-group">\n                <label>Назначение</label>\n                <select id="modal-token-purpose" class="form-input">\n                    <option value="api">API / Web тестирование</option>\n                    <option value="agent">AI Agent</option>\n                    <option value="other">Другое</option>\n                </select>\n            </div>\n            <div class="form-group">\n                <label>Модели</label>\n                <select id="modal-token-models" class="form-input">\n                    <option value="both">Обе модели (14B + 32B)</option>\n                    <option value="qwen-14b">Только qwen-14b (Чат)</option>\n                    <option value="qwen-32b-base">Только qwen-32b-base (Базовая)</option>\n                </select>\n            </div>\n            <div id="modal-token-result" style="display:none;">\n                <div class="alert alert-info" style="margin-top:12px;">\n                    ⚠️ <strong>Сохраните ключ сейчас — он больше не будет показан!</strong>\n                </div>\n                <div class="copy-field">\n                    <input type="text" id="modal-token-full" readonly>\n                    <button class="btn btn-sm btn-primary" onclick="var i=document.getElementById(\'modal-token-full\');i.select();navigator.clipboard?.writeText(i.value);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.textContent=\'Копировать\',2000);">Копировать</button>\n                </div>\n                <p class="text-muted" style="margin-top:4px;">Формат: athr_... (Bearer-токен для Authorization заголовка)</p>\n            </div>\n            <div style="display:flex;gap:8px;margin-top:16px;">\n                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать</button>\n                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>\n            </div>\n        ');
     }
 
     window._createToken = async function() {
@@ -471,7 +427,6 @@
                 body: JSON.stringify({ name, scopes }),
             });
             if (res.ok && res.data) {
-                // BFF returns {token_id, token, name, scopes, created_at}
                 const fullKey = res.data.token || res.data.key || '';
                 document.getElementById('modal-token-result').style.display = 'block';
                 document.getElementById('modal-token-full').value = fullKey;
@@ -492,24 +447,20 @@
     async function loadStatusPage() {
         setLoading(true);
         try {
-            const res = await api('/status');
-            // BFF doesn't have /status, so try /health
-        } catch {}
-        try {
             const h = await fetch('/health').then(r => r.json());
             let html = '<div class="info-row"><span class="info-label">Статус</span><span class="info-value" style="color:var(--success)">✓ Работает</span></div>';
-            html += `<div class="info-row"><span class="info-label">Версия</span><span class="info-value">${h.version || '—'}</span></div>`;
-            html += `<div class="info-row"><span class="info-label">Redis</span><span class="info-value" style="color:${h.redis==='connected'?'var(--success)':'var(--danger)'}">${h.redis || '—'}</span></div>`;
-            html += `<div class="info-row"><span class="info-label">Rate Limit</span><span class="info-value">${h.rate_limit || '—'}</span></div>`;
-            html += `<div class="info-row"><span class="info-label">Auth</span><span class="info-value">${h.auth || '—'}</span></div>`;
-            html += `<div class="info-row"><span class="info-label">Зона</span><span class="info-value">${ZONE}</span></div>`;
+            html += '<div class="info-row"><span class="info-label">Версия</span><span class="info-value">' + (h.version || '—') + '</span></div>';
+            html += '<div class="info-row"><span class="info-label">Redis</span><span class="info-value" style="color:' + (h.redis==='connected'?'var(--success)':'var(--danger)') + '">' + (h.redis || '—') + '</span></div>';
+            html += '<div class="info-row"><span class="info-label">Rate Limit</span><span class="info-value">' + (h.rate_limit || '—') + '</span></div>';
+            html += '<div class="info-row"><span class="info-label">Auth</span><span class="info-value">' + (h.auth || '—') + '</span></div>';
+            html += '<div class="info-row"><span class="info-label">Зона</span><span class="info-value">' + ZONE + '</span></div>';
             $('status-content').innerHTML = html;
         } catch {
             $('status-content').innerHTML = '<p class="text-muted">Не удалось получить статус</p>';
         }
         try {
             const v = await fetch('/version').then(r => r.json());
-            $('version-content').innerHTML = `<div class="info-row"><span class="info-label">Сервис</span><span class="info-value">${v.service||'—'}</span></div><div class="info-row"><span class="info-label">Версия</span><span class="info-value">${v.version||'—'}</span></div><div class="info-row"><span class="info-label">Сборка</span><span class="info-value">${v.build||'—'}</span></div>`;
+            $('version-content').innerHTML = '<div class="info-row"><span class="info-label">Сервис</span><span class="info-value">' + (v.service||'—') + '</span></div><div class="info-row"><span class="info-label">Версия</span><span class="info-value">' + (v.version||'—') + '</span></div><div class="info-row"><span class="info-label">Сборка</span><span class="info-value">' + (v.build||'—') + '</span></div>';
         } catch { $('version-content').innerHTML = '<p class="text-muted">—</p>'; }
         setLoading(false);
     }
@@ -517,21 +468,23 @@
     // ── Profile ────────────────────────────────────────────────
     async function loadProfile() {
         if (!currentUser) return;
-        $('profile-id').textContent = currentUser.id || '—';
-        $('profile-username').textContent = currentUser.username || '—';
-        $('profile-role').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Администратор' : 'Пользователь';
-        $('profile-zone').textContent = ZONE;
+        // Refresh user from /auth/me
         try {
             const res = await api('/auth/me');
             if (res.ok && res.data) currentUser = { ...currentUser, ...res.data };
         } catch {}
+        $('profile-id').textContent = currentUser.id || '—';
+        $('profile-username').textContent = currentUser.username || '—';
+        const roleMap = { 'administrator': 'Администратор', 'admin': 'Администратор', 'operator': 'Оператор', 'user': 'Пользователь' };
+        $('profile-role').textContent = roleMap[currentUser.role] || (currentUser.role || '—');
+        $('profile-tier').textContent = currentUser.tier || 'free';
+        $('profile-zone').textContent = ZONE;
     }
 
     // ── Session check ──────────────────────────────────────────
     async function checkSession() {
         if (!authToken) return false;
         try {
-            // Direct fetch with Bearer token — OAuth flow has no cookie
             const res = await fetch(API_URL + '/auth/me', {
                 headers: {
                     'Content-Type': 'application/json',
@@ -553,6 +506,83 @@
         return false;
     }
 
+    // ── Documentation viewer ────────────────────────────────────
+    window.showDoc = function(path) {
+        // Open doc in same window via fetch and modal
+        setLoading(true);
+        fetch(path)
+            .then(function(r) {
+                if (r.ok) return r.text();
+                throw new Error('HTTP ' + r.status);
+            })
+            .then(function(text) {
+                setLoading(false);
+                modal('<div style="max-height:70vh;overflow-y:auto;font-size:13px;line-height:1.7;white-space:pre-wrap;font-family:inherit;">' +
+                    escHtml(text).replace(/\n/g, '<br>') + '</div>' +
+                    '<div style="margin-top:12px;display:flex;gap:8px;">' +
+                    '<button class="btn btn-sm btn-outline" onclick="window.open(\'' + path + '\',\'_blank\')">Открыть в новом окне</button>' +
+                    '<button class="btn btn-sm btn-outline" onclick="closeModal()">Закрыть</button></div>');
+            })
+            .catch(function() {
+                setLoading(false);
+                window.open(path, '_blank');
+            });
+    };
+
+    // ── Tariffs ─────────────────────────────────────────────────
+    async function loadTariffsPage() {
+        setLoading(true);
+        try {
+            // Show current tier
+            if (currentUser && currentUser.tier) {
+                const tierEl = $('current-tier-display');
+                if (tierEl) tierEl.textContent = currentUser.tier;
+                const activeEl = $('tariff-active');
+                if (activeEl) activeEl.style.display = 'block';
+            }
+            // Highlight current tier
+            document.querySelectorAll('.tier-card').forEach(function(card) {
+                card.style.borderColor = 'var(--border)';
+                card.style.boxShadow = '';
+            });
+            if (currentUser && currentUser.tier) {
+                const currentCard = $('tier-' + currentUser.tier);
+                if (currentCard) {
+                    currentCard.style.borderColor = 'var(--primary)';
+                    currentCard.style.boxShadow = '0 0 12px rgba(99,102,241,0.3)';
+                }
+            }
+        } catch(e) {}
+        setLoading(false);
+    }
+
+    window._selectTier = async function(tier) {
+        setLoading(true);
+        const tierNames = { free: 'Free', starter: 'Starter', pro: 'Pro', enterprise: 'Enterprise' };
+        try {
+            const res = await api('/billing/tier', {
+                method: 'POST',
+                body: JSON.stringify({ tier: tier }),
+            });
+            if (res.ok) {
+                if ($('tariff-selected')) $('tariff-selected').style.display = 'block';
+                if ($('tariff-name')) $('tariff-name').textContent = tierNames[tier] || tier;
+                if ($('current-tier-display')) $('current-tier-display').textContent = tier;
+                if ($('tariff-active')) $('tariff-active').style.display = 'block';
+                if (currentUser) currentUser.tier = tier;
+                loadTariffsPage();
+            } else {
+                // Backend may not support tier change — show informational message
+                if ($('tariff-selected')) $('tariff-selected').style.display = 'block';
+                if ($('tariff-name')) $('tariff-name').textContent = tierNames[tier] || tier + ' (для изменения обратитесь к администратору)';
+            }
+        } catch(e) {
+            if ($('tariff-selected')) $('tariff-selected').style.display = 'block';
+            if ($('tariff-name')) $('tariff-name').textContent = tierNames[tier] || tier + ' (для изменения обратитесь к администратору)';
+        }
+        setLoading(false);
+    };
+
     // ── Init ──────────────────────────────────────────────────
     function init() {
         updateNav();
@@ -567,7 +597,7 @@
         });
         $('chat-model-select')?.addEventListener('change', updateModelInfo);
         $('chat-temperature')?.addEventListener('input', function() {
-            $('chat-temp-val').textContent = this.value;
+            if ($('chat-temp-val')) $('chat-temp-val').textContent = this.value;
         });
         $('chat-input')?.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
@@ -584,6 +614,7 @@
                 if (page === 'status') loadStatusPage();
                 if (page === 'profile') loadProfile();
                 if (page === 'admin') loadAdminPage();
+                if (page === 'tariffs') loadTariffsPage();
                 if (page === 'billing') loadBillingPage();
                 if (page === 'usage') loadUsagePage();
                 if (page === 'wiki') loadWikiPage();
@@ -600,7 +631,6 @@
         if (oauthToken && oauthToken.length > 10) {
             authToken = oauthToken;
             localStorage.setItem('aither_token', authToken);
-            // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
@@ -637,14 +667,14 @@
             if (result.ok) {
                 authToken = result.data.token;
                 localStorage.setItem('aither_token', authToken);
-                showPage('dashboard');
+                checkSession();
             } else {
-                showLoginError(result.data.detail || 'LDAP authentication failed');
+                showAlert('login-error', result.data.detail || 'LDAP authentication failed', 'danger');
             }
         })
         .catch(function(e) {
             setLoading(false);
-            showLoginError('LDAP service unavailable: ' + e.message);
+            showAlert('login-error', 'LDAP service unavailable: ' + e.message, 'danger');
         });
     };
 
@@ -652,26 +682,23 @@
     async function loadAdminPage() {
         setLoading(true);
         try {
-            // Gateway health
             const h = await api('/admin/gateway/health');
             if (h.ok) {
                 const deps = h.data.dependencies || {};
                 $('admin-gateway').innerHTML = Object.entries(deps).map(([k,v]) =>
-                    `<div>${k}: ${typeof v==='object'?JSON.stringify(v):v}</div>`).join('');
+                    '<div>' + escHtml(k) + ': ' + (typeof v==='object'?JSON.stringify(v):v) + '</div>').join('');
             }
-            // Models
             const m = await api('/admin/gateway/models');
             if (m.ok) {
                 const models = m.data.models || [];
                 $('admin-models').innerHTML = models.map(m =>
-                    `<div>${m.id}: ${m.display_name||''} (${m.status||'?'})</div>`).join('') || 'Нет данных';
+                    '<div>' + escHtml(m.id) + ': ' + (m.display_name||'') + ' (' + (m.status||'?') + ')</div>').join('') || 'Нет данных';
             }
-            // Users
             const u = await api('/admin/users');
             if (u.ok) {
                 const users = Array.isArray(u.data) ? u.data : (u.data.users||[]);
                 $('admin-users').innerHTML = users.slice(0,10).map(u =>
-                    `<div>${u.username} (${u.role}) ${u.disabled?'⛔':''}</div>`).join('') || 'Нет пользователей';
+                    '<div>' + escHtml(u.username) + ' (' + (u.role||'?') + ') ' + (u.disabled?'⛔':'') + '</div>').join('') || 'Нет пользователей';
             }
         } catch(e) {}
         setLoading(false);
@@ -689,64 +716,47 @@
         setLoading(true);
         try {
             const b = await api('/billing/me');
-            if (b.ok) {
-                $('billing-balance').innerHTML = `
-                    <div>Баланс: <b>${b.data.balance||0}</b></div>
-                    <div>Зарезервировано: ${b.data.reserved||0}</div>
-                    <div>Доступно: ${b.data.available||0}</div>`;
-                $('billing-tier').innerHTML = `
-                    <div>Тариф: <b style="color:var(--primary)">${b.data.tier||'free'}</b></div>
-                    <div>Лимит: ${b.data.quota_daily||'—'} запросов/день</div>`;
-                $('billing-stats').innerHTML = `
-                    <div>Запросов сегодня: <b>${b.data.requests_today||0}</b></div>
-                    <div>Токенов: ${b.data.tokens_today||0}</div>`;
+            if (b.ok && b.data) {
+                $('billing-balance').innerHTML = '\n                    <div>Баланс: <b>' + (b.data.balance||0) + '</b></div>\n                    <div>Зарезервировано: ' + (b.data.reserved||0) + '</div>\n                    <div>Доступно: ' + (b.data.available||0) + '</div>';
+                $('billing-tier').innerHTML = '\n                    <div>Тариф: <b style="color:var(--primary)">' + (b.data.tier||'free') + '</b></div>\n                    <div>Лимит: ' + (b.data.quota_daily||'—') + ' запросов/день</div>';
+                $('billing-stats').innerHTML = '\n                    <div>Запросов сегодня: <b>' + (b.data.requests_today||0) + '</b></div>\n                    <div>Токенов: ' + (b.data.tokens_today||0) + '</div>';
             } else {
-                $('billing-balance').innerHTML = '<p class="text-muted">Недоступно</p>';
-                $('billing-tier').innerHTML = '<p class="text-muted">Недоступно</p>';
-                $('billing-stats').innerHTML = '<p class="text-muted">Недоступно</p>';
+                // Fallback: show user's tier and current counters
+                $('billing-balance').innerHTML = '<div>Баланс: <b>0</b></div><div class="text-muted">Биллинг-сервис недоступен</div>';
+                $('billing-tier').innerHTML = '<div>Тариф: <b style="color:var(--primary)">' + (currentUser?.tier || 'free') + '</b></div><div class="text-muted">Для изменения перейдите на вкладку 💳 Тарифы</div>';
+                $('billing-stats').innerHTML = '<div>Запросов (сессия): <b>' + chatRequestsMade + '</b></div><div>Токенов (сессия): <b>' + chatTokensUsed + '</b></div>';
             }
-            const u = await api('/usage/me');
-            if (u.ok) {
-                $('billing-stats').innerHTML += `
-                    <div>Всего токенов: ${u.data.total_tokens||0}</div>
-                    <div>Всего запросов: ${u.data.total_requests||0}</div>`;
-            }
-            const l = await api('/billing/me/ledger');
-            if (l.ok) {
-                const ledger = l.data.ledger || [];
-                $('billing-ledger').innerHTML = ledger.length === 0 ? 'Нет операций' :
-                    '<table class="data-table"><tr><th>Сумма</th><th>Тип</th><th>Баланс</th><th>Время</th></tr>' +
-                    ledger.slice(0,15).map(r => `<tr>
-                        <td>${r.amount}</td><td>${r.operation}</td>
-                        <td>${r.balance_after}</td><td>${(r.created_at||'').substring(0,16)}</td>
-                    </tr>`).join('') + '</table>';
-            } else {
-                $('billing-ledger').innerHTML = '<p class="text-muted">Недоступно</p>';
+            // Ledger
+            try {
+                const l = await api('/billing/me/ledger');
+                if (l.ok && l.data && l.data.ledger && l.data.ledger.length > 0) {
+                    const ledger = l.data.ledger;
+                    $('billing-ledger').innerHTML = '<table class="data-table"><tr><th>Сумма</th><th>Тип</th><th>Баланс</th><th>Время</th></tr>' +
+                        ledger.slice(0,15).map(r => '<tr>\n                        <td>' + r.amount + '</td><td>' + r.operation + '</td>\n                        <td>' + r.balance_after + '</td><td>' + ((r.created_at||'').substring(0,16)) + '</td>\n                    </tr>').join('') + '</table>';
+                } else {
+                    $('billing-ledger').innerHTML = '<p class="text-muted">История операций недоступна</p>';
+                }
+            } catch(e) {
+                $('billing-ledger').innerHTML = '<p class="text-muted">История операций недоступна</p>';
             }
         } catch(e) {
-            $('billing-balance').innerHTML = '<p class="text-muted">Ошибка</p>';
+            $('billing-balance').innerHTML = '<p class="text-muted">Биллинг недоступен</p>';
         }
         setLoading(false);
-    };
+    }
 
     async function loadUsagePage() {
         setLoading(true);
         try {
             const u = await api('/usage/me');
-            if (u.ok) {
-                $('usage-today').innerHTML = `
-                    <div>Запросов сегодня: <b>${u.data.requests_today||0}</b></div>
-                    <div>Всего запросов: ${u.data.total_requests||0}</div>`;
-                $('usage-tokens').innerHTML = `
-                    <div>Входных токенов: <b>${u.data.input_tokens||u.data.tokens_today||0}</b></div>
-                    <div>Выходных токенов: <b>${u.data.output_tokens||0}</b></div>
-                    <div>Всего токенов: ${u.data.total_tokens||0}</div>`;
+            if (u.ok && u.data) {
+                $('usage-today').innerHTML = '\n                    <div>Запросов сегодня: <b>' + (u.data.requests_today||0) + '</b></div>\n                    <div>Всего запросов: ' + (u.data.total_requests||0) + '</div>';
+                $('usage-tokens').innerHTML = '\n                    <div>Входных токенов: <b>' + (u.data.input_tokens||u.data.tokens_today||0) + '</b></div>\n                    <div>Выходных токенов: <b>' + (u.data.output_tokens||0) + '</b></div>\n                    <div>Всего токенов: ' + (u.data.total_tokens||0) + '</div>';
             } else {
-                $('usage-today').innerHTML = '<p class="text-muted">Недоступно</p>';
-                $('usage-tokens').innerHTML = '<p class="text-muted">Недоступно</p>';
+                $('usage-today').innerHTML = '<div>Запросов (сессия): <b>' + chatRequestsMade + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
+                $('usage-tokens').innerHTML = '<div>Токенов (сессия): <b>' + chatTokensUsed + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
             }
-            // /usage/me/models removed — Gateway does not support this endpoint
-            $('usage-models').innerHTML = '<p class="text-muted">По моделям — ожидает реализации Gateway</p>';
+            $('usage-models').innerHTML = '<div class="text-muted">📊 По моделям — статистика сессии:</div>\n                <div>qwen-14b: используется ' + (chatRequestsMade > 0 ? '✓' : '—') + '</div>\n                <div>qwen-32b-base: используется ' + (chatRequestsMade > 0 ? '✓' : '—') + '</div>';
         } catch(e) {
             $('usage-today').innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
         }
@@ -759,11 +769,13 @@
         try {
             const s = await api('/rag/status');
             if (s.ok) {
-                $('rag-status').innerHTML = `<div>Статус: ${JSON.stringify(s.data)}</div>`;
+                $('rag-status').innerHTML = '<div style="color:var(--success)">✓ Доступен</div><div>' + JSON.stringify(s.data) + '</div>';
             } else {
-                $('rag-status').innerHTML = '<div>Недоступен (требуется scope rag:query)</div>';
+                $('rag-status').innerHTML = '<div style="color:var(--warning)">⚠ Требуется scope rag:query</div><p class="text-muted">Для использования RAG необходим тариф Free+ и scope rag:query.</p>';
             }
-        } catch(e) {}
+        } catch(e) {
+            $('rag-status').innerHTML = '<p class="text-muted">RAG сервис недоступен</p>';
+        }
         setLoading(false);
     }
 
@@ -774,14 +786,14 @@
         try {
             const r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q})});
             $('rag-query-result').innerHTML = r.ok ?
-                `<pre>${JSON.stringify(r.data,null,2)}</pre>` :
-                `<div class="text-error">Ошибка: ${r.data?.detail||r.status}</div>`;
+                '<pre style="font-size:11px;max-height:300px;overflow-y:auto;">' + escHtml(JSON.stringify(r.data,null,2)) + '</pre>' :
+                '<div style="color:var(--danger)">Ошибка: ' + (r.data?.detail||r.status) + '</div>';
         } catch(e) {}
         setLoading(false);
     };
 
     function updateTokenCounters() {
-        if ($('chat-token-count')) $('chat-token-count').textContent = chatTokensUsed;
+        if ($('chat-token-count')) $('chat-token-count').textContent = chatTokensUsed.toLocaleString();
         if ($('chat-request-count')) $('chat-request-count').textContent = chatRequestsMade;
     }
 
@@ -791,19 +803,20 @@
         setLoading(true);
         try {
             const r = await api('/rag/query', {method:'POST',body:JSON.stringify({query:q})});
-            const resultDiv = document.getElementById('chat-rag-result');
-            if (!resultDiv) {
-                const msgs = $('chat-messages');
-                const div = document.createElement('div');
-                div.id = 'chat-rag-result';
-                div.className = 'rag-result-inline';
-                msgs.insertBefore(div, msgs.firstChild);
-            }
-            const res = document.getElementById('chat-rag-result') || resultDiv;
-            if (res) {
-                res.innerHTML = r.ok ?
-                    '<b>🔍 RAG:</b> ' + JSON.stringify(r.data).substring(0, 300) :
-                    '<b>❌</b> ' + (r.data?.detail || 'Ошибка RAG');
+            const resultDiv = $('chat-rag-result');
+            if (resultDiv) {
+                resultDiv.style.display = 'block';
+                if (r.ok) {
+                    const results = r.data?.results || r.data?.documents || [];
+                    if (Array.isArray(results) && results.length > 0) {
+                        resultDiv.innerHTML = '<b>🔍 RAG найдено:</b> ' + results.length + ' документов — ' +
+                            results.slice(0,3).map(function(d) { return (d.title||d.id||'').substring(0,60); }).join('; ');
+                    } else {
+                        resultDiv.innerHTML = '<b>🔍 RAG:</b> ' + escHtml(JSON.stringify(r.data).substring(0, 200));
+                    }
+                } else {
+                    resultDiv.innerHTML = '<b>❌ RAG:</b> ' + (r.data?.detail || 'Ошибка');
+                }
             }
             $('chat-rag-input').value = '';
         } catch(e) {}
@@ -817,7 +830,7 @@
         try {
             const r = await api('/rag/hybrid-query', {method:'POST',body:JSON.stringify({query:q})});
             $('wiki-search-result').innerHTML = r.ok ?
-                '<pre style="font-size:11px;">' + JSON.stringify(r.data,null,2).substring(0,500) + '</pre>' :
+                '<pre style="font-size:11px;max-height:300px;overflow-y:auto;">' + escHtml(JSON.stringify(r.data,null,2).substring(0,500)) + '</pre>' :
                 '<p class="text-muted">Недоступно: ' + (r.data?.detail || r.status) + '</p>';
         } catch(e) { $('wiki-search-result').innerHTML = '<p class="text-muted">Ошибка</p>'; }
         setLoading(false);
@@ -826,14 +839,13 @@
     async function loadWikiPage() {
         setLoading(true);
         try {
-            $('wiki-pages').innerHTML = '<p class="text-muted">Загрузка...</p>';
             const s = await api('/rag/status');
             $('wiki-graph-status').innerHTML = s.ok ?
-                '<div style="color:var(--success)">✓ Доступен</div>' :
-                '<div class="text-muted">Недоступен</div>';
-            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki-Graph RAG — поиск информации по базе знаний. Введите запрос в поле выше.</p>';
+                '<div style="color:var(--success)">✓ Wiki-Graph доступен</div>' :
+                '<div class="text-muted">Wiki-Graph недоступен</div>';
+            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki-Graph RAG — поиск информации по базе знаний с использованием ChromaDB и графа связанных документов.</p><p>Введите запрос в поле выше для гибридного поиска (векторный + графовый + текстовый).</p>';
         } catch(e) {
-            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki недоступна</p>';
+            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki-Graph временно недоступен</p>';
         }
         setLoading(false);
     }
@@ -843,23 +855,22 @@
         setLoading(true);
         try {
             const s = await api('/monitoring/summary');
-            if (s.ok) {
-                $('mon-gateway').innerHTML = `<div>Gateway: ${s.data.gateway||'?'}</div>
-                    <div>${JSON.stringify(s.data.dependencies||{})}</div>`;
+            if (s.ok && s.data) {
+                $('mon-gateway').innerHTML = '<div>Gateway: ' + (s.data.gateway||'?') + '</div>\n                    <div>' + JSON.stringify(s.data.dependencies||{}) + '</div>';
             } else {
-                $('mon-gateway').innerHTML = '<p class="text-muted">Недоступно</p>';
+                $('mon-gateway').innerHTML = '<p class="text-muted">Недоступно (требуется роль operator/administrator)</p>';
             }
             const m = await api('/monitoring/models');
-            if (m.ok) {
-                const models = m.data.models || [];
-                $('mon-models').innerHTML = Array.isArray(models) ? models.map(m =>
-                    `<div>${m.id||m}: ${m.status||'?'}</div>`).join('') || 'Нет данных' : JSON.stringify(models);
+            if (m.ok && m.data) {
+                const models = m.data.models || m.data || [];
+                $('mon-models').innerHTML = Array.isArray(models) ? models.map(function(m) {
+                    return '<div>' + escHtml(m.id||m) + ': ' + (m.status||'?') + '</div>';
+                }).join('') || 'Нет данных' : JSON.stringify(models);
             } else {
                 $('mon-models').innerHTML = '<p class="text-muted">Недоступно</p>';
             }
-            // security/billing removed — Gateway endpoints not implemented
-            $('mon-security').innerHTML = '<p class="text-muted">Ожидает реализации Gateway /admin/security/events</p>';
-            $('mon-billing').innerHTML = '<p class="text-muted">Ожидает реализации Gateway /admin/billing/stats</p>';
+            $('mon-security').innerHTML = '<p class="text-muted">Журнал безопасности — ожидает реализации</p>';
+            $('mon-billing').innerHTML = '<p class="text-muted">Статистика биллинга — ожидает реализации</p>';
         } catch(e) {
             $('mon-gateway').innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
         }

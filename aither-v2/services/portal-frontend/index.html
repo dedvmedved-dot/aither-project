@@ -17,10 +17,11 @@
       <a href="#" data-page="docs" class="nav-link">📖 Документация</a>
       <a href="#" data-page="feedback" class="nav-link">📝 Отзыв</a>
       <a href="#" data-page="status" class="nav-link">Статус</a>
+      <a href="#" data-page="tariffs" class="nav-link">💳 Тарифы</a>
       <a href="#" data-page="billing" class="nav-link">💰 Биллинг</a>
       <a href="#" data-page="usage" class="nav-link">📊 Использование</a>
-      <a href="#" data-page="wiki" class="nav-link" id="nav-wiki" style="display:none;">📚 Wiki</a>
-      <a href="#" data-page="rag" class="nav-link" id="nav-rag" style="display:none;">🧠 RAG</a>
+      <a href="#" data-page="wiki" class="nav-link" id="nav-wiki">📚 Wiki</a>
+      <a href="#" data-page="rag" class="nav-link" id="nav-rag">🧠 RAG</a>
       <a href="#" data-page="monitoring" class="nav-link" id="nav-mon" style="display:none;">📈 Мониторинг</a>
       <a href="#" data-page="admin" class="nav-link" id="nav-admin" style="display:none;">⚙️ Админ</a>
       <a href="#" data-page="profile" class="nav-link">Профиль</a>
@@ -86,6 +87,7 @@
           <div class="card-body">
             <p>Пользователь: <strong id="dash-username"></strong></p>
             <p>Роль: <span class="role-badge" id="dash-role"></span></p>
+            <p>Тариф: <span style="color:var(--primary);font-weight:600;" id="dash-tier">—</span></p>
             <p>Зона: <span id="dash-zone"></span></p>
           </div>
         </div>
@@ -105,7 +107,7 @@
           <div class="card-body">
             <p><a href="#" onclick="showPage('chat');return false;">💬 Открыть чат</a></p>
             <p><a href="#" onclick="showPage('api-keys');return false;">🔑 Управление ключами</a></p>
-            <p><a href="/docs/user-package/00_INDEX.md" target="_blank">📖 Документация</a></p>
+            <p><a href="#" onclick="showDoc('/docs/00_INDEX.md');return false;">📖 Документация</a></p>
           </div>
         </div>
       </div>
@@ -118,30 +120,21 @@
       <div class="chat-sidebar">
         <span class="token-counter">🪙 Токены: <b id="chat-token-count">0</b></span>
         <span class="token-counter">📝 Запросов: <b id="chat-request-count">0</b></span>
-        <div class="rag-search">
-          <input type="text" id="chat-rag-input" placeholder="🔍 RAG поиск..." class="form-input">
-          <button class="btn btn-sm btn-outline" onclick="window._chatRagSearch()">Искать</button>
-        </div>
       </div>
       <div class="chat-controls">
         <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Модель:</label>
-        <select id="chat-model-select" class="form-input">
-          <option value="qwen-14b">qwen-14b (Чат)</option>
+        <select id="chat-model-select" class="form-input" style="min-width:200px;">
+          <option value="qwen-14b">qwen-14b (Чат-модель)</option>
           <option value="qwen-32b-base">qwen-32b-base (Базовая)</option>
         </select>
         <span id="chat-model-info" class="text-muted"></span>
         <button class="btn btn-sm btn-outline" id="btn-clear-chat" style="margin-left:auto;">Очистить</button>
       </div>
-      <div class="chat-options" id="chat-options" style="display:none;">
-        <div class="opt-group">
-          <label>max_tokens:</label>
-          <input type="number" id="chat-max-tokens" class="form-input" value="512" min="1" max="4096" style="width:80px;">
-        </div>
-        <div class="opt-group">
-          <label>temperature:</label>
-          <input type="range" id="chat-temperature" min="0" max="2" step="0.1" value="0.7" style="width:100px;">
-          <span id="chat-temp-val" style="font-size:11px;">0.7</span>
-        </div>
+      <!-- RAG search above chat messages -->
+      <div class="rag-search-bar" id="rag-search-bar">
+        <input type="text" id="chat-rag-input" placeholder="🔍 RAG-поиск по базе знаний (Wiki-Graph)..." class="form-input" style="flex:1;">
+        <button class="btn btn-sm btn-outline" onclick="window._chatRagSearch()">Искать в RAG</button>
+        <div id="chat-rag-result" class="rag-result-inline" style="display:none;"></div>
       </div>
       <div class="chat-messages" id="chat-messages">
         <div class="chat-msg system">
@@ -151,8 +144,8 @@
         </div>
       </div>
       <div class="chat-input-area">
-        <textarea id="chat-input" class="form-input" placeholder="Введите сообщение... (Enter — отправить, Shift+Enter — новая строка)" rows="2"></textarea>
-        <button class="btn btn-primary" id="btn-send-message" style="align-self:flex-end;">▶ Отправить</button>
+        <textarea id="chat-input" class="form-input chat-textarea" placeholder="Введите сообщение... (Enter — отправить, Shift+Enter — новая строка)" rows="2"></textarea>
+        <button class="btn btn-primary" id="btn-send-message">▶ Отправить</button>
       </div>
     </div>
   </div>
@@ -191,6 +184,7 @@
           <div class="info-row"><span class="info-label">ID</span><span class="info-value" id="profile-id">—</span></div>
           <div class="info-row"><span class="info-label">Имя пользователя</span><span class="info-value" id="profile-username">—</span></div>
           <div class="info-row"><span class="info-label">Роль</span><span class="info-value" id="profile-role">—</span></div>
+          <div class="info-row"><span class="info-label">Тариф</span><span class="info-value" id="profile-tier">—</span></div>
           <div class="info-row"><span class="info-label">Зона подключения</span><span class="info-value" id="profile-zone">—</span></div>
         </div>
       </div>
@@ -210,6 +204,66 @@
           <button class="btn btn-sm btn-outline" onclick="window._adminAction('undrain','qwen-14b')" style="margin-left:4px;">Undrain 14B</button>
           <button class="btn btn-sm btn-outline" onclick="window._adminAction('drain','qwen-32b-base')" style="margin-left:4px;">Drain 32B</button>
         </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tariffs Page -->
+  <div class="page" id="page-tariffs">
+    <div class="container">
+      <h1>💳 Тарифы</h1>
+      <p class="text-muted" style="margin-bottom:16px;">Выберите подходящий тариф. Токены списываются согласно выбранному тарифу.</p>
+      <div class="cards-grid" id="tariffs-grid">
+        <div class="card tier-card" id="tier-free" onclick="window._selectTier('free')">
+          <div class="card-title" style="color:var(--text-muted);">🆓 Free</div>
+          <div class="card-body">
+            <p><b>Бесплатно</b></p>
+            <p>📊 100 запросов/день</p>
+            <p>🤖 qwen-14b только</p>
+            <p>📝 1K токенов/запрос</p>
+            <p>📚 Wiki-Graph RAG</p>
+            <p class="text-muted" style="margin-top:8px;">Базовый доступ</p>
+          </div>
+        </div>
+        <div class="card tier-card" id="tier-starter" onclick="window._selectTier('starter')">
+          <div class="card-title" style="color:var(--success);">🚀 Starter</div>
+          <div class="card-body">
+            <p><b>500 ₽/мес</b></p>
+            <p>📊 1 000 запросов/день</p>
+            <p>🤖 qwen-14b + qwen-32b</p>
+            <p>📝 4K токенов/запрос</p>
+            <p>📚 Wiki-Graph RAG</p>
+            <p>📈 Базовая статистика</p>
+          </div>
+        </div>
+        <div class="card tier-card" id="tier-pro" onclick="window._selectTier('pro')">
+          <div class="card-title" style="color:var(--primary);">💎 Pro</div>
+          <div class="card-body">
+            <p><b>2 000 ₽/мес</b></p>
+            <p>📊 5 000 запросов/день</p>
+            <p>🤖 Все модели + приоритет</p>
+            <p>📝 16K токенов/запрос</p>
+            <p>📚 Wiki-Graph RAG + индексация</p>
+            <p>📈 Расширенная аналитика</p>
+          </div>
+        </div>
+        <div class="card tier-card" id="tier-enterprise" onclick="window._selectTier('enterprise')">
+          <div class="card-title" style="color:var(--warning);">🏢 Enterprise</div>
+          <div class="card-body">
+            <p><b>По запросу</b></p>
+            <p>📊 Безлимит</p>
+            <p>🤖 Все модели + dedicated</p>
+            <p>📝 32K токенов/запрос</p>
+            <p>📚 Полный RAG + кастомные графы</p>
+            <p>📈 Мониторинг + аудит</p>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-info" id="tariff-selected" style="display:none;margin-top:16px;">
+        ✅ Вы выбрали тариф: <b id="tariff-name"></b>
+      </div>
+      <div class="alert alert-success" id="tariff-active" style="display:none;margin-top:8px;">
+        ✓ Ваш текущий тариф: <b id="current-tier-display">free</b>
       </div>
     </div>
   </div>
@@ -265,7 +319,7 @@
       <div class="cards-grid">
         <div class="card"><div class="card-title">Статус</div><div class="card-body" id="rag-status">Загрузка...</div></div>
         <div class="card"><div class="card-title">Запрос</div><div class="card-body">
-          <textarea id="rag-query-input" placeholder="Введите запрос к базе знаний..." style="width:100%;height:60px;"></textarea>
+          <textarea id="rag-query-input" placeholder="Введите запрос к базе знаний..."></textarea>
           <button class="btn btn-sm btn-outline" onclick="window._ragQuery()" style="margin-top:8px;">🔍 Искать</button>
           <div id="rag-query-result" style="margin-top:8px;"></div>
         </div></div>
@@ -291,37 +345,84 @@
     <div class="container">
       <h1>📖 Документация</h1>
       <div class="cards-grid" id="docs-grid">
-        <div class="card" onclick="window.open('/docs/user-package/02_QUICK_START.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/02_QUICK_START.md')" style="cursor:pointer;">
           <div class="card-title">🚀 Быстрый старт</div>
           <div class="card-body"><p>Первые шаги: вход, создание ключа, чат с моделями.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/03_USER_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/03_USER_GUIDE.md')" style="cursor:pointer;">
           <div class="card-title">📘 Руководство пользователя</div>
           <div class="card-body"><p>Полное описание платформы и всех функций.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/14_API_KEY_USER_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/14_API_KEY_USER_GUIDE.md')" style="cursor:pointer;">
           <div class="card-title">🔑 API-ключи</div>
           <div class="card-body"><p>Создание, использование и отзыв ключей.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/15_DUAL_ZONE_ACCESS_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/15_DUAL_ZONE_ACCESS_GUIDE.md')" style="cursor:pointer;">
           <div class="card-title">🌐 Двухзонный доступ</div>
           <div class="card-body"><p>Internet и Test Zone — как подключиться.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/16_AI_AGENT_CONNECTION_PRIMER.md')" style="cursor:pointer;">
           <div class="card-title">🤖 Подключение AI Agent</div>
           <div class="card-body"><p>Инструкция для разработчиков агентов.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/04_API_GUIDE.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/04_API_GUIDE.md')" style="cursor:pointer;">
           <div class="card-title">⚡ API Reference</div>
           <div class="card-body"><p>Техническое описание API-эндпоинтов.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/08_FAQ.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/08_FAQ.md')" style="cursor:pointer;">
           <div class="card-title">❓ FAQ</div>
           <div class="card-body"><p>Часто задаваемые вопросы.</p></div>
         </div>
-        <div class="card" onclick="window.open('/docs/user-package/00_INDEX.md','_blank')" style="cursor:pointer;">
+        <div class="card" onclick="showDoc('/docs/00_INDEX.md')" style="cursor:pointer;">
           <div class="card-title">📋 Все документы</div>
           <div class="card-body"><p>Полный индекс документации.</p></div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:32px;">🧠 RAG — Wiki-Graph: инструкция</h2>
+      <div class="cards-grid" style="margin-top:8px;">
+        <div class="card">
+          <div class="card-title">Что такое RAG?</div>
+          <div class="card-body">
+            <p><b>RAG</b> (Retrieval-Augmented Generation) — технология, которая дополняет ответы модели актуальной информацией из вашей базы знаний.</p>
+            <p>Вместо того чтобы полагаться только на знания модели, RAG находит релевантные документы в Wiki-Graph и включает их в контекст запроса.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Как использовать RAG в чате</div>
+          <div class="card-body">
+            <p>1. Откройте вкладку <b>💬 Чат</b></p>
+            <p>2. Введите поисковый запрос в поле <b>«🔍 RAG-поиск»</b> над областью сообщений</p>
+            <p>3. Нажмите <b>«Искать в RAG»</b> — система найдёт релевантные документы</p>
+            <p>4. Результаты появятся над областью чата</p>
+            <p>5. Теперь модель будет учитывать найденную информацию при ответе</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Использование вкладки RAG</div>
+          <div class="card-body">
+            <p>1. Перейдите на вкладку <b>🧠 RAG</b></p>
+            <p>2. Введите запрос в поле поиска</p>
+            <p>3. Нажмите <b>«Искать»</b></p>
+            <p>4. Система выполнит гибридный поиск (векторный + графовый + текстовый) по всем документам</p>
+            <p>5. Результаты покажут наиболее релевантные фрагменты</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Wiki-Graph</div>
+          <div class="card-body">
+            <p>📚 <b>Wiki-Graph</b> — граф знаний, связывающий документы по темам и ссылкам.</p>
+            <p>Используйте вкладку <b>📚 Wiki</b> для навигации по графу знаний, поиска по страницам и просмотра связанных документов.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Требования</div>
+          <div class="card-body">
+            <p>Для использования RAG необходимы:</p>
+            <p>• Тариф <b>Free</b> или выше</p>
+            <p>• Scope <b>rag:query</b> в настройках пользователя</p>
+            <p>• Подключение к ChromaDB (векторная БД)</p>
+          </div>
         </div>
       </div>
     </div>

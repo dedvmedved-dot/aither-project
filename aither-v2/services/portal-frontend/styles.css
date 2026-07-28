@@ -119,6 +119,15 @@ textarea { resize: vertical; min-height: 60px; }
 .card-body a { color: var(--primary); text-decoration: none; }
 .card-body a:hover { text-decoration: underline; }
 
+/* Tier cards */
+.tier-card {
+  cursor: pointer; transition: all 0.2s;
+}
+.tier-card:hover {
+  border-color: var(--primary); transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(99,102,241,0.2);
+}
+
 /* Alerts */
 .alert { padding: 12px 16px; border-radius: var(--radius); font-size: 13px; margin-bottom: 12px; }
 .alert-danger { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
@@ -135,24 +144,43 @@ textarea { resize: vertical; min-height: 60px; }
 .badge-revoked { color: var(--danger); font-weight: 500; }
 
 /* Chat */
-.chat-container { display: flex; flex-direction: column; height: calc(100vh - 130px); max-width: 100%; margin: 0 auto; }
-.chat-sidebar { display: flex; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.chat-container {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 130px);
+  max-width: 800px; margin: 0 auto;
+}
+.chat-sidebar {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
 .chat-sidebar .token-counter {
   font-size: 11px; padding: 4px 10px; border-radius: 20px;
   background: rgba(99,102,241,0.1); color: var(--primary); font-weight: 500;
   white-space: nowrap;
 }
-.chat-sidebar .rag-search { display: flex; gap: 4px; align-items: center; }
-.chat-sidebar .rag-search input { width: 140px; font-size: 11px; padding: 4px 8px; }
-.chat-sidebar .rag-search button { font-size: 10px; padding: 3px 8px; }
+/* RAG search bar — above messages, full width */
+.rag-search-bar {
+  display: flex; gap: 8px; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.rag-search-bar input {
+  font-size: 12px; padding: 8px 12px;
+  min-width: 250px;
+}
+.rag-search-bar button {
+  flex-shrink: 0;
+}
 .rag-result-inline {
+  width: 100%;
   font-size: 11px; padding: 6px 10px; margin: 4px 0;
   background: rgba(245,158,11,0.08); border-left: 2px solid var(--warning);
   border-radius: 4px; max-height: 100px; overflow-y: auto;
 }
 .chat-controls {
-  display: flex; gap: 10px; align-items: center; padding: 10px 0;
-  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  display: flex; gap: 10px; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 .chat-controls select { width: auto; min-width: 180px; }
 .chat-messages {
@@ -171,11 +199,10 @@ textarea { resize: vertical; min-height: 60px; }
 .chat-msg .msg-meta { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
 .chat-msg .msg-actions { margin-top: 6px; display: flex; gap: 6px; }
 .chat-input-area { display: flex; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
-.chat-input-area textarea { flex: 1; }
-.chat-options { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-.chat-options label { font-size: 11px; color: var(--text-muted); }
-.chat-options input[type="range"] { width: 100px; }
-.chat-options .opt-group { display: flex; align-items: center; gap: 4px; }
+.chat-textarea {
+  flex: 1; max-width: 600px; min-height: 44px;
+}
+.chat-input-area .btn { align-self: flex-end; }
 
 /* Modal */
 .modal-overlay {
@@ -184,7 +211,7 @@ textarea { resize: vertical; min-height: 60px; }
 }
 .modal {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 12px; padding: 24px; max-width: 500px; width: 90%;
+  border-radius: 12px; padding: 24px; max-width: 700px; width: 90%;
   max-height: 80vh; overflow-y: auto;
 }
 .modal h2 { margin-bottom: 16px; color: var(--primary); }
@@ -217,6 +244,7 @@ textarea { resize: vertical; min-height: 60px; }
 /* Text */
 .text-muted { color: var(--text-muted); font-size: 12px; }
 h1 { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+h2 { font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--primary); }
 code {
   background: var(--bg-input); padding: 2px 6px; border-radius: 4px;
   font-family: 'JetBrains Mono', monospace; font-size: 12px;
@@ -228,6 +256,10 @@ code {
   .nav-links { order: 3; width: 100%; justify-content: center; }
   .chat-msg { max-width: 95%; }
   .cards-grid { grid-template-columns: 1fr; }
+  .chat-container { max-width: 100%; }
+  .chat-textarea { max-width: 100%; }
+  .rag-search-bar { flex-direction: column; }
+  .rag-search-bar input { min-width: 100%; }
 }
 
 /* ── OAuth Buttons ─────────────────────────────────────────── */
