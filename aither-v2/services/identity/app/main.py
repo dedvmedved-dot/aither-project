@@ -208,17 +208,15 @@ def init_db():
         conn.execute("ALTER TABLE users ADD COLUMN scopes TEXT DEFAULT ''")
         conn.commit()
 
-    # Ensure default organisation exists
+    # Ensure default organisation exists (for bootstrap only — not auto-assigned)
     org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
     if not org:
         conn.execute("INSERT INTO organisations (name, tier, status) VALUES ('default', 'free', 'active')")
         conn.commit()
         org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
 
-    # Assign default org to users without one
-    if org:
-        conn.execute("UPDATE users SET org_id=? WHERE org_id IS NULL", (org["id"],))
-        conn.commit()
+    # NO automatic org assignment — users without org are PENDING ENTITLEMENT
+    # Old fallback removed: UPDATE users SET org_id=? WHERE org_id IS NULL
 
     conn.close()
 
@@ -386,6 +384,9 @@ class MeResponse(BaseModel):
     username: str
     role: str
     org_id: int | None = None
+    org_name: str | None = None
+    org_status: str | None = None
+    tier: str | None = None
     scopes: str = ""
     disabled: bool = False
 
@@ -432,16 +433,46 @@ async def get_current_user(
             raise HTTPException(status_code=401, detail="Session revoked")
         if session["expires_at"] < datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"):
             raise HTTPException(status_code=401, detail="Session expired")
-        # Check user not disabled
-        user_row = conn.execute(
-            "SELECT disabled FROM users WHERE id=?", (payload["uid"],)
+
+        # Load CURRENT (not stale token) rights from DB
+        row = conn.execute(
+            """SELECT u.id as uid, u.username, u.role, u.disabled, u.org_id,
+                      COALESCE(u.scopes,'') as scopes, o.tier, o.status as org_status
+               FROM users u LEFT JOIN organisations o ON u.org_id=o.id
+               WHERE u.id=?""",
+            (payload["uid"],),
         ).fetchone()
-        if user_row and user_row["disabled"]:
+        if not row:
+            raise HTTPException(status_code=401, detail="User not found")
+        if row["disabled"]:
+            # Revoke all sessions for disabled user
+            conn.execute("UPDATE sessions SET revoked=1 WHERE user_id=? AND revoked=0", (payload["uid"],))
+            conn.commit()
             raise HTTPException(status_code=403, detail="Account disabled")
+
+        # Detect role change: revoke all sessions if role no longer matches token
+        if row["role"] != payload.get("role"):
+            conn.execute("UPDATE sessions SET revoked=1 WHERE user_id=? AND revoked=0", (payload["uid"],))
+            conn.commit()
+            raise HTTPException(status_code=401, detail="Role changed — session revoked, please re-authenticate")
+
+        # Build fresh payload with current DB values
+        fresh = {
+            "uid": row["uid"],
+            "sub": row["username"],
+            "role": row["role"],
+            "disabled": bool(row["disabled"]),
+            "org_id": row["org_id"],
+            "scopes": row["scopes"],
+            "tier": row["tier"],
+            "org_status": row["org_status"],
+            "iat": payload.get("iat"),
+            "exp": payload.get("exp"),
+            "jti": payload.get("jti"),
+        }
+        return fresh
     finally:
         conn.close()
-
-    return payload
 
 async def require_admin(user: dict = Depends(get_current_user)):
     if user.get("role") != "administrator":
@@ -699,7 +730,7 @@ async def oauth_callback(request: Request, provider: str, code: str = None, stat
     try:
         user_id = get_or_create_oauth_user(conn, provider, provider_user_id, email)
         row = conn.execute(
-            "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.id=?",
+            "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, o.tier, o.name as org_name, o.status as org_status FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.id=?",
             (user_id,),
         ).fetchone()
         if row["disabled"]:
@@ -729,27 +760,20 @@ async def ldap_login(req: LdapLoginRequest):
         log.warning("LDAP login failed for '%s'", req.username)
         raise HTTPException(status_code=401, detail="Invalid LDAP credentials")
 
-    # Find or create local user
+    # Find or create local user — LDAP auto-creation REMOVED (PENDING ENTITLEMENT)
     conn = get_db()
     try:
         row = conn.execute(
-            "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.username=?",
+            "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, o.tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.username=?",
             (ldap_user["username"],),
         ).fetchone()
         if not row:
-            # Auto-create user from LDAP — assign default org
-            default_org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
-            org_id = default_org["id"] if default_org else 1
-            conn.execute(
-                "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, '', 'user', ?, 'model:14b:chat')",
-                (ldap_user["username"], org_id),
+            # PENDING ENTITLEMENT: user must be provisioned by admin before login
+            conn.close()
+            raise HTTPException(
+                status_code=403,
+                detail="PENDING ENTITLEMENT: LDAP user requires admin provisioning (org, scopes, tier)"
             )
-            user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            row = conn.execute(
-                "SELECT u.id, u.username, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.id=?",
-                (user_id,),
-            ).fetchone()
-            log.info("LDAP: auto-created user '%s'", ldap_user["username"])
 
         if row["disabled"]:
             conn.close()
@@ -783,9 +807,16 @@ async def bootstrap():
         raise HTTPException(status_code=400, detail="IDENTITY_ADMIN_PASS environment variable not set")
 
     try:
+        # Get or create default org for bootstrap admin
+        org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
+        if not org:
+            conn.execute("INSERT INTO organisations (name, tier, status) VALUES ('default', 'free', 'active')")
+            conn.commit()
+            org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
+
         conn.execute(
-            "INSERT INTO users (username, password, role) VALUES (?, ?, 'administrator')",
-            (ADMIN_USER, ADMIN_PASS_HASH),
+            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, 'administrator', ?, 'model:14b:chat,model:32b:chat-adapter,model:32b:completion,rag:query,rag:ingest')",
+            (ADMIN_USER, ADMIN_PASS_HASH, org["id"]),
         )
         conn.commit()
         log.info("Bootstrap: created initial administrator '%s'", ADMIN_USER)
@@ -803,7 +834,7 @@ async def login(req: LoginRequest):
     """Authenticate a user and return a bearer token."""
     conn = get_db()
     row = conn.execute(
-        "SELECT u.id, u.username, u.password, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, COALESCE(o.tier,'free') as tier FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.username=?",
+        "SELECT u.id, u.username, u.password, u.role, u.disabled, u.org_id, COALESCE(u.scopes,'') as scopes, o.tier, o.name as org_name, o.status as org_status FROM users u LEFT JOIN organisations o ON u.org_id=o.id WHERE u.username=?",
         (req.username,),
     ).fetchone()
     conn.close()
@@ -830,7 +861,12 @@ async def login(req: LoginRequest):
     log.info("Login: user '%s' (role=%s)", row["username"], row["role"])
     return TokenResponse(
         token=token,
-        user=MeResponse(id=row["id"], username=row["username"], role=row["role"]),
+        user=MeResponse(
+            id=row["id"], username=row["username"], role=row["role"],
+            org_id=row["org_id"], org_name=row["org_name"],
+            org_status=row["org_status"], tier=row["tier"],
+            scopes=row["scopes"], disabled=bool(row["disabled"]),
+        ),
     )
 
 # ── Routes: Session Management ─────────────────────────────────
@@ -854,10 +890,15 @@ async def logout(
 
 @app.get("/v1/identity/me")
 async def me(user: dict = Depends(get_current_user)):
-    """Get current user information including org and scopes."""
+    """Get current user information including org, tier, and scopes."""
     conn = get_db()
     row = conn.execute(
-        "SELECT id, username, role, disabled, org_id, COALESCE(scopes,'') as scopes FROM users WHERE id=?",
+        """SELECT u.id, u.username, u.role, u.disabled, u.org_id,
+                  COALESCE(u.scopes,'') as scopes,
+                  o.name as org_name, o.status as org_status, o.tier
+           FROM users u
+           LEFT JOIN organisations o ON u.org_id=o.id
+           WHERE u.id=?""",
         (user["uid"],),
     ).fetchone()
     conn.close()
@@ -865,11 +906,19 @@ async def me(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=401, detail="User not found")
     if row["disabled"]:
         raise HTTPException(status_code=403, detail="Account disabled")
+    if row["org_id"] and row["org_status"] != "active":
+        raise HTTPException(status_code=403, detail="Organisation is not active")
+    # tier must be present for active organisations
+    if row["org_id"] and not row["tier"]:
+        raise HTTPException(status_code=403, detail="entitlement_missing: organisation tier not configured")
     return MeResponse(
         id=row["id"],
         username=row["username"],
         role=row["role"],
         org_id=row["org_id"],
+        org_name=row["org_name"],
+        org_status=row["org_status"],
+        tier=row["tier"],
         scopes=row["scopes"],
         disabled=bool(row["disabled"]),
     )

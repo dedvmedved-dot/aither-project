@@ -1,0 +1,15 @@
+# Aither Canonical Image Digests — FE-04
+# ======================================
+# Repository: dedvmedved-dot/aither-project
+# Branch: aither-v2
+# Generated: 2026-07-28
+
+# Identity Service (FE-04: /me tier/org_status, fresh DB rights, no entitlement fallback)
+aither-identity: sha256:3a916b25666faf5e2d8d4a98b6965698796a8f87c77eaa6b6d5a39df6a2cafb1
+
+# Portal Backend (FE-04: model scope enforcement, RAG exact scopes, facade cleanup)
+aither-portal-backend: sha256:286eea31b95374f6f28cdcb1a8d205db9b22a9b11aa9d1167b9fadc84f815dab
+
+# Verified: K8s deployment imageID matches registry digest
+# kubectl get deployment aither-identity -o jsonpath='{.spec.template.spec.containers[0].image}'
+# kubectl get deployment aither-portal-backend -o jsonpath='{.spec.template.spec.containers[0].image}'
