@@ -716,6 +716,30 @@ async def rag_hybrid(request: Request):
         raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 
 
+# ── Monitoring Facade ────────────────────────────────────────────
+
+@app.get("/api/v1/monitoring/summary")
+async def monitoring_summary(request: Request):
+    """Get monitoring summary (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    jwt_token = _mint_delegation_jwt(user)
+    try:
+        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=10.0) as gc:
+            r = await gc.get("/admin/health", headers={
+                "Authorization": f"Bearer {jwt_token}",
+                "X-Admin-Key": GATEWAY_ADMIN_KEY,
+            })
+            health_data = r.json() if r.status_code == 200 else {}
+            return {
+                "gateway": "ok" if r.status_code == 200 else "error",
+                "dependencies": health_data.get("dependencies", {}),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
+
+
 # ── Shutdown ───────────────────────────────────────────────────
 
 @app.post("/api/v1/chat")

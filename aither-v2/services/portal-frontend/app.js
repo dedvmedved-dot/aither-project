@@ -89,6 +89,9 @@
             nav.style.display = 'flex';
             $('nav-username').textContent = currentUser.username || 'Пользователь';
             $('nav-role-badge').textContent = (currentUser.role === 'administrator' || currentUser.role === 'admin') ? 'Admin' : 'User';
+            // Show admin nav for admin users
+            const isAdmin = currentUser.role === 'administrator' || currentUser.role === 'admin';
+            if ($('nav-admin')) $('nav-admin').style.display = isAdmin ? '' : 'none';
         } else {
             nav.style.display = 'none';
         }
@@ -558,6 +561,8 @@
                 if (page === 'api-keys') loadApiKeys();
                 if (page === 'status') loadStatusPage();
                 if (page === 'profile') loadProfile();
+                if (page === 'admin') loadAdminPage();
+                if (page === 'billing') loadBillingPage();
             });
         });
 
@@ -615,5 +620,76 @@
             setLoading(false);
             showLoginError('LDAP service unavailable: ' + e.message);
         });
+    };
+
+    // ── Admin Dashboard ──────────────────────────────────────────
+    async function loadAdminPage() {
+        setLoading(true);
+        try {
+            // Gateway health
+            const h = await api('/admin/gateway/health');
+            if (h.ok) {
+                const deps = h.data.dependencies || {};
+                $('admin-gateway').innerHTML = Object.entries(deps).map(([k,v]) =>
+                    `<div>${k}: ${typeof v==='object'?JSON.stringify(v):v}</div>`).join('');
+            }
+            // Models
+            const m = await api('/admin/gateway/models');
+            if (m.ok) {
+                const models = m.data.models || [];
+                $('admin-models').innerHTML = models.map(m =>
+                    `<div>${m.id}: ${m.display_name||''} (${m.status||'?'})</div>`).join('') || 'Нет данных';
+            }
+            // Users
+            const u = await api('/admin/users');
+            if (u.ok) {
+                const users = Array.isArray(u.data) ? u.data : (u.data.users||[]);
+                $('admin-users').innerHTML = users.slice(0,10).map(u =>
+                    `<div>${u.username} (${u.role}) ${u.disabled?'⛔':''}</div>`).join('') || 'Нет пользователей';
+            }
+        } catch(e) {}
+        setLoading(false);
+    }
+
+    window._adminAction = async function(action, model) {
+        setLoading(true);
+        const res = await api('/admin/gateway/models/' + model + '/' + action, {method:'POST'});
+        alert((res.ok?'✅ ':'❌ ') + (res.data?.status || res.data?.detail || 'OK'));
+        setLoading(false);
+        if (res.ok) loadAdminPage();
+    };
+
+    // ── Billing Dashboard ────────────────────────────────────────
+    async function loadBillingPage() {
+        setLoading(true);
+        try {
+            const b = await api('/billing/me');
+            if (b.ok) {
+                $('billing-balance').innerHTML = `
+                    <div>Баланс: <b>${b.data.balance||0}</b> токенов</div>
+                    <div>Зарезервировано: ${b.data.reserved||0}</div>
+                    <div>Доступно: ${b.data.available||0}</div>
+                    <div>Тариф: ${b.data.tier||'free'}</div>`;
+            }
+            const u = await api('/usage/me');
+            if (u.ok) {
+                $('billing-usage').innerHTML = `
+                    <div>Запросов сегодня: <b>${u.data.requests_today||0}</b></div>
+                    <div>Токенов сегодня: <b>${u.data.tokens_today||0}</b></div>
+                    <div>Всего запросов: ${u.data.total_requests||0}</div>
+                    <div>Всего токенов: ${u.data.total_tokens||0}</div>`;
+            }
+            const l = await api('/billing/me/ledger');
+            if (l.ok) {
+                const ledger = l.data.ledger || [];
+                $('billing-ledger').innerHTML = ledger.length === 0 ? 'Нет операций' :
+                    '<table class="data-table"><tr><th>Сумма</th><th>Тип</th><th>Баланс</th><th>Время</th></tr>' +
+                    ledger.slice(0,15).map(r => `<tr>
+                        <td>${r.amount}</td><td>${r.operation}</td>
+                        <td>${r.balance_after}</td><td>${(r.created_at||'').substring(0,16)}</td>
+                    </tr>`).join('') + '</table>';
+            }
+        } catch(e) {}
+        setLoading(false);
     };
 })();

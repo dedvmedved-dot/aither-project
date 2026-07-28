@@ -17,6 +17,8 @@
       <a href="#" data-page="docs" class="nav-link">📖 Документация</a>
       <a href="#" data-page="feedback" class="nav-link">📝 Отзыв</a>
       <a href="#" data-page="status" class="nav-link">Статус</a>
+      <a href="#" data-page="billing" class="nav-link">💰 Биллинг</a>
+      <a href="#" data-page="admin" class="nav-link" id="nav-admin" style="display:none;">⚙️ Админ</a>
       <a href="#" data-page="profile" class="nav-link">Профиль</a>
     </div>
     <div class="nav-user">
@@ -179,6 +181,35 @@
           <div class="info-row"><span class="info-label">Роль</span><span class="info-value" id="profile-role">—</span></div>
           <div class="info-row"><span class="info-label">Зона подключения</span><span class="info-value" id="profile-zone">—</span></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard -->
+  <div class=\"page\" id=\"page-admin\">
+    <div class=\"container\">
+      <h1>⚙️ Администрирование</h1>
+      <div class=\"cards-grid\">
+        <div class=\"card\"><div class=\"card-title\">🚦 Gateway</div><div class=\"card-body\" id=\"admin-gateway\">Загрузка...</div></div>
+        <div class=\"card\"><div class=\"card-title\">📊 Модели</div><div class=\"card-body\" id=\"admin-models\">Загрузка...</div></div>
+        <div class=\"card\"><div class=\"card-title\">👥 Пользователи</div><div class=\"card-body\" id=\"admin-users\">Загрузка...</div></div>
+        <div class=\"card\"><div class=\"card-title\">⚡ Действия</div><div class=\"card-body\">
+          <button class=\"btn btn-sm btn-outline\" onclick=\"window._adminAction('drain','qwen-14b')\">Drain 14B</button>
+          <button class=\"btn btn-sm btn-outline\" onclick=\"window._adminAction('undrain','qwen-14b')\" style=\"margin-left:4px;\">Undrain 14B</button>
+          <button class=\"btn btn-sm btn-outline\" onclick=\"window._adminAction('drain','qwen-32b-base')\" style=\"margin-left:4px;\">Drain 32B</button>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Billing Dashboard -->
+  <div class=\"page\" id=\"page-billing\">
+    <div class=\"container\">
+      <h1>💰 Биллинг и использование</h1>
+      <div class=\"cards-grid\">
+        <div class=\"card\"><div class=\"card-title\">Баланс</div><div class=\"card-body\" id=\"billing-balance\">Загрузка...</div></div>
+        <div class=\"card\"><div class=\"card-title\">Использование</div><div class=\"card-body\" id=\"billing-usage\">Загрузка...</div></div>
+        <div class=\"card\"><div class=\"card-title\">История операций</div><div class=\"card-body\" id=\"billing-ledger\">Загрузка...</div></div>
       </div>
     </div>
   </div>
