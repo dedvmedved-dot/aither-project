@@ -67,6 +67,7 @@ LOG_LEVEL = os.environ.get("IDENTITY_LOG_LEVEL", "INFO").upper()
 
 # OAuth config
 OAUTH_REDIRECT_BASE = os.environ.get("OAUTH_REDIRECT_BASE", "http://localhost:8000").rstrip("/")
+OAUTH_CALLBACK_PATH = os.environ.get("OAUTH_CALLBACK_PATH", "/v1/identity/auth/oauth")
 OAUTH_PROVIDERS_CONFIG = {
     "github": {
         "name": "GitHub",
@@ -290,7 +291,7 @@ def get_oauth_client(provider: str) -> AsyncOAuth2Client:
     cfg = OAUTH_PROVIDERS_CONFIG.get(provider)
     if not cfg or not cfg["client_id"]:
         raise HTTPException(status_code=400, detail=f"OAuth provider '{provider}' is not configured")
-    redirect_uri = f"{OAUTH_REDIRECT_BASE}/v1/identity/auth/oauth/{provider}/callback"
+    redirect_uri = f"{OAUTH_REDIRECT_BASE}{OAUTH_CALLBACK_PATH}/{provider}/callback"
     return AsyncOAuth2Client(
         client_id=cfg["client_id"],
         client_secret=cfg["client_secret"],
@@ -538,7 +539,7 @@ async def oauth_login(provider: str):
     if not cfg["client_id"]:
         raise HTTPException(status_code=400, detail=f"OAuth provider '{provider}' is not configured")
 
-    redirect_uri = f"{OAUTH_REDIRECT_BASE}/v1/identity/auth/oauth/{provider}/callback"
+    redirect_uri = f"{OAUTH_REDIRECT_BASE}{OAUTH_CALLBACK_PATH}/{provider}/callback"
     client = AsyncOAuth2Client(
         client_id=cfg["client_id"],
         redirect_uri=redirect_uri,
@@ -564,7 +565,7 @@ async def oauth_callback(provider: str, code: str = None, state: str = None, err
     if not cfg["client_id"]:
         raise HTTPException(status_code=400, detail=f"OAuth provider '{provider}' is not configured")
 
-    redirect_uri = f"{OAUTH_REDIRECT_BASE}/v1/identity/auth/oauth/{provider}/callback"
+    redirect_uri = f"{OAUTH_REDIRECT_BASE}{OAUTH_CALLBACK_PATH}/{provider}/callback"
     client = AsyncOAuth2Client(
         client_id=cfg["client_id"],
         client_secret=cfg["client_secret"],
