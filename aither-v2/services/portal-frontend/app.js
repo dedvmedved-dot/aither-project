@@ -430,6 +430,7 @@
 
     window.cancelRegistration = function() {
         stopRegTimer();
+        regSecondsLeft = 0;
         regToken = null;
         $('login-form').style.display = 'block';
         $('register-form').style.display = 'none';
@@ -441,7 +442,6 @@
 
     function stopRegTimer() {
         if (regTimer) { clearInterval(regTimer); regTimer = null; }
-        regSecondsLeft = 0;
     }
 
     async function handleRegisterStart() {
