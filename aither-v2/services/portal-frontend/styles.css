@@ -210,38 +210,43 @@ textarea { resize: vertical; min-height: 60px; }
 }
 .chat-input-area .btn { align-self: flex-end; }
 
-/* Code blocks in chat */
+/* Code blocks in chat — VS Code Dark+ theme */
 .code-block {
   margin: 10px 0; border-radius: 8px; overflow: hidden;
-  border: 1px solid var(--border); background: #0d1117;
+  border: 1px solid #3c3c3c; background: #1e1e1e;
 }
 .code-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 5px 12px; background: #161b22;
-  border-bottom: 1px solid var(--border);
+  padding: 5px 12px; background: #252526;
+  border-bottom: 1px solid #3c3c3c;
 }
 .code-lang {
-  font-size: 10px; color: var(--text-muted);
+  font-size: 10px; color: #808080;
   text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
 }
 .btn-copy-code {
   font-size: 10px !important; padding: 2px 8px !important;
-  background: rgba(99,102,241,0.15) !important; color: var(--primary) !important;
-  border: 1px solid rgba(99,102,241,0.3) !important;
+  background: rgba(86,156,214,0.12) !important; color: #569cd6 !important;
+  border: 1px solid rgba(86,156,214,0.25) !important;
   border-radius: 4px !important; cursor: pointer;
   transition: all 0.15s;
 }
-.btn-copy-code:hover { background: rgba(99,102,241,0.3) !important; }
+.btn-copy-code:hover { background: rgba(86,156,214,0.25) !important; }
 .code-block pre {
   margin: 0; padding: 14px; overflow-x: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px; line-height: 1.5; color: #c9d1d9;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px; line-height: 1.6; color: #d4d4d4;
+  tab-size: 4;
 }
 .code-block code { background: none; padding: 0; font-size: inherit; }
-.syn-keyword { color: #ff7b72; font-weight: 600; }
-.syn-string  { color: #a5d6ff; }
-.syn-comment { color: #8b949e; font-style: italic; }
-.syn-number { color: #79c0ff; }
+/* VS Code Dark+ syntax colors */
+.syn-keyword   { color: #569cd6; font-weight: 400; }  /* blue — def, class, if */
+.syn-string    { color: #ce9178; }                     /* orange — "hello" */
+.syn-comment   { color: #6a9955; font-style: italic; } /* green — # comment */
+.syn-number    { color: #b5cea8; }                     /* light green — 42 */
+.syn-builtin   { color: #dcdcaa; }                     /* yellow — print, len */
+.syn-function  { color: #dcdcaa; }                     /* yellow — func() */
+.syn-decorator { color: #dcdcaa; }                     /* yellow — @decorator */
 
 /* Modal */
 .modal-overlay {

@@ -81,48 +81,93 @@
         return d.innerHTML;
     }
 
-    // ── Code syntax highlighting ─────────────────────────────────
+    // ── Code syntax highlighting (VS Code Dark+ theme) ───────────
     const SYNTAX_KEYWORDS = {
-        python: ['def','class','import','from','return','if','elif','else','for','while','try','except','finally','with','as','yield','raise','pass','break','continue','and','or','not','in','is','None','True','False','async','await','lambda','global','nonlocal','assert','del'],
-        bash: ['if','then','else','elif','fi','for','while','do','done','case','esac','function','export','local','return','exit','echo','source','set','unset','read','declare','eval','exec','trap'],
-        js: ['function','var','let','const','if','else','for','while','return','try','catch','throw','new','class','extends','import','export','default','async','await','this','null','undefined','true','false','typeof','instanceof'],
+        python: ['def','class','import','from','return','if','elif','else','for','while','try','except','finally','with','as','yield','raise','pass','break','continue','and','or','not','in','is','None','True','False','async','await','lambda','global','nonlocal','assert','del','print','len','range','int','str','list','dict','set','tuple','bool','float','type','open','enumerate','zip','map','filter','sorted','reversed','any','all','super','self'],
+        bash: ['if','then','else','elif','fi','for','while','do','done','case','esac','function','export','local','return','exit','echo','source','set','unset','read','declare','eval','exec','trap','cd','ls','mkdir','rm','cp','mv','chmod','chown','grep','awk','sed','cat','curl','wget','git','docker','kubectl','python','pip','npm','node'],
+        js: ['function','var','let','const','if','else','for','while','return','try','catch','throw','new','class','extends','import','export','default','async','await','this','null','undefined','true','false','typeof','instanceof','console','document','window','Promise','async','require','module'],
         json: ['true','false','null'],
         sql: ['SELECT','FROM','WHERE','INSERT','INTO','UPDATE','DELETE','CREATE','TABLE','ALTER','DROP','JOIN','LEFT','RIGHT','INNER','ON','AND','OR','NOT','NULL','AS','ORDER','BY','GROUP','HAVING','LIMIT','OFFSET','SET','VALUES','INDEX','UNIQUE','PRIMARY','KEY','FOREIGN','REFERENCES','DEFAULT','CHECK','COUNT','SUM','AVG','MAX','MIN','EXISTS','BETWEEN','LIKE','IN','CASE','WHEN','THEN','ELSE','END','UNION','ALL','DISTINCT']
+    };
+    const BUILTIN_WORDS = {
+        python: ['print','len','range','int','str','list','dict','set','tuple','bool','float','type','open','enumerate','zip','map','filter','sorted','reversed','any','all','super','self','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','OSError','FileNotFoundError'],
+        bash: ['echo','cd','ls','mkdir','rm','cp','mv','chmod','chown','grep','awk','sed','cat','curl','wget','git','docker','kubectl','python','pip','npm','node','exit','export','source'],
+        js: ['console','document','window','Promise','fetch','JSON','Math','Array','Object','String','Number','Boolean','Date','RegExp','Error','Map','Set','setTimeout','setInterval','clearTimeout','clearInterval','parseInt','parseFloat'],
     };
 
     function highlightCode(code, lang) {
         var escaped = escHtml(code);
+        // Normalize language
+        if (lang === 'py') lang = 'python';
+        if (lang === 'sh' || lang === 'shell') lang = 'bash';
+        if (lang === 'javascript' || lang === 'js') lang = 'js';
+        if (lang === 'ts' || lang === 'typescript') lang = 'js';
+        if (lang === 'yaml' || lang === 'yml') lang = 'yaml';
+        if (lang === 'html') lang = 'html';
+        if (lang === 'css') lang = 'css';
+
         var keywords = SYNTAX_KEYWORDS[lang] || [];
-        if (lang === 'py') { lang = 'python'; keywords = SYNTAX_KEYWORDS.python; }
-        if (lang === 'sh' || lang === 'shell') { lang = 'bash'; keywords = SYNTAX_KEYWORDS.bash; }
-        if (lang === 'javascript' || lang === 'js') { lang = 'js'; keywords = SYNTAX_KEYWORDS.js; }
+        var builtins = BUILTIN_WORDS[lang] || [];
 
-        if (keywords.length === 0) return escaped;
-
-        // Highlight strings (single/double quoted)
-        escaped = escaped.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="syn-string">$1</span>');
-        escaped = escaped.replace(/(["'][^"']*["'])/g, '<span class="syn-string">$1</span>');
-
-        // Highlight comments
-        if (lang === 'python' || lang === 'bash') {
-            escaped = escaped.replace(/(#.*)/g, '<span class="syn-comment">$1</span>');
+        if (keywords.length === 0 && builtins.length === 0 && lang !== 'yaml' && lang !== 'html' && lang !== 'css') {
+            // Still highlight strings/comments/numbers for unknown languages
+            escaped = highlightBase(escaped, lang);
+            return escaped;
         }
-        if (lang === 'js') {
+
+        // 1. Strings (single, double, backtick) — orange
+        escaped = escaped.replace(/(`[^`]*`)/g, '<span class="syn-string">$1</span>');
+        escaped = escaped.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="syn-string">$1</span>');
+        escaped = escaped.replace(/(["][^"]*["]|['][^']*['])/g, '<span class="syn-string">$1</span>');
+
+        // 2. Comments — green
+        if (lang === 'python' || lang === 'bash' || lang === 'yaml') {
+            escaped = escaped.replace(/([ \t]*#.*)/g, '<span class="syn-comment">$1</span>');
+        }
+        if (lang === 'js' || lang === 'css') {
             escaped = escaped.replace(/(\/\/.*)/g, '<span class="syn-comment">$1</span>');
+            escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syn-comment">$1</span>');
         }
         if (lang === 'sql') {
             escaped = escaped.replace(/(--.*)/g, '<span class="syn-comment">$1</span>');
         }
+        if (lang === 'html') {
+            escaped = escaped.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="syn-comment">$1</span>');
+        }
 
-        // Highlight keywords
+        // 3. Keywords — blue
         keywords.forEach(function(kw) {
             var re = new RegExp('\\b(' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\b', 'g');
             escaped = escaped.replace(re, '<span class="syn-keyword">$1</span>');
         });
 
-        // Highlight numbers
-        escaped = escaped.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>');
+        // 4. Built-in functions — yellow
+        builtins.forEach(function(fn) {
+            var re = new RegExp('\\b(' + fn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\b', 'g');
+            escaped = escaped.replace(re, '<span class="syn-builtin">$1</span>');
+        });
 
+        // 5. Numbers — light green
+        escaped = escaped.replace(/\b(\d+\.?\d*[eE]?[+-]?\d*)\b/g, '<span class="syn-number">$1</span>');
+
+        // 6. Decorators — yellow
+        escaped = escaped.replace(/(@\w+)/g, '<span class="syn-decorator">$1</span>');
+
+        // 7. Function calls — yellow (word followed by parenthesis)
+        escaped = escaped.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, function(match) {
+            // Don't re-highlight already highlighted spans
+            if (match.indexOf('span') !== -1) return match;
+            return '<span class="syn-function">' + match + '</span>';
+        });
+
+        return escaped;
+    }
+
+    function highlightBase(escaped, lang) {
+        escaped = escaped.replace(/(`[^`]*`)/g, '<span class="syn-string">$1</span>');
+        escaped = escaped.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="syn-string">$1</span>');
+        escaped = escaped.replace(/(["][^"]*["]|['][^']*['])/g, '<span class="syn-string">$1</span>');
+        escaped = escaped.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>');
         return escaped;
     }
 
