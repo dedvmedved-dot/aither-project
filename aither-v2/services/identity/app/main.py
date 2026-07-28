@@ -566,7 +566,7 @@ async def oauth_login(provider: str):
 
 
 @app.get("/v1/identity/auth/oauth/{provider}/callback")
-async def oauth_callback(provider: str, code: str = None, state: str = None, error: str = None):
+async def oauth_callback(request: Request, provider: str, code: str = None, state: str = None, error: str = None):
     """OAuth callback — exchange code for token and create/find user."""
     if error:
         raise HTTPException(status_code=400, detail=f"OAuth error: {error}")
@@ -587,7 +587,9 @@ async def oauth_callback(provider: str, code: str = None, state: str = None, err
     )
 
     try:
-        token = await client.fetch_token(cfg["token_url"], authorization_response=f"?code={code}")
+        # Pass full callback URL so authlib can extract code + validate state
+        authorization_response = str(request.url)
+        token = await client.fetch_token(cfg["token_url"], authorization_response=authorization_response)
     except Exception as e:
         log.error("OAuth token exchange failed for %s: %s", provider, str(e))
         raise HTTPException(status_code=401, detail=f"OAuth token exchange failed: {str(e)}")
