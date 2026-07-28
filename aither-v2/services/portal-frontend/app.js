@@ -872,13 +872,17 @@
             const resultDiv = $('chat-rag-result');
             if (resultDiv) {
                 resultDiv.style.display = 'block';
-                if (r.ok) {
-                    const results = r.data?.results || r.data?.documents || [];
-                    if (Array.isArray(results) && results.length > 0) {
-                        resultDiv.innerHTML = '<b>🔍 RAG найдено:</b> ' + results.length + ' документов — ' +
-                            results.slice(0,3).map(function(d) { return (d.title||d.id||'').substring(0,60); }).join('; ');
+                if (r.ok && r.data) {
+                    const results = r.data.results || [];
+                    if (results.length > 0) {
+                        resultDiv.innerHTML = '<b>🔍 RAG (' + results.length + ' док.):</b> ' +
+                            results.slice(0,3).map(function(d) {
+                                return '<span title="' + escHtml(d.text||'').substring(0,200) + '">' +
+                                    escHtml((d.title||d.source||'').substring(0,80)) +
+                                    ' (' + (d.score||0).toFixed(2) + ')</span>';
+                            }).join(' | ');
                     } else {
-                        resultDiv.innerHTML = '<b>🔍 RAG:</b> ' + escHtml(JSON.stringify(r.data).substring(0, 200));
+                        resultDiv.innerHTML = '<b>🔍 RAG:</b> ничего не найдено по запросу «' + escHtml(q) + '»';
                     }
                 } else {
                     resultDiv.innerHTML = '<b>❌ RAG:</b> ' + (r.data?.detail || 'Ошибка');
@@ -895,9 +899,27 @@
         setLoading(true);
         try {
             const r = await api('/rag/hybrid-query', {method:'POST',body:JSON.stringify({query:q})});
-            $('wiki-search-result').innerHTML = r.ok ?
-                '<pre style="font-size:11px;max-height:300px;overflow-y:auto;">' + escHtml(JSON.stringify(r.data,null,2).substring(0,500)) + '</pre>' :
-                '<p class="text-muted">Недоступно: ' + (r.data?.detail || r.status) + '</p>';
+            if (r.ok && r.data && r.data.results) {
+                const results = r.data.results;
+                if (results.length === 0) {
+                    $('wiki-search-result').innerHTML = '<p class="text-muted">Ничего не найдено по запросу «' + escHtml(q) + '»</p>';
+                } else {
+                    let html = '<div style="font-size:12px;">';
+                    results.slice(0,8).forEach(function(r, i) {
+                        html += '<div style="margin-bottom:10px;padding:8px;background:var(--bg-input);border-radius:4px;">' +
+                            '<b>' + (i+1) + '. ' + escHtml(r.title||r.source) + '</b> ' +
+                            '<span style="color:var(--primary);font-size:10px;">(' + (r.score||0).toFixed(2) + ')</span>' +
+                            '<div style="color:var(--text-muted);font-size:11px;margin-top:4px;">' +
+                            escHtml((r.text||'').substring(0,300)) + '...</div>' +
+                            '<div style="font-size:10px;color:var(--text-muted);">📄 ' + escHtml(r.source) + '</div>' +
+                            '</div>';
+                    });
+                    html += '</div>';
+                    $('wiki-search-result').innerHTML = html;
+                }
+            } else {
+                $('wiki-search-result').innerHTML = '<p class="text-muted">Поиск недоступен: ' + (r.data?.detail || r.status) + '</p>';
+            }
         } catch(e) { $('wiki-search-result').innerHTML = '<p class="text-muted">Ошибка</p>'; }
         setLoading(false);
     };
@@ -906,10 +928,13 @@
         setLoading(true);
         try {
             const s = await api('/rag/status');
-            $('wiki-graph-status').innerHTML = s.ok ?
-                '<div style="color:var(--success)">✓ Wiki-Graph доступен</div>' :
-                '<div class="text-muted">Wiki-Graph недоступен</div>';
-            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki-Graph RAG — поиск информации по базе знаний с использованием ChromaDB и графа связанных документов.</p><p>Введите запрос в поле выше для гибридного поиска (векторный + графовый + текстовый).</p>';
+            if (s.ok && s.data) {
+                $('wiki-graph-status').innerHTML = '<div style="color:var(--success)">✓ Wiki-Graph доступен</div>' +
+                    '<div style="font-size:11px;color:var(--text-muted);">Документов: ' + (s.data.documents||0) + ' | Движок: ' + (s.data.engine||'—') + '</div>';
+            } else {
+                $('wiki-graph-status').innerHTML = '<div class="text-muted">Wiki-Graph недоступен</div>';
+            }
+            $('wiki-pages').innerHTML = '<p class="text-muted">Wiki-Graph RAG — поиск по учебному пособию Aither (5 томов) и документации платформы.</p><p>Введите запрос в поле выше для гибридного поиска по всем разделам.</p>';
         } catch(e) {
             $('wiki-pages').innerHTML = '<p class="text-muted">Wiki-Graph временно недоступен</p>';
         }

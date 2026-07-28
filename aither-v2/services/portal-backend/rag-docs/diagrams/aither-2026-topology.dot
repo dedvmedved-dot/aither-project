@@ -1,0 +1,149 @@
+digraph AitherInfrastructure2026 {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    fontname="system-ui";
+    node [fontname="system-ui", fontsize=10, style=filled, color="#555555"];
+    edge [fontname="system-ui", fontsize=8, color="#888888"];
+    compound=true;
+    labelloc="t";
+    label="Актуальная архитектура Aither — Июль 2026";
+    fontsize=14;
+    fontcolor="#1a1a2e";
+
+    // === INTERNET ===
+    user [label="Пользователь\n(браузер)", shape=component, fillcolor="#fce4ec", color="#e53935", fontcolor="#1a1a2e"];
+    internet [label="Интернет", shape=cloud, fillcolor="#e0e0e0", color="#9e9e9e", fontcolor="#1a1a2e"];
+    
+    // === VPS2 ===
+    subgraph cluster_vps2 {
+        label="VPS2 · 170.168.91.95\nUbuntu 24.04 · Hermes Agent";
+        style="rounded";
+        color="#1e88e5";
+        fontname="system-ui";
+        fontcolor="#1a1a2e";
+        bgcolor="#f5f5f5";
+        
+        nginx_vps2 [label="nginx :10443\n(SSL LetsEncrypt)\n+ WireGuard wg0\n10.99.0.1", shape=box, fillcolor="#bbdefb", color="#1e88e5", fontcolor="#1a1a2e"];
+        hermes [label="Hermes Agent\n(systemd)\nМозг автономной\nэксплуатации", shape=box, fillcolor="#bbdefb", color="#1e88e5", fontcolor="#1a1a2e"];
+    }
+
+    // === VPS1 ===
+    subgraph cluster_vps1 {
+        label="VPS1 · 130.17.1.90\nUbuntu · Портал + BFF";
+        style="rounded";
+        color="#7b1fa2";
+        fontname="system-ui";
+        fontcolor="#1a1a2e";
+        bgcolor="#f5f5f5";
+        
+        nginx_vps1 [label="nginx :80\n(прокси на :3000)\nМаршрутизация:\n/ → статика\n/auth/* /api/* → BFF", shape=box, fillcolor="#e1bee7", color="#7b1fa2", fontcolor="#1a1a2e"];
+        bff [label="BFF (Node.js)\nFastify :3000\nJWT HS256\nWireGuard wg0\n10.99.0.2", shape=box, fillcolor="#e1bee7", color="#7b1fa2", fontcolor="#1a1a2e"];
+        pg_vps1 [label="Portal DB\nPostgreSQL :5432\n(Docker)", shape=box, fillcolor="#e1bee7", color="#7b1fa2", fontcolor="#1a1a2e"];
+    }
+
+    // === VPS3 ===
+    subgraph cluster_vps3 {
+        label="VPS3 · 89.127.217.88\nUbuntu · Резерв";
+        style="rounded,dashed";
+        color="#9e9e9e";
+        fontname="system-ui";
+        fontcolor="#1a1a2e";
+        bgcolor="#f5f5f5";
+        
+        vps3_backup [label="Резервный Hermes\n+ Портал (синк\nкаждые 30 мин)", shape=box, fillcolor="#e0e0e0", color="#9e9e9e", fontcolor="#1a1a2e"];
+    }
+
+    // === Cisco ===
+    subgraph cluster_cisco {
+        label="Cisco 815\n10.129.11.21\nJump Host + VPN";
+        style="rounded";
+        color="#43a047";
+        fontname="system-ui";
+        fontcolor="#1a1a2e";
+        bgcolor="#f5f5f5";
+        
+        cisco [label="Cisco VPN\nтерминатор\ntun1: VPN-туннель\nк VPS2", shape=box, fillcolor="#c8e6c9", color="#43a047", fontcolor="#1a1a2e"];
+    }
+
+    // === Закрытый контур ===
+    subgraph cluster_gpu {
+        label="Закрытый контур · 10.129.13.0/24 · VLAN 308";
+        style="rounded,dashed";
+        color="#ff9800";
+        fontname="system-ui";
+        fontcolor="#1a1a2e";
+        bgcolor="#fafafa";
+        
+        // n8
+        subgraph cluster_n8 {
+            label="n8 · 10.129.13.78\nAstra SE 1.8 · control-plane";
+            style="rounded";
+            color="#ff9800";
+            fontname="system-ui";
+            fontcolor="#1a1a2e";
+            bgcolor="#ffffff";
+            
+            k8s_api [label="K8s API :6443\nv1.33.5\n(1 нода)", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+            gateway [label="Gateway :8080\nPython · systemd\nМаршрутизация\nBilling · RAG\nRate limiting", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+            vllm14 [label="vLLM 14B Coder\n(K8s pod)\nNodePort :30014\nQwen2.5-14B-Instruct", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+            pg_n8 [label="PostgreSQL :5432\nBilling DB\nbilling_accounts\nbilling_ledger\nsubscription_tiers", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+            redis_n8 [label="Redis :6379\nКэш tier'ов\n(tier:vip)", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+            gpu_n8 [label="GPU\n2× RTX 6000\n(24 GB VRAM)", shape=box, fillcolor="#ffcdd2", color="#e53935", fontcolor="#1a1a2e"];
+        }
+        
+        // n7
+        subgraph cluster_n7 {
+            label="n7 · 10.129.13.77\nAstra SE 1.8 · worker";
+            style="rounded";
+            color="#ff9800";
+            fontname="system-ui";
+            fontcolor="#1a1a2e";
+            bgcolor="#ffffff";
+            
+            vllm32 [label="vLLM 32B GPTQ\n(systemd :8000)\nQwen2.5-32B-GPTQ\nTP=2", shape=box, fillcolor="#fff3e0", color="#ff9800", fontcolor="#1a1a2e"];
+            gpu_n7 [label="GPU\n2× RTX 6000\n(24 GB VRAM)", shape=box, fillcolor="#ffcdd2", color="#e53935", fontcolor="#1a1a2e"];
+        }
+    }
+
+    // === RAG ===
+    subgraph cluster_rag {
+        label="RAG-подсистема";
+        style="rounded";
+        color="#8e24aa";
+        fontname="system-ui";
+        fontcolor="#1a1a2e";
+        bgcolor="#f5f5f5";
+        
+        wiki [label="Wiki-граф\n6 страниц\n(hybrid mode)", shape=box, fillcolor="#f3e5f5", color="#8e24aa", fontcolor="#1a1a2e"];
+        chromadb_note [label="ChromaDB ❌\n(не работает)", shape=box, fillcolor="#ffcdd2", color="#e53935", fontcolor="#1a1a2e"];
+    }
+
+    // === Соединения ===
+    user -> internet [label="HTTPS" fontcolor="#1a1a2e"];
+    internet -> nginx_vps2 [label="TLS 1.3\nfb1.spb.ru" fontcolor="#1a1a2e" color="#1e88e5"];
+    
+    nginx_vps2 -> nginx_vps1 [label="WireGuard\n10.99.0.1 → 10.99.0.2" fontcolor="#1a1a2e" color="#7b1fa2" style=dashed];
+    nginx_vps1 -> bff [label="localhost:3000" fontcolor="#1a1a2e"];
+    bff -> pg_vps1 [label=":5432\nportal DB" fontcolor="#1a1a2e" color="#7b1fa2"];
+    
+    hermes -> nginx_vps2 [style=invis];
+    
+    vps3_backup -> nginx_vps2 [label="hermes-sync\n(+30 мин)" fontcolor="#1a1a2e" color="#9e9e9e" style=dashed];
+    
+    hermes -> cisco [label="Cisco VPN\ntun1" fontcolor="#1a1a2e" color="#43a047" style=dashed lhead=cluster_cisco];
+    cisco -> k8s_api [label="VLAN 308" fontcolor="#1a1a2e" color="#43a047" lhead=cluster_n8];
+    cisco -> vllm32 [label="VLAN 308" fontcolor="#1a1a2e" color="#43a047" lhead=cluster_n7];
+    
+    bff -> gateway [label="WireGuard →\nCisco → Gateway :8080\nJWT delegation\n+ /v1/chat/completions" fontcolor="#1a1a2e" color="#ff9800" style=dashed];
+    
+    gateway -> vllm14 [label=":30014\n14B модель" fontcolor="#1a1a2e" color="#ff9800"];
+    gateway -> vllm32 [label="n7:8000\n32B модель\n(cost-aware\nrouting)" fontcolor="#1a1a2e" color="#ff9800" style=dashed];
+    gateway -> pg_n8 [label=":5432\nbilling DB" fontcolor="#1a1a2e" color="#43a047"];
+    gateway -> redis_n8 [label=":6379\nкэш tier'ов" fontcolor="#1a1a2e" color="#43a047"];
+    
+    vllm14 -> gpu_n8 [label="GPU\ntensor-\nparallel=2" fontcolor="#1a1a2e" color="#e53935"];
+    vllm32 -> gpu_n7 [label="GPU\nTP=2" fontcolor="#1a1a2e" color="#e53935"];
+    
+    gateway -> wiki [label="RAG hybrid\nquery" fontcolor="#1a1a2e" color="#8e24aa" style=dashed];
+    wiki -> chromadb_note [style=dotted color="#e53935" fontcolor="#1a1a2e" label="OFF"];
+}

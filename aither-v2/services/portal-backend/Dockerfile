@@ -8,6 +8,9 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 
 COPY --chown=1000:1000 app/ ./app/
 
+# Copy RAG training manual docs
+COPY --chown=1000:1000 rag-docs/ /data/rag-docs/
+
 EXPOSE 8000
 
 USER 1000

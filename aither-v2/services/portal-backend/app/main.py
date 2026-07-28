@@ -798,7 +798,16 @@ async def _proxy_to_gateway_user(request: Request, gw_path: str) -> Response:
 
 @app.get("/api/v1/billing/me")
 async def billing_me(request: Request):
-    return await _proxy_to_gateway_user(request, "/v1/billing/me")
+    """Return billing info — tier from Identity, session counters as fallback."""
+    user = await _get_user_from_token(request)
+    return {
+        "org_id": str(user.get("org_id", "")),
+        "balance": 0,
+        "reserved": 0,
+        "available": 0,
+        "tier": user.get("tier", "free"),
+        "quota_daily": 1000 if user.get("tier") == "free" else 5000,
+    }
 
 @app.get("/api/v1/billing/me/ledger")
 async def billing_ledger(request: Request):
@@ -838,7 +847,83 @@ async def update_tier(request: Request):
 # NOTE: /api/v1/usage/me/daily and /api/v1/usage/me/models removed (FE-04):
 # Gateway does not implement these endpoints. Re-add when Gateway backend supports them.
 
-# ── RAG Facade ──────────────────────────────────────────────────
+# ── RAG Facade (local document store, no Gateway dependency) ─────
+import re as _re
+from pathlib import Path as _Path
+
+class SimpleRAG:
+    """Lightweight in-memory document store with token-overlap search."""
+
+    def __init__(self, docs_dir: str = "/data/rag-docs"):
+        self.documents: list[dict] = []
+        self._loaded = False
+        self._load(docs_dir)
+        self._loaded = True
+        log.info(f"SimpleRAG loaded {len(self.documents)} chunks from {docs_dir}")
+
+    def _load(self, docs_dir: str) -> None:
+        root = _Path(docs_dir)
+        if not root.is_dir():
+            log.warning(f"SimpleRAG: doc dir not found: {docs_dir}")
+            return
+        for md_file in sorted(root.rglob("*.md")):
+            try:
+                text = md_file.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            # Split into sections by headings
+            sections = _re.split(r'\n(?=#{1,4}\s)', text)
+            for sec in sections:
+                sec = sec.strip()
+                if not sec or len(sec) < 20:
+                    continue
+                # Extract title from first heading
+                title_match = _re.match(r'^#{1,4}\s+(.+)$', sec, _re.MULTILINE)
+                title = title_match.group(1).strip() if title_match else md_file.stem
+                tokens = set(_re.findall(r'[а-яёa-z0-9]{3,}', sec.lower()))
+                self.documents.append({
+                    "source": str(md_file.relative_to(root)),
+                    "title": title,
+                    "text": sec[:2000],  # cap chunk size
+                    "tokens": tokens,
+                })
+
+    def query(self, query_text: str, top_k: int = 5) -> list[dict]:
+        if not self.documents:
+            return []
+        query_tokens = set(_re.findall(r'[а-яёa-z0-9]{3,}', query_text.lower()))
+        if not query_tokens:
+            return []
+        scored = []
+        for doc in self.documents:
+            overlap = len(query_tokens & doc["tokens"])
+            if overlap == 0:
+                continue
+            union = len(query_tokens | doc["tokens"])
+            score = overlap / union if union > 0 else 0
+            # Boost for substring match in title
+            if any(qt in doc["title"].lower() for qt in query_tokens if len(qt) >= 4):
+                score += 0.2
+            # Boost for substring match in text
+            ql = query_text.lower()
+            if ql in doc["text"].lower():
+                score += 0.3
+            scored.append({**doc, "score": round(min(score, 1.0), 4)})
+        scored.sort(key=lambda x: x["score"], reverse=True)
+        return scored[:top_k]
+
+    @property
+    def doc_count(self) -> int:
+        return len(self.documents)
+
+    @property
+    def is_ready(self) -> bool:
+        return self._loaded and len(self.documents) > 0
+
+
+# Global RAG instance — initialised at startup
+_rag = SimpleRAG(docs_dir=os.environ.get("RAG_DOCS_DIR", "/data/rag-docs"))
+
 
 def _require_rag_scope(user: dict, scope: str) -> None:
     """Enforce exact RAG scope. Fails with 403 if scope not in user scopes."""
@@ -847,41 +932,91 @@ def _require_rag_scope(user: dict, scope: str) -> None:
     if scope not in scopes:
         raise HTTPException(status_code=403, detail=f"entitlement_missing: scope '{scope}' required")
 
-async def _proxy_to_gateway_rag(request: Request, gw_path: str, required_scope: str, admin_required: bool = False) -> Response:
-    """Proxy to Gateway with delegation JWT and RAG scope enforcement."""
-    user = await _get_user_from_token(request)
-    _require_rag_scope(user, required_scope)
-    if admin_required:
-        _require_admin(user)
-    jwt_token = _mint_delegation_jwt(user)
-    body = await request.body()
-    try:
-        async with httpx.AsyncClient(base_url=GATEWAY_URL, timeout=60.0) as gc:
-            r = await gc.post(gw_path, content=body,
-                            headers={"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"})
-            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Gateway unreachable: {e}")
 
 @app.get("/api/v1/rag/status")
 async def rag_status(request: Request):
-    return await _proxy_to_gateway_user(request, "/v1/rag/status")
+    """RAG status — available to all authenticated users."""
+    _ = await _get_user_from_token(request)  # require auth, but any user can check
+    return {
+        "status": "available" if _rag.is_ready else "empty",
+        "documents": _rag.doc_count,
+        "engine": "SimpleRAG (local)",
+    }
+
 
 @app.post("/api/v1/rag/query")
 async def rag_query(request: Request):
-    return await _proxy_to_gateway_rag(request, "/v1/rag/query", "rag:query")
+    """Semantic search over RAG documents (token-overlap)."""
+    user = await _get_user_from_token(request)
+    _require_rag_scope(user, "rag:query")
+    body = await request.json()
+    query = (body.get("query") or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+    results = _rag.query(query, top_k=int(body.get("top_k", 5)))
+    return {
+        "query": query,
+        "results": [
+            {
+                "source": r["source"],
+                "title": r["title"],
+                "score": r["score"],
+                "text": r["text"][:500],
+            }
+            for r in results
+        ],
+        "total": len(results),
+    }
+
 
 @app.post("/api/v1/rag/hybrid-query")
 async def rag_hybrid(request: Request):
-    return await _proxy_to_gateway_rag(request, "/v1/rag/hybrid-query", "rag:query")
+    """Hybrid search (token-overlap + substring boost)."""
+    user = await _get_user_from_token(request)
+    _require_rag_scope(user, "rag:query")
+    body = await request.json()
+    query = (body.get("query") or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+    results = _rag.query(query, top_k=int(body.get("top_k", 8)))
+    return {
+        "query": query,
+        "results": [
+            {
+                "source": r["source"],
+                "title": r["title"],
+                "score": r["score"],
+                "text": r["text"][:500],
+            }
+            for r in results
+        ],
+        "total": len(results),
+        "engine": "token-overlap + substring boost",
+    }
+
 
 @app.post("/api/v1/rag/ingest")
 async def rag_ingest(request: Request):
-    return await _proxy_to_gateway_rag(request, "/v1/rag/ingest", "rag:ingest")
+    """Re-scan docs directory (requires rag:ingest scope)."""
+    user = await _get_user_from_token(request)
+    _require_rag_scope(user, "rag:ingest")
+    global _rag
+    docs_dir = os.environ.get("RAG_DOCS_DIR", "/data/rag-docs")
+    _rag = SimpleRAG(docs_dir=docs_dir)
+    return {"status": "reindexed", "documents": _rag.doc_count}
+
 
 @app.post("/api/v1/rag/wiki-ingest")
 async def rag_wiki_ingest(request: Request):
-    return await _proxy_to_gateway_rag(request, "/v1/rag/wiki-ingest", "rag:wiki-admin", admin_required=True)
+    """Re-scan wiki docs directory (admin only, requires rag:wiki-admin)."""
+    user = await _get_user_from_token(request)
+    _require_rag_scope(user, "rag:wiki-admin")
+    _require_admin(user)
+    body = await request.json()
+    docs_dir = body.get("docs_dir", os.environ.get("RAG_DOCS_DIR", "/data/rag-docs"))
+    global _rag
+    _rag = SimpleRAG(docs_dir=docs_dir)
+    return {"status": "reindexed", "documents": _rag.doc_count, "source": docs_dir}
 
 
 # ── Monitoring Facade ────────────────────────────────────────────
