@@ -1,6 +1,26 @@
 # WARNING: Secret is defined in identity-secret.example.yaml (DO NOT COMMIT REAL VALUES).
 # Ensure the Secret exists before deploying: kubectl get secret aither-identity-secret -n aither-inference
 #
+# Data persistence: uses hostPath on GPU node (no StorageClass on bare-metal).
+# Directory must be owned by uid 1000: sudo mkdir -p /data/aither/identity && sudo chown -R 1000:1000 /data/aither/identity
+# ---
+# HostPath PersistentVolume (create once, survives cluster rebuilds)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-aither-identity-data
+  labels:
+    app: aither-identity
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /data/aither/identity
+    type: DirectoryOrCreate
+---
 # PersistentVolumeClaim for Identity data
 apiVersion: v1
 kind: PersistentVolumeClaim
