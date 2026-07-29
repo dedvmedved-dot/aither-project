@@ -58,6 +58,8 @@
 
       <div style="text-align:center;margin-top:12px;">
         <a href="#" onclick="showRegisterForm();return false;" style="color:var(--primary);font-size:12px;text-decoration:none;">Нет аккаунта? Зарегистрироваться</a>
+        <span style="color:var(--text-muted);margin:0 8px;">|</span>
+        <a href="#" onclick="showForgotForm();return false;" style="color:var(--text-muted);font-size:12px;text-decoration:none;">Забыл пароль?</a>
       </div>
 
       <!-- Registration form (hidden by default) -->
@@ -104,6 +106,56 @@
           </div>
         </div>
       </div>
+
+      <!-- Forgot password form (hidden by default) -->
+      <div id="forgot-form" style="display:none;">
+        <hr class="oauth-divider" style="margin:16px 0;"><span style="font-size:11px;color:var(--text-muted);">Восстановление пароля</span></hr>
+        <div class="alert alert-danger" id="forgot-error" style="display:none;"></div>
+        <div class="alert alert-info" id="forgot-info" style="display:none;"></div>
+
+        <!-- Step 1: Enter email -->
+        <div id="forgot-step1">
+          <div class="form-group">
+            <label for="forgot-email">Email, указанный при регистрации</label>
+            <input type="email" id="forgot-email" class="form-input" required autocomplete="email">
+          </div>
+          <button class="btn btn-primary btn-block" id="btn-forgot-start">📧 Отправить код</button>
+          <div style="text-align:center;margin-top:8px;">
+            <a href="#" onclick="hideForgotForm();return false;" style="color:var(--text-muted);font-size:11px;text-decoration:none;">← Назад ко входу</a>
+          </div>
+        </div>
+
+        <!-- Step 2: Enter code -->
+        <div id="forgot-step2" style="display:none;">
+          <p class="text-muted" style="font-size:11px;margin-bottom:12px;">Код отправлен на <b id="forgot-email-display"></b></p>
+          <div class="form-group">
+            <label for="forgot-code">Код из письма (6 цифр)</label>
+            <input type="text" id="forgot-code" class="form-input code-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" placeholder="000000">
+          </div>
+          <div id="forgot-timer" class="reg-timer">⏳ Осталось: <b id="forgot-timer-value">90</b> сек.</div>
+          <button class="btn btn-primary btn-block" id="btn-forgot-verify">✓ Проверить код</button>
+          <div style="text-align:center;margin-top:8px;">
+            <a href="#" onclick="cancelForgot();return false;" style="color:var(--danger);font-size:11px;text-decoration:none;">Отменить</a>
+          </div>
+        </div>
+
+        <!-- Step 3: New password -->
+        <div id="forgot-step3" style="display:none;">
+          <div class="form-group">
+            <label for="forgot-new-pass">Новый пароль</label>
+            <input type="password" id="forgot-new-pass" class="form-input" required minlength="6" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label for="forgot-new-pass2">Подтверждение пароля</label>
+            <input type="password" id="forgot-new-pass2" class="form-input" required minlength="6" autocomplete="new-password">
+          </div>
+          <button class="btn btn-primary btn-block" id="btn-forgot-save">💾 Сохранить новый пароль</button>
+          <div style="text-align:center;margin-top:8px;">
+            <a href="#" onclick="cancelForgot();return false;" style="color:var(--danger);font-size:11px;text-decoration:none;">Отменить</a>
+          </div>
+        </div>
+      </div>
+
       <div class="oauth-section">
         <div class="oauth-divider"><span>или войти через</span></div>
         <div class="oauth-buttons" id="oauth-buttons">

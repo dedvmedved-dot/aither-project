@@ -208,6 +208,12 @@ def init_db():
         conn.execute("ALTER TABLE users ADD COLUMN scopes TEXT DEFAULT ''")
         conn.commit()
 
+    # Migration: add email to users if missing
+    cols2 = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+    if "email" not in cols2:
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
+        conn.commit()
+
     # Ensure default organisation exists (for bootstrap only — not auto-assigned)
     org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
     if not org:
@@ -362,6 +368,11 @@ def ldap_authenticate(username: str, password: str) -> dict | None:
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    email: str = ""
 
 class UserCreate(BaseModel):
     username: str
@@ -891,6 +902,24 @@ async def logout(
 @app.get("/v1/identity/me")
 async def me(user: dict = Depends(get_current_user)):
     """Get current user information including org, tier, and scopes."""
+
+
+@app.get("/v1/identity/users/lookup")
+async def lookup_user_by_email(email: str = ""):
+    """Look up user by email (public — for password reset)."""
+    if not email:
+        raise HTTPException(status_code=400, detail="email parameter required")
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, username, email FROM users WHERE email=? AND disabled=0",
+            (email.strip(),),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"id": row["id"], "username": row["username"], "email": row["email"]}
+    finally:
+        conn.close()
     conn = get_db()
     row = conn.execute(
         """SELECT u.id, u.username, u.role, u.disabled, u.org_id,
@@ -940,7 +969,7 @@ async def list_users(admin: dict = Depends(require_admin)):
     ]
 
 @app.post("/v1/identity/register", status_code=201)
-async def register_user(req: LoginRequest):
+async def register_user(req: RegisterRequest):
     """Public self-registration — creates a user with default org and basic scopes.
     No admin token required. Password must be >= 6 chars."""
     if len(req.username.strip()) < 3:
@@ -956,12 +985,12 @@ async def register_user(req: LoginRequest):
         org_id = org["id"] if org else None
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, 'user', ?, 'model:14b:chat,rag:query')",
-            (req.username.strip(), pw_hash, org_id),
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,rag:query', ?)",
+            (req.username.strip(), pw_hash, org_id, req.email.strip()),
         )
         conn.commit()
         user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        log.info("Self-registration: user='%s' id=%d", req.username, user_id)
+        log.info("Self-registration: user='%s' email='%s' id=%d", req.username, req.email, user_id)
         return {
             "id": user_id,
             "username": req.username.strip(),
@@ -971,6 +1000,33 @@ async def register_user(req: LoginRequest):
     except sqlite3.IntegrityError:
         conn.close()
         raise HTTPException(status_code=409, detail="Username already taken")
+    finally:
+        conn.close()
+
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    new_password: str
+
+
+@app.post("/v1/identity/reset-password")
+async def reset_password(req: ResetPasswordRequest):
+    """Public password reset — updates password for given username.
+    Requires 6+ char new password."""
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id FROM users WHERE username=?", (req.username.strip(),)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        pw_hash = hash_password(req.new_password)
+        conn.execute("UPDATE users SET password=? WHERE id=?", (pw_hash, row["id"]))
+        # Revoke all existing sessions for this user
+        conn.execute("UPDATE sessions SET revoked=1 WHERE user_id=? AND revoked=0", (row["id"],))
+        conn.commit()
+        log.info("Password reset: user='%s' id=%d", req.username, row["id"])
+        return {"message": "Password updated successfully"}
     finally:
         conn.close()
 

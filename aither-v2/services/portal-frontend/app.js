@@ -566,6 +566,154 @@
         }
     }
 
+    // ── Forgot password flow ────────────────────────────────────────
+    var forgotToken = null;
+    var forgotTimer = null;
+    var forgotSecondsLeft = 0;
+
+    window.showForgotForm = function() {
+        $('login-form').style.display = 'none';
+        $('register-form').style.display = 'none';
+        $('forgot-form').style.display = 'block';
+        $('forgot-step1').style.display = 'block';
+        $('forgot-step2').style.display = 'none';
+        $('forgot-step3').style.display = 'none';
+        hideAlert('login-error');
+        hideAlert('forgot-error');
+        hideAlert('forgot-info');
+    };
+
+    window.hideForgotForm = function() {
+        $('login-form').style.display = 'block';
+        $('forgot-form').style.display = 'none';
+        stopForgotTimer();
+    };
+
+    window.cancelForgot = function() {
+        stopForgotTimer();
+        forgotToken = null;
+        forgotSecondsLeft = 0;
+        $('login-form').style.display = 'block';
+        $('forgot-form').style.display = 'none';
+        $('forgot-step1').style.display = 'block';
+        $('forgot-step2').style.display = 'none';
+        $('forgot-step3').style.display = 'none';
+        hideAlert('forgot-error');
+        hideAlert('forgot-info');
+    };
+
+    function stopForgotTimer() {
+        if (forgotTimer) { clearInterval(forgotTimer); forgotTimer = null; }
+    }
+
+    async function handleForgotStart() {
+        hideAlert('forgot-error');
+        hideAlert('forgot-info');
+        var email = $('forgot-email').value.trim();
+        if (!email || email.indexOf('@') === -1) {
+            showAlert('forgot-error', 'Введите корректный email', 'danger');
+            return;
+        }
+
+        setLoading(true);
+        $('btn-forgot-start').disabled = true;
+        try {
+            var res = await api('/auth/forgot-password', {
+                method: 'POST',
+                body: JSON.stringify({ email: email }),
+            });
+            if (res.ok && res.data) {
+                forgotToken = res.data.registration_token || null;
+                $('forgot-email-display').textContent = email;
+                $('forgot-step1').style.display = 'none';
+                if (forgotToken) {
+                    $('forgot-step2').style.display = 'block';
+                    // Start timer
+                    forgotSecondsLeft = res.data.expires_in || 90;
+                    $('forgot-timer-value').textContent = forgotSecondsLeft;
+                    stopForgotTimer();
+                    forgotTimer = setInterval(function() {
+                        forgotSecondsLeft--;
+                        $('forgot-timer-value').textContent = forgotSecondsLeft;
+                        if (forgotSecondsLeft <= 0) {
+                            stopForgotTimer();
+                            showAlert('forgot-error', 'Время действия кода истекло.', 'danger');
+                            $('forgot-step1').style.display = 'block';
+                            $('forgot-step2').style.display = 'none';
+                            forgotToken = null;
+                        }
+                    }, 1000);
+                    setTimeout(function() { var ci = $('forgot-code'); if (ci) ci.focus(); }, 200);
+                }
+                showAlert('forgot-info', '📧 ' + (res.data.message || 'Код отправлен!'), 'info');
+            } else {
+                showAlert('forgot-error', res.data?.detail || 'Ошибка', 'danger');
+            }
+        } catch(e) {
+            showAlert('forgot-error', 'Ошибка сети', 'danger');
+        } finally {
+            setLoading(false);
+            $('btn-forgot-start').disabled = false;
+        }
+    }
+
+    async function handleForgotVerify() {
+        var code = $('forgot-code').value.trim();
+        if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+            showAlert('forgot-error', 'Введите 6-значный код', 'danger');
+            return;
+        }
+        if (!forgotToken || forgotSecondsLeft <= 0) {
+            showAlert('forgot-error', 'Сессия истекла. Начните заново.', 'danger');
+            return;
+        }
+
+        // Code is correct — move to step 3 (actual verification happens on save)
+        stopForgotTimer();
+        hideAlert('forgot-error');
+        $('forgot-step2').style.display = 'none';
+        $('forgot-step3').style.display = 'block';
+        setTimeout(function() { var pi = $('forgot-new-pass'); if (pi) pi.focus(); }, 200);
+    }
+
+    async function handleForgotSave() {
+        var pass = $('forgot-new-pass').value;
+        var pass2 = $('forgot-new-pass2').value;
+        if (!pass || pass.length < 6) {
+            showAlert('forgot-error', 'Пароль должен быть не менее 6 символов', 'danger');
+            return;
+        }
+        if (pass !== pass2) {
+            showAlert('forgot-error', 'Пароли не совпадают', 'danger');
+            return;
+        }
+        var code = $('forgot-code').value.trim();
+
+        setLoading(true);
+        $('btn-forgot-save').disabled = true;
+        try {
+            var res = await api('/auth/reset-password', {
+                method: 'POST',
+                body: JSON.stringify({ registration_token: forgotToken, code: code, new_password: pass }),
+            });
+            if (res.ok) {
+                showAlert('forgot-info', '✅ Пароль изменён! Теперь войдите.', 'success');
+                hideAlert('forgot-error');
+                setTimeout(function() {
+                    cancelForgot();
+                    hideAlert('forgot-info');
+                }, 1500);
+            } else {
+                showAlert('forgot-error', res.data?.detail || 'Ошибка сброса пароля', 'danger');
+            }
+        } catch(e) {
+            showAlert('forgot-error', 'Ошибка сети', 'danger');
+        } finally {
+            setLoading(false);
+            $('btn-forgot-save').disabled = false;
+        }
+    }
+
     // ── Dashboard ──────────────────────────────────────────────
     async function loadDashboardInfo() {
         if (!currentUser) return;
@@ -1113,6 +1261,13 @@
         $('btn-new-chat')?.addEventListener('click', window._newChat);
         $('btn-register-start')?.addEventListener('click', handleRegisterStart);
         $('btn-register-confirm')?.addEventListener('click', handleRegisterConfirm);
+        $('btn-forgot-start')?.addEventListener('click', handleForgotStart);
+        $('btn-forgot-verify')?.addEventListener('click', handleForgotVerify);
+        $('btn-forgot-save')?.addEventListener('click', handleForgotSave);
+        // Allow Enter in forgot code input
+        $('forgot-code')?.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); handleForgotVerify(); }
+        });
         // Allow Enter in code input to confirm
         $('reg-code')?.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') { e.preventDefault(); handleRegisterConfirm(); }

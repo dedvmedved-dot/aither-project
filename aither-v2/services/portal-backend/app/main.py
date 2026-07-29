@@ -243,6 +243,14 @@ class VerifyRegistrationRequest(BaseModel):
     registration_token: str
     code: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    registration_token: str
+    code: str
+    new_password: str
+
 # ── Application ────────────────────────────────────────────────
 
 app = FastAPI(
@@ -543,6 +551,7 @@ async def verify_registration(req: VerifyRegistrationRequest):
         r = await c.post("/v1/identity/register", json={
             "username": pending["username"],
             "password": pending["password"],
+            "email": pending.get("email", ""),
         })
         if r.status_code == 201 or r.status_code == 200:
             user_data = r.json()
@@ -562,6 +571,97 @@ async def verify_registration(req: VerifyRegistrationRequest):
         raise
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Identity service unavailable: {e}")
+
+# ── Forgot / Reset password ───────────────────────────────────────
+
+@app.post("/api/v1/auth/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest):
+    """Step 1: Send verification code to registered email (if user exists)."""
+    _cleanup_expired_registrations()
+
+    if not req.email or "@" not in req.email:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    # Look up user by email in identity — we need to find the username
+    try:
+        c = await get_client()
+        # Identity: find user by email (we need to add this or use users list)
+        r = await c.get(f"/v1/identity/users/lookup?email={req.email.strip()}")
+        if r.status_code != 200:
+            # Don't reveal whether email exists — always return same message
+            log.info("Forgot password: email not found '%s'", req.email)
+            return {"status": "ok", "message": "Если email зарегистрирован, код отправлен на него.", "expires_in": REGISTRATION_CODE_TTL}
+        user_data = r.json()
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity service unavailable: {e}")
+
+    username = user_data.get("username", "")
+    if not username:
+        return {"status": "ok", "message": "Если email зарегистрирован, код отправлен на него.", "expires_in": REGISTRATION_CODE_TTL}
+
+    # Generate code and store pending reset
+    code = str(random.randint(100000, 999999))
+    reg_token = uuid.uuid4().hex
+
+    with _pending_lock:
+        _pending_registrations[reg_token] = {
+            "username": username,
+            "password": "",  # not used for reset
+            "email": req.email.strip(),
+            "code": code,
+            "created_at": time.time(),
+            "is_reset": True,  # flag for reset-password endpoint
+        }
+
+    email_sent = _send_verification_email(req.email.strip(), code)
+    log.info("Forgot password: user='%s' email='%s' sent=%s", username, req.email, email_sent)
+    return {
+        "status": "ok" if email_sent else "email_failed",
+        "registration_token": reg_token,
+        "message": "Код подтверждения отправлен на email" if email_sent
+                   else "Не удалось отправить email.",
+        "expires_in": REGISTRATION_CODE_TTL,
+    }
+
+
+@app.post("/api/v1/auth/reset-password")
+async def reset_password(req: ResetPasswordRequest):
+    """Step 2: Verify code and set new password."""
+    _cleanup_expired_registrations()
+
+    with _pending_lock:
+        pending = _pending_registrations.pop(req.registration_token, None)
+
+    if not pending or not pending.get("is_reset"):
+        raise HTTPException(status_code=404, detail="Reset session not found or expired")
+
+    if time.time() - pending["created_at"] > REGISTRATION_CODE_TTL:
+        raise HTTPException(status_code=410, detail="Verification code expired")
+
+    if pending["code"] != req.code.strip():
+        raise HTTPException(status_code=400, detail="Неверный код подтверждения")
+
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    # Call identity to reset password
+    try:
+        c = await get_client()
+        r = await c.post("/v1/identity/reset-password", json={
+            "username": pending["username"],
+            "new_password": req.new_password,
+        })
+        if r.status_code == 200:
+            log.info("Password reset complete: user='%s'", pending["username"])
+            return {"status": "ok", "message": "Пароль успешно изменён. Теперь вы можете войти."}
+        else:
+            raise HTTPException(status_code=r.status_code,
+                                detail=r.json().get("detail", "Password reset failed"))
+    except HTTPException:
+        raise
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Identity service unavailable: {e}")
+
 
 @app.get("/api/v1/auth/me")
 async def me(request: Request):
