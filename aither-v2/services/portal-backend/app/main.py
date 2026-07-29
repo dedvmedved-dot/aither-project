@@ -754,6 +754,24 @@ async def proxy_revoke_api_key(key_id: int, request: Request):
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
 
+
+# ── API Key aliases (frontend uses /api/v1/tokens) ──────────────
+
+@app.get("/api/v1/tokens")
+async def proxy_tokens(request: Request):
+    """Alias: GET /api/v1/tokens → /api/v1/api-keys."""
+    return await proxy_api_keys(request)
+
+@app.post("/api/v1/tokens")
+async def proxy_create_token(request: Request):
+    """Alias: POST /api/v1/tokens → /api/v1/api-keys."""
+    return await proxy_create_api_key(request)
+
+@app.delete("/api/v1/tokens/{key_id}")
+async def proxy_revoke_token(key_id: int, request: Request):
+    """Alias: DELETE /api/v1/tokens/{id} → /api/v1/api-keys/{id}."""
+    return await proxy_revoke_api_key(key_id, request)
+
 @app.get("/api/v1/assistants")
 async def proxy_assistants(request: Request):
     """Proxy to AI Platform: GET /api/v1/assistants."""

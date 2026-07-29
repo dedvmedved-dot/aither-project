@@ -902,24 +902,6 @@ async def logout(
 @app.get("/v1/identity/me")
 async def me(user: dict = Depends(get_current_user)):
     """Get current user information including org, tier, and scopes."""
-
-
-@app.get("/v1/identity/users/lookup")
-async def lookup_user_by_email(email: str = ""):
-    """Look up user by email (public — for password reset)."""
-    if not email:
-        raise HTTPException(status_code=400, detail="email parameter required")
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT id, username, email FROM users WHERE email=? AND disabled=0",
-            (email.strip(),),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="User not found")
-        return {"id": row["id"], "username": row["username"], "email": row["email"]}
-    finally:
-        conn.close()
     conn = get_db()
     row = conn.execute(
         """SELECT u.id, u.username, u.role, u.disabled, u.org_id,
@@ -951,6 +933,25 @@ async def lookup_user_by_email(email: str = ""):
         scopes=row["scopes"],
         disabled=bool(row["disabled"]),
     )
+
+
+@app.get("/v1/identity/users/lookup")
+async def lookup_user_by_email(email: str = ""):
+    """Look up user by email (public — for password reset)."""
+    if not email:
+        raise HTTPException(status_code=400, detail="email parameter required")
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, username, email FROM users WHERE email=? AND disabled=0",
+            (email.strip(),),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"id": row["id"], "username": row["username"], "email": row["email"]}
+    finally:
+        conn.close()
+
 
 # ── Routes: User Management ────────────────────────────────────
 

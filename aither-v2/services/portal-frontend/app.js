@@ -1008,12 +1008,11 @@
                     $('apikeys-content').innerHTML = '<p class="text-muted">Нет созданных ключей. Нажмите «Создать новый ключ».</p>';
                     return;
                 }
-                let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Модели</th><th>Создан</th><th>Статус</th><th>Действия</th></tr>';
+                let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Создан</th><th>Статус</th><th>Действия</th></tr>';
                 for (const k of tokens) {
-                    const revoked = k.revoked;
-                    const prefix = (k.token_id || k.id || '—');
-                    const scopes = (k.scopes || []).map(s => s.replace('model:', '').replace(':chat-adapter',':chat').replace(':chat','')).join(', ') || 'все';
-                    html += '<tr>\n                        <td>' + escHtml(k.name || 'Без названия') + '</td>\n                        <td><code>' + escHtml(prefix) + '...</code></td>\n                        <td><span style="font-size:11px;">' + escHtml(scopes) + '</span></td>\n                        <td>' + ((k.created_at || '').substring(0, 16) || '—') + '</td>\n                        <td class="' + (revoked ? 'badge-revoked' : 'badge-enabled') + '">' + (revoked ? 'Отозван' : 'Активен') + '</td>\n                        <td>' + (revoked ? '' : '<button class="btn btn-sm btn-danger" onclick="window._revokeToken(\'' + (k.token_id || k.id) + '\')">Отозвать</button>\n                            <button class="btn btn-sm btn-outline" onclick="window._testToken(\'' + (k.token_id || k.id) + '\')" style="margin-left:4px;">Тест</button>') + '</td>\n                    </tr>';
+                    const revoked = k.revoked || k.revoked_at;
+                    const prefix = (k.key_prefix || k.token_id || k.id || '—');
+                    html += '<tr>                        <td>' + escHtml(k.name || 'Без названия') + '</td>                        <td><code>' + escHtml(prefix) + '</code></td>                        <td>' + ((k.created_at || '').substring(0, 16) || '—') + '</td>                        <td class="' + (revoked ? 'badge-revoked' : 'badge-enabled') + '">' + (revoked ? 'Отозван' : 'Активен') + '</td>                        <td>' + (revoked ? '' : '<button class="btn btn-sm btn-danger" onclick="window._revokeToken(\'' + (k.id || k.key_prefix || k.token_id) + '\')">Отозвать</button>') + '</td>                    </tr>';
                 }
                 html += '</table>';
                 $('apikeys-content').innerHTML = html;
