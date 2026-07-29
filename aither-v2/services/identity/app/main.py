@@ -325,16 +325,20 @@ def get_or_create_oauth_user(conn, provider: str, provider_user_id: str, email: 
             username = f"{username}_{provider}"
 
     try:
+        # Assign default organisation and scopes, same as email registration
+        org = conn.execute("SELECT id FROM organisations WHERE name='default' AND status='active'").fetchone()
+        org_id = org["id"] if org else None
+
         conn.execute(
-            "INSERT INTO users (username, password, role) VALUES (?, ?, 'user')",
-            (username, ""),
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,rag:query', ?)",
+            (username, "", org_id, email or ""),
         )
         user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         conn.execute(
             "INSERT INTO oauth_accounts (user_id, provider, provider_user_id, email) VALUES (?, ?, ?, ?)",
             (user_id, provider, provider_user_id, email),
         )
-        log.info("OAuth: created user '%s' (provider=%s, id=%s)", username, provider, provider_user_id)
+        log.info("OAuth: created user '%s' (provider=%s, id=%s, org_id=%s)", username, provider, provider_user_id, org_id)
         return user_id
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail=f"Username '{username}' already exists")
