@@ -38,6 +38,60 @@ AI_PLATFORM_URL = os.environ.get("PORTAL_AI_PLATFORM_URL", "http://aither-ai-pla
 GATEWAY_URL = os.environ.get("PORTAL_GATEWAY_URL", "http://aither-gateway.aither-inference.svc:8000")
 GATEWAY_ADMIN_KEY = os.environ.get("PORTAL_GATEWAY_ADMIN_KEY", "")
 LOG_LEVEL = os.environ.get("PORTAL_LOG_LEVEL", "INFO").upper()
+
+# ── In-memory per-user usage tracker ───────────────────────────
+# Lightweight counters — survive pod restart (reset to zero, which is fine for billing).
+# Keyed by user_id (int). Stores: total_requests, total_tokens, today date + counters.
+_usage_lock = threading.Lock()
+_usage_data: dict[int, dict] = {}
+
+
+def _track_usage(user_id: int, prompt_tokens: int, completion_tokens: int) -> None:
+    """Record one request + token counts for a user."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with _usage_lock:
+        entry = _usage_data.get(user_id)
+        if entry is None or entry.get("_date") != today:
+            entry = {
+                "_date": today,
+                "requests_today": 0,
+                "tokens_today": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_requests": 0,
+                "total_tokens": 0,
+            }
+            _usage_data[user_id] = entry
+        entry["requests_today"] += 1
+        entry["total_requests"] += 1
+        entry["tokens_today"] += prompt_tokens + completion_tokens
+        entry["total_tokens"] += prompt_tokens + completion_tokens
+        entry["input_tokens"] += prompt_tokens
+        entry["output_tokens"] += completion_tokens
+
+
+def _get_usage(user_id: int) -> dict:
+    """Return usage stats for a user, zero-filled if no data."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with _usage_lock:
+        entry = _usage_data.get(user_id)
+        if entry is None or entry.get("_date") != today:
+            return {
+                "requests_today": 0,
+                "total_requests": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "tokens_today": 0,
+                "total_tokens": 0,
+            }
+        return {
+            "requests_today": entry.get("requests_today", 0),
+            "total_requests": entry.get("total_requests", 0),
+            "input_tokens": entry.get("input_tokens", 0),
+            "output_tokens": entry.get("output_tokens", 0),
+            "tokens_today": entry.get("tokens_today", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+        }
 CORS_ORIGIN = os.environ.get("PORTAL_CORS_ORIGIN", "http://localhost:3000")
 
 # Delegation JWT private key
@@ -1090,8 +1144,10 @@ async def _proxy_to_gateway_user(request: Request, gw_path: str) -> Response:
 
 @app.get("/api/v1/billing/me")
 async def billing_me(request: Request):
-    """Return billing info — tier from Identity, session counters as fallback."""
+    """Return billing info — tier from Identity, usage from tracker."""
     user = await _get_user_from_token(request)
+    uid = user.get("id") or user.get("uid") or 0
+    usage = _get_usage(int(uid)) if uid else {}
     return {
         "org_id": str(user.get("org_id", "")),
         "balance": 0,
@@ -1099,6 +1155,8 @@ async def billing_me(request: Request):
         "available": 0,
         "tier": user.get("tier", "free"),
         "quota_daily": 1000 if user.get("tier") == "free" else 5000,
+        "requests_today": usage.get("requests_today", 0),
+        "tokens_today": usage.get("tokens_today", 0),
     }
 
 @app.get("/api/v1/billing/me/ledger")
@@ -1107,15 +1165,12 @@ async def billing_ledger(request: Request):
 
 @app.get("/api/v1/usage/me")
 async def usage_me(request: Request):
-    """Return usage stats — session-based counters from BFF context."""
+    """Return usage stats — from in-memory tracker."""
     user = await _get_user_from_token(request)
+    uid = user.get("id") or user.get("uid") or 0
+    usage = _get_usage(int(uid)) if uid else {}
     return {
-        "requests_today": 0,
-        "total_requests": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "tokens_today": 0,
-        "total_tokens": 0,
+        **usage,
         "tier": user.get("tier", "free"),
     }
 
@@ -1536,6 +1591,17 @@ async def chat_completions(request: Request):
                     "Content-Type": "application/json",
                 },
             )
+            # 4. Track usage from upstream response
+            try:
+                resp_json = chat_resp.json()
+                usage_info = resp_json.get("usage", {})
+                prompt_tokens = usage_info.get("prompt_tokens", 0)
+                completion_tokens = usage_info.get("completion_tokens", 0)
+                uid = user.get("id") or user.get("uid") or 0
+                if uid and (prompt_tokens or completion_tokens):
+                    _track_usage(int(uid), prompt_tokens, completion_tokens)
+            except Exception:
+                pass  # best-effort tracking
             return Response(
                 content=chat_resp.content,
                 status_code=chat_resp.status_code,
