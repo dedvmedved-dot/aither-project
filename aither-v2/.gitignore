@@ -1,0 +1,3 @@
+services/portal-backend/rag-docs/*.docx
+services/portal-backend/rag-docs/diagrams/*.jpg
+services/portal-backend/rag-docs/diagrams/part4/*.jpg

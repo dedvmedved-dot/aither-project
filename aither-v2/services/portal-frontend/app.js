@@ -624,27 +624,26 @@
             });
             if (res.ok && res.data) {
                 forgotToken = res.data.registration_token || null;
+                // ALWAYS move to step 2 for UX consistency (don't leak whether email exists)
                 $('forgot-email-display').textContent = email;
                 $('forgot-step1').style.display = 'none';
-                if (forgotToken) {
-                    $('forgot-step2').style.display = 'block';
-                    // Start timer
-                    forgotSecondsLeft = res.data.expires_in || 90;
+                $('forgot-step2').style.display = 'block';
+                // Start timer
+                forgotSecondsLeft = res.data.expires_in || 90;
+                $('forgot-timer-value').textContent = forgotSecondsLeft;
+                stopForgotTimer();
+                forgotTimer = setInterval(function() {
+                    forgotSecondsLeft--;
                     $('forgot-timer-value').textContent = forgotSecondsLeft;
-                    stopForgotTimer();
-                    forgotTimer = setInterval(function() {
-                        forgotSecondsLeft--;
-                        $('forgot-timer-value').textContent = forgotSecondsLeft;
-                        if (forgotSecondsLeft <= 0) {
-                            stopForgotTimer();
-                            showAlert('forgot-error', 'Время действия кода истекло.', 'danger');
-                            $('forgot-step1').style.display = 'block';
-                            $('forgot-step2').style.display = 'none';
-                            forgotToken = null;
-                        }
-                    }, 1000);
-                    setTimeout(function() { var ci = $('forgot-code'); if (ci) ci.focus(); }, 200);
-                }
+                    if (forgotSecondsLeft <= 0) {
+                        stopForgotTimer();
+                        showAlert('forgot-error', 'Время действия кода истекло.', 'danger');
+                        $('forgot-step1').style.display = 'block';
+                        $('forgot-step2').style.display = 'none';
+                        forgotToken = null;
+                    }
+                }, 1000);
+                setTimeout(function() { var ci = $('forgot-code'); if (ci) ci.focus(); }, 200);
                 showAlert('forgot-info', '📧 ' + (res.data.message || 'Код отправлен!'), 'info');
             } else {
                 showAlert('forgot-error', res.data?.detail || 'Ошибка', 'danger');
@@ -663,12 +662,12 @@
             showAlert('forgot-error', 'Введите 6-значный код', 'danger');
             return;
         }
-        if (!forgotToken || forgotSecondsLeft <= 0) {
-            showAlert('forgot-error', 'Сессия истекла. Начните заново.', 'danger');
+        if (forgotSecondsLeft <= 0) {
+            showAlert('forgot-error', 'Время кода истекло. Начните заново.', 'danger');
             return;
         }
 
-        // Code is correct — move to step 3 (actual verification happens on save)
+        // Move to step 3 — actual verification happens on save via backend
         stopForgotTimer();
         hideAlert('forgot-error');
         $('forgot-step2').style.display = 'none';
