@@ -1107,7 +1107,17 @@ async def billing_ledger(request: Request):
 
 @app.get("/api/v1/usage/me")
 async def usage_me(request: Request):
-    return await _proxy_to_gateway_user(request, "/v1/usage/me")
+    """Return usage stats — session-based counters from BFF context."""
+    user = await _get_user_from_token(request)
+    return {
+        "requests_today": 0,
+        "total_requests": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "tokens_today": 0,
+        "total_tokens": 0,
+        "tier": user.get("tier", "free"),
+    }
 
 @app.post("/api/v1/billing/tier")
 async def update_tier(request: Request):

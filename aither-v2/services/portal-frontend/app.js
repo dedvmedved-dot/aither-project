@@ -279,9 +279,80 @@
     function highlightBase(escaped, lang) {
         escaped = escaped.replace(/(`[^`]*`)/g, '<span class="syn-string">$1</span>');
         escaped = escaped.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="syn-string">$1</span>');
-        escaped = escaped.replace(/(["][^"]*["]|['][^']*['])/g, '<span class="syn-string">$1</span>');
+        escaped = escaped.replace(/([\"][^\"]*\"]|['][^']*['])/g, '<span class="syn-string">$1</span>');
         escaped = escaped.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-number">$1</span>');
         return escaped;
+    }
+
+    // ── Markdown renderer (tables, lists, code, headers) ─────────
+    function renderMarkdown(md) {
+        if (!md) return '';
+        var html = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // Fenced code blocks
+        var codeBlocks = [];
+        html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, function(m, lang, code) {
+            var idx = codeBlocks.length;
+            codeBlocks.push({lang: lang || 'text', code: code.replace(/\n$/, '')});
+            return '\x00CB' + idx + '\x00';
+        });
+
+        // Tables
+        html = html.replace(/^\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/gm, function(m, header, rows) {
+            var hcols = header.split('|').map(function(c) { return '<th>' + c.trim() + '</th>'; }).join('');
+            var rhtml = '';
+            rows.split('\n').forEach(function(r) {
+                if (!r.trim()) return;
+                var cols = r.split('|').filter(function(c) { return c !== ''; }).map(function(c) { return '<td>' + c.trim() + '</td>'; }).join('');
+                rhtml += '<tr>' + cols + '</tr>';
+            });
+            return '<table class="md-table"><thead><tr>' + hcols + '</tr></thead><tbody>' + rhtml + '</tbody></table>';
+        });
+
+        // Headers
+        html = html.replace(/^#### (.+)$/gm, '<h5>$1</h5>');
+        html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+        html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+        html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+
+        // Bold, italic
+        html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>');
+        html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+        html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
+        html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+        // Inline code
+        html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+        // Links
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+        // Horizontal rules
+        html = html.replace(/^---$/gm, '<hr>');
+
+        // Lists
+        html = html.replace(/^(\s*)[-*+] (.+)$/gm, '<li>$2</li>');
+        html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+        html = html.replace(/<\/ul>\s*<ul>/g, '');
+
+        html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+        html = html.replace(/((?:<li>[\s\S]*?<\/li>\s*)+)/g, function(m) {
+            if (m.indexOf('<ul>') !== -1) return m;
+            return '<ol>' + m + '</ol>';
+        });
+
+        // Paragraphs
+        html = '<p>' + html.replace(/\n\n+/g, '</p><p>') + '</p>';
+        html = html.replace(/<p>\s*<\/p>/g, '');
+
+        // Restore code blocks
+        html = html.replace(/\x00CB(\d+)\x00/g, function(m, idx) {
+            var cb = codeBlocks[parseInt(idx)];
+            var highlighted = highlightCode(cb.code, cb.lang);
+            return '<div class="code-block"><div class="code-header"><span class="code-lang">' + escHtml(cb.lang) + '</span></div><pre><code>' + highlighted + '</code></pre></div>';
+        });
+
+        return html;
     }
 
     function formatMessage(text) {
@@ -1086,7 +1157,7 @@
                 body: JSON.stringify({ name, scopes }),
             });
             if (res.ok && res.data) {
-                const fullKey = res.data.token || res.data.key || '';
+                const fullKey = res.data.full_key || res.data.token || res.data.key || '';
                 document.getElementById('modal-token-result').style.display = 'block';
                 document.getElementById('modal-token-full').value = fullKey;
                 document.getElementById('modal-token-create-btn').style.display = 'none';
@@ -1171,7 +1242,6 @@
 
     // ── Documentation viewer ────────────────────────────────────
     window.showDoc = function(path) {
-        // Open doc in same window via fetch and modal
         setLoading(true);
         fetch(path)
             .then(function(r) {
@@ -1180,11 +1250,17 @@
             })
             .then(function(text) {
                 setLoading(false);
-                modal('<div style="max-height:70vh;overflow-y:auto;font-size:13px;line-height:1.7;white-space:pre-wrap;font-family:inherit;">' +
-                    escHtml(text).replace(/\n/g, '<br>') + '</div>' +
+                var title = path.split('/').pop().replace(/\.md$/, '').replace(/_/g, ' ');
+                var mdHtml = renderMarkdown(text);
+                modal('<div style="max-width:900px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+                    '<h2 style="margin:0;font-size:18px;color:var(--primary);">' + escHtml(title) + '</h2>' +
+                    '<button class="btn btn-sm btn-outline" onclick="closeModal()">✕ Закрыть</button>' +
+                    '</div>' +
+                    '<div class="wiki-doc-body" style="max-height:65vh;">' + mdHtml + '</div>' +
                     '<div style="margin-top:12px;display:flex;gap:8px;">' +
-                    '<button class="btn btn-sm btn-outline" onclick="window.open(\'' + path + '\',\'_blank\')">Открыть в новом окне</button>' +
-                    '<button class="btn btn-sm btn-outline" onclick="closeModal()">Закрыть</button></div>');
+                    '<button class="btn btn-sm btn-outline" onclick="window.open(\'' + path + '\',\'_blank\')">Открыть в новом окне</button></div>' +
+                    '</div>');
             })
             .catch(function() {
                 setLoading(false);
@@ -1573,23 +1649,14 @@
             var docRes = await api('/rag/doc?source=' + encodeURIComponent(source));
             if (docRes.ok && docRes.data && docRes.data.content) {
                 var fullText = docRes.data.content;
-                // Simple markdown to HTML conversion
-                var html = fullText
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                    .replace(/^### (.+)$/gm, '<h4 style="margin:12px 0 4px;color:var(--text);">$1</h4>')
-                    .replace(/^## (.+)$/gm, '<h3 style="margin:14px 0 6px;color:var(--primary);">$1</h3>')
-                    .replace(/^# (.+)$/gm, '<h2 style="margin:16px 0 8px;color:var(--primary);font-size:16px;">$1</h2>')
-                    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-                    .replace(/\*(.+?)\*/g, '<i>$1</i>')
-                    .replace(/`(.+?)`/g, '<code>$1</code>')
-                    .replace(/\n/g, '<br>');
+                var mdHtml = renderMarkdown(fullText);
                 el.innerHTML =
                     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
                     '<div style="font-weight:600;font-size:14px;color:var(--primary);">' + escHtml(docRes.data.title||title) + '</div>' +
                     '<button class="btn btn-sm btn-outline" onclick="window._closeWikiDoc()" style="font-size:10px;">✕ Закрыть</button>' +
                     '</div>' +
                     '<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">📄 ' + escHtml(docRes.data.source||source) + ' | ' + (docRes.data.size||0) + ' симв.</div>' +
-                    '<div style="font-size:12px;line-height:1.7;max-height:55vh;overflow-y:auto;">' + html + '</div>';
+                    '<div class="wiki-doc-body">' + mdHtml + '</div>';
                 el.scrollTop = 0;
             } else {
                 el.innerHTML = '<p class="text-muted">Не удалось загрузить документ</p>';
