@@ -127,6 +127,24 @@ textarea { resize: vertical; min-height: 60px; }
   border-color: var(--primary); transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(99,102,241,0.2);
 }
+.tier-card.active {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 20px rgba(99,102,241,0.35), inset 0 0 0 1px var(--primary) !important;
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(99,102,241,0.02)) !important;
+  position: relative;
+}
+.tier-card.active::after {
+  content: '✓ ТЕКУЩИЙ';
+  position: absolute;
+  top: 8px; right: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
 
 /* Alerts */
 .alert { padding: 12px 16px; border-radius: var(--radius); font-size: 13px; margin-bottom: 12px; }

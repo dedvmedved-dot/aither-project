@@ -13,6 +13,7 @@
 import os
 import json
 import logging
+import re
 import time
 import uuid
 import random
@@ -233,6 +234,24 @@ def _require_monitoring_role(user: dict) -> None:
     role = user.get("role", "")
     if role not in ("admin", "administrator", "operator"):
         raise HTTPException(status_code=403, detail="Admin or operator role required")
+
+# ── Password Policy ────────────────────────────────────────────
+# Minimum 16 characters.
+# Must contain: uppercase (A-Z), lowercase (a-z), digit (0-9), special char.
+
+def _validate_password(password: str) -> str | None:
+    """Return error message if password fails policy, None if valid."""
+    if len(password) < 16:
+        return "Пароль должен содержать не менее 16 символов"
+    if not re.search(r"[A-Z]", password):
+        return "Пароль должен содержать хотя бы одну заглавную букву (A-Z)"
+    if not re.search(r"[a-z]", password):
+        return "Пароль должен содержать хотя бы одну строчную букву (a-z)"
+    if not re.search(r"[0-9]", password):
+        return "Пароль должен содержать хотя бы одну цифру (0-9)"
+    if not re.search(r"[~!@#$%^&*+\-/.,\\{}[\]();:_?<>\"']", password):
+        return "Пароль должен содержать хотя бы один спецсимвол (~!@#$%^&*+-/.,\\{}[]();:_?<>\"')"
+    return None
 
 def _mint_delegation_jwt(user: dict) -> str:
     """Create a short-lived RS256 delegation JWT for Gateway.
@@ -534,8 +553,9 @@ async def register(req: RegisterRequest):
     # Validate inputs
     if not req.username or len(req.username.strip()) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
-    if not req.password or len(req.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    pw_err = _validate_password(req.password)
+    if pw_err:
+        raise HTTPException(status_code=400, detail=pw_err)
     if not req.email or "@" not in req.email:
         raise HTTPException(status_code=400, detail="Invalid email address")
 
@@ -695,8 +715,9 @@ async def reset_password(req: ResetPasswordRequest):
     if pending["code"] != req.code.strip():
         raise HTTPException(status_code=400, detail="Неверный код подтверждения")
 
-    if len(req.new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    pw_err = _validate_password(req.new_password)
+    if pw_err:
+        raise HTTPException(status_code=400, detail=pw_err)
 
     # Call identity to reset password
     try:

@@ -531,8 +531,8 @@
             showAlert('register-error', 'Введите корректный email', 'danger');
             return;
         }
-        if (!pass || pass.length < 6) {
-            showAlert('register-error', 'Пароль должен быть не менее 6 символов', 'danger');
+        if (!pass || pass.length < 16) {
+            showAlert('register-error', 'Пароль должен содержать не менее 16 символов, заглавные и строчные буквы, цифры и спецсимволы', 'danger');
             return;
         }
         if (pass !== pass2) {
@@ -749,8 +749,8 @@
     async function handleForgotSave() {
         var pass = $('forgot-new-pass').value;
         var pass2 = $('forgot-new-pass2').value;
-        if (!pass || pass.length < 6) {
-            showAlert('forgot-error', 'Пароль должен быть не менее 6 символов', 'danger');
+        if (!pass || pass.length < 16) {
+            showAlert('forgot-error', 'Пароль должен содержать не менее 16 символов, заглавные и строчные буквы, цифры и спецсимволы', 'danger');
             return;
         }
         if (pass !== pass2) {
@@ -1279,17 +1279,13 @@
                 const activeEl = $('tariff-active');
                 if (activeEl) activeEl.style.display = 'block';
             }
-            // Highlight current tier
+            // Highlight current tier with CSS class
             document.querySelectorAll('.tier-card').forEach(function(card) {
-                card.style.borderColor = 'var(--border)';
-                card.style.boxShadow = '';
+                card.classList.remove('active');
             });
             if (currentUser && currentUser.tier) {
-                const currentCard = $('tier-' + currentUser.tier);
-                if (currentCard) {
-                    currentCard.style.borderColor = 'var(--primary)';
-                    currentCard.style.boxShadow = '0 0 12px rgba(99,102,241,0.3)';
-                }
+                var currentCard = $('tier-' + currentUser.tier);
+                if (currentCard) currentCard.classList.add('active');
             }
         } catch(e) {}
         setLoading(false);

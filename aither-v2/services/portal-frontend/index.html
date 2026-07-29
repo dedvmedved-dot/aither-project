@@ -80,11 +80,11 @@
           </div>
           <div class="form-group">
             <label for="reg-password">Пароль</label>
-            <input type="password" id="reg-password" class="form-input" required minlength="6" autocomplete="new-password">
+            <input type="password" id="reg-password" class="form-input" required minlength="16" autocomplete="new-password" placeholder="Минимум 16 символов (A-Z, a-z, 0-9, спецсимвол)">
           </div>
           <div class="form-group">
             <label for="reg-password2">Подтверждение пароля</label>
-            <input type="password" id="reg-password2" class="form-input" required minlength="6" autocomplete="new-password">
+            <input type="password" id="reg-password2" class="form-input" required minlength="16" autocomplete="new-password">
           </div>
           <button class="btn btn-primary btn-block" id="btn-register-start">📧 Отправить код на email</button>
           <div style="text-align:center;margin-top:8px;">
@@ -143,11 +143,11 @@
         <div id="forgot-step3" style="display:none;">
           <div class="form-group">
             <label for="forgot-new-pass">Новый пароль</label>
-            <input type="password" id="forgot-new-pass" class="form-input" required minlength="6" autocomplete="new-password">
+            <input type="password" id="forgot-new-pass" class="form-input" required minlength="16" autocomplete="new-password" placeholder="Минимум 16 символов (A-Z, a-z, 0-9, спецсимвол)">
           </div>
           <div class="form-group">
             <label for="forgot-new-pass2">Подтверждение пароля</label>
-            <input type="password" id="forgot-new-pass2" class="form-input" required minlength="6" autocomplete="new-password">
+            <input type="password" id="forgot-new-pass2" class="form-input" required minlength="16" autocomplete="new-password">
           </div>
           <button class="btn btn-primary btn-block" id="btn-forgot-save">💾 Сохранить новый пароль</button>
           <div style="text-align:center;margin-top:8px;">
@@ -624,6 +624,6 @@
     <div class="spinner"></div>
   </div>
 
-  <script src="app.js?v=3aa07c1"></script>
+  <script src="app.js?v=pwdpol"></script>
 </body>
 </html>

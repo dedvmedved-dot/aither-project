@@ -39,6 +39,7 @@ import asyncio
 import os
 import json
 import logging
+import re
 import sqlite3
 import secrets
 import time
@@ -243,6 +244,25 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+# ── Password Policy ────────────────────────────────────────────
+# Minimum 16 characters.
+# Must contain: uppercase (A-Z), lowercase (a-z), digit (0-9), special char.
+_PASSWORD_SPECIAL = r"~!@#$%^&*+\-/.,\\{}[\]();:_?<>\"'"
+
+def validate_password(password: str) -> str | None:
+    """Return error message if password fails policy, None if valid."""
+    if len(password) < 16:
+        return "Пароль должен содержать не менее 16 символов"
+    if not re.search(r"[A-Z]", password):
+        return "Пароль должен содержать хотя бы одну заглавную букву (A-Z)"
+    if not re.search(r"[a-z]", password):
+        return "Пароль должен содержать хотя бы одну строчную букву (a-z)"
+    if not re.search(r"[0-9]", password):
+        return "Пароль должен содержать хотя бы одну цифру (0-9)"
+    if not re.search(r"[~!@#$%^&*+\-/.,\\{}[\]();:_?<>\"']", password):
+        return "Пароль должен содержать хотя бы один спецсимвол (~!@#$%^&*+-/.,\\{}[]();:_?<>\"')"
+    return None
 
 def make_jwt(user_id: int, username: str, role: str, org_id: int | None = None, scopes: str = "", disabled: bool = False, tier: str = "") -> str:
     """Simple HMAC-based stateless token."""
@@ -972,11 +992,12 @@ async def list_users(admin: dict = Depends(require_admin)):
 @app.post("/v1/identity/register", status_code=201)
 async def register_user(req: RegisterRequest):
     """Public self-registration — creates a user with default org and basic scopes.
-    No admin token required. Password must be >= 6 chars."""
+    No admin token required. Password must meet policy (≥16, upper, lower, digit, special)."""
     if len(req.username.strip()) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
-    if len(req.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    pw_err = validate_password(req.password)
+    if pw_err:
+        raise HTTPException(status_code=400, detail=pw_err)
 
     pw_hash = hash_password(req.password)
     conn = get_db()
@@ -1013,9 +1034,10 @@ class ResetPasswordRequest(BaseModel):
 @app.post("/v1/identity/reset-password")
 async def reset_password(req: ResetPasswordRequest):
     """Public password reset — updates password for given username.
-    Requires 6+ char new password."""
-    if len(req.new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    Requires password to meet policy (≥16, upper, lower, digit, special)."""
+    pw_err = validate_password(req.new_password)
+    if pw_err:
+        raise HTTPException(status_code=400, detail=pw_err)
     conn = get_db()
     try:
         row = conn.execute("SELECT id FROM users WHERE username=?", (req.username.strip(),)).fetchone()
