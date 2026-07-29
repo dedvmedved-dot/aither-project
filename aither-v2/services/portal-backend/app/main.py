@@ -1632,6 +1632,45 @@ async def chat_completions(request: Request):
         raise HTTPException(status_code=503, detail=f"Upstream model unreachable: {e}")
 
 
+# ── Feedback ────────────────────────────────────────────────────
+
+class FeedbackRequest(BaseModel):
+    topic: str
+    message: str
+
+
+@app.post("/api/v1/feedback", status_code=201)
+async def submit_feedback(req: FeedbackRequest, request: Request):
+    """Submit feedback — proxy to identity service with user context."""
+    try:
+        headers = {}
+        auth = request.headers.get("Authorization", "")
+        if auth:
+            headers["Authorization"] = auth
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.post("/v1/identity/feedback", json={
+                "topic": req.topic,
+                "message": req.message,
+            }, headers=headers)
+            return r.json()
+    except httpx.RequestError:
+        # Fallback: store directly if identity unreachable
+        raise HTTPException(status_code=503, detail="Feedback service unavailable")
+
+
+@app.get("/api/v1/feedback")
+async def list_feedback(request: Request):
+    """List feedback (admin only)."""
+    user = await _get_user_from_token(request)
+    _require_admin(user)
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.get("/v1/identity/feedback", headers={"Authorization": request.headers.get("Authorization", "")})
+            return r.json()
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Feedback service unavailable")
+
+
 @app.on_event("startup")
 async def startup():
     """Initialize Prometheus metrics on service start."""

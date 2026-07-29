@@ -195,6 +195,16 @@ def init_db():
             quota_daily INTEGER NOT NULL DEFAULT 1000,
             created_at  TEXT NOT NULL DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS feedback (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER,
+            username    TEXT,
+            topic       TEXT NOT NULL,
+            message     TEXT NOT NULL,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
     """)
     conn.commit()
 
@@ -1026,6 +1036,60 @@ async def register_user(req: RegisterRequest):
     except sqlite3.IntegrityError:
         conn.close()
         raise HTTPException(status_code=409, detail="Username already taken")
+    finally:
+        conn.close()
+
+
+class FeedbackRequest(BaseModel):
+    topic: str
+    message: str
+
+
+@app.post("/v1/identity/feedback", status_code=201)
+async def submit_feedback(req: FeedbackRequest, request: Request):
+    """Store user feedback. Public — no auth required, but attach user if token present."""
+    user_id = None
+    username = "anonymous"
+    # Try to extract user from Bearer token if present
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            token = auth.split(" ", 1)[1]
+            payload = verify_jwt(token)
+            if payload:
+                user_id = payload.get("uid") or payload.get("user_id")
+                username = payload.get("sub") or username
+        except Exception:
+            pass  # token invalid — store as anonymous
+
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO feedback (user_id, username, topic, message) VALUES (?, ?, ?, ?)",
+            (user_id, username, req.topic.strip(), req.message.strip()),
+        )
+        conn.commit()
+        fid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        log.info("Feedback #%d: user='%s' topic='%s'", fid, username, req.topic)
+        return {"id": fid, "status": "stored"}
+    finally:
+        conn.close()
+
+
+@app.get("/v1/identity/feedback")
+async def list_feedback(limit: int = 50, offset: int = 0):
+    """List recent feedback entries."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, user_id, username, topic, message, created_at FROM feedback ORDER BY id DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        ).fetchall()
+        total = conn.execute("SELECT COUNT(*) FROM feedback").fetchone()[0]
+        return {
+            "total": total,
+            "items": [dict(r) for r in rows],
+        }
     finally:
         conn.close()
 

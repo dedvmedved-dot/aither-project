@@ -1342,9 +1342,32 @@
         $('reg-code')?.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') { e.preventDefault(); handleRegisterConfirm(); }
         });
-        $('btn-submit-feedback')?.addEventListener('click', function() {
-            showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
-            $('feedback-message').value = '';
+        $('btn-submit-feedback')?.addEventListener('click', async function() {
+            const topic = $('feedback-topic')?.value || 'other';
+            const message = $('feedback-message')?.value?.trim();
+            if (!message) {
+                showAlert('feedback-success', 'Пожалуйста, введите сообщение.', 'danger');
+                return;
+            }
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                const token = localStorage.getItem('aither_token');
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+                const resp = await fetch('/api/v1/feedback', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ topic: topic, message: message })
+                });
+                if (resp.ok) {
+                    showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
+                    $('feedback-message').value = '';
+                } else {
+                    const err = await resp.json().catch(() => ({}));
+                    showAlert('feedback-success', '❌ Ошибка: ' + (err.detail || 'не удалось отправить'), 'danger');
+                }
+            } catch (e) {
+                showAlert('feedback-success', '❌ Ошибка сети: ' + e.message, 'danger');
+            }
         });
         $('chat-model-select')?.addEventListener('change', updateModelInfo);
         $('chat-temperature')?.addEventListener('input', function() {
