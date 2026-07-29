@@ -340,7 +340,7 @@ def get_or_create_oauth_user(conn, provider: str, provider_user_id: str, email: 
         org_id = org["id"] if org else None
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,rag:query', ?)",
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,model:32b:chat-adapter,rag:query', ?)",
             (username, "", org_id, email or ""),
         )
         user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -1021,7 +1021,7 @@ async def register_user(req: RegisterRequest):
         org_id = org["id"] if org else None
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,rag:query', ?)",
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,model:32b:chat-adapter,rag:query', ?)",
             (req.username.strip(), pw_hash, org_id, req.email.strip()),
         )
         conn.commit()
