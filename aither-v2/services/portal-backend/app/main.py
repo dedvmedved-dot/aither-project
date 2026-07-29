@@ -1598,36 +1598,92 @@ async def chat_completions(request: Request):
     # 3. Forward directly to upstream with server-side credential
     try:
         async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
-            chat_resp = await ac.post(
-                "/v1/chat/completions",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature,
-                    "stream": False,
-                },
-                headers={
-                    "Authorization": f"Bearer {upstream_token}",
-                    "Content-Type": "application/json",
-                },
-            )
-            # 4. Track usage from upstream response
-            try:
-                resp_json = chat_resp.json()
-                usage_info = resp_json.get("usage", {})
-                prompt_tokens = usage_info.get("prompt_tokens", 0)
-                completion_tokens = usage_info.get("completion_tokens", 0)
-                uid = user.get("id") or user.get("uid") or 0
-                if uid and (prompt_tokens or completion_tokens):
-                    _track_usage(int(uid), prompt_tokens, completion_tokens)
-            except Exception:
-                pass  # best-effort tracking
-            return Response(
-                content=chat_resp.content,
-                status_code=chat_resp.status_code,
-                media_type="application/json",
-            )
+            is_32b = "32b" in model.lower()
+
+            if is_32b:
+                # 32B is completion-only — convert chat messages to a text prompt
+                prompt_parts = []
+                for m in messages:
+                    role = m.get("role", "user")
+                    content = m.get("content", "")
+                    if role == "system":
+                        prompt_parts.append(f"<|system|>\n{content}\n")
+                    elif role == "user":
+                        prompt_parts.append(f"<|user|>\n{content}\n")
+                    elif role == "assistant":
+                        prompt_parts.append(f"<|assistant|>\n{content}\n")
+                prompt_parts.append("<|assistant|>\n")
+                prompt = "".join(prompt_parts)
+
+                chat_resp = await ac.post(
+                    "/v1/completions",
+                    json={
+                        "model": model,
+                        "prompt": prompt,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "stream": False,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {upstream_token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                # Rewrap completion response as chat response for frontend compatibility
+                try:
+                    raw = chat_resp.json()
+                    text = ""
+                    if "choices" in raw and raw["choices"]:
+                        text = raw["choices"][0].get("text", "")
+                    wrapped = json.dumps({
+                        "choices": [{
+                            "index": 0,
+                            "message": {"role": "assistant", "content": text},
+                            "finish_reason": raw.get("choices", [{}])[0].get("finish_reason", "stop"),
+                        }],
+                        "usage": raw.get("usage", {}),
+                    })
+                    # Track usage
+                    usage_info = raw.get("usage", {})
+                    prompt_tokens = usage_info.get("prompt_tokens", 0)
+                    completion_tokens = usage_info.get("completion_tokens", 0)
+                    uid = user.get("id") or user.get("uid") or 0
+                    if uid and (prompt_tokens or completion_tokens):
+                        _track_usage(int(uid), prompt_tokens, completion_tokens)
+                    return Response(content=wrapped, media_type="application/json")
+                except Exception:
+                    return Response(content=chat_resp.content, status_code=chat_resp.status_code, media_type="application/json")
+            else:
+                chat_resp = await ac.post(
+                    "/v1/chat/completions",
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "stream": False,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {upstream_token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                # 4. Track usage from upstream response
+                try:
+                    resp_json = chat_resp.json()
+                    usage_info = resp_json.get("usage", {})
+                    prompt_tokens = usage_info.get("prompt_tokens", 0)
+                    completion_tokens = usage_info.get("completion_tokens", 0)
+                    uid = user.get("id") or user.get("uid") or 0
+                    if uid and (prompt_tokens or completion_tokens):
+                        _track_usage(int(uid), prompt_tokens, completion_tokens)
+                except Exception:
+                    pass  # best-effort tracking
+                return Response(
+                    content=chat_resp.content,
+                    status_code=chat_resp.status_code,
+                    media_type="application/json",
+                )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Upstream model unreachable: {e}")
 
