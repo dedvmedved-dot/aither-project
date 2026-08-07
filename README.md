@@ -1,142 +1,115 @@
-# Aither Project
+# Aither — AI Platform
 
-**Token‑as‑a‑Service** — платформа для продажи токенов к LLM через OpenAI‑совместимый API.
+**Платформа для работы с большими языковыми моделями через Web-интерфейс и OpenAI-совместимый API.**
 
-## Статус MVP — ✅ Gates 0–5 пройдены
+---
 
-| Gate | Компонент | Где | Статус |
-|------|-----------|-----|--------|
-| 0 | NVIDIA 570 + Docker 28 | 40.51 | ✅ |
-| 1 | K8s 1.33 single‑node + Flannel 0.25.7 | 40.51 | ✅ |
-| 2 | GPU Operator + vLLM + Qwen2.5‑14B (TP=2) | 40.51 | ✅ |
-| 3 | PostgreSQL 16 + Redis 7 + API Gateway | 40.51, K8s | ✅ |
-| 4 | Portal BFF + Portal DB + nginx | VPS2, Docker | ✅ |
-| 5 | Аутентификация, организации, API‑ключи | VPS2 → 40.51 | ✅ |
+## Текущий проект
 
-## Архитектура
+| Параметр | Значение |
+|----------|---------|
+| **Активная ветка** | [`aither-v2`](aither-v2/) |
+| **Application baseline** | `39a8946143e7a38ceff9faabad024225acbf202e` |
+| **Documentation baseline** | `8b76669969a69b68dba5766eaf72d5b1b3f21d8b` |
+| **Документация обновлена** | 2026-08-07 |
+| **Environment** | HOME LAB / TEST |
+| **Production acceptance** | NOT GRANTED |
+| **External acceptance** | PENDING EXTERNAL CONNECTOR AUDIT |
 
-```
-Клиент → http://130.17.1.90:80 (nginx) → Portal BFF :3000 → Portal DB :5432
-                                                    ↓ (Cisco VPN tun1)
-                                           10.129.13.78:30900 (gateway) → vLLM :8000
-                                                                         → PostgreSQL 16
-                                                                         → Redis 7
-```
+---
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                         VPS2 (130.17.1.90)                   │
-│  ┌─────────┐   ┌──────────────┐   ┌───────────────────────┐  │
-│  │  nginx  │ → │ Portal BFF   │ → │ Portal DB (PostgreSQL)│  │
-│  │  :80    │   │ Fastify :3000│   │ 127.0.0.1:5432        │  │
-│  └─────────┘   └──────┬───────┘   └───────────────────────┘  │
-│                       │ Cisco VPN tun1                        │
-└───────────────────────┼──────────────────────────────────────┘
-                        │
-┌───────────────────────┼──────────────────────────────────────┐
-│           40.51 YADRO VEGMAN S320 (10.129.13.78)             │
-│                       │                                       │
-│  ┌────────────────────▼──────────────────────────────────┐   │
-│  │            API Gateway (Python) :30900                 │   │
-│  │            • Rate limiting (Redis)                     │   │
-│  │            • Auth (JWT RS256 — TODO)                   │   │
-│  │            • Proxy → vLLM                              │   │
-│  └───┬──────────────────────┬────────────────────────────┘   │
-│      │                      │                                 │
-│  ┌───▼──────────┐   ┌───────▼──────────┐                     │
-│  │  vLLM :8000  │   │  PostgreSQL 16   │                     │
-│  │  TP=2, RTX×2 │   │  aither          │                     │
-│  │  Qwen2.5-14B │   │  :5432           │                     │
-│  └──────────────┘   └──────────────────┘                     │
-│      ┌──────────────┐                                        │
-│      │  Redis 7     │                                        │
-│      │  :6379       │                                        │
-│      └──────────────┘                                        │
-└──────────────────────────────────────────────────────────────┘
-```
+## Текущие модели
 
-## Оборудование
+| Модель | Model ID | Scope | Контекст |
+|--------|----------|-------|----------|
+| Qwen2.5-32B-Instruct-AWQ | `qwen2.5-32b-instruct` | `model:32b:chat` | 32K native; деградация ~34K |
+| Qwen3-32B-AWQ | `qwen3-32b` | `model:qwen3:chat` | 32K + YaRN; деградация ~50K |
 
-| Сервер | BMC | ОС | CPU | RAM | GPU | Диски |
-|--------|-----|----|-----|-----|-----|-------|
-| 40.51 | 10.129.40.51:9444 | Astra Linux 1.8 | 2× Xeon 6258R (56C/112T) | 754 GB | 2× RTX 6000 (24 GB) | 447 GB + 12× SAS SSD |
-| 40.50 | 10.129.40.50:9443 | нет | 2× Xeon 6258R (56C/112T) | 768 GB | 2× RTX 6000 (24 GB) | RAID сбой |
+> Git configuration confirmed. Runtime deployment reported by Hermes (06–07.08.2026).
 
-## Подключение
+---
 
-**Портал (извне):**
-```bash
-curl http://130.17.1.90:80/health
-```
+## Навигация
 
-**40.51 (ядро, через VPS2):**
-```bash
-ssh root@130.17.1.90 "sshpass -p root ssh root@10.129.13.78"
-```
+| Документ | Описание |
+|----------|----------|
+| [`aither-v2/README.md`](aither-v2/README.md) | **Основной технический README** — архитектура, модели, компоненты, API |
+| [`aither-v2/docs/current-state/`](aither-v2/docs/current-state/) | Текущее состояние, история изменений, матрица, дефекты |
+| [`aither-v2/docs/models/MODEL_CATALOG.md`](aither-v2/docs/models/MODEL_CATALOG.md) | Каталог моделей |
+| [`aither-v2/docs/hermes-aither-connection.md`](aither-v2/docs/hermes-aither-connection.md) | Подключение Hermes Agent |
+| [`aither-v2/reports/`](aither-v2/reports/) | Отчёты |
 
-**Проверка vLLM:**
-```bash
-curl http://10.129.13.78:30900/v1/models  # с VPS2
-```
-
-## API портала (v0.3.0)
-
-### Аутентификация
-```bash
-curl -X POST http://130.17.1.90:80/auth/dev/login \
-  -H "Content-Type: application/json" \
-  -d '{"name":"sergey"}'
-# → access_token (JWT, 24h)
-```
-
-### Организации
-```bash
-# Создать
-curl -X POST http://130.17.1.90:80/api/v1/orgs \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"MyOrg"}'
-
-# Список
-curl -H "Authorization: Bearer $TOKEN" \
-  http://130.17.1.90:80/api/v1/orgs
-```
-
-### API-ключи
-```bash
-# Создать (только owner)
-curl -X POST http://130.17.1.90:80/api/v1/orgs/$ORG_ID/api-keys \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"default"}'
-
-# Отозвать
-curl -X DELETE http://130.17.1.90:80/api/v1/orgs/$ORG_ID/api-keys/$KEY_ID \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-## Модель
-
-**Qwen2.5‑14B‑Instruct** — 28 GB, размещена на хосте 40.51 (`/data/models/`), загружается в vLLM через hostPath. Инференс: TP=2 на обеих RTX 6000.
+---
 
 ## Структура репозитория
 
 ```
 aither-project/
-├── README.md               ← этот файл
-├── lab-journal.md          ← лабораторный журнал (Gates 0–5, детально)
-├── bortovoy-zhurnal.md     ← бортовой журнал (краткая хронология)
-├── status.md               ← статус реализованного/нереализованного
-├── hosts/                  ← инвентаризация хостов
-├── manifests/              ← K8s-манифесты, IP-план
-├── references/             ← ТР, аналитика, адаптация под single-node
-├── diagrams/               ← схемы (Graphviz)
-├── portal/                 ← код портала (BFF, nginx, docker-compose)
-└── plan.md                 ← план работ
+├── README.md                    ← этот файл
+├── aither-v2/                   ← основной проект
+│   ├── README.md                ← технический README
+│   ├── deploy/                  ← манифесты (vLLM, gateway, etc.)
+│   ├── services/                ← код (portal, identity, BFF)
+│   ├── docs/                    ← документация
+│   └── reports/                 ← отчёты
+├── 01-k8s-gpu-operator/         ← GPU Operator
+├── 02-containerd-nvidia-runtime/ ← NVIDIA runtime
+├── 03-vllm-14b-deploy/          ← исторический: vLLM 14B
+├── docs/                        ← общая документация
+│   ├── mvp-roadmap/             ← дорожная карта MVP
+│   ├── evidence/                ← доказательства стадий
+│   ├── project-control/         ← управление проектом
+│   ├── repository/              ← управление репозиторием
+│   └── user-package/            ← пакет пользователя
+├── reports/                     ← отчёты
+└── lab-journal.md               ← лабораторный журнал
 ```
 
-## Журналы
+---
 
-- [lab-journal.md](lab-journal.md) — детальный лабораторный журнал (команды, разбор, питфоллы)
-- [bortovoy-zhurnal.md](bortovoy-zhurnal.md) — краткая хронология всех событий
-- [status.md](status.md) — что сделано / что осталось
+## Подключение
+
+**Тестовая зона (внутренняя сеть/VPN):**
+```bash
+curl http://10.129.13.78:30080/
+```
+
+**Портал (Internet):**
+```bash
+curl https://fb1.spb.ru:10443/
+```
+
+**Безопасный SSH:**
+```bash
+ssh <user>@<bastion>
+# или с ProxyJump:
+ssh -J <user>@<bastion> <user>@<target>
+```
+
+---
+
+## Историческая архитектура
+
+<details>
+<summary>MVP Gates 0–5 (завершено) — VPS2 + 40.51</summary>
+
+Предыдущая версия платформы: VPS2 (Portal BFF + PostgreSQL) → Cisco VPN → 40.51 YADRO VEGMAN (vLLM Qwen2.5-14B, Redis, PostgreSQL).
+
+| Gate | Компонент | Статус |
+|------|-----------|--------|
+| 0 | NVIDIA 570 + Docker 28 | ✅ |
+| 1 | K8s 1.33 single-node + Flannel | ✅ |
+| 2 | GPU Operator + vLLM + Qwen2.5-14B | ✅ |
+| 3 | PostgreSQL 16 + Redis 7 + API Gateway | ✅ |
+| 4 | Portal BFF + Portal DB + nginx | ✅ |
+| 5 | Аутентификация, организации, API-ключи | ✅ |
+
+Подробнее: [`lab-journal.md`](lab-journal.md), [`bortovoy-zhurnal.md`](bortovoy-zhurnal.md)
+
+</details>
+
+---
+
+## Безопасность
+
+> ⚠️ В исторических файлах могут находиться примеры с паролями. **Не использовать в production.** Текущая документация не содержит credentials.

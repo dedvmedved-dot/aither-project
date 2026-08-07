@@ -97,7 +97,7 @@
 - [x] 5 commits analyzed and documented
 - [x] Current state documented
 - [x] State matrix created (31 claims)
-- [x] Known defects registered (7)
+- [x] Known defects registered (9)
 - [x] Model catalog created
 - [x] README updated
 - [x] Hermes guide updated

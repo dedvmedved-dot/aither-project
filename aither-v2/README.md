@@ -1,33 +1,20 @@
-# Aither / AI Hermes MVP
+# Aither / AI Hermes — Платформа AI-моделей
 
-**Token-as-a-Service платформа с локальными LLM и Web-порталом.**
+**Платформа с локальными LLM и Web-порталом для доступа к AI-моделям.**
 
-Назначение: предоставление OpenAI-совместимого API для доступа к локально развёрнутым
-моделям (Qwen 14B Instruct, Qwen 32B Base) с полноценным Web-порталом,
-включающим регистрацию, OAuth, управление API-ключами, чат, Wiki, RAG-поиск
-по документации, биллинг, мониторинг и обратную связь.
+Текущие модели: Qwen2.5-32B-Instruct-AWQ, Qwen3-32B-AWQ.
+Обе — Instruct (чат, инструкции, tool calling). OpenAI-совместимый API.
 
 - **Тип развёртывания:** Home Lab / Test (bare-metal Kubernetes, 2× GPU-узла)
 - **Текущая ветка:** `aither-v2`
-- **Commit актуализации:** `04466b88837f0497d6283aacd42aa5fa087aefa3`
-- **Дата актуализации:** 2026-07-30T03:04:08Z
+- **Application baseline:** `39a8946143e7a38ceff9faabad024225acbf202e`
+- **Документация обновлена:** 2026-08-07
+- **Environment:** HOME LAB / TEST
+- **Production acceptance:** NOT GRANTED
+- **External acceptance:** PENDING EXTERNAL CONNECTOR AUDIT
 
-> ⚠️ **Внимание:** Production readiness не заявлен. Статус определяется
-> независимым внешним аудитом. Данный README описывает фактическое состояние
-> репозитория на указанный commit — не является сертификатом готовности.
-
----
-
-## Статус документа и проекта
-
-| Поле                      | Значение                                         |
-| ------------------------- | ------------------------------------------------ |
-| Ветка                     | `aither-v2`                                      |
-| Commit описания           | `04466b88837f0497d6283aacd42aa5fa087aefa3` |
-| Дата инвентаризации       | 2026-07-30T03:04:08Z |
-| Тип среды                 | Home Lab / Test                                  |
-| Production acceptance     | **не заявлен**                                   |
-| Emergency mode            | EXTERNAL PROJECT STATE — see current-state documentation                                       |
+> ⚠️ Production readiness не заявлен. Статус определяется независимым внешним аудитом.
+> Данный README описывает документированное состояние репозитория — не является сертификатом готовности.
 | Последний внешний аудит   | Stage U1.3-OPS-R6 (evidence ожидается)   |
 | Tracked-файлов            | 730                                  |
 
@@ -165,8 +152,8 @@ Internet → VPS (:443, :10443) → VPN-туннель → K8s NodePort (:30080)
 
 | Модель | Тип | Endpoint | Scope | Ограничения |
 | ------ | --- | -------- | ----- | ----------- |
-| **Qwen2.5-32B-Instruct-AWQ** | Instruct / Chat | `/v1/chat/completions` (прямой vLLM) | `model:32b:chat` | Контекст 32K native; деградация ~34K |
-| **Qwen3-32B-AWQ** | Instruct / Chat | `/v1/chat/completions` (прямой vLLM) | `model:qwen3:chat` | Контекст 32K + YaRN; деградация ~50K |
+| **Qwen2.5-32B-Instruct-AWQ** | Instruct / Chat | `/v1/chat/completions` (прямой vLLM) | `model:32b:chat` | Контекст 32K native; PASS observed at 30K, failure at 34K |
+| **Qwen3-32B-AWQ** | Instruct / Chat | `/v1/chat/completions` (прямой vLLM) | `model:qwen3:chat` | Контекст 32K + YaRN (REPORTED RUNTIME); PASS observed at 40K, failure at 50K |
 
 > **HISTORICAL DOCUMENT** — Следующий раздел описывает архитектуру до миграции Qwen2.5/Qwen3.
 
