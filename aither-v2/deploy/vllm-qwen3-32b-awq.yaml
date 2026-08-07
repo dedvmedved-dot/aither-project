@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vllm
+    model: qwen3-32b-awq
+  name: vllm-qwen3-32b-awq
+  namespace: aither-inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+      model: qwen3-32b-awq
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: vllm
+        model: qwen3-32b-awq
+    spec:
+      nodeName: bootsman-k8s-clnt01-n8-gpu
+      automountServiceAccountToken: false
+      runtimeClassName: nvidia
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33
+        command:
+        - python3
+        - -m
+        - vllm.entrypoints.openai.api_server
+        args:
+        - --model
+        - /model
+        - --quantization
+        - awq
+        - --dtype
+        - auto
+        - --tensor-parallel-size
+        - "2"
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8000"
+        - --gpu-memory-utilization
+        - "0.90"
+        - --max-model-len
+        - "65536"
+        - --max-num-seqs
+        - "4"
+        - --enforce-eager
+        - --generation-config
+        - vllm
+        - --served-model-name
+        - qwen3-32b
+        - --enable-auto-tool-choice
+        - --tool-call-parser
+        - hermes
+        - --disable-log-requests
+        - --disable-fastapi-docs
+        env:
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: expandable_segments:True
+        - name: VLLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: VLLM_API_KEY
+              name: vllm-api-key
+        - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+          value: "1"
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            cpu: "8"
+            memory: "48Gi"
+            nvidia.com/gpu: "2"
+          limits:
+            cpu: "16"
+            memory: "64Gi"
+            nvidia.com/gpu: "2"
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+        - name: model
+          mountPath: /model
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 120
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+      - name: model
+        hostPath:
+          path: /data/models/Qwen3-32B-AWQ
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-qwen3-32b-awq
+  namespace: aither-inference
+spec:
+  selector:
+    app: vllm
+    model: qwen3-32b-awq
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP

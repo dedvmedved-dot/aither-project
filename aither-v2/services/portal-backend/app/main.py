@@ -198,10 +198,10 @@ def _check_chat_entitlement(user: dict, model: str) -> None:
     Unknown models → 400 BEFORE any upstream call.
     """
     # Strict model allowlist
-    ALLOWED_MODELS = {"qwen-14b", "qwen-32b-base", "qwen2.5-32b-instruct"}
+    ALLOWED_MODELS = {"qwen2.5-32b-instruct", "qwen3-32b"}
     model_lower = model.lower().strip()
     if model_lower not in ALLOWED_MODELS:
-        raise HTTPException(status_code=400, detail=f"unknown_model: '{model}' not in allowlist. Available: qwen-14b, qwen2.5-32b-instruct")
+        raise HTTPException(status_code=400, detail=f"unknown_model: '{model}' not in allowlist. Available: qwen2.5-32b-instruct, qwen3-32b")
 
     # Organisation must be assigned and active
     org_id = user.get("org_id")
@@ -215,10 +215,13 @@ def _check_chat_entitlement(user: dict, model: str) -> None:
     # Model-specific scope enforcement
     scopes_str = (user.get("scopes") or "").strip()
     scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
-    if "32b" in model_lower:
+    if "qwen3" in model_lower:
+        if "model:qwen3:chat" not in scopes:
+            raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:qwen3:chat' required for Qwen3-32B")
+    elif "32b" in model_lower:
         if "model:32b:chat" not in scopes:
             raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:32b:chat' required for 32B models")
-    else:  # qwen-14b
+    else:
         if "model:14b:chat" not in scopes:
             raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:14b:chat' required for qwen-14b")
 
@@ -1585,7 +1588,10 @@ async def chat_completions(request: Request):
     _check_chat_entitlement(user, model)
 
     # 3. Determine upstream based on model
-    if "32b" in model.lower():
+    if "qwen3" in model.lower():
+        upstream_url = UPSTREAM_14B_URL   # Qwen3 lives where 14B used to (n8)
+        upstream_token = UPSTREAM_14B_TOKEN
+    elif "32b" in model.lower():
         upstream_url = UPSTREAM_32B_URL
         upstream_token = UPSTREAM_32B_TOKEN
     else:
@@ -1599,15 +1605,19 @@ async def chat_completions(request: Request):
     try:
         async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
             # All models now use native chat/completions (qwen2.5-32b-instruct is Instruct, not base)
+            req_body = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "stream": False,
+            }
+            # Qwen3: disable thinking mode for standard chat
+            if "qwen3" in model.lower():
+                req_body["chat_template_kwargs"] = {"enable_thinking": False}
             chat_resp = await ac.post(
                 "/v1/chat/completions",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature,
-                    "stream": False,
-                },
+                json=req_body,
                 headers={
                     "Authorization": f"Bearer {upstream_token}",
                     "Content-Type": "application/json",
