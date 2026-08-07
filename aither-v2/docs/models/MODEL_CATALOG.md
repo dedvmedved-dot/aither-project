@@ -34,7 +34,7 @@
 | Parameters | 32B |
 | Quantization | AWQ 4-bit |
 | Size | ~19 GB |
-| Node | n7 (bootsmam-k8s-clnt01-n7-gpu) |
+| Node (manifest) | n7 (nodeSelector/affinity in manifest) |
 | GPU | 2× Quadro RTX 6000 (24 GB) |
 | Tensor Parallel | 2 |
 | Context (configured) | 65536 |
@@ -53,11 +53,11 @@
 | Parameters | 32B |
 | Quantization | AWQ 4-bit |
 | Size | ~19 GB |
-| Node | n8 (bootsman-k8s-clnt01-n8-gpu) |
+| Node (manifest) | n8 (nodeName in manifest) |
 | GPU | 2× Quadro RTX 6000 (24 GB) |
 | Tensor Parallel | 2 |
 | Context (configured) | 65536 (with `VLLM_ALLOW_LONG_MAX_MODEL_LEN`) |
-| Context extension | YaRN (rope_scaling) — REPORTED RUNTIME, not in tracked files |
+| Context extension | YaRN (rope_scaling) — REPORTED RUNTIME, NOT CONFIRMED FROM GIT |
 | Context (observed) | PASS at 40K, degradation at 50K |
 | API | OpenAI-compatible `/v1/chat/completions` |
 | Features | Chat, instruction following, tool calling, thinking mode (disabled by default) |
@@ -83,10 +83,10 @@
 
 | Provider | Model | Port-forward | Config |
 |----------|-------|-------------|--------|
-| `aither-32b` | `qwen2.5-32b-instruct` | `9999→vllm-32b-instruct-awq:8000` | `max_tokens: 16000`, `compression: false` |
-| `aither-qwen3-32b` | `qwen3-32b` | `9998→vllm-qwen3-32b-awq:8000` | `max_tokens: 16000`, `compression: false` |
+| `aither-32b` | `qwen2.5-32b-instruct` | `9999→vllm-32b-instruct-awq:8000` (REPORTED RUNTIME) | `max_tokens: 16000`, `compression: false` (REPORTED CONFIG) |
+| `aither-qwen3-32b` | `qwen3-32b` | `9998→vllm-qwen3-32b-awq:8000` (REPORTED RUNTIME) | `max_tokens: 16000`, `compression: false` (REPORTED CONFIG) |
 
-Alternatively, external users connect through the Portal API at `https://fb1.spb.ru:10443/v1` with an `athr_` API key — no port-forward required.
+External access via Portal API (`https://fb1.spb.ru:10443/v1`) with `athr_` key: REPORTED RUNTIME — NOT VERIFIED FROM CURRENT REPOSITORY. Git confirms Portal Backend exposes `/api/v1/chat` but the externally exposed OpenAI-compatible path at `/v1` is not directly confirmed by tracked files.
 
 ---
 

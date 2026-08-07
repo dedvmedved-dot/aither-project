@@ -184,7 +184,7 @@ Alternative: Portal API at `https://fb1.spb.ru:10443/v1` with `athr_` key.
 ## 16. Git-Confirmed Facts
 
 - Deployment manifests for both models exist in `deploy/`
-- Portal Backend routes both models to correct vLLM services
+- Portal Backend contains routing branches for Qwen2.5 and Qwen3. Qwen2.5 uses UPSTREAM_32B_URL. Qwen3 currently uses UPSTREAM_14B_URL (configuration slot previously used for 14B). Effective runtime values: REPORTED RUNTIME / NOT VERIFIED BY THIS REPOSITORY-ONLY TASK
 - Feedback endpoint accepts multipart with 5 MiB limit
 - Identity service FeedbackRequest includes file fields
 - Default registration scopes include both model scopes
@@ -218,7 +218,9 @@ See [REPOSITORY_KNOWN_DEFECTS.md](REPOSITORY_KNOWN_DEFECTS.md):
 - REPO-DEFECT-FEEDBACK-DB-SCHEMA-001 — OPEN
 - REPO-DEFECT-FEEDBACK-AUTH-001 — OPEN
 - REPO-DEFECT-FEEDBACK-SIZE-001 — OPEN
+- REPO-DEFECT-FEEDBACK-LIST-AUTH-001 — OPEN
 - REPO-DEFECT-TOKENIZER-CONFIG-001 — OPEN
+- REPO-DEFECT-ROOT-README-CREDENTIAL-001 — CURRENT FILE FIXED
 - REPO-DEFECT-README-OBSOLETE-001 — FIXED
 - REPO-DEFECT-HERMES-DOC-001 — FIXED
 
@@ -229,7 +231,7 @@ See [REPOSITORY_KNOWN_DEFECTS.md](REPOSITORY_KNOWN_DEFECTS.md):
 > This task performs no remediation.
 
 - Feedback endpoint: anonymous submissions allowed
-- Feedback list endpoint: admin-only (correct)
+- Feedback list via Portal BFF (`/api/v1/feedback`): admin-only. Feedback list via Identity directly (`/v1/identity/feedback`): no explicit auth check in tracked source
 - API keys stored in Identity DB; key exposure only at creation
 - Hermes provider config requires VLLM_API_KEY — documented as placeholder only
 - Previously opened security incidents remain OPEN unless separate verified closure exists

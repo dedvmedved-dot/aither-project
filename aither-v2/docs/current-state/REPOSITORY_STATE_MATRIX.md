@@ -5,8 +5,8 @@
 
 | Claim | Git evidence | Hermes report | Classification |
 |-------|-------------|---------------|----------------|
-| Qwen2.5-32B-Instruct-AWQ deployed (n7) | `deploy/vllm-32b-instruct-awq.yaml` (commit `407cbe7`) | ✅ Confirmed | GIT CONFIRMED |
-| Qwen3-32B-AWQ deployed (n8) | `deploy/vllm-qwen3-32b-awq.yaml` (commit `8ba71ac`) | ✅ Confirmed | GIT CONFIRMED |
+| Qwen2.5-32B-Instruct-AWQ manifest/configuration | `deploy/vllm-32b-instruct-awq.yaml` (commit `407cbe7`) | ✅ Confirmed | GIT CONFIRMED (config); runtime deployment: REPORTED RUNTIME |
+| Qwen3-32B-AWQ manifest/configuration | `deploy/vllm-qwen3-32b-awq.yaml` (commit `8ba71ac`) | ✅ Confirmed | GIT CONFIRMED (config); runtime deployment: REPORTED RUNTIME |
 | 14B model removed | `vllm-14b-instruct` scaled to 0 (not in Git; runtime state) | ✅ Reported | REPORTED RUNTIME |
 | Qwen3 max-model-len=65536 | `deploy/vllm-qwen3-32b-awq.yaml` args | ✅ Confirmed | GIT CONFIRMED |
 | VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 | `deploy/vllm-qwen3-32b-awq.yaml` env | ✅ Confirmed | GIT CONFIRMED |
@@ -39,7 +39,7 @@
 
 | Classification | Count |
 |----------------|-------|
-| GIT CONFIRMED | 20 |
+| GIT CONFIRMED | 18 |
 | REPORTED RUNTIME | 10 |
 | CONTRADICTED BY GIT | 1 |
 | **Total claims** | **31** |

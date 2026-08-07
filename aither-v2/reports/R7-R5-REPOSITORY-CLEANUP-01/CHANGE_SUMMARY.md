@@ -7,7 +7,8 @@
 | Repository | `dedvmedved-dot/aither-project` |
 | Branch | `aither-v2` |
 | Starting SHA | `39a8946143e7a38ceff9faabad024225acbf202e` |
-| Final documentation SHA | (to be filled after commit) |
+| Baseline corrective target | `04466b88837f0497d6283aacd42aa5fa087aefa3` |
+| Final corrective documentation SHA | see corrective commit metadata |
 | Working tree | Clean |
 
 ## Commit Chronology Documented
@@ -32,7 +33,20 @@
 | `docs/current-state/REPOSITORY_KNOWN_DEFECTS.md` | 7 known defects (2 fixed, 5 open) |
 | `docs/models/MODEL_CATALOG.md` | Model catalog with specs, context, performance |
 | `reports/R7-R5-REPOSITORY-CLEANUP-01/CHANGE_SUMMARY.md` | This file |
-| `docs/users/` | Directory for user docs (created) |
+
+
+### C1 Corrective Actions
+
+| Action | Detail |
+|--------|--------|
+| Root README credential | `sshpass -p` example replaced with `ssh <user>@<bastion>` |
+| REPO-DEFECT-ROOT-README-CREDENTIAL-001 | Registered |
+| REPO-DEFECT-FEEDBACK-LIST-AUTH-001 | Registered |
+| REPO-DEFECT-FEEDBACK-AUTH-001 | Updated — split POST/GET analysis |
+| Qwen3 routing claim | Corrected to `UPSTREAM_14B_URL` naming |
+| Deployed vs configured | Separated in matrix + catalog |
+| External /v1 API | Marked REPORTED RUNTIME |
+| Empty dir claim | Removed |
 
 ### Modified
 
@@ -70,7 +84,7 @@
 ## Secrets Scan
 
 - Scanned: all new and modified docs
-- Result: PASSED — only placeholders (`<VLLM_API_KEY>`, `athr_...`)
+- New/modified docs scan: PASSED — only placeholders. Note: root README had existing sshpass example (fixed in C1).
 - No real credentials in new documentation
 
 ## Broken Links

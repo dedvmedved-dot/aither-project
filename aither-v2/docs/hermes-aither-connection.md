@@ -11,7 +11,7 @@
 Aither предоставляет два способа подключения Hermes Agent:
 
 1. **Прямой доступ к vLLM** (через port-forward) — для администраторов с доступом к Kubernetes
-2. **Через Aither Portal API** — для внешних пользователей через `athr_` API-ключ
+2. **Через Aither Portal API** — для внешних пользователей через `athr_` API-ключ (REPORTED RUNTIME — NOT VERIFIED FROM CURRENT REPOSITORY)
 
 ---
 
@@ -97,7 +97,7 @@ compression:
 
 custom_providers:
   - name: aither
-    base_url: https://fb1.spb.ru:10443/v1
+    base_url: https://fb1.spb.ru:10443/v1    # REPORTED RUNTIME
     api_key: "athr_..."   # ваш ключ из портала
     model: qwen3-32b      # или qwen2.5-32b-instruct
     max_tokens: 16000

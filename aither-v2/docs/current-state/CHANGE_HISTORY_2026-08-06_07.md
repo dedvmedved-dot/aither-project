@@ -48,7 +48,7 @@
 ### 39a8946 — WUI Refresh
 - Modified: `services/portal-frontend/app.js` (49 lines changed)
 - Modified: `services/portal-frontend/index.html` (14 lines changed)
-- Changed: model names throughout (`qwen-14b` → `qwen2.5-32b-instruct`, `qwen-32b-base` → `qwen3-32b`)
+- Updated primary chat model IDs and visible WUI labels, but legacy API-key option values remain and are registered as REPO-DEFECT-APIKEY-WUI-001
 - Added: `formatMarkdown()` function
 - Changed: `formatMessage` to apply markdown to text segments
 - Changed: `updateModelInfo` with detailed descriptions

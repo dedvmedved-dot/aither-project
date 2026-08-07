@@ -9,7 +9,7 @@
 
 - **Тип развёртывания:** Home Lab / Test (bare-metal Kubernetes, 2× GPU-узла)
 - **Текущая ветка:** `aither-v2`
-- **Commit актуализации:** `9a7293f547bc488b0cabc9df63ab6201dd38c83f`
+- **Commit актуализации:** `04466b88837f0497d6283aacd42aa5fa087aefa3`
 - **Дата актуализации:** 2026-07-30T03:04:08Z
 
 > ⚠️ **Внимание:** Production readiness не заявлен. Статус определяется
@@ -23,11 +23,11 @@
 | Поле                      | Значение                                         |
 | ------------------------- | ------------------------------------------------ |
 | Ветка                     | `aither-v2`                                      |
-| Commit описания           | `9a7293f547bc488b0cabc9df63ab6201dd38c83f` |
+| Commit описания           | `04466b88837f0497d6283aacd42aa5fa087aefa3` |
 | Дата инвентаризации       | 2026-07-30T03:04:08Z |
 | Тип среды                 | Home Lab / Test                                  |
 | Production acceptance     | **не заявлен**                                   |
-| Emergency mode            | не активен                                       |
+| Emergency mode            | EXTERNAL PROJECT STATE — see current-state documentation                                       |
 | Последний внешний аудит   | Stage U1.3-OPS-R6 (evidence ожидается)   |
 | Tracked-файлов            | 730                                  |
 
