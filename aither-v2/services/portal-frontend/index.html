@@ -240,8 +240,8 @@
         <div class="chat-controls">
           <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Модель:</label>
           <select id="chat-model-select" class="form-input" style="min-width:180px;">
-            <option value="qwen-14b">qwen-14b (Чат-модель)</option>
-            <option value="qwen-32b-base">qwen-32b-base (Базовая)</option>
+            <option value="qwen2.5-32b-instruct">Qwen2.5-32B</option>
+            <option value="qwen3-32b">Qwen3-32B</option>
           </select>
           <span id="chat-model-info" class="text-muted"></span>
           <button class="btn btn-sm btn-outline" id="btn-clear-chat" style="margin-left:auto;">Очистить</button>
@@ -253,9 +253,9 @@
           <div id="chat-rag-result" class="rag-result-inline" style="display:none;"></div>
         </div>
         <div class="chat-label">
-          <span>💬 qwen-14b — чат-модель для диалогов</span>
+          <span>💬 Qwen2.5-32B — 32K</span>
           <span style="color:var(--text-muted);">|</span>
-          <span>qwen-32b-base — базовая модель для продолжения текста</span>
+          <span>Qwen3-32B — 32K + YaRN для продолжения текста</span>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-area">
@@ -606,6 +606,10 @@
             <label>Сообщение</label>
             <textarea id="feedback-message" class="form-input" rows="5" placeholder="Опишите ваш опыт, предложение или проблему..."></textarea>
           </div>
+          <div class="form-group">
+            <label>📎 Прикрепить файл (скриншот, лог, до 5 МБ)</label>
+            <input type="file" id="feedback-file" class="form-input" style="padding:8px;">
+          </div>
           <button class="btn btn-primary" id="btn-submit-feedback">Отправить</button>
           <div class="alert alert-success" id="feedback-success" style="display:none;margin-top:12px;">✅ Спасибо! Ваш отзыв отправлен.</div>
         </div>
@@ -629,6 +633,6 @@
     <div class="spinner"></div>
   </div>
 
-  <script src="app.js?v=feedback-fix"></script>
+  <script src="app.js?v=final"></script>
 </body>
 </html>

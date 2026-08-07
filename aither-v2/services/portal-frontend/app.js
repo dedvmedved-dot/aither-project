@@ -25,7 +25,7 @@
         if (!currentSessionId) {
             // Create a new session if none active
             currentSessionId = uid();
-            var s = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen-14b', history: [], tokens: 0, requests: 0 };
+            var s = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
             chatSessions.unshift(s);
             saveChatSessions();
             return s;
@@ -35,7 +35,7 @@
             if (chatSessions[i].id === currentSessionId) { found = chatSessions[i]; break; }
         }
         if (!found) {
-            found = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen-14b', history: [], tokens: 0, requests: 0 };
+            found = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
             chatSessions.unshift(found);
             saveChatSessions();
         }
@@ -71,7 +71,7 @@
                         var sid = uid();
                         chatSessions = [{
                             id: sid, title: titleFromHistory(old.history),
-                            timestamp: new Date().toISOString(), model: 'qwen-14b',
+                            timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct',
                             history: old.history, tokens: old.tokens || 0, requests: old.requests || 0
                         }];
                         localStorage.removeItem('aither_chat');
@@ -355,6 +355,15 @@
         return html;
     }
 
+    function formatMarkdown(txt) {
+        txt = txt.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+        txt = txt.replace(/\*(.+?)\*/g, '<i>$1</i>');
+        txt = txt.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+        txt = txt.replace(/\n/g, '<br>');
+        return txt;
+    }
+
+
     function formatMessage(text) {
         // Process ```code``` blocks with syntax highlighting + copy button
         var result = '';
@@ -379,7 +388,7 @@
                     '</div>';
                 i += 3;
             } else {
-                result += escHtml(parts[i] || '');
+                result += formatMarkdown(escHtml(parts[i] || ''));
                 i++;
             }
         }
@@ -811,8 +820,8 @@
                 const models = res.data.data || res.data;
                 let html = '';
                 const modelDescriptions = {
-                    'qwen-14b': 'Чат-модель (14B) — оптимизирована для диалогов',
-                    'qwen-32b-base': 'Базовая модель (32B) — продолжение текста',
+                    'qwen2.5-32b-instruct': 'Qwen2.5-32B (32K)',
+                    'qwen3-32b': 'Qwen3-32B (64K)',
                 };
                 for (const m of (Array.isArray(models) ? models : [])) {
                     const name = m.id || m.name;
@@ -830,12 +839,12 @@
         const info = $('chat-model-info');
         if (!sel) return;
         const model = sel.value;
-        if (model === 'qwen-14b') {
-            info.textContent = 'Чат-модель — оптимизирована для диалогов';
-            info.style.color = 'var(--success)';
+        if (model === 'qwen2.5-32b-instruct') {
+            info.innerHTML = '<b>Qwen2.5-32B-Instruct-AWQ</b> — 32 млрд параметров, AWQ 4-bit<br>📏 Контекст: <b>32K токенов</b> (родной)<br>🎯 Режимы: чат, инструкции, tool calling<br>🖥 Размещение: N7, 2×RTX 6000 (TP=2)';
+            info.style.color = 'var(--text)';
         } else {
-            info.textContent = 'Базовая модель — продолжает текст (не чат)';
-            info.style.color = 'var(--warning)';
+            info.innerHTML = '<b>Qwen3-32B-AWQ</b> — 32 млрд параметров, AWQ 4-bit<br>📏 Контекст: <b>32K родной + YaRN до 64K</b><br>⚠️ На 64K возможна деградация внимания<br>🎯 Режимы: чат, инструкции, tool calling<br>🖥 Размещение: N8, 2×RTX 6000 (TP=2)';
+            info.style.color = 'var(--text)';
         }
     }
 
@@ -873,7 +882,7 @@
 
     async function sendChatMessage() {
         var input = $('chat-input');
-        var model = $('chat-model-select')?.value || 'qwen-14b';
+        var model = $('chat-model-select')?.value || 'qwen2.5-32b-instruct';
         var content = input.value.trim();
         if (!content) return;
 
@@ -1015,7 +1024,7 @@
             } else {
                 // No sessions left, create new
                 currentSessionId = uid();
-                var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen-14b', history: [], tokens: 0, requests: 0 };
+                var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
                 chatSessions = [ns];
                 saveChatSessions();
                 var msgs = $('chat-messages');
@@ -1029,13 +1038,13 @@
     window._newChat = function() {
         saveChatSessions();
         currentSessionId = uid();
-        var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: $('chat-model-select')?.value || 'qwen-14b', history: [], tokens: 0, requests: 0 };
+        var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: $('chat-model-select')?.value || 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
         chatSessions.unshift(ns);
         // Reset UI
         var msgs = $('chat-messages');
         if (msgs) msgs.innerHTML = '';
         // Reset model select to default if needed
-        if ($('chat-model-select')) $('chat-model-select').value = 'qwen-14b';
+        if ($('chat-model-select')) $('chat-model-select').value = 'qwen2.5-32b-instruct';
         updateModelInfo();
         updateTokenCounters();
         saveChatSessions();
@@ -1138,7 +1147,7 @@
     };
 
     function showCreateTokenModal() {
-        modal('\n            <h2>Создать API-ключ</h2>\n            <div class="form-group">\n                <label>Название ключа</label>\n                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Разработка">\n            </div>\n            <div class="form-group">\n                <label>Назначение</label>\n                <select id="modal-token-purpose" class="form-input">\n                    <option value="api">API / Web тестирование</option>\n                    <option value="agent">AI Agent</option>\n                    <option value="other">Другое</option>\n                </select>\n            </div>\n            <div class="form-group">\n                <label>Модели</label>\n                <select id="modal-token-models" class="form-input">\n                    <option value="both">Обе модели (14B + 32B)</option>\n                    <option value="qwen-14b">Только qwen-14b (Чат)</option>\n                    <option value="qwen-32b-base">Только qwen-32b-base (Базовая)</option>\n                </select>\n            </div>\n            <div id="modal-token-result" style="display:none;">\n                <div class="alert alert-info" style="margin-top:12px;">\n                    ⚠️ <strong>Сохраните ключ сейчас — он больше не будет показан!</strong>\n                </div>\n                <div class="copy-field">\n                    <input type="text" id="modal-token-full" readonly>\n                    <button class="btn btn-sm btn-primary" onclick="var i=document.getElementById(\'modal-token-full\');i.select();navigator.clipboard?.writeText(i.value);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.textContent=\'Копировать\',2000);">Копировать</button>\n                </div>\n                <p class="text-muted" style="margin-top:4px;">Формат: athr_... (Bearer-токен для Authorization заголовка)</p>\n            </div>\n            <div style="display:flex;gap:8px;margin-top:16px;">\n                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать</button>\n                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>\n            </div>\n        ');
+        modal('\n            <h2>Создать API-ключ</h2>\n            <div class="form-group">\n                <label>Название ключа</label>\n                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Разработка">\n            </div>\n            <div class="form-group">\n                <label>Назначение</label>\n                <select id="modal-token-purpose" class="form-input">\n                    <option value="api">API / Web тестирование</option>\n                    <option value="agent">AI Agent</option>\n                    <option value="other">Другое</option>\n                </select>\n            </div>\n            <div class="form-group">\n                <label>Модели</label>\n                <select id="modal-token-models" class="form-input">\n                    <option value="both">Qwen2.5 + Qwen3</option>\n                    <option value="qwen-14b">Qwen2.5-32B</option>\n                    <option value="qwen-32b-base">Qwen3-32B</option>\n                </select>\n            </div>\n            <div id="modal-token-result" style="display:none;">\n                <div class="alert alert-info" style="margin-top:12px;">\n                    ⚠️ <strong>Сохраните ключ сейчас — он больше не будет показан!</strong>\n                </div>\n                <div class="copy-field">\n                    <input type="text" id="modal-token-full" readonly>\n                    <button class="btn btn-sm btn-primary" onclick="var i=document.getElementById(\'modal-token-full\');i.select();navigator.clipboard?.writeText(i.value);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.textContent=\'Копировать\',2000);">Копировать</button>\n                </div>\n                <p class="text-muted" style="margin-top:4px;">Формат: athr_... (Bearer-токен для Authorization заголовка)</p>\n            </div>\n            <div style="display:flex;gap:8px;margin-top:16px;">\n                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать</button>\n                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>\n            </div>\n        ');
     }
 
     window._createToken = async function() {
@@ -1146,8 +1155,8 @@
         const models = document.getElementById('modal-token-models')?.value || 'both';
 
         let scopes = [];
-        if (models === 'both' || models === 'qwen-14b') scopes.push('model:14b:chat');
-        if (models === 'both' || models === 'qwen-32b-base') scopes.push('model:32b:chat-adapter', 'model:32b:completion');
+        if (models === 'both' || models === 'qwen2.5-32b-instruct') scopes.push('model:32b:chat');
+        if (models === 'both' || models === 'qwen3-32b') scopes.push('model:qwen3:chat');
 
         document.getElementById('modal-token-create-btn').disabled = true;
         setLoading(true);
@@ -1350,17 +1359,25 @@
                 return;
             }
             try {
-                const headers = { 'Content-Type': 'application/json' };
+                const formData = new FormData();
+                formData.append('topic', topic);
+                formData.append('message', message);
+                const fileInput = $('feedback-file');
+                if (fileInput && fileInput.files.length > 0) {
+                    formData.append('file', fileInput.files[0]);
+                }
+                const headers = {};
                 const token = localStorage.getItem('aither_token');
                 if (token) headers['Authorization'] = 'Bearer ' + token;
                 const resp = await fetch('/api/v1/feedback', {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({ topic: topic, message: message })
+                    body: formData
                 });
                 if (resp.ok) {
                     showAlert('feedback-success', '✅ Спасибо! Ваш отзыв отправлен.', 'success');
                     $('feedback-message').value = '';
+                    if (fileInput) fileInput.value = '';
                 } else {
                     const err = await resp.json().catch(() => ({}));
                     showAlert('feedback-success', '❌ Ошибка: ' + (err.detail || 'не удалось отправить'), 'danger');
@@ -1530,7 +1547,7 @@
                 $('usage-today').innerHTML = '<div>Запросов (сессия): <b>' + getCurrentSession().requests + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
                 $('usage-tokens').innerHTML = '<div>Токенов (сессия): <b>' + getCurrentSession().tokens + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
             }
-            $('usage-models').innerHTML = '<div class="text-muted">📊 По моделям — статистика сессии:</div>\n                <div>qwen-14b: используется ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>\n                <div>qwen-32b-base: используется ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>';
+            $('usage-models').innerHTML = '<div class="text-muted">📊 По моделям — статистика сессии:</div>\n                <div>qwen2.5-32b-instruct ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>\n                <div>qwen3-32b ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>';
         } catch(e) {
             $('usage-today').innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
         }
@@ -1610,9 +1627,9 @@
                         return s.title || s.source;
                     }).join('; ');
                 }
-                addChatMessage('assistant', '🔍 RAG-ответ:\n\n' + answer + srcInfo, 'qwen-14b (RAG)');
+                addChatMessage('assistant', '🔍 RAG-ответ:\n\n' + answer + srcInfo, 'qwen2.5-32b-instruct (RAG)');
                 var session = getCurrentSession();
-                session.history.push({ role: 'assistant', content: '🔍 RAG-ответ:\n\n' + answer + srcInfo, model: 'qwen-14b (RAG)' });
+                session.history.push({ role: 'assistant', content: '🔍 RAG-ответ:\n\n' + answer + srcInfo, model: 'qwen2.5-32b-instruct (RAG)' });
                 saveChatSessions();
                 renderChatList();
             } else {
