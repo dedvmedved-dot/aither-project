@@ -1043,6 +1043,8 @@ async def register_user(req: RegisterRequest):
 class FeedbackRequest(BaseModel):
     topic: str
     message: str
+    file_name: str | None = None
+    file_content: str | None = None  # base64-encoded
 
 
 @app.post("/v1/identity/feedback", status_code=201)
@@ -1065,8 +1067,8 @@ async def submit_feedback(req: FeedbackRequest, request: Request):
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO feedback (user_id, username, topic, message) VALUES (?, ?, ?, ?)",
-            (user_id, username, req.topic.strip(), req.message.strip()),
+            "INSERT INTO feedback (user_id, username, topic, message, file_name, file_content) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, username, req.topic.strip(), req.message.strip(), req.file_name, req.file_content),
         )
         conn.commit()
         fid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]

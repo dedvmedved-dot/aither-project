@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 
 import httpx
 import jwt as pyjwt
-from fastapi import FastAPI, HTTPException, Depends, Request, Response
+from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -1648,24 +1648,39 @@ async def chat_completions(request: Request):
 class FeedbackRequest(BaseModel):
     topic: str
     message: str
+    file_name: str | None = None
+    file_content: str | None = None  # base64-encoded
 
 
 @app.post("/api/v1/feedback", status_code=201)
-async def submit_feedback(req: FeedbackRequest, request: Request):
-    """Submit feedback — proxy to identity service with user context."""
+async def submit_feedback(
+    request: Request,
+    topic: str = Form(...),
+    message: str = Form(...),
+    file: UploadFile | None = File(None),
+):
+    """Submit feedback with optional file attachment — proxy to identity service."""
     try:
         headers = {}
         auth = request.headers.get("Authorization", "")
         if auth:
             headers["Authorization"] = auth
-        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
-            r = await ic.post("/v1/identity/feedback", json={
-                "topic": req.topic,
-                "message": req.message,
-            }, headers=headers)
+        
+        body: dict = {"topic": topic.strip(), "message": message.strip()}
+        
+        # Read and base64-encode attached file
+        if file and file.filename:
+            import base64
+            content = await file.read()
+            if len(content) > 5 * 1024 * 1024:  # 5MB limit
+                raise HTTPException(status_code=413, detail="File too large (max 5MB)")
+            body["file_name"] = file.filename
+            body["file_content"] = base64.b64encode(content).decode()
+        
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=30.0) as ic:
+            r = await ic.post("/v1/identity/feedback", json=body, headers=headers)
             return r.json()
     except httpx.RequestError:
-        # Fallback: store directly if identity unreachable
         raise HTTPException(status_code=503, detail="Feedback service unavailable")
 
 
