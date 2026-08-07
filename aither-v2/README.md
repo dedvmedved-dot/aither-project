@@ -163,26 +163,38 @@ Internet → VPS (:443, :10443) → VPN-туннель → K8s NodePort (:30080)
 
 ## Модели
 
-| Модель | Тип | Endpoint | Portal mode | Требуемый scope | Ограничения |
-| ------ | --- | -------- | ----------- | --------------- | ----------- |
-| **Qwen 14B** | Instruct / Chat | `/v1/chat/completions` (через Portal Backend → vLLM) | Прямой чат | `model:14b:chat` | — |
-| **Qwen 32B Base** | Completion-only | `/v1/completions` (через Portal Backend → Gateway 32B → vLLM) | Chat-адаптер (messages→prompt) | `model:32b:chat-adapter` | Completion-only; не Instruct; chat через адаптер |
+| Модель | Тип | Endpoint | Scope | Ограничения |
+| ------ | --- | -------- | ----- | ----------- |
+| **Qwen2.5-32B-Instruct-AWQ** | Instruct / Chat | `/v1/chat/completions` (прямой vLLM) | `model:32b:chat` | Контекст 32K native; деградация ~34K |
+| **Qwen3-32B-AWQ** | Instruct / Chat | `/v1/chat/completions` (прямой vLLM) | `model:qwen3:chat` | Контекст 32K + YaRN; деградация ~50K |
 
-### Qwen 14B Instruct
-- **Тип:** Instruct-модель, оптимизированная для диалогов
-- **Model ID:** `qwen-14b`
-- **Scope:** `model:14b:chat`
-- **Прямой upstream:** `vllm-14b-instruct.aither-inference.svc:8000`
-- **Размещение:** GPU-узел n7
+> **HISTORICAL DOCUMENT** — Следующий раздел описывает архитектуру до миграции Qwen2.5/Qwen3.
 
-### Qwen 32B Base
-- **Тип:** Completion-only (базовая модель, без instruction-tuning)
-- **Model ID:** `qwen-32b-base`
-- **Scope:** `model:32b:chat-adapter`
-- **Gateway:** `nginx-gateway-32b.aither-inference.svc:8000` → `/v1/completions`
-- **Chat-адаптер (Portal Backend):** преобразует messages в prompt, перенаправляет ответ в формат chat completions
-- **Ограничения адаптера:** ответ может содержать маркер окончания; не поддерживает streaming; история теряет структуру ролей
-- **Размещение:** GPU-узел n7
+<details>
+<summary>Историческая архитектура (до 06.08.2026)</summary>
+
+| Модель | Тип | Endpoint | Scope |
+| ------ | --- | -------- | ----- |
+| Qwen 14B | Instruct / Chat | `/v1/chat/completions` | `model:14b:chat` |
+| Qwen 32B Base | Completion-only | `/v1/completions` (через Gateway → адаптер) | `model:32b:chat-adapter` |
+
+</details>
+
+### Qwen2.5-32B-Instruct-AWQ
+- **Тип:** Instruct-модель, чат и tool calling
+- **Model ID:** `qwen2.5-32b-instruct`
+- **Scope:** `model:32b:chat`
+- **Манифест:** `deploy/vllm-32b-instruct-awq.yaml`
+- **Сервис:** `vllm-32b-instruct-awq.aither-inference.svc:8000`
+- **Размещение:** GPU-узел n7 (2×RTX 6000, TP=2)
+
+### Qwen3-32B-AWQ
+- **Тип:** Instruct-модель, чат и tool calling
+- **Model ID:** `qwen3-32b`
+- **Scope:** `model:qwen3:chat`
+- **Манифест:** `deploy/vllm-qwen3-32b-awq.yaml`
+- **Сервис:** `vllm-qwen3-32b-awq.aither-inference.svc:8000`
+- **Размещение:** GPU-узел n8 (2×RTX 6000, TP=2)
 
 ---
 
@@ -208,7 +220,7 @@ Internet → VPS (:443, :10443) → VPN-туннель → K8s NodePort (:30080)
 ### Организации и scopes
 - Каждый пользователь привязан к организации (`org_id`)
 - Организация имеет тариф (`tier`): free, starter, pro, enterprise
-- Scopes: `model:14b:chat`, `model:32b:chat-adapter`, `rag:query`
+- Scopes: `model:32b:chat`, `model:qwen3:chat`, `rag:query`
 - Проверка scopes — server-side (Portal Backend)
 
 ### Парольная политика

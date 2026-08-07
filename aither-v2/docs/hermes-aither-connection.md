@@ -1,216 +1,141 @@
-# Инструкция: подключение Aither к Hermes Agent
+# Hermes Agent — подключение к Aither
 
-## Краткий вердикт
-
-| Аспект | Статус |
-|---|---|
-| Чат с моделями qwen-14b / qwen-32b-base | ✅ Возможно |
-| Tool calling (function calling) | ❌ Модели не поддерживают |
-| Прямое подключение без адаптера | ❌ Несовместимые эндпоинты |
-| Подключение через локальный прокси | ✅ Практично |
-
-**Главное ограничение:** Hermes Agent требует tool calling для файловых операций, терминала, поиска — а Qwen-модели Aither этого не умеют. Поэтому Aither можно использовать только как **вспомогательный чат-провайдер**, но не как основной движок Hermes.
+**Stages:** Stage 01 → 19+  
+**Status:** CURRENT (обновлено 07.08.2026)  
+**Applicable to:** Все конфигурации Aither после миграции Qwen2.5/Qwen3
 
 ---
 
-## Архитектура Aither
+## Обзор
 
-```
-Пользователь → fb1.spb.ru:10443 (nginx/VPS)
-                 ├── /api/v1/chat     → Portal Backend → vLLM (qwen-14b / qwen-32b-base)
-                 ├── /api/v1/auth/*   → Portal Backend → Identity (JWT-сессии)
-                 ├── /api/v1/api-keys → Portal Backend → AI Platform (API-ключи)
-                 └── /v1/identity/*   → Identity (напрямую)
-```
+Aither предоставляет два способа подключения Hermes Agent:
 
-**Ключевое различие:**
-- **API-ключ** (`aither_82c28ede_...`) — для Gateway/AI Platform, генерируется в ЛК
-- **JWT-токен** — для чата, получается через `/api/v1/auth/login`
-
-API-ключ **нельзя** напрямую использовать как Bearer-токен для чата — эндпоинт `/api/v1/chat` требует JWT.
+1. **Прямой доступ к vLLM** (через port-forward) — для администраторов с доступом к Kubernetes
+2. **Через Aither Portal API** — для внешних пользователей через `athr_` API-ключ
 
 ---
 
-## Способ 1: Локальный прокси-адаптер (рекомендуемый)
+## Текущие модели
 
-Hermes ожидает OpenAI-совместимый эндпоинт `/v1/chat/completions`, а Aither отдаёт чат на `/api/v1/chat`. Прокси решает несовпадение путей и вопрос с SSL.
+| Display | Model ID | Scope | Эндпоинт |
+|---------|----------|-------|----------|
+| Qwen2.5-32B-Instruct-AWQ | `qwen2.5-32b-instruct` | `model:32b:chat` | `/v1/chat/completions` |
+| Qwen3-32B-AWQ | `qwen3-32b` | `model:qwen3:chat` | `/v1/chat/completions` |
 
-### Шаг 1. Создать прокси-скрипт
+Обе модели — **чат/инструкционные**, поддерживают tool calling.
 
-```python
-# ~/aither-proxy.py
-"""
-Aither → Hermes adapter proxy.
-Translates OpenAI-standard /v1/chat/completions → Aither /api/v1/chat.
-"""
-from flask import Flask, request, Response
-import httpx
-import json
+---
 
-app = Flask(__name__)
+## Способ 1: Прямой доступ к vLLM (администратор)
 
-AITHER_URL = "https://fb1.spb.ru:10443"
-AITHER_JWT = "ВАШ_JWT_ТОКЕН"  # ← заменить после получения (Шаг 2)
-
-@app.route("/v1/chat/completions", methods=["POST"])
-def chat_completions():
-    body = request.get_json(force=True)
-    with httpx.Client(base_url=AITHER_URL, verify=False, timeout=120.0) as client:
-        resp = client.post(
-            "/api/v1/chat",
-            json={
-                "model": body.get("model", "qwen-14b"),
-                "messages": body.get("messages", []),
-                "max_tokens": body.get("max_tokens", 512),
-                "temperature": body.get("temperature", 0.7),
-            },
-            headers={
-                "Authorization": f"Bearer {AITHER_JWT}",
-                "Content-Type": "application/json",
-            },
-        )
-    return Response(resp.content, status=resp.status_code, mimetype="application/json")
-
-@app.route("/v1/models", methods=["GET"])
-def list_models():
-    """Return models Aither supports, in OpenAI format."""
-    return {
-        "object": "list",
-        "data": [
-            {"id": "qwen-14b", "object": "model"},
-            {"id": "qwen-32b-base", "object": "model"},
-        ],
-    }
-
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=9999)
-```
-
-### Шаг 2. Получить JWT-токен
-
-Замените `USERNAME` и `PASSWORD` на реальные учётные данные пользователя Aither:
+### Port-forward
 
 ```bash
-curl -sk https://fb1.spb.ru:10443/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"YOUR_USERNAME","password":"YOUR_PASSWORD"}'
+kubectl port-forward svc/vllm-32b-instruct-awq 9999:8000 -n aither-inference &
+kubectl port-forward svc/vllm-qwen3-32b-awq 9998:8000 -n aither-inference &
 ```
 
-Ответ:
-```json
-{"token": "eyJ...JWT_TOKEN...", "user": {...}}
-```
+> ⚠️ Operational example only. Not executed during repository-cleanup task.
 
-Скопируйте `token` и вставьте в `AITHER_JWT` в скрипте прокси.
-
-### Шаг 3. Запустить прокси
-
-```bash
-pip install flask httpx
-python3 ~/aither-proxy.py
-```
-
-Прокси слушает на `http://127.0.0.1:9999`.
-
-### Шаг 4. Проверить
-
-```bash
-curl -s http://127.0.0.1:9999/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model":"qwen-14b","messages":[{"role":"user","content":"Привет! Кто ты?"}],"max_tokens":50}'
-```
-
-### Шаг 5. Настроить Hermes
-
-```bash
-hermes config set model.provider custom:aither
-hermes config set model.model qwen-14b
-hermes config set model.base_url http://127.0.0.1:9999/v1
-hermes config set model.api_key noop
-```
-
-Или в `~/.hermes/config.yaml`:
+### Hermes config
 
 ```yaml
 model:
-  provider: custom:aither
-  model: qwen-14b           # или qwen-32b-base
-  base_url: http://127.0.0.1:9999/v1
-  api_key: "noop"           # прокси сам подставляет JWT
+  max_tokens: 16000
+
+compression:
+  enabled: false
+
+auxiliary:
+  compression_provider: none
+
+custom_providers:
+  - name: aither-32b
+    base_url: http://localhost:9999/v1
+    api_key: "<VLLM_API_KEY>"
+    model: qwen2.5-32b-instruct
+    context_length: 65536
+    max_tokens: 16000
+
+  - name: aither-qwen3-32b
+    base_url: http://localhost:9998/v1
+    api_key: "<VLLM_API_KEY>"
+    model: qwen3-32b
+    context_length: 65536
+    max_tokens: 16000
 ```
 
-### Шаг 6. Использовать
+> `<VLLM_API_KEY>` — placeholder. Никаких реальных ключей.
+
+### Запуск
 
 ```bash
-hermes chat -q "Привет!" --model qwen-14b --provider custom:aither
-```
-
-### Автозапуск прокси (systemd)
-
-```ini
-# ~/.config/systemd/user/aither-proxy.service
-[Unit]
-Description=Aither → Hermes Proxy
-
-[Service]
-ExecStart=/usr/bin/python3 %h/aither-proxy.py
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-```
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now aither-proxy
+hermes chat --provider custom:aither-32b --model qwen2.5-32b-instruct
+hermes chat --provider custom:aither-qwen3-32b --model qwen3-32b
 ```
 
 ---
 
-## Способ 2: Прямое подключение (если Gateway Aither поддерживает OpenAI API)
+## Способ 2: Через Aither Portal API (внешний пользователь)
 
-Если в будущем Aither Gateway добавит прямую поддержку OpenAI-совместимого API с аутентификацией по API-ключу — можно подключиться без прокси:
+### Создание API-ключа
+
+1. Войдите в портал: `https://fb1.spb.ru:10443`
+2. Вкладка «🔑 API-ключи» → «Создать ключ»
+3. Назначение: «AI Agent»
+4. Модели: обе (или выберите нужную)
+5. Сохраните ключ (формат: `athr_...`)
+
+### Hermes config
 
 ```yaml
-# ~/.hermes/config.yaml
 model:
-  provider: custom:aither
-  model: qwen-14b
-  base_url: https://fb1.spb.ru:10443/v1   # если Gateway будет на этом пути
-  api_key: ${AITHER_API_KEY}
+  max_tokens: 16000
+
+compression:
+  enabled: false
+
+custom_providers:
+  - name: aither
+    base_url: https://fb1.spb.ru:10443/v1
+    api_key: "athr_..."   # ваш ключ из портала
+    model: qwen3-32b      # или qwen2.5-32b-instruct
+    max_tokens: 16000
 ```
+
+### Запуск
 
 ```bash
-# ~/.hermes/.env
-AITHER_API_KEY=aither_82c28ede_Cq9SJZnGjCiTNAC5xrjGrsNGYAp1L5GUe0BTVDqjQY7zJIho1yF2bAG8jO-wS9l5
+hermes chat --provider custom:aither --model qwen3-32b
 ```
 
-На текущий момент этот способ **не работает** — Gateway не принимает API-ключ как Bearer-токен для чата.
+Не нужен kubectl и port-forward.
 
 ---
 
-## Доступные модели
+## Настройки Hermes
 
-| model | Тип | max_tokens | Примечание |
-|---|---|---|---|
-| `qwen-14b` | Instruct / чат | ~8192 | Нативный chat completions |
-| `qwen-32b-base` | Completion-only | ~8192 | BFF авто-конвертирует chat → completion |
+| Параметр | Значение | Статус |
+|----------|---------|--------|
+| `model.max_tokens` | `16000` | CURRENT REPORTED CONFIG |
+| `compression.enabled` | `false` | CURRENT REPORTED CONFIG |
+| `auxiliary.compression_provider` | `none` | CURRENT REPORTED CONFIG |
+| `context_length` | `65536` | CURRENT REPORTED CONFIG |
 
----
-
-## SSL-сертификат
-
-Aither использует самоподписанный сертификат на `fb1.spb.ru:10443`. Прокси (Способ 1) автоматически отключает проверку (`verify=False`). При прямом подключении (Способ 2) потребуется `verify: false` в конфигурации провайдера или добавление сертификата в доверенные.
+> Это текущая рекомендованная конфигурация для работы с локальными vLLM-эндпоинтами Qwen2.5/Qwen3. Не является универсальной рекомендацией для всех моделей.
 
 ---
 
-## Важно: tool calling не работает
+## Историческая архитектура
 
-Hermes Agent использует OpenAI function calling для вызова инструментов (terminal, file, browser, web_search). Qwen-модели Aither **не обучены function calling** — они вернут обычный текст, а не structured tool call.
+> **HISTORICAL DOCUMENT** — Architecture before Qwen2.5/Qwen3 migration.
 
-**Последствия:**
-- Hermes **не сможет** выполнять команды, читать/писать файлы, искать в интернете
-- Работает только **простой чат** (вопрос-ответ)
-- Для полноценной работы Hermes должен использовать модель с поддержкой tool calling (DeepSeek, GPT-4, Claude)
+```
+До миграции:
+├── vLLM 14B Instruct (N8) — qwen-14b, chat
+├── vLLM 32B GPTQ (N7) — qwen-32b-base, completion-only
+├── Completion adapter в Portal Backend для 32B
+└── Gateway-nginx для 32B
+```
 
-**Рекомендация:** использовать Aither как дополнительный чат-провайдер (быстрые вопросы), а основным оставить DeepSeek (текущая модель `deepseek-v4-pro`).
+После миграции обе модели — Instruct, обе используют native `/v1/chat/completions`.
