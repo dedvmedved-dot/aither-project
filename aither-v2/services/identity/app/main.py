@@ -340,7 +340,7 @@ def get_or_create_oauth_user(conn, provider: str, provider_user_id: str, email: 
         org_id = org["id"] if org else None
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,model:32b:chat-adapter,rag:query', ?)",
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:32b:chat,model:qwen3:chat,rag:query', ?)",
             (username, "", org_id, email or ""),
         )
         user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -860,7 +860,7 @@ async def bootstrap():
             org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, 'administrator', ?, 'model:14b:chat,model:32b:chat-adapter,model:32b:completion,rag:query,rag:ingest')",
+            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, 'administrator', ?, 'model:32b:chat,model:qwen3:chat,rag:query,rag:ingest')",
             (ADMIN_USER, ADMIN_PASS_HASH, org["id"]),
         )
         conn.commit()
@@ -1021,7 +1021,7 @@ async def register_user(req: RegisterRequest):
         org_id = org["id"] if org else None
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:14b:chat,model:32b:chat-adapter,rag:query', ?)",
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:32b:chat,model:qwen3:chat,rag:query', ?)",
             (req.username.strip(), pw_hash, org_id, req.email.strip()),
         )
         conn.commit()
