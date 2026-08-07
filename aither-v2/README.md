@@ -54,8 +54,8 @@ Aither — это платформа для предоставления дос�
 |---|---|---|
 | **Token-as-a-Service** | OpenAI-совместимый API с API-ключами | Активно |
 | **Web Portal** | SPA с регистрацией, чатом, управлением | Активно |
-| **Chat 14B** | Чат-интерфейс к Qwen 14B Instruct | Активно |
-| **Chat 32B** | Адаптер чата к completion-only Qwen 32B Base | Активно |
+| **Chat Qwen2.5-32B** | Чат-интерфейс к Qwen2.5-32B-Instruct-AWQ | Активно |
+| **Chat Qwen3-32B** | Чат-интерфейс к Qwen3-32B-AWQ | Активно |
 | **Identity** | Пользователи, роли, организации, сессии | Активно |
 | **OAuth** | Вход через Google, GitHub, Yandex | Активно |
 | **API-ключи** | Создание, просмотр, отзыв ключей | Активно |
@@ -73,7 +73,7 @@ Aither — это платформа для предоставления дос�
 
 | Роль | Назначение | Разрешённые функции | Запрещённые функции |
 | ---- | ---------- | ------------------- | ------------------- |
-| **Пользователь** (`user`) | Работа с Portal | Chat (14B, 32B), Wiki, RAG, API-ключи, профиль, Billing/Usage, Feedback | Admin, Monitoring, управление пользователями и тарифами |
+| **Пользователь** (`user`) | Работа с Portal | Chat (Qwen2.5-32B, Qwen3-32B), Wiki, RAG, API-ключи, профиль, Billing/Usage, Feedback | Admin, Monitoring, управление пользователями и тарифами |
 | **Оператор** (`operator`) | Эксплуатационный контроль | Всё что у пользователя + Monitoring | Управление пользователями и тарифами |
 | **Администратор** (`administrator`) | Управление системой | Полный доступ: пользователи, роли, тарифы, scopes, Monitoring, Feedback-лог | — |
 
@@ -84,28 +84,24 @@ Aither — это платформа для предоставления дос�
 ## Логическая архитектура
 
 ```mermaid
-flowchart LR
-    Browser["Браузер<br/>(SPA)"]
-    VPS["VPS nginx<br/>(TLS termination)"]
-    Frontend["Portal Frontend<br/>(nginx, статика)"]
+graph TD
+    Browser["Browser"]
+    PortalFrontend["Portal Frontend<br/>(nginx)"]
     PortalBackend["Portal Backend / BFF<br/>(FastAPI)"]
-    Identity["Identity Service<br/>(FastAPI + SQLite)"]
-    Model14B["Qwen 14B Instruct<br/>(vLLM, GPU)"]
-    Gateway32B["Gateway 32B<br/>(nginx)"]
-    Model32B["Qwen 32B Base<br/>(vLLM, GPU)"]
+    Identity["Identity<br/>(FastAPI)"]
+    Qwen25["Qwen2.5-32B-Instruct-AWQ<br/>(vLLM, N7)"]
+    Qwen3["Qwen3-32B-AWQ<br/>(vLLM, N8)"]
 
-    Browser --> VPS
-    VPS --> Frontend
-    Frontend --> PortalBackend
+    Browser --> PortalFrontend
+    PortalFrontend --> PortalBackend
     PortalBackend --> Identity
-    PortalBackend --> Model14B
-    PortalBackend --> Gateway32B
-    Gateway32B --> Model32B
+    PortalBackend --> Qwen25
+    PortalBackend --> Qwen3
 ```
 
 **Примечания:**
 - Portal Backend (BFF) маршрутизирует запросы к моделям напрямую, минуя Gateway
-- 32B модель доступна только через completion-adapter в Portal Backend
+- Qwen2.5-32B и Qwen3-32B: прямые `/v1/chat/completions` (native Instruct)
 - 14B модель — прямой чат через `/v1/chat/completions`
 
 ---
@@ -230,9 +226,9 @@ Internet → VPS (:443, :10443) → VPN-туннель → K8s NodePort (:30080)
 | 2 | **Подтверждение email** | `handleRegisterConfirm()` → `POST /api/v1/auth/verify-registration` | Portal Backend → SMTP (Yandex) | 6-значный код, TTL 90s |
 | 3 | **Вход (логин/пароль)** | login-form → `POST /api/v1/auth/login` | Portal Backend → Identity | JWT → localStorage |
 | 4 | **OAuth-вход** | `oauthLogin(provider)` → редирект | Identity → Provider → callback | Google, GitHub, Yandex |
-| 5 | **Выбор модели** | chat-model-select | Portal Backend: маршрутизация | 14B: chat; 32B: completion adapter |
-| 6 | **Chat 14B** | `sendChatMessage()` → `POST /api/v1/chat` | Portal Backend → vllm-14b `/v1/chat/completions` | Прямой чат |
-| 7 | **Chat 32B** | `sendChatMessage()` → `POST /api/v1/chat` | Portal Backend → Gateway 32B `/v1/completions` | messages→prompt |
+| 5 | **Выбор модели** | chat-model-select | Portal Backend: маршрутизация | Qwen2.5: chat; Qwen3: chat |
+| 6 | **Chat Qwen2.5** | `sendChatMessage()` → `POST /api/v1/chat` | Portal Backend → vllm-32b-instruct-awq | Прямой чат |
+| 7 | **Chat Qwen3** | `sendChatMessage()` → `POST /api/v1/chat` | Portal Backend → vllm-qwen3-32b-awq | Прямой чат |
 | 8 | **Wiki** | `GET /api/v1/wiki/*` | Portal Backend → файлы `/data/rag-docs/` | Markdown-рендеринг |
 | 9 | **RAG / Doc Search** | `POST /api/v1/rag/query` | Portal Backend → поиск + генерация | Scope: `rag:query` |
 | 10 | **API-ключи** | `GET/POST/DELETE /api/v1/api-keys` | Portal Backend | Полный ключ — однократно |

@@ -39,7 +39,7 @@
 
 | Classification | Count |
 |----------------|-------|
-| GIT CONFIRMED | 16 |
-| REPORTED RUNTIME | 10 |
-| CONTRADICTED BY GIT | 1 |
-| **Total claims** | **31** |
+| GIT CONFIRMED | 0 |
+| REPORTED RUNTIME | 0 |
+| CONTRADICTED BY GIT | 0 |
+| **Total claims** | **0** |

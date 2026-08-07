@@ -29,8 +29,8 @@
 |------|---------|
 | `docs/current-state/CHANGE_HISTORY_2026-08-06_07.md` | 5-commit analysis with Git/Runtime classification |
 | `docs/current-state/CURRENT_STATE_2026-08-07.md` | Full current state document (20 sections) |
-| `docs/current-state/REPOSITORY_STATE_MATRIX.md` | 31-claim state matrix |
-| `docs/current-state/REPOSITORY_KNOWN_DEFECTS.md` | 7 known defects (2 fixed, 5 open) |
+| `docs/current-state/REPOSITORY_STATE_MATRIX.md` | state matrix (see actual count) |
+| `docs/current-state/REPOSITORY_KNOWN_DEFECTS.md` | 9 total (6 open, 3 fixed) |
 | `docs/models/MODEL_CATALOG.md` | Model catalog with specs, context, performance |
 | `reports/R7-R5-REPOSITORY-CLEANUP-01/CHANGE_SUMMARY.md` | This file |
 
