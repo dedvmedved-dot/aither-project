@@ -102,6 +102,31 @@
 
 ---
 
+---
+
+## REPO-DEFECT-FEEDBACK-LIST-AUTH-001
+
+| Field | Value |
+|-------|-------|
+| **ID** | REPO-DEFECT-FEEDBACK-LIST-AUTH-001 |
+| **Component** | `services/identity/app/main.py` |
+| **Description** | `GET /v1/identity/feedback` lacks explicit authentication and administrator authorization in tracked source |
+| **Impact** | Direct Identity access may expose stored feedback metadata/message content outside BFF admin authorization |
+| **Status** | OPEN |
+| **Allowed action** | DOCUMENT ONLY — fix in separate authorized system task |
+
+---
+
+## REPO-DEFECT-ROOT-README-CREDENTIAL-001
+
+| Field | Value |
+|-------|-------|
+| **ID** | REPO-DEFECT-ROOT-README-CREDENTIAL-001 |
+| **Component** | `README.md` (root) |
+| **Description** | Root README contained `sshpass -p <password>` credential example in SSH instructions |
+| **Status** | CURRENT FILE FIXED — example replaced with `ssh <user>@<bastion>` |
+| **Historical exposure** | NOT ASSESSED BY THIS DOCUMENTATION-ONLY TASK |
+
 ## Summary
 
 | ID | Status |
@@ -116,36 +141,4 @@
 | REPO-DEFECT-README-OBSOLETE-001 | FIXED |
 | REPO-DEFECT-HERMES-DOC-001 | FIXED |
 
-**TOTAL:** 9 | OPEN: 6 | FIXED/CURRENT FILE FIXED: 3 |
-| REPO-DEFECT-FEEDBACK-AUTH-001 | UPDATED — split into POST/GET analysis |
-| REPO-DEFECT-FEEDBACK-SIZE-001 | OPEN |
-| REPO-DEFECT-FEEDBACK-LIST-AUTH-001 | OPEN |
-| REPO-DEFECT-TOKENIZER-CONFIG-001 | OPEN |
-| REPO-DEFECT-FEEDBACK-LIST-AUTH-001 | OPEN |
-| REPO-DEFECT-ROOT-README-CREDENTIAL-001 | CURRENT FILE FIXED |
-| REPO-DEFECT-README-OBSOLETE-001 | FIXED |
-| REPO-DEFECT-HERMES-DOC-001 | FIXED |
-
-## REPO-DEFECT-ROOT-README-CREDENTIAL-001
-
-| Field | Value |
-|-------|-------|
-| **ID** | REPO-DEFECT-ROOT-README-CREDENTIAL-001 |
-| **Component** | `README.md` (root) |
-| **Description** | Root README contained `sshpass -p <password>` credential example in SSH instructions |
-| **Status** | CURRENT FILE FIXED — example replaced with `ssh <user>@<bastion>` |
-| **Historical exposure** | NOT ASSESSED BY THIS DOCUMENTATION-ONLY TASK |
-
----
-
-## REPO-DEFECT-FEEDBACK-LIST-AUTH-001
-
-| Field | Value |
-|-------|-------|
-| **ID** | REPO-DEFECT-FEEDBACK-LIST-AUTH-001 |
-| **Component** | `services/identity/app/main.py` |
-| **Description** | `GET /v1/identity/feedback` lacks explicit authentication and administrator authorization in tracked source |
-| **Evidence** | `git grep -A5 "GET.*v1/identity/feedback" services/identity/app/main.py` — no auth/admin check |
-| **Impact** | Direct Identity access may expose stored feedback metadata/message content outside BFF admin authorization |
-| **Status** | OPEN |
-| **Allowed action** | DOCUMENT ONLY — fix in separate authorized system task |
+**TOTAL: 9 | OPEN: 6 | FIXED/CURRENT FILE FIXED: 3**

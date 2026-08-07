@@ -102,7 +102,7 @@ graph TD
 **Примечания:**
 - Portal Backend (BFF) маршрутизирует запросы к моделям напрямую, минуя Gateway
 - Qwen2.5-32B и Qwen3-32B: прямые `/v1/chat/completions` (native Instruct)
-- 14B модель — прямой чат через `/v1/chat/completions`
+- Qwen2.5-32B и Qwen3-32B — прямой чат через `/v1/chat/completions` (native Instruct)
 
 ---
 
@@ -112,8 +112,8 @@ graph TD
 
 | Узел | Роль | GPU | Основные поды |
 | ---- | ---- | --- | ------------- |
-| `bootsmam-k8s-clnt01-n7-gpu` | Inference | 2× GPU | vllm-14b-instruct, vllm-32b-gptq, identity, portal-* |
-| `bootsmam-k8s-srv01-n8-gpu` | Control Plane | 2× GPU | nginx-gateway-32b, ai-platform |
+| `bootsmam-k8s-clnt01-n7-gpu` | Inference | 2× GPU | vllm-32b-instruct-awq, identity, portal-* |
+| `bootsmam-k8s-srv01-n8-gpu` | Control Plane | 2× GPU | vllm-qwen3-32b-awq |
 | VPS (`130.17.1.90`) | Edge | — | Docker nginx (TLS termination, reverse proxy) |
 
 ### Сеть
@@ -137,7 +137,7 @@ Internet → VPS (:443, :10443) → VPN-туннель → K8s NodePort (:30080)
 | **Portal Backend (BFF)** | `services/portal-backend/` | Python/FastAPI | API-шлюз: чат, billing, usage, RAG, прокси к Identity и моделям | `/api/v1/*` | In-memory usage tracker | Активный |
 | **Portal Frontend** | `services/portal-frontend/` | HTML/JS/CSS (nginx) | SPA: регистрация, чат, Wiki, RAG, API-ключи, тарифы, админка | Статика через nginx | localStorage (чаты) | Активный |
 | **AI Platform** | `services/ai-platform/` | Python/FastAPI + SQLite | Устаревший сервис: модели, API-ключи, conversations, assistants | `/api/v1/models`, `/api/v1/api-keys` | SQLite (PVC) | Исторический |
-| **Gateway 32B** | `services/portal-frontend/nginx-gateway-32b-nginx.conf` | nginx | Прокси для completion-only Qwen 32B: блокирует chat, разрешает completions | `/v1/completions` | — | Активный |
+| **Gateway 32B** | `services/portal-frontend/nginx-gateway-32b-nginx.conf` | nginx | LEGACY: Прокси для completion-only Qwen 32B (исторический) | `/v1/completions` | — | LEGACY / HISTORICAL |
 | **RAG / Documentation Search** | Встроен в Portal Backend | Python | Поиск по документации с генерацией ответа моделью | `/api/v1/rag/*` | In-memory индекс | Активный |
 | **OAuth** | Встроен в Identity | Python | Google, GitHub, Yandex OAuth 2.0 | `/v1/identity/auth/oauth/*` | Identity DB | Активный |
 | **Feedback** | Identity + Portal Backend | Python | Сохранение и просмотр отзывов | `/api/v1/feedback` | Identity DB (таблица feedback) | Активный |
