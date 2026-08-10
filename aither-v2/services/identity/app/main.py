@@ -1317,9 +1317,12 @@ import hmac as _hmac_mod
 API_KEY_PREFIX = "aither_"
 API_KEY_HASH_SECRET = os.environ.get("IDENTITY_API_KEY_HASH_SECRET", "")
 if not API_KEY_HASH_SECRET:
-    import sys
-    print("FATAL: IDENTITY_API_KEY_HASH_SECRET is required", file=sys.stderr)
-    sys.exit(1)
+    raise RuntimeError("FATAL: IDENTITY_API_KEY_HASH_SECRET is required")
+
+INTERNAL_API_SECRET = os.environ.get("IDENTITY_INTERNAL_API_SECRET", "")
+if not INTERNAL_API_SECRET or not INTERNAL_API_SECRET.strip():
+    raise RuntimeError("IDENTITY_INTERNAL_API_SECRET is required")
+
 MAX_ACTIVE_KEYS = int(os.environ.get("IDENTITY_MAX_ACTIVE_API_KEYS_PER_USER", "10"))
 VALID_KEY_PURPOSES = {"api", "agent", "other"}
 VALID_KEY_SCOPES = {"model:32b:chat", "model:qwen3:chat"}
@@ -1481,9 +1484,7 @@ async def introspect_api_key(req: ApiKeyIntrospectRequest, request: Request):
     """Internal endpoint: validate API key and return authoritative context.
     Protected by INTERNAL_API_SECRET — only Portal Backend should call this."""
     internal_secret = request.headers.get("X-Internal-Secret", "")
-    expected = os.environ.get("IDENTITY_INTERNAL_API_SECRET", "")
-    if not expected:
-        raise HTTPException(status_code=503, detail="IDENTITY_INTERNAL_API_SECRET not configured")
+    expected = INTERNAL_API_SECRET
     if not _hmac_mod.compare_digest(internal_secret, expected):
         raise HTTPException(status_code=403, detail="Internal access only")
     
