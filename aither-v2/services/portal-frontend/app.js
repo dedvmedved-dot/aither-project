@@ -1088,7 +1088,7 @@
                     $('apikeys-content').innerHTML = '<p class="text-muted">Нет созданных ключей. Нажмите «Создать новый ключ».</p>';
                     return;
                 }
-                let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Создан</th><th>Статус</th><th>Действия</th></tr>';
+                let html = '<table class="data-table"><tr><th>Название</th><th>Префикс</th><th>Назначение</th><th>Модели</th><th>Создан</th><th>Истекает</th><th>Последнее использование</th><th>Статус</th><th>Действия</th></tr>';
                 for (const k of tokens) {
                     const revoked = k.revoked || k.revoked_at;
                     const prefix = (k.key_prefix || k.token_id || k.id || '—');
