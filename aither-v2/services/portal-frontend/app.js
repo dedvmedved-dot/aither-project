@@ -1117,71 +1117,7 @@
         } finally { setLoading(false); }
     };
 
-    window._testToken = async function(id) {
-        setLoading(true);
-        try {
-            const res = await api('/tokens');
-            const tokens = res.data?.tokens || [];
-            const token = tokens.find(t => (t.token_id || t.id) === id);
-            if (!token || !token.token) {
-                alert('Не удалось найти ключ для тестирования.');
-                setLoading(false);
-                return;
-            }
-            const testRes = await fetch('/api/v1/models', {
-                headers: { 'Authorization': 'Bearer ' + token.token, 'Content-Type': 'application/json' }
-            });
-            let resultHtml = '';
-            if (testRes.ok) {
-                const data = await testRes.json();
-                const models = data.data || [];
-                resultHtml = '<div class="alert alert-success">✅ Ключ работает. Модели: ' + models.map(m => m.id).join(', ') + '</div>';
-            } else {
-                resultHtml = '<div class="alert alert-danger">❌ Ошибка HTTP ' + testRes.status + '</div>';
-            }
-            const c = $('apikeys-content');
-            if (c) { c.insertAdjacentHTML('afterbegin', resultHtml); }
-        } catch (e) {
-            alert('Ошибка при тестировании ключа.');
-        } finally { setLoading(false); }
-    };
-
-    function showCreateTokenModal() {
-        modal('\n            <h2>Создать API-ключ</h2>\n            <div class="form-group">\n                <label>Название</label>\n                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Hermes Home">\n            </div>\n            <div class="form-group">\n                <label>Назначение</label>\n                <select id="modal-token-purpose" class="form-input">\n                    <option value="agent">🤖 AI Agent</option>\n                    <option value="api">🔌 API / Разработка</option>\n                    <option value="other">📌 Другое</option>\n                </select>\n            </div>\n            <div class="form-group">\n                <label>Модели</label>\n                <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen25" value="qwen2.5-32b-instruct" checked>\n                        <span>Qwen2.5-32B (32K)</span>\n                    </label>\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen3" value="qwen3-32b" checked>\n                        <span>Qwen3-32B (64K)</span>\n                    </label>\n                </div>\n            </div>\n            <div class="form-group">\n                <label>Срок действия</label>\n                <select id="modal-token-expiry" class="form-input">\n                    <option value="30">30 дней</option>\n                    <option value="90" selected>90 дней</option>\n                    <option value="180">180 дней</option>\n                    <option value="365">365 дней</option>\n                </select>\n            </div>\n            <div id="modal-token-result" style="display:none;">\n                <div class="alert alert-success" style="margin-top:12px;">\n                    ✅ API-ключ создан. <strong>Показан только один раз.</strong>\n                </div>\n                <div class="copy-field">\n                    <input type="text" id="modal-token-full" readonly>\n                    <button class="btn btn-sm btn-primary" onclick="var i=document.getElementById(\'modal-token-full\');i.select();navigator.clipboard?.writeText(i.value);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.textContent=\'Копировать\',2000);">Копировать</button>\n                </div>\n                <p class="text-muted" style="margin-top:4px;">Формат: aither_... (Bearer-токен)</p>\n            </div>\n            <div style="display:flex;gap:8px;margin-top:16px;">\n                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать API-ключ</button>\n                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>\n            </div>\n        ');
-    }
-
-    window._createToken = async function() {
-        const name = document.getElementById('modal-token-name')?.value?.trim() || 'default';
-        const models = document.getElementById('modal-token-models')?.value || 'both';
-
-        let scopes = [];
-        if (models === 'both' || models === 'qwen2.5-32b-instruct') scopes.push('model:32b:chat');
-        if (models === 'both' || models === 'qwen3-32b') scopes.push('model:qwen3:chat');
-
-        document.getElementById('modal-token-create-btn').disabled = true;
-        setLoading(true);
-        try {
-            const res = await api('/tokens', {
-                method: 'POST',
-                body: JSON.stringify({ name, scopes }),
-            });
-            if (res.ok && res.data) {
-                const fullKey = res.data.full_key || res.data.token || res.data.key || '';
-                document.getElementById('modal-token-result').style.display = 'block';
-                document.getElementById('modal-token-full').value = fullKey;
-                document.getElementById('modal-token-create-btn').style.display = 'none';
-                document.getElementById('modal-token-name').disabled = true;
-                if (document.getElementById('modal-token-models')) document.getElementById('modal-token-models').disabled = true;
-                if (document.getElementById('modal-token-purpose')) document.getElementById('modal-token-purpose').disabled = true;
-                await loadApiKeys();
-            } else {
-                alert('Не удалось создать ключ: ' + (res.data?.detail || res.data?.error || JSON.stringify(res.data)));
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    
     // ── Status ─────────────────────────────────────────────────
     async function loadStatusPage() {
         setLoading(true);

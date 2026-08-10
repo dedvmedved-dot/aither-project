@@ -27,6 +27,11 @@ spec:
             - containerPort: 8000
               name: http
           env:
+        - name: IDENTITY_INTERNAL_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: aither-identity-secret
+              key: IDENTITY_INTERNAL_API_SECRET
             - name: PORTAL_IDENTITY_URL
               value: "http://aither-identity:8000"
             - name: PORTAL_AI_PLATFORM_URL
