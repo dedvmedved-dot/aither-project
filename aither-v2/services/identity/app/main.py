@@ -1368,6 +1368,9 @@ async def create_api_key(req: ApiKeyCreateRequest, user: dict = Depends(get_curr
         if invalid:
             raise HTTPException(status_code=400, detail=f"Invalid scopes: {invalid}")
         
+        # Require at least one scope
+        if not key_scopes:
+            raise HTTPException(status_code=400, detail="At least one model scope is required")
         # Owner must have all requested scopes
         if not key_scopes.issubset(user_scopes):
             raise HTTPException(status_code=403, detail="Requested scopes exceed your own scopes")
