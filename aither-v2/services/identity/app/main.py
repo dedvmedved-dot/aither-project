@@ -1315,7 +1315,11 @@ async def service_status():
 import hmac as _hmac_mod
 
 API_KEY_PREFIX = "aither_"
-API_KEY_HASH_SECRET = os.environ.get("IDENTITY_API_KEY_HASH_SECRET", os.environ.get("SECRET_KEY", "dev-secret-change-me"))
+API_KEY_HASH_SECRET = os.environ.get("IDENTITY_API_KEY_HASH_SECRET", "")
+if not API_KEY_HASH_SECRET:
+    import sys
+    print("FATAL: IDENTITY_API_KEY_HASH_SECRET is required", file=sys.stderr)
+    sys.exit(1)
 MAX_ACTIVE_KEYS = int(os.environ.get("IDENTITY_MAX_ACTIVE_API_KEYS_PER_USER", "10"))
 VALID_KEY_PURPOSES = {"api", "agent", "other"}
 VALID_KEY_SCOPES = {"model:32b:chat", "model:qwen3:chat"}
@@ -1455,7 +1459,8 @@ async def revoke_api_key(key_id: int, user: dict = Depends(get_current_user)):
         row = conn.execute("SELECT id, user_id, revoked_at FROM api_keys WHERE id=?", (key_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="API key not found")
-        if row["user_id"] != user.get("user_id") or user.get("uid"):
+        current_user_id = user.get("user_id") or user.get("uid")
+        if row["user_id"] != current_user_id:
             raise HTTPException(status_code=403, detail="Not your API key")
         if row["revoked_at"]:
             return {"message": "Key already revoked", "id": key_id, "status": "already_revoked"}

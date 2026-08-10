@@ -812,7 +812,11 @@ async def proxy_create_model(request: Request):
 
 # ── API Keys (proxied to Identity) ────────────────────────────
 
-IDENTITY_INTERNAL_SECRET = os.environ.get("IDENTITY_INTERNAL_API_SECRET", "aither-internal-introspect-2026")
+IDENTITY_INTERNAL_SECRET = os.environ.get("IDENTITY_INTERNAL_API_SECRET", "")
+if not IDENTITY_INTERNAL_SECRET:
+    import sys
+    print("FATAL: IDENTITY_INTERNAL_API_SECRET is required", file=sys.stderr)
+    sys.exit(1)
 
 
 async def _introspect_api_key(api_key: str) -> dict:
