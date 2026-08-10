@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 import httpx
 import jwt as pyjwt
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -777,8 +777,20 @@ async def portal_status():
 
 @app.get("/api/v1/models")
 async def proxy_models(request: Request):
-    """Proxy to AI Platform: GET /api/v1/models."""
+    """Proxy to AI Platform: GET /api/v1/models, or serve API-key-filtered list."""
     auth = request.headers.get("Authorization", "")
+    # API key auth: return filtered model list
+    if auth.startswith("Bearer aither_"):
+        ctx = await _introspect_api_key(auth[7:].strip())
+        effective = set(ctx.get("effective_scopes", []))
+        models = []
+        for model_id, info in CURRENT_MODELS.items():
+            if info["scope"] in effective:
+                models.append({"id": model_id, "object": "model", "created": 1722900000, "owned_by": "aither"})
+        if not models:
+            raise HTTPException(status_code=403, detail="No models available for this key")
+        return {"object": "list", "data": models}
+    # JWT auth: proxy to AI Platform
     try:
         async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
             r = await ac.get("/api/v1/models", headers={"Authorization": auth})
@@ -798,39 +810,228 @@ async def proxy_create_model(request: Request):
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
 
+# ── API Keys (proxied to Identity) ────────────────────────────
+
+IDENTITY_INTERNAL_SECRET = os.environ.get("IDENTITY_INTERNAL_API_SECRET", "aither-internal-introspect-2026")
+
+
+async def _introspect_api_key(api_key: str) -> dict:
+    """Validate API key via Identity introspection. Returns context or raises 401."""
+    try:
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.post("/v1/identity/internal/api-keys/introspect",
+                json={"api_key": api_key},
+                headers={"X-Internal-Secret": IDENTITY_INTERNAL_SECRET})
+            if r.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid API key")
+            ctx = r.json()
+            if not ctx.get("active"):
+                reason = ctx.get("reason", "unknown")
+                if reason == "revoked":
+                    raise HTTPException(status_code=401, detail="API key revoked")
+                elif reason == "expired":
+                    raise HTTPException(status_code=401, detail="API key expired")
+                elif reason == "user_disabled":
+                    raise HTTPException(status_code=403, detail="Account disabled")
+                elif reason == "organisation_inactive":
+                    raise HTTPException(status_code=403, detail="Organisation inactive")
+                else:
+                    raise HTTPException(status_code=401, detail="Invalid API key")
+            return ctx
+    except HTTPException:
+        raise
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Identity service unreachable")
+
+
 @app.get("/api/v1/api-keys")
 async def proxy_api_keys(request: Request):
-    """Proxy to AI Platform: GET /api/v1/api-keys."""
+    """Proxy to Identity: GET /v1/identity/api-keys."""
     auth = request.headers.get("Authorization", "")
     try:
-        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
-            r = await ac.get("/api/v1/api-keys", headers={"Authorization": auth})
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.get("/v1/identity/api-keys", headers={"Authorization": auth})
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Identity service unreachable")
+
 
 @app.post("/api/v1/api-keys")
 async def proxy_create_api_key(request: Request):
-    """Proxy to AI Platform: POST /api/v1/api-keys."""
+    """Proxy to Identity: POST /v1/identity/api-keys."""
     auth = request.headers.get("Authorization", "")
     body = await request.body()
     try:
-        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
-            r = await ac.post("/api/v1/api-keys", content=body, headers={"Authorization": auth, "Content-Type": "application/json"})
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.post("/v1/identity/api-keys", content=body,
+                headers={"Authorization": auth, "Content-Type": "application/json"})
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Identity service unreachable")
+
 
 @app.delete("/api/v1/api-keys/{key_id}")
 async def proxy_revoke_api_key(key_id: int, request: Request):
-    """Proxy to AI Platform: DELETE /api/v1/api-keys/{id}."""
+    """Proxy to Identity: DELETE /v1/identity/api-keys/{id}."""
     auth = request.headers.get("Authorization", "")
     try:
-        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
-            r = await ac.delete(f"/api/v1/api-keys/{key_id}", headers={"Authorization": auth})
+        async with httpx.AsyncClient(base_url=IDENTITY_URL, timeout=10.0) as ic:
+            r = await ic.delete(f"/v1/identity/api-keys/{key_id}", headers={"Authorization": auth})
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Identity service unreachable")
+
+
+# ── External /v1/* API (OpenAI-compatible, API key auth) ─────
+
+CURRENT_MODELS = {
+    "qwen2.5-32b-instruct": {"scope": "model:32b:chat", "display": "Qwen2.5-32B-Instruct-AWQ"},
+    "qwen3-32b": {"scope": "model:qwen3:chat", "display": "Qwen3-32B-AWQ"},
+}
+
+
+async def _chat_via_api_key(auth_header: str, body_json: dict):
+    """Handle chat request authenticated via API key."""
+    api_key = auth_header[7:].strip()  # Remove "Bearer "
+    ctx = await _introspect_api_key(api_key)
+    
+    model = body_json.get("model", "")
+    _check_api_key_entitlement(ctx, model)
+    
+    messages = body_json.get("messages", [])
+    max_tokens = body_json.get("max_tokens", 2048)
+    temperature = body_json.get("temperature", 0.7)
+    stream = body_json.get("stream", False)
+    
+    model_lower = model.lower().strip()
+    if "qwen3" in model_lower:
+        upstream_url = UPSTREAM_14B_URL
+        upstream_token = UPSTREAM_14B_TOKEN
+    else:
+        upstream_url = UPSTREAM_32B_URL
+        upstream_token = UPSTREAM_32B_TOKEN
+    
+    if not upstream_token:
+        raise HTTPException(status_code=503, detail="Upstream not configured")
+    
+    req_body = {
+        "model": model, "messages": messages,
+        "max_tokens": max_tokens, "temperature": temperature, "stream": stream,
+    }
+    if "qwen3" in model_lower:
+        req_body["chat_template_kwargs"] = {"enable_thinking": False}
+    
+    try:
+        async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
+            r = await ac.post("/v1/chat/completions", json=req_body,
+                headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
+            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Upstream model unreachable")
+
+
+def _check_api_key_entitlement(ctx: dict, model: str):
+    """Verify API key has entitlement to use the model."""
+    model_lower = model.lower().strip()
+    if model_lower not in CURRENT_MODELS:
+        raise HTTPException(status_code=404, detail=f"model_not_found: '{model}'")
+    
+    required_scope = CURRENT_MODELS[model_lower]["scope"]
+    effective = ctx.get("effective_scopes", [])
+    if required_scope not in effective:
+        raise HTTPException(status_code=403, detail=f"insufficient_scope: '{required_scope}' required")
+
+
+async def _get_ctx_from_api_key(request: Request) -> dict:
+    """Extract and validate API key from Authorization header."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="invalid_api_key: Bearer token required")
+    api_key = auth[7:].strip()
+    if not api_key.startswith("aither_"):
+        raise HTTPException(status_code=401, detail="invalid_api_key: not an API key")
+    return await _introspect_api_key(api_key)
+
+
+@app.get("/v1/models")
+async def external_list_models(request: Request):
+    """OpenAI-compatible model list — filtered by API key scopes."""
+    ctx = await _get_ctx_from_api_key(request)
+    effective = set(ctx.get("effective_scopes", []))
+    
+    models = []
+    for model_id, info in CURRENT_MODELS.items():
+        if info["scope"] in effective:
+            models.append({
+                "id": model_id,
+                "object": "model",
+                "created": 1722900000,
+                "owned_by": "aither",
+            })
+    
+    if not models:
+        raise HTTPException(status_code=403, detail="No models available for this key")
+    
+    return {"object": "list", "data": models}
+
+
+@app.post("/v1/chat/completions")
+async def external_chat(request: Request):
+    """OpenAI-compatible chat completions with API key auth."""
+    ctx = await _get_ctx_from_api_key(request)
+    
+    body = await request.json()
+    model = body.get("model", "")
+    _check_api_key_entitlement(ctx, model)
+    
+    messages = body.get("messages", [])
+    max_tokens = body.get("max_tokens", 2048)
+    temperature = body.get("temperature", 0.7)
+    stream = body.get("stream", False)
+    tools = body.get("tools")
+    
+    # Determine upstream
+    model_lower = model.lower().strip()
+    if "qwen3" in model_lower:
+        upstream_url = UPSTREAM_14B_URL
+        upstream_token = UPSTREAM_14B_TOKEN
+    else:
+        upstream_url = UPSTREAM_32B_URL
+        upstream_token = UPSTREAM_32B_TOKEN
+    
+    if not upstream_token:
+        raise HTTPException(status_code=503, detail="Upstream not configured")
+    
+    req_body = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "stream": stream,
+    }
+    if tools:
+        req_body["tools"] = tools
+    
+    if "qwen3" in model_lower:
+        req_body["chat_template_kwargs"] = {"enable_thinking": False}
+    
+    try:
+        if stream:
+            async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
+                r = await ac.post("/v1/chat/completions", json=req_body,
+                    headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
+                return StreamingResponse(
+                    r.aiter_bytes(),
+                    media_type="text/event-stream",
+                    headers={"X-Request-ID": str(uuid.uuid4())}
+                )
+        else:
+            async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
+                r = await ac.post("/v1/chat/completions", json=req_body,
+                    headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
+                return Response(content=r.content, status_code=r.status_code, media_type="application/json")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Upstream model unreachable")
 
 
 # ── API Key aliases (frontend uses /api/v1/tokens) ──────────────
@@ -1564,17 +1765,17 @@ async def monitoring_dependencies(request: Request):
 
 @app.post("/api/v1/chat")
 async def chat_completions(request: Request):
-    """Chat completions — direct upstream with server-side credentials.
-
-    Flow: Browser → Portal Backend → direct upstream (14B) or nginx proxy (32B).
-    NOT routed through Gateway. Server-side credentials from K8s Secrets.
-    No raw API keys stored in process memory. No delegation JWT for chat.
-    """
+    """Chat completions — JWT auth (browser) or API key auth (agents)."""
     body = await request.body()
     try:
         body_json = json.loads(body)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    # Check if API key auth (aither_...)
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer aither_"):
+        return await _chat_via_api_key(auth_header, body_json)
 
     model = body_json.get("model", "qwen-14b")
     messages = body_json.get("messages", [])

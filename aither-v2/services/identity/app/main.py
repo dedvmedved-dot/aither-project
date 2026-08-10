@@ -208,6 +208,29 @@ def init_db():
     """)
     conn.commit()
 
+    # Migration: add API keys table if missing
+    api_table_exists = len(conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys'").fetchall()) > 0
+    if not api_table_exists:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL,
+                name        TEXT NOT NULL DEFAULT '',
+                purpose     TEXT NOT NULL DEFAULT 'api',
+                key_prefix  TEXT NOT NULL,
+                key_hash    TEXT NOT NULL UNIQUE,
+                scopes      TEXT NOT NULL DEFAULT '',
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                expires_at  TEXT,
+                last_used_at TEXT,
+                revoked_at  TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix)")
+        conn.commit()
+
     # Migration: add org_id to users if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
     if "org_id" not in cols:
@@ -944,7 +967,7 @@ async def me(user: dict = Depends(get_current_user)):
            FROM users u
            LEFT JOIN organisations o ON u.org_id=o.id
            WHERE u.id=?""",
-        (user["uid"],),
+        (user.get("user_id") or user.get("uid"),),
     ).fetchone()
     conn.close()
     if row is None:
@@ -1285,3 +1308,238 @@ async def service_status():
         )
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+# ── API Keys ──────────────────────────────────────────────────
+
+import hmac as _hmac_mod
+
+API_KEY_PREFIX = "aither_"
+API_KEY_HASH_SECRET = os.environ.get("IDENTITY_API_KEY_HASH_SECRET", os.environ.get("SECRET_KEY", "dev-secret-change-me"))
+MAX_ACTIVE_KEYS = int(os.environ.get("IDENTITY_MAX_ACTIVE_API_KEYS_PER_USER", "10"))
+VALID_KEY_PURPOSES = {"api", "agent", "other"}
+VALID_KEY_SCOPES = {"model:32b:chat", "model:qwen3:chat"}
+
+
+def _hash_api_key(raw_key: str) -> str:
+    return _hmac_mod.new(API_KEY_HASH_SECRET.encode(), raw_key.encode(), "sha256").hexdigest()
+
+
+def _generate_api_key() -> tuple[str, str, str]:
+    """Returns (full_key, prefix, hash)."""
+    secret = secrets.token_urlsafe(32)
+    full = f"{API_KEY_PREFIX}{secret}"
+    prefix = full[:20]
+    h = _hash_api_key(full)
+    return full, prefix, h
+
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str = ""
+    purpose: str = "api"
+    scopes: list[str] = []
+    expires_in_days: int = 90
+
+
+class ApiKeyIntrospectRequest(BaseModel):
+    api_key: str
+
+
+@app.post("/v1/identity/api-keys", status_code=201)
+async def create_api_key(req: ApiKeyCreateRequest, user: dict = Depends(get_current_user)):
+    """Create API key. Owner scopes must be superset of requested key scopes."""
+    
+    conn = get_db()
+    try:
+        # Check user is active
+        u = conn.execute("SELECT id, disabled, scopes FROM users WHERE id=?", (user.get("user_id") or user.get("uid"),)).fetchone()
+        if not u or u["disabled"]:
+            raise HTTPException(status_code=403, detail="Account disabled")
+        
+        user_scopes = set(s.strip() for s in (u["scopes"] or "").split(",") if s.strip())
+        key_scopes = set(s.strip() for s in req.scopes if s.strip())
+        
+        # Validate scopes
+        invalid = key_scopes - VALID_KEY_SCOPES
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Invalid scopes: {invalid}")
+        
+        # Owner must have all requested scopes
+        if not key_scopes.issubset(user_scopes):
+            raise HTTPException(status_code=403, detail="Requested scopes exceed your own scopes")
+        
+        # Limit active keys
+        active = conn.execute(
+            "SELECT COUNT(*) as cnt FROM api_keys WHERE user_id=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now'))",
+            (user.get("user_id") or user.get("uid"),)
+        ).fetchone()["cnt"]
+        if active >= MAX_ACTIVE_KEYS:
+            raise HTTPException(status_code=429, detail=f"Maximum {MAX_ACTIVE_KEYS} active API keys reached")
+        
+        # Validate purpose
+        if req.purpose not in VALID_KEY_PURPOSES:
+            req.purpose = "api"
+        
+        # Validate expiration
+        expires_in_days = min(max(req.expires_in_days, 1), 365)
+        
+        # Generate key
+        full_key, prefix, key_hash = _generate_api_key()
+        
+        expires_at = f"datetime('now', '+{expires_in_days} days')" if expires_in_days else None
+        
+        conn.execute(
+            "INSERT INTO api_keys (user_id, name, purpose, key_prefix, key_hash, scopes, expires_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?))",
+            (user.get("user_id") or user.get("uid"), req.name.strip() or "Unnamed", req.purpose, prefix, key_hash, ",".join(sorted(key_scopes)), f'+{expires_in_days} days')
+        )
+        conn.commit()
+        kid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        
+        log.info("API key #%d created: user='%s' scopes=%s", kid, user.get("sub"), key_scopes)
+        
+        return {
+            "id": kid,
+            "name": req.name.strip() or "Unnamed",
+            "key": full_key,
+            "key_prefix": prefix,
+            "scopes": sorted(key_scopes),
+            "purpose": req.purpose,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_in_days": expires_in_days,
+            "message": "Save this key — it will not be shown again"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@app.get("/v1/identity/api-keys")
+async def list_api_keys(user: dict = Depends(get_current_user)):
+    """List user's API keys (no raw keys)."""
+    
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, name, purpose, key_prefix, scopes, created_at, expires_at, last_used_at, revoked_at FROM api_keys WHERE user_id=? ORDER BY id DESC",
+            (user.get("user_id") or user.get("uid"),)
+        ).fetchall()
+        
+        keys = []
+        for r in rows:
+            keys.append({
+                "id": r["id"],
+                "name": r["name"],
+                "purpose": r["purpose"],
+                "key_prefix": r["key_prefix"],
+                "scopes": (r["scopes"] or "").split(",") if r["scopes"] else [],
+                "created_at": r["created_at"],
+                "expires_at": r["expires_at"],
+                "last_used_at": r["last_used_at"],
+                "revoked_at": r["revoked_at"],
+                "status": "revoked" if r["revoked_at"] else ("expired" if r["expires_at"] and r["expires_at"] < datetime.now(timezone.utc).isoformat() else "active")
+            })
+        return keys
+    finally:
+        conn.close()
+
+
+@app.delete("/v1/identity/api-keys/{key_id}")
+async def revoke_api_key(key_id: int, user: dict = Depends(get_current_user)):
+    """Revoke API key (owner only)."""
+    
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id, user_id, revoked_at FROM api_keys WHERE id=?", (key_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="API key not found")
+        if row["user_id"] != user.get("user_id") or user.get("uid"):
+            raise HTTPException(status_code=403, detail="Not your API key")
+        if row["revoked_at"]:
+            return {"message": "Key already revoked", "id": key_id, "status": "already_revoked"}
+        
+        conn.execute("UPDATE api_keys SET revoked_at=datetime('now') WHERE id=?", (key_id,))
+        conn.commit()
+        log.info("API key #%d revoked by user='%s'", key_id, user.get("sub"))
+        return {"message": "Key revoked", "id": key_id, "status": "revoked"}
+    finally:
+        conn.close()
+
+
+@app.post("/v1/identity/internal/api-keys/introspect")
+async def introspect_api_key(req: ApiKeyIntrospectRequest, request: Request):
+    """Internal endpoint: validate API key and return authoritative context.
+    Protected by INTERNAL_API_SECRET — only Portal Backend should call this."""
+    internal_secret = request.headers.get("X-Internal-Secret", "")
+    expected = os.environ.get("IDENTITY_INTERNAL_API_SECRET", os.environ.get("SECRET_KEY", ""))
+    if not _hmac_mod.compare_digest(internal_secret, expected):
+        raise HTTPException(status_code=403, detail="Internal access only")
+    
+    raw = req.api_key.strip()
+    if not raw.startswith(API_KEY_PREFIX):
+        return {"active": False, "reason": "invalid_format"}
+    
+    key_hash = _hash_api_key(raw)
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT k.id, k.user_id, k.name, k.scopes as key_scopes, k.expires_at, k.revoked_at, "
+            "u.username, u.role, u.disabled, u.org_id, u.scopes as user_scopes, "
+            "o.status as org_status, o.tier "
+            "FROM api_keys k "
+            "JOIN users u ON k.user_id=u.id "
+            "LEFT JOIN organisations o ON u.org_id=o.id "
+            "WHERE k.key_hash=?",
+            (key_hash,)
+        ).fetchone()
+        
+        if not row:
+            return {"active": False, "reason": "not_found"}
+        
+        # Check revoked
+        if row["revoked_at"]:
+            return {"active": False, "reason": "revoked", "key_id": row["id"]}
+        
+        # Check expiry
+        if row["expires_at"]:
+            try:
+                exp = datetime.fromisoformat(row["expires_at"]).replace(tzinfo=timezone.utc)
+                if exp < datetime.now(timezone.utc):
+                    return {"active": False, "reason": "expired", "key_id": row["id"]}
+            except ValueError:
+                pass
+        
+        # Check user disabled
+        if row["disabled"]:
+            return {"active": False, "reason": "user_disabled", "key_id": row["id"]}
+        
+        # Check org
+        if row["org_status"] != "active":
+            return {"active": False, "reason": "organisation_inactive", "key_id": row["id"]}
+        
+        # Compute effective scopes: key_scopes ∩ user_scopes
+        key_scopes = set(s.strip() for s in (row["key_scopes"] or "").split(",") if s.strip())
+        user_scopes = set(s.strip() for s in (row["user_scopes"] or "").split(",") if s.strip())
+        effective = sorted(key_scopes & user_scopes)
+        
+        # Update last_used_at
+        conn.execute("UPDATE api_keys SET last_used_at=datetime('now') WHERE id=?", (row["id"],))
+        conn.commit()
+        
+        return {
+            "active": True,
+            "key_id": row["id"],
+            "user_id": row["user_id"],
+            "username": row["username"],
+            "role": row["role"],
+            "org_id": row["org_id"],
+            "org_status": row["org_status"],
+            "tier": row["tier"],
+            "user_scopes": sorted(user_scopes),
+            "key_scopes": sorted(key_scopes),
+            "effective_scopes": effective,
+        }
+    finally:
+        conn.close()
