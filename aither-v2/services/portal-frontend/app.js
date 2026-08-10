@@ -1092,7 +1092,10 @@
                 for (const k of tokens) {
                     const revoked = k.revoked || k.revoked_at;
                     const prefix = (k.key_prefix || k.token_id || k.id || '—');
-                    html += '<tr>                        <td>' + escHtml(k.name || 'Без названия') + '</td>                        <td><code>' + escHtml(prefix) + '</code></td>                        <td>' + ((k.created_at || '').substring(0, 16) || '—') + '</td>                        <td class="' + (revoked ? 'badge-revoked' : 'badge-enabled') + '">' + (revoked ? 'Отозван' : 'Активен') + '</td>                        <td>' + (revoked ? '' : '<button class="btn btn-sm btn-danger" onclick="window._revokeToken(\'' + (k.id || k.key_prefix || k.token_id) + '\')">Отозвать</button>') + '</td>                    </tr>';
+                    var sf = (k.scopes || []).map(function(s) { return s === 'model:32b:chat' ? 'Qwen2.5' : s === 'model:qwen3:chat' ? 'Qwen3' : s; }).join(', ');
+                    var sc = revoked ? 'badge-revoked' : (k.status === 'expired' ? 'badge-expired' : 'badge-enabled');
+                    var st = revoked ? 'Отозван' : (k.status === 'expired' ? 'Истёк' : 'Активен');
+                    html += '<tr><td>' + escHtml(k.name || '—') + '</td><td><code>' + escHtml(k.key_prefix || '—') + '</code></td><td>' + escHtml(k.purpose || 'api') + '</td><td>' + escHtml(sf) + '</td><td>' + ((k.created_at || '').substring(0, 10) || '—') + '</td><td>' + ((k.expires_at || '').substring(0, 10) || '—') + '</td><td>' + ((k.last_used_at || '').substring(0, 16) || '—') + '</td><td class="' + sc + '">' + st + '</td><td>' + (revoked ? '' : '<button class="btn btn-sm btn-danger" onclick="window._revokeToken(\'' + (k.id || k.key_prefix || k.token_id) + '\')">Отозвать</button>') + '</td></tr>';
                 }
                 html += '</table>';
                 $('apikeys-content').innerHTML = html;
@@ -1117,7 +1120,37 @@
         } finally { setLoading(false); }
     };
 
-    
+
+    function showCreateTokenModal() {
+        modal('\n            <h2>Создать API-ключ</h2>\n            <div class="form-group">\n                <label>Название</label>\n                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Hermes Home">\n            </div>\n            <div class="form-group">\n                <label>Назначение</label>\n                <select id="modal-token-purpose" class="form-input">\n                    <option value="agent">🤖 AI Agent</option>\n                    <option value="api">🔌 API / Разработка</option>\n                    <option value="other">📌 Другое</option>\n                </select>\n            </div>\n            <div class="form-group">\n                <label>Модели</label>\n                <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen25" value="qwen2.5-32b-instruct" checked>\n                        <span>Qwen2.5-32B (32K)</span>\n                    </label>\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen3" value="qwen3-32b" checked>\n                        <span>Qwen3-32B (64K)</span>\n                    </label>\n                </div>\n            </div>\n            <div class="form-group">\n                <label>Срок действия</label>\n                <select id="modal-token-expiry" class="form-input">\n                    <option value="30">30 дней</option>\n                    <option value="90" selected>90 дней</option>\n                    <option value="180">180 дней</option>\n                    <option value="365">365 дней</option>\n                </select>\n            </div>\n            <div id="modal-token-result" style="display:none;">\n                <div class="alert alert-success" style="margin-top:12px;">\n                    ✅ API-ключ создан. <strong>Показан только один раз.</strong>\n                </div>\n                <div class="copy-field">\n                    <input type="text" id="modal-token-full" readonly>\n                    <button class="btn btn-sm btn-primary" onclick="var i=document.getElementById(\'modal-token-full\');i.select();navigator.clipboard?.writeText(i.value);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.textContent=\'Копировать\',2000);">Копировать</button>\n                </div>\n                <p class="text-muted" style="margin-top:4px;">Формат: aither_... (Bearer-токен)</p>\n            </div>\n            <div style="display:flex;gap:8px;margin-top:16px;">\n                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать API-ключ</button>\n                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>\n            </div>\n        ');
+    }
+
+    window._createToken = async function() {
+            const name = document.getElementById('modal-token-name')?.value?.trim() || 'API Key';
+            const purpose = document.getElementById('modal-token-purpose')?.value || 'agent';
+            const scopes = [];
+            if (document.getElementById('modal-model-qwen25')?.checked) scopes.push('model:32b:chat');
+            if (document.getElementById('modal-model-qwen3')?.checked) scopes.push('model:qwen3:chat');
+            if (scopes.length === 0) { alert('Выберите хотя бы одну модель.'); return; }
+            const expiresInDays = Number(document.getElementById('modal-token-expiry')?.value || 90);
+            document.getElementById('modal-token-create-btn').disabled = true;
+            try {
+                const resp = await api('/api-keys', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, purpose, scopes, expires_in_days: expiresInDays })
+                });
+                if (resp.ok && resp.data && resp.data.key) {
+                    document.getElementById('modal-token-result').style.display = 'block';
+                    document.getElementById('modal-token-full').value = resp.data.key;
+                    loadTokens();
+                } else {
+                    alert('Ошибка: ' + (resp.data?.detail || 'не удалось создать ключ'));
+                }
+            } catch(e) { alert('Ошибка сети'); }
+            document.getElementById('modal-token-create-btn').disabled = false;
+        }
+
+
     // ── Status ─────────────────────────────────────────────────
     async function loadStatusPage() {
         setLoading(true);
