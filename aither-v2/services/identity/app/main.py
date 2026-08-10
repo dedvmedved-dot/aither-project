@@ -1481,7 +1481,9 @@ async def introspect_api_key(req: ApiKeyIntrospectRequest, request: Request):
     """Internal endpoint: validate API key and return authoritative context.
     Protected by INTERNAL_API_SECRET — only Portal Backend should call this."""
     internal_secret = request.headers.get("X-Internal-Secret", "")
-    expected = os.environ.get("IDENTITY_INTERNAL_API_SECRET", os.environ.get("SECRET_KEY", ""))
+    expected = os.environ.get("IDENTITY_INTERNAL_API_SECRET", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="IDENTITY_INTERNAL_API_SECRET not configured")
     if not _hmac_mod.compare_digest(internal_secret, expected):
         raise HTTPException(status_code=403, detail="Internal access only")
     

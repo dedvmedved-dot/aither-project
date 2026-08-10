@@ -1142,7 +1142,7 @@
                 if (resp.ok && resp.data && resp.data.key) {
                     document.getElementById('modal-token-result').style.display = 'block';
                     document.getElementById('modal-token-full').value = resp.data.key;
-                    loadTokens();
+                    await loadApiKeys();
                 } else {
                     alert('Ошибка: ' + (resp.data?.detail || 'не удалось создать ключ'));
                 }
