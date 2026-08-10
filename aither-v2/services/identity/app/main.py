@@ -1317,7 +1317,9 @@ import hmac as _hmac_mod
 API_KEY_PREFIX = "aither_"
 API_KEY_HASH_SECRET = os.environ.get("IDENTITY_API_KEY_HASH_SECRET", "")
 if not API_KEY_HASH_SECRET:
-    raise RuntimeError("FATAL: IDENTITY_API_KEY_HASH_SECRET is required")
+    import sys
+    print("FATAL: IDENTITY_API_KEY_HASH_SECRET is required", file=sys.stderr)
+    sys.exit(1)
 
 INTERNAL_API_SECRET = os.environ.get("IDENTITY_INTERNAL_API_SECRET", "")
 if not INTERNAL_API_SECRET or not INTERNAL_API_SECRET.strip():
