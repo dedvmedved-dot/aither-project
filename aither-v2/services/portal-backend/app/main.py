@@ -728,7 +728,7 @@ async def reset_password(req: ResetPasswordRequest):
         r = await c.post("/v1/identity/reset-password", json={
             "username": pending["username"],
             "new_password": req.new_password,
-        })
+        }, headers={"X-Internal-Secret": IDENTITY_INTERNAL_SECRET})
         if r.status_code == 200:
             log.info("Password reset complete: user='%s'", pending["username"])
             return {"status": "ok", "message": "Пароль успешно изменён. Теперь вы можете войти."}
