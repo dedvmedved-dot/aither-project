@@ -1029,10 +1029,9 @@ async def list_users(admin: dict = Depends(require_admin)):
 @app.post("/v1/identity/register", status_code=201)
 async def register_user(req: RegisterRequest, request: Request):
     """Self-registration. Requires X-Internal-Secret from Portal Backend."""
-    import hmac
     internal_secret = request.headers.get("X-Internal-Secret", "")
-    if not hmac.compare_digest(internal_secret, INTERNAL_API_SECRET):
-        raise HTTPException(status_code=403, detail="Registration requires internal authentication")
+    if not _hmac_mod.compare_digest(internal_secret, INTERNAL_API_SECRET):
+        raise HTTPException(status_code=403, detail="Internal access only")
     if len(req.username.strip()) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
     pw_err = validate_password(req.password)
