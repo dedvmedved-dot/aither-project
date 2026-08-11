@@ -629,7 +629,7 @@ async def verify_registration(req: VerifyRegistrationRequest):
             "username": pending["username"],
             "password": pending["password"],
             "email": pending.get("email", ""),
-        })
+        }, headers={"X-Internal-Secret": IDENTITY_INTERNAL_SECRET})
         if r.status_code == 201 or r.status_code == 200:
             user_data = r.json()
             log.info("Registration complete: user='%s' email='%s'",
