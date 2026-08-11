@@ -1081,7 +1081,7 @@
     async function loadApiKeys() {
         setLoading(true);
         try {
-            const res = await api('/tokens');
+            const res = await api('/api-keys');
             const tokens = res.data?.tokens || (Array.isArray(res.data) ? res.data : []);
             if (res.ok) {
                 if (tokens.length === 0) {
