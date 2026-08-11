@@ -1209,6 +1209,7 @@
                 showPage(savedPage);
                 if (savedPage === 'dashboard') loadDashboardInfo();
                 if (savedPage === 'chat') { updateModelInfo(); restoreChatMessages(); }
+                if (savedPage === 'api-keys') loadApiKeys();
                 return true;
             }
         } catch {}
