@@ -312,7 +312,7 @@ def make_jwt(user_id: int, username: str, role: str, org_id: int | None = None, 
         "exp": int(time.time()) + TOKEN_TTL,
         "jti": token,
     }, separators=(',', ':'))
-    
+    import hmac
     sig = hmac.new(SECRET_KEY.encode(), payload.encode(), "sha256").hexdigest()
     return f"{payload}.{sig}"
 
@@ -322,9 +322,9 @@ def verify_jwt(token_str: str):
         if "." not in token_str:
             return None
         payload_b64, sig = token_str.rsplit(".", 1)
-        
+        import hmac
         expected = hmac.new(SECRET_KEY.encode(), payload_b64.encode(), "sha256").hexdigest()
-        if not _hmac_mod.compare_digest(sig, expected):
+        if not hmac.compare_digest(sig, expected):
             return None
         payload = json.loads(payload_b64)
         if payload.get("exp", 0) < time.time():
@@ -1029,10 +1029,10 @@ async def list_users(admin: dict = Depends(require_admin)):
 @app.post("/v1/identity/register", status_code=201)
 async def register_user(req: RegisterRequest, request: Request):
     """Self-registration. Requires X-Internal-Secret from Portal Backend."""
-    
+    import hmac
     internal_secret = request.headers.get("X-Internal-Secret", "")
-    if not _hmac_mod.compare_digest(internal_secret, INTERNAL_API_SECRET):
-        raise HTTPException(status_code=403, detail="Internal access only")
+    if not hmac.compare_digest(internal_secret, INTERNAL_API_SECRET):
+        raise HTTPException(status_code=403, detail="Registration requires internal authentication")
     if len(req.username.strip()) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
     pw_err = validate_password(req.password)
@@ -1315,7 +1315,7 @@ async def service_status():
 
 # ── API Keys ──────────────────────────────────────────────────
 
-
+import hmac as _hmac_mod
 
 API_KEY_PREFIX = "aither_"
 API_KEY_HASH_SECRET = os.environ.get("IDENTITY_API_KEY_HASH_SECRET", "")
