@@ -1127,9 +1127,11 @@ class ResetPasswordRequest(BaseModel):
 
 
 @app.post("/v1/identity/reset-password")
-async def reset_password(req: ResetPasswordRequest):
-    """Public password reset — updates password for given username.
-    Requires password to meet policy (≥16, upper, lower, digit, special)."""
+async def reset_password(req: ResetPasswordRequest, request: Request):
+    """Password reset. Requires X-Internal-Secret from Portal Backend."""
+    internal_secret = request.headers.get("X-Internal-Secret", "")
+    if not _hmac_mod.compare_digest(internal_secret, INTERNAL_API_SECRET):
+        raise HTTPException(status_code=403, detail="Internal access only")
     pw_err = validate_password(req.new_password)
     if pw_err:
         raise HTTPException(status_code=400, detail=pw_err)
