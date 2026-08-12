@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S2-A-R1",
-  "mode": "SOURCE_GOVERNANCE_LAUNCHER_CORRECTION_ONLY",
+  "task_id": "CODEX-HARNESS-S2-B1",
+  "mode": "SOURCE_GOVERNANCE_EXECUTION_PATH_IMPLEMENTATION_ONLY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "5c6cec14197298957c373281045c06c7875b1855",
+  "baseline_sha": "62bc5880ab9622a1c6b1afd3ae1450a7d5e95bc1",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
@@ -13,6 +13,7 @@
   ],
   "capabilities": {
     "source_write": true,
+    "agent_exec": false,
     "commit": false,
     "push": false,
     "network_git": false,
