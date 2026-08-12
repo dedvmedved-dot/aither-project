@@ -173,7 +173,7 @@ def committed_handoff_paths(repo: Path, baseline: str, head: str,
 
 def build_codex_argv(prompt: str = FIXED_PROMPT) -> list[str]:
     return [os.environ.get('CODEX_BIN', 'codex'), '--ask-for-approval', 'never',
-            '--sandbox', 'workspace-write', 'exec', prompt]
+            'exec', '--sandbox', 'workspace-write', prompt]
 
 
 def parse_porcelain_z(output: str) -> list[str]:

@@ -1,39 +1,22 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V2",
-  "mode": "AUTONOMOUS_CANARY",
+  "task_id": "CODEX-HARNESS-S2-HOST-BOOTSTRAP-R2",
+  "mode": "ARCHITECT_MANAGEMENT_HOST_BOOTSTRAP_CORRECTION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "90c44d21b2cb65d6e448ea2d6199da3b7835f1a7",
+  "baseline_sha": "966014c63f82aaaf639218b6f4f09cec6fd09d42",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
-    ".agent/CANARY_RESULT.md"
+    ".agent/host_task_runner.py",
+    ".agent/tests/test_host_task_runner.py",
+    ".agent/install_host_runner.sh"
   ],
-  "capabilities": {
-    "source_write": true,
-    "agent_exec": true,
-    "network_git": false,
-    "kubernetes": false,
-    "deployment": false,
-    "database_write": false,
-    "runtime_write": false,
-    "secret_access": false,
-    "package_install": false
-  },
-  "host_capabilities": {
-    "sync": true,
-    "commit": true,
-    "push": true
-  },
-  "max_commits": 1,
+  "capabilities": {"source_write": false, "agent_exec": false, "network_git": false, "kubernetes": false, "deployment": false, "database_write": false, "runtime_write": false, "secret_access": false, "package_install": false},
+  "host_capabilities": {"sync": true, "commit": false, "push": false},
+  "max_commits": 0,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "validation_commands": [
-    ["python3", "-c", "from pathlib import Path; expected='# Autonomous Codex Canary\\n\\nTASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V2\\nRESULT: PASS\\nTRANSPORT: GITHUB -> HOST SUPERVISOR -> CODEX\\nOWNER_COPY_PASTE_REQUIRED: NO\\n'; p=Path('.agent/CANARY_RESULT.md'); assert p.is_file(), 'CANARY_RESULT.md missing'; assert p.read_text(encoding='utf-8') == expected, 'CANARY_RESULT.md content mismatch'"],
-    ["python3", "-m", "py_compile", ".agent/host_task_runner.py"],
-    ["python3", ".agent/tests/test_host_task_runner.py"]
-  ],
-  "commit_message": "test: autonomous Codex supervisor canary v2"
+  "validation_commands": []
 }
