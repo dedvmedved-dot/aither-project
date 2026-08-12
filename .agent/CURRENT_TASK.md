@@ -1,58 +1,51 @@
-# TASK: CODEX-HARNESS-S1-R2 — MAKE PUSH AND PR BRANCH AUTHORIZATION CI-SAFE
+# TASK: CODEX-HARNESS-S1-R3 — CI BRANCH-AWARE VALIDATOR WITHOUT GIT MUTATION
 
 ## MODE
 SOURCE GOVERNANCE CORRECTION ONLY
 
-## Why this task exists
-R1 correctly added pull-request base-branch handling, but `Agent Gates` checks out an exact commit SHA on push. GitHub Actions therefore runs in detached HEAD, so `git branch --show-current` is empty and the validator fails on push.
+## Execution model for this task
+Git metadata is read-only inside Codex `workspace-write` sandbox by design. Therefore this task deliberately forbids `git fetch`, `git commit`, and `git push` from inside Codex.
 
-Observed CI failure on R1:
-`ERROR=branch mismatch: expected aither-v2, got `
+The host/operator must update the repository to the current Architect task commit BEFORE launching Codex. Codex then only edits the explicitly allowed implementation file and runs local validation. Commit/push will be performed outside Codex after its STOP report.
 
 ## Baseline
-`1babedfb976e2cff939622026cae6ecbb2b0502b`
+`a87ec01a9ca7cc295a1e2a951c6515809cc0bb44`
 
 Branch: `aither-v2`
-
-Before work:
-- `git fetch origin`
-- fast-forward local `aither-v2` to current remote Architect task commit;
-- worktree must be clean.
 
 ## Architect-managed files
 Do not modify:
 - `.agent/CURRENT_TASK.json`
 - `.agent/CURRENT_TASK.md`
 
-## Only implementation file allowed
+## Only implementation file Codex may modify
 - `.agent/validate_task_scope.py`
 
 No other implementation path may change.
 
-## Required behavior
+## Required correction
 Branch authorization must not depend on attached HEAD inside GitHub Actions.
 
-Implement exactly this precedence:
+Implement this precedence:
 
 1. If `GITHUB_ACTIONS=true` and `GITHUB_EVENT_NAME=pull_request`:
    - authorized branch source = `GITHUB_BASE_REF`;
    - require it equals `task.branch`.
 
-2. Else if `GITHUB_ACTIONS=true` (for push and other supported branch-triggered CI runs):
+2. Else if `GITHUB_ACTIONS=true`:
    - authorized branch source = `GITHUB_REF_NAME`;
    - require it equals `task.branch`.
 
-3. Else (local execution outside GitHub Actions):
+3. Else, local execution outside GitHub Actions:
    - authorized branch source = `git branch --show-current`;
    - require it equals `task.branch`.
 
-If the required GitHub environment variable is empty/missing, fail closed.
+Fail closed if a required GitHub environment variable is empty or missing.
 
-Keep deterministic output. No network/API calls. No writes. No shell=True.
+No network/API calls. No writes outside the allowed implementation file. No shell=True.
+Do not modify `.github/workflows/agent-gates.yml`.
 
-Do NOT change `.github/workflows/agent-gates.yml` in this task. The exact-SHA checkout is acceptable once validator branch authorization is CI-aware.
-
-## Required local validation
+## Required validation
 Run:
 
 ```bash
@@ -64,45 +57,30 @@ GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=aither-v2 pyt
 git diff --check
 ```
 
-Required:
-- normal local validator PASS;
-- simulated push PASS;
-- simulated PR PASS;
-- unauthorized paths 0.
-
-Also prove fail-closed behavior with one negative simulation, for example:
+Also run one negative test:
 
 ```bash
 GITHUB_ACTIONS=true GITHUB_EVENT_NAME=push GITHUB_REF_NAME=main python3 .agent/validate_task_scope.py
 ```
 
-This negative test MUST fail non-zero with branch mismatch. Do not treat that expected failure as task failure.
-
-## Commit and push
-Create exactly one implementation commit.
-Recommended message:
-`fix: make agent gate CI branch-aware`
-
-Push normally to `aither-v2`.
-No amend/rebase/merge/force push.
+The negative test must fail non-zero with branch mismatch. That expected failure is PASS for the negative test.
 
 ## Prohibited
-- kubectl / Kubernetes
+- git fetch / pull / commit / push inside Codex
+- Kubernetes / kubectl
 - Docker
 - deployment
-- DB/runtime changes
-- secrets
+- DB/runtime mutation
+- secret access
 - package installation
 - application code changes
 - autonomous next task
 
 ## Final report
 
-TASK: CODEX-HARNESS-S1-R2
+TASK: CODEX-HARNESS-S1-R3
 MODE: SOURCE GOVERNANCE CORRECTION ONLY
-START HEAD: <full SHA after pulling Architect task commit>
-NEW SHA: <full SHA>
-PARENT SHA: <full SHA>
+START HEAD: <full SHA visible at launch>
 FILES CHANGED BY CODEX: 1
 FILES:
 .agent/validate_task_scope.py
@@ -118,8 +96,9 @@ DEPLOYMENT: NONE
 DB CHANGES: NONE
 RUNTIME CHANGES: NONE
 SECRET ACCESS: NONE
-NEW COMMIT: YES/NO
-PUSH: PASS/FAIL
+GIT FETCH: NOT ATTEMPTED
+NEW COMMIT: NO
+PUSH: NOT ATTEMPTED
 WORKTREE AFTER: clean/dirty
 RESULT: PASS/FAIL/BLOCKED
 STOP

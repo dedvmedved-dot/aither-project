@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S1-R2",
+  "task_id": "CODEX-HARNESS-S1-R3",
   "mode": "SOURCE_GOVERNANCE_CORRECTION_ONLY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "1babedfb976e2cff939622026cae6ecbb2b0502b",
+  "baseline_sha": "a87ec01a9ca7cc295a1e2a951c6515809cc0bb44",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
@@ -12,9 +12,9 @@
   ],
   "capabilities": {
     "source_write": true,
-    "commit": true,
-    "push": true,
-    "network_git": true,
+    "commit": false,
+    "push": false,
+    "network_git": false,
     "kubernetes": false,
     "deployment": false,
     "database_write": false,
@@ -22,8 +22,8 @@
     "secret_access": false,
     "package_install": false
   },
-  "max_commits": 1,
+  "max_commits": 0,
   "require_clean_start": true,
-  "require_clean_finish": true,
+  "require_clean_finish": false,
   "architect_acceptance_required": true
 }
