@@ -1092,7 +1092,7 @@
                 for (const k of tokens) {
                     const revoked = k.revoked || k.revoked_at;
                     const prefix = (k.key_prefix || k.token_id || k.id || '—');
-                    var sf = (k.scopes || []).map(function(s) { return s === 'model:32b:chat' ? 'Qwen2.5' : s === 'model:qwen3:chat' ? 'Qwen3' : s; }).join(', ');
+                    var sf = (k.scopes || []).map(function(s) { return (s === 'model:32b:chat' || s === 'model:qwen2.5:chat') ? 'Qwen2.5' : s === 'model:qwen3:chat' ? 'Qwen3' : s; }).join(', ');
                     var sc = revoked ? 'badge-revoked' : (k.status === 'expired' ? 'badge-expired' : 'badge-enabled');
                     var st = revoked ? 'Отозван' : (k.status === 'expired' ? 'Истёк' : 'Активен');
                     html += '<tr><td>' + escHtml(k.name || '—') + '</td><td><code>' + escHtml(k.key_prefix || '—') + '</code></td><td>' + escHtml(k.purpose || 'api') + '</td><td>' + escHtml(sf) + '</td><td>' + ((k.created_at || '').substring(0, 10) || '—') + '</td><td>' + ((k.expires_at || '').substring(0, 10) || '—') + '</td><td>' + ((k.last_used_at || '').substring(0, 16) || '—') + '</td><td class="' + sc + '">' + st + '</td><td>' + (revoked ? '' : '<button class="btn btn-sm btn-danger" onclick="window._revokeToken(\'' + (k.id || k.key_prefix || k.token_id) + '\')">Отозвать</button>') + '</td></tr>';
@@ -1129,7 +1129,7 @@
             const name = document.getElementById('modal-token-name')?.value?.trim() || 'API Key';
             const purpose = document.getElementById('modal-token-purpose')?.value || 'agent';
             const scopes = [];
-            if (document.getElementById('modal-model-qwen25')?.checked) scopes.push('model:32b:chat');
+            if (document.getElementById('modal-model-qwen25')?.checked) scopes.push('model:qwen2.5:chat');
             if (document.getElementById('modal-model-qwen3')?.checked) scopes.push('model:qwen3:chat');
             if (scopes.length === 0) { alert('Выберите хотя бы одну модель.'); return; }
             const expiresInDays = Number(document.getElementById('modal-token-expiry')?.value || 90);
