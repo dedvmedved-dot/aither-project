@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S1-R3",
+  "task_id": "CODEX-HARNESS-S1-R4",
   "mode": "SOURCE_GOVERNANCE_CORRECTION_ONLY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "a87ec01a9ca7cc295a1e2a951c6515809cc0bb44",
+  "baseline_sha": "cd0d842b6e34e1d8d612b1a43640fffaca0c162a",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
