@@ -1,25 +1,38 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V4",
-  "mode": "AUTONOMOUS_CANARY",
+  "task_id": "SCOPE-Q25-D1-CMAP-PROVENANCE-AUDIT",
+  "mode": "REPOSITORY_PROVENANCE_AUDIT",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "4d5240b280fa4ffe4bf8d8f31c62fed21e2bea50",
+  "baseline_sha": "fc4805b3340af27d7dc25f04580e20ac5840823d",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
-    ".agent/CANARY_RESULT.md"
+    "evidence/scope-q25-d1/configmap-provenance-audit.md"
   ],
-  "capabilities": {"source_write": true, "agent_exec": true, "network_git": false, "kubernetes": false, "deployment": false, "database_write": false, "runtime_write": false, "secret_access": false, "package_install": false},
-  "host_capabilities": {"sync": true, "commit": true, "push": true},
+  "capabilities": {
+    "source_write": true,
+    "agent_exec": true,
+    "network_git": false,
+    "kubernetes": false,
+    "deployment": false,
+    "database_write": false,
+    "runtime_write": false,
+    "secret_access": false,
+    "package_install": false
+  },
+  "host_capabilities": {
+    "sync": true,
+    "commit": true,
+    "push": true
+  },
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
   "validation_commands": [
-    ["python3", "-c", "from pathlib import Path; expected='# Autonomous Codex Canary\\n\\nTASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V4\\nRESULT: PASS\\nTRANSPORT: GITHUB -> HOST SUPERVISOR -> CODEX\\nOWNER_COPY_PASTE_REQUIRED: NO\\n'; p=Path('.agent/CANARY_RESULT.md'); assert p.is_file(), 'CANARY_RESULT.md missing'; assert p.read_text(encoding='utf-8') == expected, 'CANARY_RESULT.md content mismatch'"],
-    ["python3", "-m", "py_compile", ".agent/host_task_runner.py"],
-    ["python3", ".agent/tests/test_host_task_runner.py"]
+    ["python3", "-c", "from pathlib import Path; p=Path('evidence/scope-q25-d1/configmap-provenance-audit.md'); assert p.is_file(), 'audit report missing'; t=p.read_text(encoding='utf-8'); required=['# SCOPE-Q25-D1 ConfigMap Provenance Audit','## Scope','## Evidence','## Provenance Chain','## Findings','## Unresolved','## Result']; missing=[h for h in required if h not in t]; assert not missing, f'missing headings: {missing}'"],
+    ["git", "diff", "--check"]
   ],
-  "commit_message": "test: autonomous Codex supervisor canary v4"
+  "commit_message": "audit: trace SCOPE-Q25-D1 ConfigMap provenance"
 }
