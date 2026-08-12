@@ -1,0 +1,26 @@
+name: Agent Gates
+
+on:
+  push:
+    branches:
+      - aither-v2
+  pull_request:
+    branches:
+      - aither-v2
+
+permissions:
+  contents: read
+
+jobs:
+  agent-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3"
+      - run: python3 -m json.tool .agent/CURRENT_TASK.json >/dev/null
+      - run: python3 .agent/validate_task_scope.py
+      - run: git diff --check

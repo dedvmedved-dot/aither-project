@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "CODEX-HARNESS-S1",
+  "mode": "SOURCE_GOVERNANCE_ONLY",
+  "status": "ACTIVE",
+  "branch": "aither-v2",
+  "baseline_sha": "325781b44dd106137935f48842a76a1f279f35fa",
+  "allowed_paths": [
+    "AGENTS.md",
+    ".agent/GOVERNANCE.md",
+    ".agent/PROJECT_STATE.md",
+    ".agent/CURRENT_TASK.json",
+    ".agent/ACCEPTANCE_RULES.md",
+    ".agent/validate_task_scope.py",
+    ".github/workflows/agent-gates.yml"
+  ],
+  "capabilities": {
+    "source_write": true,
+    "commit": true,
+    "push": true,
+    "network_git": true,
+    "kubernetes": false,
+    "deployment": false,
+    "database_write": false,
+    "runtime_write": false,
+    "secret_access": false,
+    "package_install": false
+  },
+  "max_commits": 1,
+  "require_clean_start": true,
+  "require_clean_finish": true,
+  "architect_acceptance_required": true
+}
