@@ -663,7 +663,7 @@ async def forgot_password(req: ForgotPasswordRequest):
     try:
         c = await get_client()
         # Identity: find user by email (we need to add this or use users list)
-        r = await c.get(f"/v1/identity/users/lookup?email={req.email.strip()}")
+        r = await c.get(f"/v1/identity/users/lookup?email={req.email.strip()}", headers={"X-Internal-Secret": IDENTITY_INTERNAL_SECRET})
         if r.status_code != 200:
             # Don't reveal whether email exists — always return same message
             log.info("Forgot password: email not found '%s'", req.email)
