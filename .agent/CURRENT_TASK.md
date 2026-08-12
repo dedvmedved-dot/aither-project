@@ -1,12 +1,21 @@
-# CODEX-HARNESS-S2-HOST-BOOTSTRAP-R3
+# TASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V4
 
-Architect-owned correction; do not execute with Codex.
+## MODE
+AUTONOMOUS CANARY
 
-Root cause confirmed by diagnostic tag: `fail-codex-path`.
+This task must be transported from GitHub to Codex entirely by the host supervisor. The Owner must not copy/paste this task into Codex.
 
-Correction:
-- first try `command -v codex` without depending on a login-shell profile;
-- if absent from PATH, discover executable Codex under `/home/codex/.nvm/versions/node/*/bin/codex`;
-- preserve the existing safe diagnostic status-tag channel.
+Create exactly `.agent/CANARY_RESULT.md` with exactly:
 
-The next Architect commit republishes the autonomous canary.
+```text
+# Autonomous Codex Canary
+
+TASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V4
+RESULT: PASS
+TRANSPORT: GITHUB -> HOST SUPERVISOR -> CODEX
+OWNER_COPY_PASTE_REQUIRED: NO
+```
+
+A trailing newline is required. Do not modify any other file. Do not write Git metadata, fetch/pull/commit/push, access Kubernetes, deployment, DB/runtime, secrets, packages, or application code.
+
+The host supervisor owns validation, staging, commit and push. Return PASS/FAIL/BLOCKED and STOP. Do not declare PASSED or CONNECTOR VERIFIED.
