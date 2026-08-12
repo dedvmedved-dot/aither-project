@@ -24,7 +24,10 @@ id codex >/dev/null 2>&1 || { echo "ERROR: user codex not found" >&2; exit 1; }
 [[ -d "$REPO/.git" ]] || { echo "ERROR: repository not found at $REPO" >&2; exit 1; }
 
 STAGE=codex-path
-CODEX_BIN="$(runuser -u codex -- env HOME=/home/codex bash -lc 'command -v codex')"
+CODEX_BIN="$(runuser -u codex -- env HOME=/home/codex bash -c 'command -v codex 2>/dev/null || true')"
+if [[ -z "$CODEX_BIN" ]]; then
+  CODEX_BIN="$(runuser -u codex -- find /home/codex/.nvm/versions/node -type f -path '*/bin/codex' -perm -u+x -print 2>/dev/null | sort -V | tail -n 1 || true)"
+fi
 [[ -n "$CODEX_BIN" && -x "$CODEX_BIN" ]] || { echo "ERROR: codex binary not found for user codex" >&2; exit 1; }
 CODEX_DIR="$(dirname "$CODEX_BIN")"
 RUNNER_ENV=(env HOME=/home/codex CODEX_HOME=/home/codex/.codex GIT_TERMINAL_PROMPT=0 CODEX_BIN="$CODEX_BIN" PATH="$CODEX_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")

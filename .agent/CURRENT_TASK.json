@@ -1,25 +1,20 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V3",
-  "mode": "AUTONOMOUS_CANARY",
+  "task_id": "CODEX-HARNESS-S2-HOST-BOOTSTRAP-R3",
+  "mode": "ARCHITECT_MANAGEMENT_HOST_BOOTSTRAP_CORRECTION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "38a914957f05a5e0e018e970dbc87e205ab51774",
+  "baseline_sha": "2af93f403f38311130990eafd20cf86229e3207f",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
-    ".agent/CANARY_RESULT.md"
+    ".agent/install_host_runner.sh"
   ],
-  "capabilities": {"source_write": true, "agent_exec": true, "network_git": false, "kubernetes": false, "deployment": false, "database_write": false, "runtime_write": false, "secret_access": false, "package_install": false},
-  "host_capabilities": {"sync": true, "commit": true, "push": true},
-  "max_commits": 1,
+  "capabilities": {"source_write": false, "agent_exec": false, "network_git": false, "kubernetes": false, "deployment": false, "database_write": false, "runtime_write": false, "secret_access": false, "package_install": false},
+  "host_capabilities": {"sync": true, "commit": false, "push": false},
+  "max_commits": 0,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "validation_commands": [
-    ["python3", "-c", "from pathlib import Path; expected='# Autonomous Codex Canary\\n\\nTASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V3\\nRESULT: PASS\\nTRANSPORT: GITHUB -> HOST SUPERVISOR -> CODEX\\nOWNER_COPY_PASTE_REQUIRED: NO\\n'; p=Path('.agent/CANARY_RESULT.md'); assert p.is_file(), 'CANARY_RESULT.md missing'; assert p.read_text(encoding='utf-8') == expected, 'CANARY_RESULT.md content mismatch'"],
-    ["python3", "-m", "py_compile", ".agent/host_task_runner.py"],
-    ["python3", ".agent/tests/test_host_task_runner.py"]
-  ],
-  "commit_message": "test: autonomous Codex supervisor canary v3"
+  "validation_commands": []
 }
