@@ -74,14 +74,19 @@ def main() -> int:
         if git_root != repo:
             fail("validator is not located at repository root/.agent")
 
-        if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
-            branch = os.environ.get("GITHUB_BASE_REF", "")
-            if branch != task["branch"]:
-                fail(f"pull request base branch mismatch: expected {task['branch']}, got {branch}")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
+                branch = os.environ.get("GITHUB_BASE_REF", "")
+                if not branch:
+                    fail("GITHUB_BASE_REF must be non-empty for pull_request")
+            else:
+                branch = os.environ.get("GITHUB_REF_NAME", "")
+                if not branch:
+                    fail("GITHUB_REF_NAME must be non-empty in GitHub Actions")
         else:
             branch = run_git(repo, "branch", "--show-current")
-            if branch != task["branch"]:
-                fail(f"branch mismatch: expected {task['branch']}, got {branch}")
+        if branch != task["branch"]:
+            fail(f"branch mismatch: expected {task['branch']}, got {branch}")
 
         baseline = run_git(repo, "rev-parse", "--verify", f"{task['baseline_sha']}^{{commit}}")
         head = run_git(repo, "rev-parse", "HEAD")
