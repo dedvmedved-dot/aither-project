@@ -1,15 +1,14 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S1-R1",
+  "task_id": "CODEX-HARNESS-S1-R2",
   "mode": "SOURCE_GOVERNANCE_CORRECTION_ONLY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "40e6c7b346026a3b3305bc9ecb7b1d4618fff330",
+  "baseline_sha": "1babedfb976e2cff939622026cae6ecbb2b0502b",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
-    ".agent/validate_task_scope.py",
-    ".github/workflows/agent-gates.yml"
+    ".agent/validate_task_scope.py"
   ],
   "capabilities": {
     "source_write": true,
