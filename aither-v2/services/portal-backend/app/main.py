@@ -785,7 +785,7 @@ async def proxy_models(request: Request):
         effective = set(ctx.get("effective_scopes", []))
         models = []
         for model_id, info in CURRENT_MODELS.items():
-            if info["scope"] in effective:
+            if info["scope"] in effective or info.get("legacy_scope") in effective:
                 models.append({"id": model_id, "object": "model", "created": 1722900000, "owned_by": "aither"})
         if not models:
             raise HTTPException(status_code=403, detail="No models available for this key")
@@ -889,7 +889,7 @@ async def proxy_revoke_api_key(key_id: int, request: Request):
 # ── External /v1/* API (OpenAI-compatible, API key auth) ─────
 
 CURRENT_MODELS = {
-    "qwen2.5-32b-instruct": {"scope": "model:32b:chat", "display": "Qwen2.5-32B-Instruct-AWQ"},
+    "qwen2.5-32b-instruct": {"scope": "model:qwen2.5:chat", "legacy_scope": "model:32b:chat", "display": "Qwen2.5-32B-Instruct-AWQ"},
     "qwen3-32b": {"scope": "model:qwen3:chat", "display": "Qwen3-32B-AWQ"},
 }
 
@@ -940,9 +940,11 @@ def _check_api_key_entitlement(ctx: dict, model: str):
     if model_lower not in CURRENT_MODELS:
         raise HTTPException(status_code=404, detail=f"model_not_found: '{model}'")
     
-    required_scope = CURRENT_MODELS[model_lower]["scope"]
+    info = CURRENT_MODELS[model_lower]
+    required_scope = info["scope"]
+    legacy_scope = info.get("legacy_scope")
     effective = ctx.get("effective_scopes", [])
-    if required_scope not in effective:
+    if required_scope not in effective and (not legacy_scope or legacy_scope not in effective):
         raise HTTPException(status_code=403, detail=f"insufficient_scope: '{required_scope}' required")
 
 

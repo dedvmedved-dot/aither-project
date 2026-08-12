@@ -363,7 +363,7 @@ def get_or_create_oauth_user(conn, provider: str, provider_user_id: str, email: 
         org_id = org["id"] if org else None
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:32b:chat,model:qwen3:chat,rag:query', ?)",
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:32b:chat,model:qwen2.5:chat,model:qwen3:chat,rag:query', ?)",
             (username, "", org_id, email or ""),
         )
         user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -883,7 +883,7 @@ async def bootstrap():
             org = conn.execute("SELECT id FROM organisations WHERE name='default'").fetchone()
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, 'administrator', ?, 'model:32b:chat,model:qwen3:chat,rag:query,rag:ingest')",
+            "INSERT INTO users (username, password, role, org_id, scopes) VALUES (?, ?, 'administrator', ?, 'model:32b:chat,model:qwen2.5:chat,model:qwen3:chat,rag:query,rag:ingest')",
             (ADMIN_USER, ADMIN_PASS_HASH, org["id"]),
         )
         conn.commit()
@@ -1049,7 +1049,7 @@ async def register_user(req: RegisterRequest, request: Request):
         org_id = org["id"] if org else None
 
         conn.execute(
-            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:32b:chat,model:qwen3:chat,rag:query', ?)",
+            "INSERT INTO users (username, password, role, org_id, scopes, email) VALUES (?, ?, 'user', ?, 'model:32b:chat,model:qwen2.5:chat,model:qwen3:chat,rag:query', ?)",
             (req.username.strip(), pw_hash, org_id, req.email.strip()),
         )
         conn.commit()
@@ -1334,7 +1334,7 @@ if not INTERNAL_API_SECRET or not INTERNAL_API_SECRET.strip():
 
 MAX_ACTIVE_KEYS = int(os.environ.get("IDENTITY_MAX_ACTIVE_API_KEYS_PER_USER", "10"))
 VALID_KEY_PURPOSES = {"api", "agent", "other"}
-VALID_KEY_SCOPES = {"model:32b:chat", "model:qwen3:chat"}
+VALID_KEY_SCOPES = {"model:32b:chat", "model:qwen2.5:chat", "model:qwen3:chat"}
 
 
 def _hash_api_key(raw_key: str) -> str:
