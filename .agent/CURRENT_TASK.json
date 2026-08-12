@@ -1,24 +1,16 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S2-AUTONOMOUS-SOURCE-PUBLISH",
-  "mode": "ARCHITECT_MANAGEMENT_SOURCE_PUBLICATION",
+  "task_id": "CODEX-HARNESS-S2-AUTONOMOUS-CANARY",
+  "mode": "AUTONOMOUS_CANARY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "62bc5880ab9622a1c6b1afd3ae1450a7d5e95bc1",
+  "baseline_sha": "75f2184df96b112d878d5adb7cf3a205064a25fb",
   "allowed_paths": [
-    ".agent/CURRENT_TASK.json",
-    ".agent/CURRENT_TASK.md",
-    ".agent/GOVERNANCE.md",
-    ".agent/host_task_runner.py",
-    ".agent/install_host_runner.sh",
-    ".agent/systemd/aither-codex-runner.service.in",
-    ".agent/systemd/aither-codex-runner.timer",
-    ".agent/tests/test_host_task_runner.py",
-    "AGENTS.md"
+    ".agent/CANARY_RESULT.md"
   ],
   "capabilities": {
-    "source_write": false,
-    "agent_exec": false,
+    "source_write": true,
+    "agent_exec": true,
     "network_git": false,
     "kubernetes": false,
     "deployment": false,
@@ -29,12 +21,16 @@
   },
   "host_capabilities": {
     "sync": true,
-    "commit": false,
-    "push": false
+    "commit": true,
+    "push": true
   },
-  "max_commits": 0,
+  "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "validation_commands": []
+  "validation_commands": [
+    ["python3", "-m", "py_compile", ".agent/host_task_runner.py"],
+    ["python3", ".agent/tests/test_host_task_runner.py"]
+  ],
+  "commit_message": "test: autonomous Codex supervisor canary"
 }
