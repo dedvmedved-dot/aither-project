@@ -1,10 +1,21 @@
-# CODEX-HARNESS-S2-HOST-BOOTSTRAP-R2
+# TASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V3
 
-Architect-owned correction; do not execute with Codex.
+## MODE
+AUTONOMOUS CANARY
 
-Corrections:
-- `--ask-for-approval never` remains a global Codex option before `exec`;
-- `--sandbox workspace-write` is now passed to the `exec` subcommand after `exec`;
-- installer publishes a safe Git tag containing only success/failure stage and UTC timestamp, so Architect can diagnose bootstrap without Owner log copy/paste.
+This task must be transported from GitHub to Codex entirely by the host supervisor. The Owner must not copy/paste this task into Codex.
 
-The next Architect commit publishes autonomous canary V3.
+Create exactly `.agent/CANARY_RESULT.md` with exactly:
+
+```text
+# Autonomous Codex Canary
+
+TASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY-V3
+RESULT: PASS
+TRANSPORT: GITHUB -> HOST SUPERVISOR -> CODEX
+OWNER_COPY_PASTE_REQUIRED: NO
+```
+
+A trailing newline is required. Do not modify any other file. Do not write Git metadata, fetch/pull/commit/push, access Kubernetes, deployment, DB/runtime, secrets, packages, or application code.
+
+The host supervisor owns validation, staging, commit and push. Return PASS/FAIL/BLOCKED and STOP. Do not declare PASSED or CONNECTOR VERIFIED.
