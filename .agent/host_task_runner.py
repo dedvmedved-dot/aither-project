@@ -59,6 +59,14 @@ def resolve_repo_root(start: Path, run: CommandRunner = execute_command) -> Path
     return Path(result.stdout.strip()).resolve()
 
 
+def resolve_default_lock_path(
+    repo: Path, run: CommandRunner = execute_command
+) -> Path:
+    result = run(["git", "rev-parse", "--git-path", "host-task-runner.lock"], repo)
+    path = Path(result.stdout.strip())
+    return (path if path.is_absolute() else repo / path).resolve()
+
+
 def validate_task(task: Any) -> dict[str, Any]:
     if not isinstance(task, dict):
         raise RunnerError("task JSON must contain an object")
@@ -150,7 +158,9 @@ def parse_porcelain_z(output: str) -> list[str]:
 def changed_worktree_paths(
     repo: Path, run: CommandRunner = execute_command
 ) -> list[str]:
-    output = run(["git", "status", "--porcelain=v1", "-z"], repo).stdout
+    output = run(
+        ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"], repo
+    ).stdout
     return parse_porcelain_z(output)
 
 
@@ -225,7 +235,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         repo = resolve_repo_root(args.repo)
-        lock_path = args.lock_path or repo / ".agent" / "host_task_runner.lock"
+        lock_path = args.lock_path or resolve_default_lock_path(repo)
         summary = simulate(repo, lock_path)
     except (RunnerError, subprocess.CalledProcessError) as exc:
         summary = make_summary("", "", [], "BLOCKED", str(exc))
