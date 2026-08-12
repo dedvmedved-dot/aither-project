@@ -1,1 +1,24 @@
-{"schema_version":1,"task_id":"CODEX-HARNESS-S3-LIVE-OBSERVABILITY","mode":"ARCHITECT_MANAGEMENT","status":"ACTIVE","branch":"aither-v2","baseline_sha":"6ab49f1f9e14a36d935c0c1992c0572c222d1b51","allowed_paths":[".agent/CURRENT_TASK.json",".agent/CURRENT_TASK.md",".agent/runner_live.py",".agent/codex_observer.py",".agent/systemd_runner.py",".agent/tests/test_live_observability.py",".agent/install_host_runner.sh",".agent/systemd/aither-codex-runner.service.in",".agent/systemd/aither-codex-runner.timer"],"capabilities":{"source_write":false,"agent_exec":false,"network_git":false,"kubernetes":false,"deployment":false,"database_write":false,"runtime_write":false,"secret_access":false,"package_install":false},"host_capabilities":{"sync":true,"commit":false,"push":false},"max_commits":0,"require_clean_start":true,"require_clean_finish":true,"architect_acceptance_required":true,"validation_commands":[]}
+{
+  "schema_version": 1,
+  "task_id": "SCOPE-Q25-D1-CMAP-PROVENANCE-REMEDIATION-PLAN",
+  "mode": "REPOSITORY_REMEDIATION_PLANNING",
+  "status": "ACTIVE",
+  "branch": "aither-v2",
+  "baseline_sha": "b2cfefa891680b029afa9ff437976f56a24f42bb",
+  "allowed_paths": [
+    ".agent/CURRENT_TASK.json",
+    ".agent/CURRENT_TASK.md",
+    "evidence/scope-q25-d1/configmap-provenance-remediation-plan.md"
+  ],
+  "capabilities": {"source_write": true, "agent_exec": true, "network_git": false, "kubernetes": false, "deployment": false, "database_write": false, "runtime_write": false, "secret_access": false, "package_install": false},
+  "host_capabilities": {"sync": true, "commit": true, "push": true},
+  "max_commits": 1,
+  "require_clean_start": true,
+  "require_clean_finish": true,
+  "architect_acceptance_required": true,
+  "validation_commands": [
+    ["python3", "-c", "from pathlib import Path; p=Path('evidence/scope-q25-d1/configmap-provenance-remediation-plan.md'); assert p.is_file(); t=p.read_text(encoding='utf-8'); required=['# SCOPE-Q25-D1 ConfigMap Provenance Remediation Plan','## Confirmed Gaps','## Required Repository Changes','## Validation Plan','## Runtime Evidence Still Required','## Result']; assert all(x in t for x in required)"],
+    ["git", "diff", "--check"]
+  ],
+  "commit_message": "docs: plan SCOPE-Q25-D1 ConfigMap provenance remediation"
+}
