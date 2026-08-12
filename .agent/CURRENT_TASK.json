@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S1-R4",
-  "mode": "SOURCE_GOVERNANCE_CORRECTION_ONLY",
+  "task_id": "CODEX-HARNESS-S2-A",
+  "mode": "SOURCE_GOVERNANCE_LAUNCHER_IMPLEMENTATION_ONLY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "cd0d842b6e34e1d8d612b1a43640fffaca0c162a",
+  "baseline_sha": "13cdd1301b87d7274bdbbf4c0973f6d8a0c91f4c",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
-    ".agent/validate_task_scope.py"
+    ".agent/host_task_runner.py",
+    ".agent/tests/test_host_task_runner.py"
   ],
   "capabilities": {
     "source_write": true,

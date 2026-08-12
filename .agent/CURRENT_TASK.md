@@ -1,120 +1,126 @@
-# TASK: CODEX-HARNESS-S1-R4 — COMPLETE CI BRANCH-AWARE VALIDATOR
+# TASK: CODEX-HARNESS-S2-A — SAFE HOST TASK RUNNER IMPLEMENTATION
 
 ## MODE
-SOURCE GOVERNANCE CORRECTION ONLY
+SOURCE GOVERNANCE LAUNCHER IMPLEMENTATION ONLY
 
-## Critical baseline semantics
-`baseline_sha` is the immutable comparison base for scope/diff validation. It is NOT required to equal the launch HEAD.
+## Purpose
+Implement the first source-only version of the host-side Codex task runner. This stage proves orchestration logic only. It MUST NOT perform a real Codex run, real fetch/pull, commit, push, deployment, Kubernetes access, secret access, or runtime mutation during this task.
 
-For this task:
-- baseline: `cd0d842b6e34e1d8d612b1a43640fffaca0c162a`
-- launch HEAD will be a later Architect task-handoff commit.
+The accepted source baseline is:
+`13cdd1301b87d7274bdbbf4c0973f6d8a0c91f4c`
 
-Codex MUST NOT stop merely because `HEAD != baseline_sha`.
-Instead verify all of the following:
-1. current branch is `aither-v2`;
-2. worktree is clean at launch;
-3. baseline commit exists;
-4. baseline is an ancestor of launch HEAD (`git merge-base --is-ancestor <baseline> HEAD` succeeds);
-5. committed differences from baseline to launch HEAD are only Architect-managed task paths allowed by `CURRENT_TASK.json`.
+Branch: `aither-v2`
 
-This instruction explicitly resolves the ambiguity in `AGENTS.md` phrase "verify ... baseline SHA". It means verify existence/ancestry/scope, not HEAD equality.
+The launch HEAD is expected to be a descendant of the baseline because Architect publishes this task after the accepted baseline. `HEAD != baseline` is NOT a blocker. Verify with `git merge-base --is-ancestor <baseline> HEAD` and require success. The committed diff `baseline..START_HEAD` may contain only Architect-managed task-control paths. For this task, the final net diff from baseline to START_HEAD must be limited to `.agent/CURRENT_TASK.json` and `.agent/CURRENT_TASK.md`.
 
-## Execution model
-Git metadata is read-only inside Codex `workspace-write` sandbox. Do not run network Git or mutate `.git`.
-The host/operator updates the checkout before launching Codex. Codex edits only the implementation file and runs tests. Commit/push happen outside Codex after STOP.
+## Files Codex may create/modify
+- `.agent/host_task_runner.py`
+- `.agent/tests/test_host_task_runner.py`
 
-## Only implementation file Codex may modify
-- `.agent/validate_task_scope.py`
+Do not modify Architect-managed task files.
 
-Do not modify:
-- `.agent/CURRENT_TASK.json`
-- `.agent/CURRENT_TASK.md`
-- `.github/workflows/agent-gates.yml`
-- any application/runtime file
+## Required runner design
+Use Python 3 standard library only.
 
-## Required correction
-Branch authorization must work when GitHub Actions checks out an exact SHA and therefore has detached HEAD.
+Implement a deterministic host-side runner with a CLI. In this S2-A stage it must support a safe simulation/dry-run mode and expose testable pure/helper functions. It must NOT execute real mutating Git or Codex commands in the tests.
 
-Implement this precedence in `.agent/validate_task_scope.py`:
+Required responsibilities:
 
-1. If `GITHUB_ACTIONS=true` and `GITHUB_EVENT_NAME=pull_request`:
-   - branch source = `GITHUB_BASE_REF`;
-   - require non-empty and equal to `task.branch`.
+1. Resolve repository root and require expected branch from task JSON.
+2. Load and validate `.agent/CURRENT_TASK.json` with required fields and types.
+3. Fail closed if task status is not `ACTIVE`.
+4. Require clean worktree before a future real run.
+5. Verify `baseline_sha` exists and is ancestor of launch HEAD; do not require HEAD == baseline.
+6. Compute committed paths between baseline and launch HEAD and reject paths outside Architect task-control allowlist for the handoff.
+7. Build the exact non-interactive Codex argv without shell interpolation. The approval flag is global and must appear before `exec`:
+   `codex --ask-for-approval never --sandbox workspace-write exec <prompt>`
+   Do not use `shell=True`.
+8. Use the fixed prompt:
+   `Read AGENTS.md, .agent/CURRENT_TASK.json and .agent/CURRENT_TASK.md. Execute the current task exactly as authorized. Do not expand scope. Return the required final report and STOP.`
+9. After a future Codex execution, enumerate changed worktree paths using Git porcelain output and reject every changed path not in task `allowed_paths`.
+10. Separate Architect-managed paths from implementation paths and refuse to stage/commit Architect-managed task files as executor output.
+11. Provide a function that derives implementation paths eligible for staging from changed paths and task data.
+12. Enforce capability flags fail-closed: commit/push/network_git false must prohibit corresponding future runner action.
+13. Generate a deterministic machine-readable summary (dict/JSON-ready) for PASS/FAIL/BLOCKED decisions.
+14. Add an inter-process lock design using standard library only; tests may use a temporary lock path. No daemon/systemd in S2-A.
+15. Never call kubectl, Docker, deployment commands, DB/runtime mutation, package managers, or secret-reading commands.
 
-2. Else if `GITHUB_ACTIONS=true`:
-   - branch source = `GITHUB_REF_NAME`;
-   - require non-empty and equal to `task.branch`.
+## Safety boundary for S2-A
+The runner source MAY contain functions that would later call subprocess for Git/Codex, but S2-A tests must inject/mocking/stub command execution. The task itself must not invoke the runner in a mode that performs real fetch/pull/commit/push or real `codex exec`.
 
-3. Else (local execution outside GitHub Actions):
-   - branch source = `git branch --show-current`;
-   - require equal to `task.branch`.
+## Tests required
+Create `.agent/tests/test_host_task_runner.py` using `unittest` only.
 
-Fail closed if the required GitHub Actions branch variable is missing/empty.
-Keep deterministic output. No network/API calls. No writes from validator. No `shell=True`.
+At minimum prove:
+- valid ACTIVE task loads;
+- non-ACTIVE task fails closed;
+- baseline ancestor accepted and equality not required;
+- unexpected committed handoff path rejected;
+- exact Codex argv has `--ask-for-approval never` before `exec` and `--sandbox workspace-write`;
+- no shell=True in command execution abstraction;
+- changed path inside allowlist accepted;
+- changed path outside allowlist rejected;
+- Architect-managed task paths excluded from executor staging candidates;
+- commit=false blocks commit action;
+- push=false blocks push action;
+- network_git=false blocks fetch/pull action;
+- lock contention fails closed;
+- deterministic summary contains task id, start head, changed paths and result.
 
 ## Required validation
-Run:
+Run only local non-mutating validation:
 
 ```bash
 python3 -m json.tool .agent/CURRENT_TASK.json >/dev/null
-python3 -m py_compile .agent/validate_task_scope.py
+python3 -m py_compile .agent/host_task_runner.py .agent/tests/test_host_task_runner.py
+python3 -m unittest -v .agent.tests.test_host_task_runner
 python3 .agent/validate_task_scope.py
-GITHUB_ACTIONS=true GITHUB_EVENT_NAME=push GITHUB_REF_NAME=aither-v2 python3 .agent/validate_task_scope.py
-GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=aither-v2 python3 .agent/validate_task_scope.py
 git diff --check
 ```
 
-Negative test:
-
-```bash
-GITHUB_ACTIONS=true GITHUB_EVENT_NAME=push GITHUB_REF_NAME=main python3 .agent/validate_task_scope.py
-```
-
-Negative test MUST fail non-zero with branch mismatch; that expected rejection counts as PASS for the negative test.
-
-Before final report verify that the only uncommitted file changed by Codex is:
-`.agent/validate_task_scope.py`
+If Python module discovery for `.agent.tests...` is unsuitable because `.agent` is not a package, run the test file directly with `python3 .agent/tests/test_host_task_runner.py` and report the exact command used. Do not add unrelated `__init__.py` unless required and authorized.
 
 ## Prohibited
-- git fetch / pull / commit / push inside Codex
-- Kubernetes / kubectl
+- real `codex exec` invocation in S2-A
+- git fetch/pull/commit/push from inside Codex
+- staging or committing
+- network calls
+- root/sudo
+- Kubernetes/kubectl
 - Docker
 - deployment
-- DB/runtime mutation
-- secrets
+- DB/runtime changes
+- secret access
 - package installation
 - application code changes
+- systemd/timers/cron
 - autonomous next task
 
 ## Final report
-
-TASK: CODEX-HARNESS-S1-R4
-MODE: SOURCE GOVERNANCE CORRECTION ONLY
-START HEAD: <full SHA visible at launch>
-BASELINE: cd0d842b6e34e1d8d612b1a43640fffaca0c162a
+TASK: CODEX-HARNESS-S2-A
+MODE: SOURCE GOVERNANCE LAUNCHER IMPLEMENTATION ONLY
+START HEAD: <full SHA>
+BASELINE: 13cdd1301b87d7274bdbbf4c0973f6d8a0c91f4c
 BASELINE ANCESTOR CHECK: PASS/FAIL
 COMMITTED PATHS BASELINE..START: <paths>
-FILES CHANGED BY CODEX: 1
-FILES:
-.agent/validate_task_scope.py
-LOCAL VALIDATOR: PASS/FAIL
-SIMULATED PUSH: PASS/FAIL
-SIMULATED PR: PASS/FAIL
-NEGATIVE WRONG-BRANCH TEST: PASS/FAIL
+FILES CHANGED BY CODEX: <count>
+FILES: <paths>
 JSON VALIDATION: PASS/FAIL
 PY_COMPILE: PASS/FAIL
+UNIT TESTS: PASS/FAIL
+SCOPE VALIDATOR: PASS/FAIL
 GIT DIFF CHECK: PASS/FAIL
+REAL CODEX EXEC: NOT ATTEMPTED
+GIT FETCH/PULL: NOT ATTEMPTED
+NEW COMMIT: NO
+PUSH: NOT ATTEMPTED
 KUBERNETES ACCESSED: NO
 DEPLOYMENT: NONE
 DB CHANGES: NONE
 RUNTIME CHANGES: NONE
 SECRET ACCESS: NONE
-GIT FETCH: NOT ATTEMPTED
-NEW COMMIT: NO
-PUSH: NOT ATTEMPTED
-WORKTREE AFTER: dirty (expected: validator only)
+WORKTREE AFTER: clean/dirty
 RESULT: PASS/FAIL/BLOCKED
 STOP
 
-Codex must not declare PASSED or CONNECTOR VERIFIED.
+Do not declare PASSED or CONNECTOR VERIFIED.
