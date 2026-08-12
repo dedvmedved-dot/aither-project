@@ -993,8 +993,11 @@ async def me(user: dict = Depends(get_current_user)):
 
 
 @app.get("/v1/identity/users/lookup")
-async def lookup_user_by_email(email: str = ""):
-    """Look up user by email (public — for password reset)."""
+async def lookup_user_by_email(request: Request, email: str = ""):
+    """Look up user by email. Requires X-Internal-Secret from Portal Backend."""
+    internal_secret = request.headers.get("X-Internal-Secret", "")
+    if not _hmac_mod.compare_digest(internal_secret, INTERNAL_API_SECRET):
+        raise HTTPException(status_code=403, detail="Internal access only")
     if not email:
         raise HTTPException(status_code=400, detail="email parameter required")
     conn = get_db()
