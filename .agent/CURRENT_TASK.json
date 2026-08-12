@@ -6,6 +6,8 @@
   "branch": "aither-v2",
   "baseline_sha": "75f2184df96b112d878d5adb7cf3a205064a25fb",
   "allowed_paths": [
+    ".agent/CURRENT_TASK.json",
+    ".agent/CURRENT_TASK.md",
     ".agent/CANARY_RESULT.md"
   ],
   "capabilities": {
