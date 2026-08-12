@@ -1,20 +1,24 @@
 [Unit]
-Description=Aither governed Codex task runner
+Description=Aither governed Codex task runner with live observability
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-TimeoutStartSec=30min
+TimeoutStartSec=65min
 User=codex
 Group=codex
 WorkingDirectory=/home/codex/aither-project
 Environment=HOME=/home/codex
 Environment=CODEX_HOME=/home/codex/.codex
 Environment=GIT_TERMINAL_PROMPT=0
-Environment=CODEX_BIN=__CODEX_BIN__
-Environment=PATH=__CODEX_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/usr/bin/python3 /home/codex/aither-project/.agent/host_task_runner.py --run-once
+Environment=CODEX_BIN=/home/codex/aither-project/.agent/codex_observer.py
+Environment=AITHER_REAL_CODEX_BIN=__REAL_CODEX_BIN__
+Environment=AITHER_HEARTBEAT_SECONDS=30
+Environment=AITHER_STALL_WARNING_SECONDS=600
+Environment=AITHER_HARD_TIMEOUT_SECONDS=3600
+Environment=PATH=__REAL_CODEX_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/python3 /home/codex/aither-project/.agent/systemd_runner.py
 PrivateTmp=true
 ProtectSystem=full
 ProtectKernelTunables=true
@@ -22,6 +26,3 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 LockPersonality=true
 UMask=0077
-
-[Install]
-WantedBy=multi-user.target
