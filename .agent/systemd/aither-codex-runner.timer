@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll GitHub for governed Aither Codex tasks
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=aither-codex-runner.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

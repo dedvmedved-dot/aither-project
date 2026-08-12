@@ -1,0 +1,27 @@
+[Unit]
+Description=Aither governed Codex task runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=codex
+Group=codex
+WorkingDirectory=/home/codex/aither-project
+Environment=HOME=/home/codex
+Environment=GIT_TERMINAL_PROMPT=0
+Environment=CODEX_BIN=__CODEX_BIN__
+Environment=PATH=__CODEX_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/python3 /home/codex/aither-project/.agent/host_task_runner.py --run-once
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,21 +1,24 @@
 {
   "schema_version": 1,
-  "task_id": "CODEX-HARNESS-S2-B1",
-  "mode": "SOURCE_GOVERNANCE_EXECUTION_PATH_IMPLEMENTATION_ONLY",
+  "task_id": "CODEX-HARNESS-S2-AUTONOMOUS-SOURCE-PUBLISH",
+  "mode": "ARCHITECT_MANAGEMENT_SOURCE_PUBLICATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
   "baseline_sha": "62bc5880ab9622a1c6b1afd3ae1450a7d5e95bc1",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
+    ".agent/GOVERNANCE.md",
     ".agent/host_task_runner.py",
-    ".agent/tests/test_host_task_runner.py"
+    ".agent/install_host_runner.sh",
+    ".agent/systemd/aither-codex-runner.service.in",
+    ".agent/systemd/aither-codex-runner.timer",
+    ".agent/tests/test_host_task_runner.py",
+    "AGENTS.md"
   ],
   "capabilities": {
-    "source_write": true,
+    "source_write": false,
     "agent_exec": false,
-    "commit": false,
-    "push": false,
     "network_git": false,
     "kubernetes": false,
     "deployment": false,
@@ -24,8 +27,14 @@
     "secret_access": false,
     "package_install": false
   },
+  "host_capabilities": {
+    "sync": true,
+    "commit": false,
+    "push": false
+  },
   "max_commits": 0,
   "require_clean_start": true,
-  "require_clean_finish": false,
-  "architect_acceptance_required": true
+  "require_clean_finish": true,
+  "architect_acceptance_required": true,
+  "validation_commands": []
 }
