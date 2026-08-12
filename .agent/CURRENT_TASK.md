@@ -1,41 +1,14 @@
-# TASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY
+# TASK: CODEX-HARNESS-S2-HOST-BOOTSTRAP-R1
 
 ## MODE
-AUTONOMOUS CANARY
+ARCHITECT MANAGEMENT HOST BOOTSTRAP CORRECTION
 
-This is the first task intended to be transported from GitHub to Codex entirely by the host supervisor, with no Owner copy/paste.
+This Architect-owned management commit hardens unattended host execution. It is not an executor task and must not be executed by Codex.
 
-## Authorized implementation
-Create exactly one file:
+Changes:
+- allow up to 30 minutes for a systemd oneshot agent run;
+- set explicit CODEX_HOME for unattended ChatGPT-authenticated Codex execution;
+- remove extra systemd privilege clamps that may interfere with Linux bubblewrap while the process still runs as the unprivileged `codex` user;
+- make the installer prove the autonomous `--run-once` path directly as user `codex` before enabling the timer.
 
-`.agent/CANARY_RESULT.md`
-
-with exactly this content:
-
-```text
-# Autonomous Codex Canary
-
-TASK: CODEX-HARNESS-S2-AUTONOMOUS-CANARY
-RESULT: PASS
-TRANSPORT: GITHUB -> HOST SUPERVISOR -> CODEX
-OWNER_COPY_PASTE_REQUIRED: NO
-```
-
-A trailing newline is required.
-
-Do not modify any other file.
-
-## Executor restrictions
-- no Git metadata writes;
-- no git fetch/pull/commit/push;
-- no Kubernetes;
-- no deployment;
-- no DB/runtime mutation;
-- no secrets;
-- no package installation;
-- no application code changes;
-- no autonomous next task.
-
-The host supervisor, not Codex, owns validation, staging, commit and push after the executor returns.
-
-Return PASS/FAIL/BLOCKED and STOP. Do not declare PASSED or CONNECTOR VERIFIED.
+The next Architect commit publishes canary v2 with exact content validation.
