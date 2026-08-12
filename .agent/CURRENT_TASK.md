@@ -1,95 +1,95 @@
-# TASK: CODEX-HARNESS-S2-A — SAFE HOST TASK RUNNER IMPLEMENTATION
+# TASK: CODEX-HARNESS-S2-A-R1 — FIX HOST RUNNER SELF-LOCK AND UNTRACKED PATH ENUMERATION
 
 ## MODE
-SOURCE GOVERNANCE LAUNCHER IMPLEMENTATION ONLY
+SOURCE GOVERNANCE LAUNCHER CORRECTION ONLY
 
-## Purpose
-Implement the first source-only version of the host-side Codex task runner. This stage proves orchestration logic only. It MUST NOT perform a real Codex run, real fetch/pull, commit, push, deployment, Kubernetes access, secret access, or runtime mutation during this task.
+## Why this correction exists
+Independent Connector audit of S2-A found two defects before real execution was enabled:
 
-The accepted source baseline is:
-`13cdd1301b87d7274bdbbf4c0973f6d8a0c91f4c`
+1. The default lock path is `.agent/host_task_runner.lock`. `simulate()` acquires that lock before `require_clean_worktree()`. Because the lock is inside the worktree and is not ignored, the runner can make its own worktree dirty and block itself.
+2. Worktree enumeration uses `git status --porcelain=v1 -z` without `--untracked-files=all`, so a newly created untracked directory may be reported as one directory path instead of the exact files inside it.
+
+No real Codex execution, network Git, commit, push, deployment, Kubernetes, secret access, or runtime mutation is authorized in this correction.
+
+## Baseline
+`5c6cec14197298957c373281045c06c7875b1855`
 
 Branch: `aither-v2`
 
-The launch HEAD is expected to be a descendant of the baseline because Architect publishes this task after the accepted baseline. `HEAD != baseline` is NOT a blocker. Verify with `git merge-base --is-ancestor <baseline> HEAD` and require success. The committed diff `baseline..START_HEAD` may contain only Architect-managed task-control paths. For this task, the final net diff from baseline to START_HEAD must be limited to `.agent/CURRENT_TASK.json` and `.agent/CURRENT_TASK.md`.
+The launch HEAD may be a descendant of baseline because Architect publishes this task after baseline. `HEAD != baseline` is not a blocker. Require baseline ancestor success. Committed paths `baseline..START_HEAD` may contain only `.agent/CURRENT_TASK.json` and `.agent/CURRENT_TASK.md`.
 
-## Files Codex may create/modify
+## Files Codex may modify
 - `.agent/host_task_runner.py`
 - `.agent/tests/test_host_task_runner.py`
 
 Do not modify Architect-managed task files.
 
-## Required runner design
-Use Python 3 standard library only.
+## Required corrections
 
-Implement a deterministic host-side runner with a CLI. In this S2-A stage it must support a safe simulation/dry-run mode and expose testable pure/helper functions. It must NOT execute real mutating Git or Codex commands in the tests.
+### 1. Lock must not dirty the Git worktree
+Move the default inter-process lock out of normal worktree status. Prefer a deterministic path in Git metadata resolved with Git, e.g. using `git rev-parse --git-path <runner-lock-name>` and resolving it relative to the repository when needed.
 
-Required responsibilities:
+Requirements:
+- lock remains host-side and standard-library only;
+- lock creation must not appear in normal `git status --porcelain` output;
+- explicit `--lock-path` must remain supported for tests;
+- lock contention must still fail closed;
+- do not add the lock to `.gitignore` as a workaround.
 
-1. Resolve repository root and require expected branch from task JSON.
-2. Load and validate `.agent/CURRENT_TASK.json` with required fields and types.
-3. Fail closed if task status is not `ACTIVE`.
-4. Require clean worktree before a future real run.
-5. Verify `baseline_sha` exists and is ancestor of launch HEAD; do not require HEAD == baseline.
-6. Compute committed paths between baseline and launch HEAD and reject paths outside Architect task-control allowlist for the handoff.
-7. Build the exact non-interactive Codex argv without shell interpolation. The approval flag is global and must appear before `exec`:
-   `codex --ask-for-approval never --sandbox workspace-write exec <prompt>`
-   Do not use `shell=True`.
-8. Use the fixed prompt:
-   `Read AGENTS.md, .agent/CURRENT_TASK.json and .agent/CURRENT_TASK.md. Execute the current task exactly as authorized. Do not expand scope. Return the required final report and STOP.`
-9. After a future Codex execution, enumerate changed worktree paths using Git porcelain output and reject every changed path not in task `allowed_paths`.
-10. Separate Architect-managed paths from implementation paths and refuse to stage/commit Architect-managed task files as executor output.
-11. Provide a function that derives implementation paths eligible for staging from changed paths and task data.
-12. Enforce capability flags fail-closed: commit/push/network_git false must prohibit corresponding future runner action.
-13. Generate a deterministic machine-readable summary (dict/JSON-ready) for PASS/FAIL/BLOCKED decisions.
-14. Add an inter-process lock design using standard library only; tests may use a temporary lock path. No daemon/systemd in S2-A.
-15. Never call kubectl, Docker, deployment commands, DB/runtime mutation, package managers, or secret-reading commands.
+### 2. Exact untracked file enumeration
+`changed_worktree_paths()` must request all untracked files explicitly:
 
-## Safety boundary for S2-A
-The runner source MAY contain functions that would later call subprocess for Git/Codex, but S2-A tests must inject/mocking/stub command execution. The task itself must not invoke the runner in a mode that performs real fetch/pull/commit/push or real `codex exec`.
+`git status --porcelain=v1 -z --untracked-files=all`
+
+The returned paths must remain exact file paths and continue to reject any path outside task `allowed_paths`.
+
+### 3. Keep S2-A safety boundary
+- runner remains dry-run/simulation only;
+- do not perform real `codex exec`;
+- do not implement or perform real fetch/pull/commit/push in this correction;
+- keep fixed Codex argv builder unchanged except where a test-only refactor is strictly necessary;
+- no shell interpolation / no `shell=True`.
 
 ## Tests required
-Create `.agent/tests/test_host_task_runner.py` using `unittest` only.
+Retain all existing tests and add tests proving at minimum:
 
-At minimum prove:
-- valid ACTIVE task loads;
-- non-ACTIVE task fails closed;
-- baseline ancestor accepted and equality not required;
-- unexpected committed handoff path rejected;
-- exact Codex argv has `--ask-for-approval never` before `exec` and `--sandbox workspace-write`;
-- no shell=True in command execution abstraction;
-- changed path inside allowlist accepted;
-- changed path outside allowlist rejected;
-- Architect-managed task paths excluded from executor staging candidates;
-- commit=false blocks commit action;
-- push=false blocks push action;
-- network_git=false blocks fetch/pull action;
-- lock contention fails closed;
-- deterministic summary contains task id, start head, changed paths and result.
+1. default lock path is resolved outside normal worktree status / into Git metadata;
+2. simulation clean-worktree check is not poisoned by the runner's own default lock;
+3. changed-worktree enumeration invokes Git with `--untracked-files=all`;
+4. exact untracked file paths are parsed and checked against `allowed_paths`;
+5. existing lock contention fail-closed behavior still passes;
+6. all previous S2-A tests still pass.
+
+Use `unittest` and Python standard library only. No network calls.
 
 ## Required validation
-Run only local non-mutating validation:
 
 ```bash
 python3 -m json.tool .agent/CURRENT_TASK.json >/dev/null
 python3 -m py_compile .agent/host_task_runner.py .agent/tests/test_host_task_runner.py
-python3 -m unittest -v .agent.tests.test_host_task_runner
+python3 .agent/tests/test_host_task_runner.py
 python3 .agent/validate_task_scope.py
 git diff --check
 ```
 
-If Python module discovery for `.agent.tests...` is unsuitable because `.agent` is not a package, run the test file directly with `python3 .agent/tests/test_host_task_runner.py` and report the exact command used. Do not add unrelated `__init__.py` unless required and authorized.
+Also execute the runner's dry-run locally only if it performs no network or mutating Git action:
+
+```bash
+python3 .agent/host_task_runner.py --dry-run
+```
+
+Expected: PASS when repository is otherwise clean. If running it after editing makes the worktree dirty because of the authorized source changes, use a temporary clean Git fixture in the unit tests instead and report the real-tree dry-run as NOT RUN due to expected dirty implementation worktree. Do not bypass the clean-worktree guard.
 
 ## Prohibited
-- real `codex exec` invocation in S2-A
+- real `codex exec`
 - git fetch/pull/commit/push from inside Codex
-- staging or committing
+- staging/commit/push
 - network calls
 - root/sudo
 - Kubernetes/kubectl
 - Docker
 - deployment
-- DB/runtime changes
+- DB/runtime mutation
 - secret access
 - package installation
 - application code changes
@@ -97,19 +97,21 @@ If Python module discovery for `.agent.tests...` is unsuitable because `.agent` 
 - autonomous next task
 
 ## Final report
-TASK: CODEX-HARNESS-S2-A
-MODE: SOURCE GOVERNANCE LAUNCHER IMPLEMENTATION ONLY
+TASK: CODEX-HARNESS-S2-A-R1
+MODE: SOURCE GOVERNANCE LAUNCHER CORRECTION ONLY
 START HEAD: <full SHA>
-BASELINE: 13cdd1301b87d7274bdbbf4c0973f6d8a0c91f4c
+BASELINE: 5c6cec14197298957c373281045c06c7875b1855
 BASELINE ANCESTOR CHECK: PASS/FAIL
 COMMITTED PATHS BASELINE..START: <paths>
 FILES CHANGED BY CODEX: <count>
 FILES: <paths>
 JSON VALIDATION: PASS/FAIL
 PY_COMPILE: PASS/FAIL
-UNIT TESTS: PASS/FAIL
+UNIT TESTS: PASS/FAIL + test count
 SCOPE VALIDATOR: PASS/FAIL
 GIT DIFF CHECK: PASS/FAIL
+DRY-RUN SELF-LOCK TEST: PASS/FAIL/NOT RUN WITH REASON
+UNTRACKED-FILES-ALL TEST: PASS/FAIL
 REAL CODEX EXEC: NOT ATTEMPTED
 GIT FETCH/PULL: NOT ATTEMPTED
 NEW COMMIT: NO
