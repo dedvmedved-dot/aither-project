@@ -1,24 +1,34 @@
 {
   "schema_version": 1,
-  "task_id": "SCOPE-Q25-D1-CMAP-PROVENANCE-REMEDIATION-PLAN",
-  "mode": "REPOSITORY_REMEDIATION_PLANNING",
+  "task_id": "HERMES-INTEGRATION-H0-HOST-DISCOVERY",
+  "mode": "READ_ONLY_HOST_DISCOVERY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "b2cfefa891680b029afa9ff437976f56a24f42bb",
+  "baseline_sha": "65ac513dc6aa1c8a0f3e394d5ac2641e730506bd",
   "allowed_paths": [
     ".agent/CURRENT_TASK.json",
     ".agent/CURRENT_TASK.md",
-    "evidence/scope-q25-d1/configmap-provenance-remediation-plan.md"
+    "evidence/hermes-integration/h0-host-discovery.md"
   ],
-  "capabilities": {"source_write": true, "agent_exec": true, "network_git": false, "kubernetes": false, "deployment": false, "database_write": false, "runtime_write": false, "secret_access": false, "package_install": false},
+  "capabilities": {
+    "source_write": true,
+    "agent_exec": true,
+    "network_git": false,
+    "kubernetes": false,
+    "deployment": false,
+    "database_write": false,
+    "runtime_write": false,
+    "secret_access": false,
+    "package_install": false
+  },
   "host_capabilities": {"sync": true, "commit": true, "push": true},
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
   "validation_commands": [
-    ["python3", "-c", "from pathlib import Path; p=Path('evidence/scope-q25-d1/configmap-provenance-remediation-plan.md'); assert p.is_file(); t=p.read_text(encoding='utf-8'); required=['# SCOPE-Q25-D1 ConfigMap Provenance Remediation Plan','## Confirmed Gaps','## Required Repository Changes','## Validation Plan','## Runtime Evidence Still Required','## Result']; assert all(x in t for x in required)"],
+    ["python3", "-c", "from pathlib import Path; p=Path('evidence/hermes-integration/h0-host-discovery.md'); assert p.is_file(); t=p.read_text(encoding='utf-8'); req=['# Hermes Integration H0 Host Discovery','## Supervisor Host','## Hermes Process Discovery','## Local Hermes Binary','## Gateway/API Observation','## Conclusion','## Result']; miss=[x for x in req if x not in t]; assert not miss, miss"],
     ["git", "diff", "--check"]
   ],
-  "commit_message": "docs: plan SCOPE-Q25-D1 ConfigMap provenance remediation"
+  "commit_message": "audit: discover Hermes execution topology"
 }
