@@ -1,14 +1,18 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H0-HOST-DISCOVERY",
-  "mode": "READ_ONLY_HOST_DISCOVERY",
+  "task_id": "HERMES-INTEGRATION-H1-EXECUTOR-ABSTRACTION",
+  "executor": "codex",
+  "mode": "MANAGEMENT_HARNESS_IMPLEMENTATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "65ac513dc6aa1c8a0f3e394d5ac2641e730506bd",
+  "baseline_sha": "15c99e8b686a39eaa44ebac04830d82138fe0f4c",
   "allowed_paths": [
-    ".agent/CURRENT_TASK.json",
-    ".agent/CURRENT_TASK.md",
-    "evidence/hermes-integration/h0-host-discovery.md"
+    ".agent/host_task_runner.py",
+    ".agent/systemd_runner.py",
+    ".agent/runner_live.py",
+    ".agent/hermes_observer.py",
+    ".agent/tests/test_host_task_runner.py",
+    ".agent/tests/test_live_observability.py"
   ],
   "capabilities": {
     "source_write": true,
@@ -27,8 +31,10 @@
   "require_clean_finish": true,
   "architect_acceptance_required": true,
   "validation_commands": [
-    ["python3", "-c", "from pathlib import Path; p=Path('evidence/hermes-integration/h0-host-discovery.md'); assert p.is_file(); t=p.read_text(encoding='utf-8'); req=['# Hermes Integration H0 Host Discovery','## Supervisor Host','## Hermes Process Discovery','## Local Hermes Binary','## Gateway/API Observation','## Conclusion','## Result']; miss=[x for x in req if x not in t]; assert not miss, miss"],
+    ["python3", "-m", "py_compile", ".agent/host_task_runner.py", ".agent/systemd_runner.py", ".agent/runner_live.py", ".agent/hermes_observer.py"],
+    ["python3", ".agent/tests/test_host_task_runner.py"],
+    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_live_observability.py"],
     ["git", "diff", "--check"]
   ],
-  "commit_message": "audit: discover Hermes execution topology"
+  "commit_message": "feat: add governed Hermes executor support"
 }

@@ -1,41 +1,98 @@
-# TASK: HERMES-INTEGRATION-H0-HOST-DISCOVERY
+# TASK: HERMES-INTEGRATION-H1-EXECUTOR-ABSTRACTION
 
-## Purpose
-Determine whether the already-running Telegram-connected Hermes Agent is on the same host as the Aither supervisor and identify only the non-secret execution topology needed for automation.
+## Goal
+Extend the existing Aither host supervisor so a task can select `executor=codex` or `executor=hermes`, while preserving all existing fail-closed Git/scope/capability behavior.
 
-This is a read-only discovery task. It MUST NOT change Aither, Hermes configuration, systemd, network, Kubernetes, Git configuration, or any runtime resource.
+This task modifies only `.agent` management harness files. It MUST NOT touch Aither application/runtime code, Kubernetes, databases, deployment, Hermes configuration, Telegram configuration, systemd installation, secrets, or packages.
 
-## Required evidence
-Create exactly `evidence/hermes-integration/h0-host-discovery.md` with these headings:
+## Confirmed runtime facts from Owner/Hermes
+Treat these as task input; do not reconfigure them:
+- Hermes and Codex are on the same VPS.
+- Existing Telegram-connected Hermes: version v0.20.0.
+- Telegram is served by existing Hermes Gateway.
+- Hermes CLI supports one-shot non-interactive mode: `hermes -z "prompt"`.
+- No Hermes local API server is currently required for integration.
+- Telegram must continue working and MUST NOT be restarted or reconfigured.
 
-- `# Hermes Integration H0 Host Discovery`
-- `## Supervisor Host`
-- `## Hermes Process Discovery`
-- `## Local Hermes Binary`
-- `## Gateway/API Observation`
-- `## Conclusion`
-- `## Result`
+## Required implementation
 
-Record only:
-1. supervisor hostname and current Linux username;
-2. whether a `hermes` executable is visible in the current user's PATH, and its executable path if visible;
-3. whether one or more running processes appear to be Hermes/Hermes Gateway; for each, record only process owner and a sanitized role such as `gateway`, `hermes`, or `unknown` — DO NOT copy full command lines;
-4. whether local TCP listeners on loopback ports 8642 (Hermes API Server) and 8644 (Hermes Webhook) are detectable using non-invasive local inspection if permitted by the sandbox; if sandbox/network policy prevents this, explicitly say `NOT OBSERVABLE FROM CODEX SANDBOX` rather than treating it as absence;
-5. whether the evidence is sufficient to conclude `SAME_HOST`, `REMOTE_OR_DIFFERENT_USER`, or `INCONCLUSIVE`.
+### 1. Task executor field
+Update task validation in `.agent/host_task_runner.py` so `executor` is required and must be exactly `codex` or `hermes`.
 
-## Allowed commands/examples
-Read-only commands such as `hostname`, `id`, `command -v hermes`, `ps`, `pgrep`, and read-only socket/listener inspection are permitted. Use only commands needed for the fields above.
+The current task contains `executor=codex`, so migration is fail-closed and immediately self-hosting.
+
+### 2. Executor dispatch
+Preserve the existing Codex argv behavior exactly for `executor=codex`.
+
+Add Hermes dispatch for `executor=hermes` using a dedicated builder such as `build_hermes_argv()` and a generic `build_executor_argv(task)` dispatcher.
+
+Hermes invocation contract:
+- invoke a local executable only;
+- no shell interpolation;
+- use argv list;
+- one-shot mode `-z`;
+- fixed governed prompt instructing Hermes to read `AGENTS.md`, `.agent/CURRENT_TASK.json`, `.agent/CURRENT_TASK.md`, execute only the current task, obey capabilities/scope, return final report and STOP;
+- executable must be overridable by environment, e.g. `HERMES_BIN` or `AITHER_REAL_HERMES_BIN`;
+- safe default may resolve `hermes` from PATH.
+
+Do NOT embed secrets, Telegram credentials, root credentials, API tokens, or environment dumps.
+
+### 3. Hermes observer
+Create `.agent/hermes_observer.py` as a small wrapper for Hermes one-shot execution.
+
+Requirements:
+- execute the real Hermes binary as an argv list, never `shell=True`;
+- do not parse or publish Hermes reasoning/output into live status;
+- emit sanitized heartbeat/live state through existing `runner_live.py` while Hermes is alive;
+- live state must include `executor=hermes`, task id, process_alive, heartbeat, phase, and safe result/exit metadata only;
+- stdout/stderr may pass back to the parent process but MUST NOT be copied into `runner-live`;
+- hard timeout configurable by environment with a safe default matching current runner expectations;
+- terminate/kill child on timeout and return non-zero;
+- no Telegram interaction, no second gateway, no service restart.
+
+### 4. Live schema
+Extend `.agent/runner_live.py` safe schema with at least:
+- `executor`
+- `repo_state`
+- `aither_state`
+- `deployed_sha`
+- `progress_current`
+- `progress_total`
+
+All remain optional sanitized scalar fields. Do not publish prompts, command text, stdout/stderr, file contents, secret values, tokens or credentials.
+
+### 5. Systemd runner accuracy
+Update `.agent/systemd_runner.py` so final live status uses the actual `task_id` and `executor` returned by the host runner summary rather than retaining a stale pre-fetch task id.
+
+For the initial poll, it is acceptable to omit task id/executor until the current task is synchronized. Do not intentionally publish a known stale task id.
+
+### 6. Summary
+Extend host-runner result summaries with the selected executor so the caller and live publisher can report it.
+
+### 7. Tests
+Update tests to prove at least:
+- task without `executor` fails validation;
+- invalid executor fails validation;
+- exact existing Codex argv remains correct;
+- Hermes argv is an argv list, contains `-z`, fixed prompt, and no shell use;
+- environment can pin Hermes executable path;
+- dispatcher selects Codex and Hermes correctly;
+- execution summary reports executor;
+- live sanitizer accepts the new safe scalar fields;
+- live sanitizer still rejects/arbitrarily omits unapproved prompt/output/secret-like fields;
+- existing scope, tamper, rollback, idempotence, clean-worktree and push tests still pass.
 
 ## Hard prohibitions
-- DO NOT read `~/.hermes/.env`, `auth.json`, config files, Telegram token files, API keys, SSH keys, environment variables of Hermes processes, `/proc/<pid>/environ`, or any secret store.
-- DO NOT print full Hermes process command lines if they may contain arguments; sanitize to owner + role only.
-- DO NOT contact Telegram, GitHub, Internet, Aither API, Kubernetes, databases, or remote hosts.
-- DO NOT run `kubectl`, `ssh`, `curl` to remote endpoints, package managers, or service control commands.
-- DO NOT modify any file except the single evidence file.
-- DO NOT declare Aither or D1 PASSED.
+- DO NOT modify `.agent/CURRENT_TASK.json` or `.agent/CURRENT_TASK.md`.
+- DO NOT modify application code or manifests.
+- DO NOT run Hermes against Aither in this task.
+- DO NOT invoke Telegram.
+- DO NOT run Kubernetes/deployment/database operations.
+- DO NOT read or expose secrets.
+- DO NOT install packages.
+- DO NOT change systemd units or restart services.
+- DO NOT expand allowed paths.
 
-## Result semantics
-`PASS` means the discovery evidence was collected safely, even if topology conclusion is `INCONCLUSIVE`.
-`BLOCKED` only if the required non-secret evidence file cannot be produced safely.
-
-Return PASS/FAIL/BLOCKED and STOP.
+## Acceptance
+Return `PASS` only if all required validation commands pass and only allowed `.agent` paths changed.
+Do not declare Architect acceptance. STOP after this atomic task.
