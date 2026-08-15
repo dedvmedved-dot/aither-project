@@ -10,20 +10,55 @@ from pathlib import Path
 from runner_live import publish_status, repo_root, utc_now
 
 
-def task_id(repo: Path) -> str:
-    try:
-        data = json.loads((repo / ".agent/CURRENT_TASK.json").read_text(encoding="utf-8"))
-        value = data.get("task_id", "")
-        return value if isinstance(value, str) else ""
-    except (OSError, json.JSONDecodeError):
-        return ""
+def build_final_status(summary: dict, returncode: int) -> dict:
+    """Build the final sanitized live status from a host-runner summary.
+
+    Uses the summary's task_id/executor rather than any stale pre-fetch value.
+    Does not expose raw stdout/stderr.
+    """
+    result = summary.get("result") if isinstance(summary.get("result"), str) else "BLOCKED"
+    message = summary.get("message") if isinstance(summary.get("message"), str) else ""
+    message_code = ""
+    if result == "IDLE":
+        state, phase = "IDLE", "HOST_RUNNER_IDLE"
+    elif returncode == 0 and result == "PASS":
+        state, phase = "PASS", "HOST_RUNNER_COMPLETE"
+    else:
+        state, phase = "BLOCKED", "HOST_RUNNER_FAILED"
+        if "worktree is not clean" in message:
+            message_code = "DIRTY_WORKTREE"
+        elif "baseline" in message:
+            message_code = "BASELINE_CHECK"
+        elif "remote moved" in message:
+            message_code = "REMOTE_RACE"
+        elif "agent capability" in message:
+            message_code = "CAPABILITY_BLOCK"
+        elif "executor" in message:
+            message_code = "EXECUTOR_FAILURE"
+        else:
+            message_code = "RUNNER_ERROR"
+    status = {
+        "state": state,
+        "phase": phase,
+        "process_alive": False,
+        "runner_result": result,
+        "exit_code": returncode,
+        "message_code": message_code,
+    }
+    task_id_value = summary.get("task_id")
+    if isinstance(task_id_value, str) and task_id_value:
+        status["task_id"] = task_id_value
+    executor_value = summary.get("executor")
+    if isinstance(executor_value, str) and executor_value:
+        status["executor"] = executor_value
+    return status
 
 
 def main() -> int:
     repo = repo_root(Path.cwd())
-    current_task = task_id(repo)
+    # Initial pre-sync poll: task identity is intentionally omitted until the
+    # host-runner summary provides the synchronized task_id/executor.
     publish_status(repo, {
-        "task_id": current_task,
         "state": "SUPERVISOR_POLL",
         "phase": "HOST_RUNNER_START",
         "pid": 0,
@@ -44,36 +79,12 @@ def main() -> int:
                 summary = parsed
     except json.JSONDecodeError:
         summary = {}
-    result = summary.get("result") if isinstance(summary.get("result"), str) else "BLOCKED"
-    message = summary.get("message") if isinstance(summary.get("message"), str) else ""
-    message_code = ""
-    if result == "IDLE":
-        state, phase = "IDLE", "HOST_RUNNER_IDLE"
-    elif cp.returncode == 0 and result == "PASS":
-        state, phase = "PASS", "HOST_RUNNER_COMPLETE"
-    else:
-        state, phase = "BLOCKED", "HOST_RUNNER_FAILED"
-        if "worktree is not clean" in message:
-            message_code = "DIRTY_WORKTREE"
-        elif "baseline" in message:
-            message_code = "BASELINE_CHECK"
-        elif "remote moved" in message:
-            message_code = "REMOTE_RACE"
-        elif "agent capability" in message:
-            message_code = "CAPABILITY_BLOCK"
-        else:
-            message_code = "RUNNER_ERROR"
-    publish_status(repo, {
-        "task_id": current_task,
-        "state": state,
-        "phase": phase,
-        "pid": 0,
-        "heartbeat_at": utc_now(),
-        "process_alive": False,
-        "runner_result": result,
-        "exit_code": cp.returncode,
-        "message_code": message_code,
-    }, remote=True, min_remote_interval_seconds=0 if state != "IDLE" else 300)
+    status = build_final_status(summary, cp.returncode)
+    status["task_id"] = status.get("task_id", "")
+    status["heartbeat_at"] = utc_now()
+    status["pid"] = 0
+    publish_status(repo, status, remote=True,
+                   min_remote_interval_seconds=0 if status.get("state") != "IDLE" else 300)
     if cp.stdout:
         sys.stdout.write(cp.stdout)
     if cp.stderr:

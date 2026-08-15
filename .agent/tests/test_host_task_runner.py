@@ -21,7 +21,8 @@ SPEC.loader.exec_module(runner)
 def base_task(**updates):
     value = {
         'schema_version': 1, 'task_id': 'TEST-1', 'mode': 'TEST', 'status': 'ACTIVE',
-        'branch': 'aither-v2', 'baseline_sha': 'a' * 40, 'allowed_paths': ['impl.txt'],
+        'branch': 'aither-v2', 'executor': 'codex', 'baseline_sha': 'a' * 40,
+        'allowed_paths': ['impl.txt'],
         'capabilities': {'source_write': True, 'agent_exec': True, 'network_git': False,
             'kubernetes': False, 'deployment': False, 'database_write': False,
             'runtime_write': False, 'secret_access': False, 'package_install': False},
@@ -43,14 +44,27 @@ class FakeRun:
 
 
 class HostRunnerTests(unittest.TestCase):
-    def setUp(self): self.old_codex_bin = os.environ.get('CODEX_BIN')
+    def setUp(self):
+        self.old_codex_bin = os.environ.get('CODEX_BIN')
+        self.old_hermes_observer_bin = os.environ.get('HERMES_OBSERVER_BIN')
     def tearDown(self):
         if self.old_codex_bin is None: os.environ.pop('CODEX_BIN', None)
         else: os.environ['CODEX_BIN'] = self.old_codex_bin
+        if self.old_hermes_observer_bin is None: os.environ.pop('HERMES_OBSERVER_BIN', None)
+        else: os.environ['HERMES_OBSERVER_BIN'] = self.old_hermes_observer_bin
 
     def test_active_task_validation(self): self.assertEqual(runner.validate_task(base_task())['task_id'], 'TEST-1')
     def test_non_active_fails(self):
         with self.assertRaises(runner.RunnerError): runner.validate_task(base_task(status='DONE'))
+    def test_executor_missing_fails(self):
+        task = base_task(); del task['executor']
+        with self.assertRaises(runner.RunnerError): runner.validate_task(task)
+    def test_executor_invalid_fails(self):
+        with self.assertRaises(runner.RunnerError): runner.validate_task(base_task(executor='gpt'))
+    def test_executor_codex_accepted(self):
+        self.assertEqual(runner.validate_task(base_task(executor='codex'))['executor'], 'codex')
+    def test_executor_hermes_accepted(self):
+        self.assertEqual(runner.validate_task(base_task(executor='hermes'))['executor'], 'hermes')
     def test_agent_exec_required_boolean(self):
         task = base_task(); del task['capabilities']['agent_exec']
         with self.assertRaises(runner.RunnerError): runner.validate_task(task)
@@ -66,6 +80,23 @@ class HostRunnerTests(unittest.TestCase):
         argv = runner.build_codex_argv(); self.assertLess(argv.index('never'), argv.index('exec')); self.assertGreater(argv.index('--sandbox'), argv.index('exec'))
     def test_codex_path_can_be_pinned_by_environment(self):
         os.environ['CODEX_BIN']='/opt/codex/bin/codex'; self.assertEqual(runner.build_codex_argv()[0], '/opt/codex/bin/codex')
+    def test_dispatcher_selects_codex(self):
+        self.assertEqual(runner.build_executor_argv(base_task(executor='codex')), runner.build_codex_argv())
+    def test_dispatcher_selects_hermes(self):
+        self.assertEqual(runner.build_executor_argv(base_task(executor='hermes')), runner.build_hermes_argv())
+    def test_dispatcher_rejects_invalid(self):
+        with self.assertRaises(runner.RunnerError): runner.build_executor_argv(base_task(executor='gpt'))
+    def test_hermes_argv_is_argv_list(self):
+        argv = runner.build_hermes_argv(); self.assertIsInstance(argv, list)
+        self.assertTrue(all(isinstance(a, str) for a in argv))
+    def test_hermes_argv_never_direct_cli(self):
+        argv = runner.build_hermes_argv(); joined = ' '.join(argv)
+        self.assertNotIn('/usr/local/lib/hermes-agent/venv/bin/hermes', joined)
+        self.assertTrue(any('hermes_observer.py' in a for a in argv))
+    def test_hermes_argv_env_override(self):
+        os.environ['HERMES_OBSERVER_BIN']='/opt/observer'; self.assertEqual(runner.build_hermes_argv(), ['/opt/observer'])
+    def test_summary_includes_executor(self):
+        self.assertEqual(runner.make_summary('T','H',[],[],'PASS',executor='hermes')['executor'], 'hermes')
     def test_no_shell_true(self): self.assertNotIn('shell=True', inspect.getsource(runner.execute_command))
     def test_untracked_files_all(self):
         command=('git','status','--porcelain=v1','-z','--untracked-files=all'); fake=FakeRun({command:'?? dir/a.py\0?? dir/b.py\0'})
@@ -80,6 +111,10 @@ class HostRunnerTests(unittest.TestCase):
     def test_agent_exec_false_blocks(self):
         caps={**base_task()['capabilities'],'agent_exec':False}
         with self.assertRaises(runner.RunnerError): runner.require_agent_capability(base_task(capabilities=caps),'agent_exec')
+    def test_agent_exec_false_blocks_execution(self):
+        caps={**base_task()['capabilities'],'agent_exec':False}; task=base_task(capabilities=caps); fake=FakeRun()
+        with self.assertRaises(runner.RunnerError): runner.execute_task(Path('/repo'),task,'HEAD',fake)
+        self.assertEqual(fake.calls, [])
     def test_host_push_false_blocks(self):
         with self.assertRaises(runner.RunnerError): runner.require_host_capability(base_task(host_capabilities={'sync':True,'commit':True,'push':False}),'push')
     def test_baseline_equality_not_required(self):
@@ -110,17 +145,19 @@ class HostRunnerTests(unittest.TestCase):
     def test_end_to_end_success_commit_push_and_idempotence(self):
         temp,work,remote,baseline,task_head=self._fixture("printf 'ok\\n' > impl.txt")
         with temp:
-            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'PASS'); self.assertEqual(result['implementation_paths'],['impl.txt']); self.assertTrue(result['commit_sha']); self.assertEqual(self._git(work,'status','--porcelain'),'')
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'PASS'); self.assertEqual(result['implementation_paths'],['impl.txt']); self.assertEqual(result['executor'],'codex'); self.assertTrue(result['commit_sha']); self.assertEqual(self._git(work,'status','--porcelain'),'')
             remote_head=subprocess.run(['git','--git-dir',str(remote),'rev-parse','refs/heads/aither-v2'],check=True,capture_output=True,text=True).stdout.strip(); self.assertEqual(remote_head,result['commit_sha']); self.assertEqual(runner.run_once(work,execute_agent=True)['result'],'IDLE')
     def test_end_to_end_unauthorized_path_restores_and_does_not_push(self):
         temp,work,remote,baseline,task_head=self._fixture("printf 'bad\\n' > bad.txt")
         with temp:
-            with self.assertRaises(runner.RunnerError): runner.run_once(work,execute_agent=True)
+            result=runner.run_once(work,execute_agent=True)
+            self.assertEqual(result['result'],'BLOCKED'); self.assertEqual(result['task_id'],'TEST-1'); self.assertEqual(result['executor'],'codex')
             self.assertEqual(self._git(work,'status','--porcelain'),''); self.assertEqual(self._git(work,'rev-parse','HEAD'),task_head)
     def test_end_to_end_architect_tamper_restores(self):
         temp,work,remote,baseline,task_head=self._fixture("printf 'tamper\\n' > .agent/CURRENT_TASK.md")
         with temp:
-            with self.assertRaises(runner.RunnerError): runner.run_once(work,execute_agent=True)
+            result=runner.run_once(work,execute_agent=True)
+            self.assertEqual(result['result'],'BLOCKED'); self.assertEqual(result['task_id'],'TEST-1')
             self.assertEqual(self._git(work,'status','--porcelain'),'')
     def test_dry_run_never_invokes_codex(self):
         temp,work,remote,baseline,task_head=self._fixture('exit 99')

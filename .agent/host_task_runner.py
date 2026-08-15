@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
@@ -28,6 +29,7 @@ REQUIRED_FIELDS: dict[str, type] = {
     'mode': str,
     'status': str,
     'branch': str,
+    'executor': str,
     'baseline_sha': str,
     'allowed_paths': list,
     'capabilities': dict,
@@ -87,6 +89,8 @@ def validate_task(task: Any) -> dict[str, Any]:
         raise RunnerError('unsupported schema_version')
     if task['status'] != 'ACTIVE':
         raise RunnerError('task status is not ACTIVE')
+    if task['executor'] not in ('codex', 'hermes'):
+        raise RunnerError("executor must be exactly 'codex' or 'hermes'")
     if not task['task_id'] or not task['branch'] or not task['baseline_sha']:
         raise RunnerError('task_id, branch and baseline_sha must be non-empty')
     paths = task['allowed_paths']
@@ -171,9 +175,29 @@ def committed_handoff_paths(repo: Path, baseline: str, head: str,
     return paths
 
 
+HERMES_OBSERVER = 'hermes_observer.py'
+
+
 def build_codex_argv(prompt: str = FIXED_PROMPT) -> list[str]:
     return [os.environ.get('CODEX_BIN', 'codex'), '--ask-for-approval', 'never',
             'exec', '--sandbox', 'workspace-write', prompt]
+
+
+def build_hermes_argv() -> list[str]:
+    """Hermes dispatch: local argv-safe H2 socket-bridge client, never a direct CLI."""
+    observer_bin = os.environ.get('HERMES_OBSERVER_BIN', '').strip()
+    if observer_bin:
+        return [observer_bin]
+    return [sys.executable, str(Path(__file__).resolve().parent / HERMES_OBSERVER)]
+
+
+def build_executor_argv(task: dict[str, Any]) -> list[str]:
+    executor = task.get('executor')
+    if executor == 'codex':
+        return build_codex_argv()
+    if executor == 'hermes':
+        return build_hermes_argv()
+    raise RunnerError(f'invalid executor: {executor!r}')
 
 
 def parse_porcelain_z(output: str) -> list[str]:
@@ -247,7 +271,7 @@ def write_state(path: Path, data: dict[str, Any]) -> None:
 
 def make_summary(task_id: str, start_head: str, changed_paths: Iterable[str],
                  implementation: Iterable[str], result: str, message: str = '',
-                 commit_sha: str = '') -> dict[str, Any]:
+                 commit_sha: str = '', executor: str = '') -> dict[str, Any]:
     return {
         'changed_paths': sorted(set(changed_paths)),
         'commit_sha': commit_sha,
@@ -256,6 +280,7 @@ def make_summary(task_id: str, start_head: str, changed_paths: Iterable[str],
         'result': result,
         'start_head': start_head,
         'task_id': task_id,
+        'executor': executor,
     }
 
 
@@ -348,7 +373,7 @@ def execute_task(repo: Path, task: dict[str, Any], start_head: str,
                  run: CommandRunner = execute_command) -> dict[str, Any]:
     require_agent_capability(task, 'agent_exec')
     try:
-        run(build_codex_argv(), repo)
+        run(build_executor_argv(task), repo)
         changed = changed_worktree_paths(repo, run)
         implementation = implementation_paths(changed, task)
         run_validations(repo, task, run)
@@ -360,7 +385,7 @@ def execute_task(repo: Path, task: dict[str, Any], start_head: str,
         commit_sha = stage_commit_push(repo, task, start_head, implementation, run)
         require_clean_worktree(repo, run)
         return make_summary(task['task_id'], start_head, changed, implementation,
-                            'PASS', commit_sha=commit_sha)
+                            'PASS', commit_sha=commit_sha, executor=task['executor'])
     except (RunnerError, subprocess.CalledProcessError) as exc:
         try:
             restore_after_failed_executor(repo, start_head, run)
@@ -383,17 +408,23 @@ def run_once(repo: Path, run: CommandRunner = execute_command,
         task = load_task(repo / TASK_PATH)
         require_branch(repo, task['branch'], run)
         require_host_capability(task, 'sync')
+        executor = task['executor']
         fingerprint = task_fingerprint(repo)
         state = read_state(state_path)
         if state.get('last_success_fingerprint') == fingerprint:
             return make_summary(task['task_id'], start_head, [], [], 'IDLE',
                                 'task already completed successfully',
-                                state.get('last_commit_sha', ''))
+                                state.get('last_commit_sha', ''), executor=executor)
         verify_baseline_ancestor(repo, task['baseline_sha'], start_head, run)
         committed_handoff_paths(repo, task['baseline_sha'], start_head, run)
         if not execute_agent:
-            return make_summary(task['task_id'], start_head, [], [], 'PASS', 'dry-run')
-        result = execute_task(repo, task, start_head, run)
+            return make_summary(task['task_id'], start_head, [], [], 'PASS', 'dry-run',
+                                executor=executor)
+        try:
+            result = execute_task(repo, task, start_head, run)
+        except (RunnerError, subprocess.CalledProcessError) as exc:
+            return make_summary(task['task_id'], start_head, [], [], 'BLOCKED',
+                                str(exc), executor=executor)
         write_state(state_path, {
             'last_commit_sha': result['commit_sha'],
             'last_success_fingerprint': fingerprint,
