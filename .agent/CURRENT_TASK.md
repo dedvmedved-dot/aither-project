@@ -1,168 +1,226 @@
-# TASK: HERMES-INTEGRATION-H1-R4-R2-COMMITTED-SCOPE-VALIDATION
+# TASK: HERMES-INTEGRATION-H3-E2E-READONLY-CANARY
 
 ## Goal
 
-Fix one remaining acceptance defect in `.agent/validate_task_scope.py` discovered by independent Architect audit of commit `329f56943342f900495fb22591351998537138dd`.
+Prove the complete automated Hermes execution path end to end, with zero source/runtime mutations:
 
-The current validator incorrectly treats committed implementation files in `baseline..HEAD` as unauthorized unless they are Architect task-control paths. That means a legitimate result commit containing files from `allowed_paths` can fail validation after commit.
+`systemd runner -> host_task_runner -> executor=hermes -> hermes_observer -> H2 root socket bridge -> root Hermes profile -> governed task result -> supervisor summary/live status`.
 
-This task must correct only that behavior and add a regression test for the committed-result state.
+This is the first real automated Hermes canary after H1 implementation acceptance.
 
-## Confirmed repository state
+## Confirmed state
 
 - Branch: `aither-v2`
-- Baseline: `329f56943342f900495fb22591351998537138dd`
-- Executor: `hermes`
-- H1-R4-R1 is NOT Architect accepted.
-- `aither-codex-runner.timer` must remain disabled.
-- Aither/Kubernetes/runtime must not be touched.
+- Baseline: `dadfc21d07088ea1b29dd35220ff03de4009668b`
+- H1 implementation and validator corrections are Architect-accepted at repository level.
+- H2 root socket bridge is previously accepted.
+- Existing Telegram Hermes Gateway must remain active and unrestarted.
+- `aither-codex-runner.timer` remains disabled; this canary is ONE manual service/run-once invocation only.
+- Codex usage quota remains irrelevant; Codex must not be invoked.
 
-## Exact defect
+## Task semantics for root Hermes
 
-Current logic is effectively:
+When the H2 bridge invokes root Hermes, Hermes must perform only this read-only canary:
 
-```python
-{path for path in committed if path not in ARCHITECT_PATHS}
-```
+1. Read `AGENTS.md`, `.agent/CURRENT_TASK.json`, `.agent/CURRENT_TASK.md`.
+2. Verify current task identity is `HERMES-INTEGRATION-H3-E2E-READONLY-CANARY`.
+3. Verify `executor=hermes`, `agent_exec=true`, `source_write=false`.
+4. Read-only inspect repository identity:
+   - branch;
+   - HEAD;
+   - `git status --porcelain`.
+5. Do not modify any file.
+6. Do not run Kubernetes/runtime/database/deployment/package/secret operations.
+7. Return a concise PASS report and STOP.
 
-This rejects a legitimate committed implementation path even when that path is present in `allowed_paths`.
-
-Correct semantics:
-
-- committed `baseline..HEAD` path is authorized if it is either:
-  - in fixed `ARCHITECT_PATHS`, OR
-  - in current task `allowed_paths`;
-- worktree and untracked paths are authorized ONLY if in `allowed_paths`;
-- Architect task-control paths must NOT become writable implementation paths merely because they are architect paths;
-- all other paths fail closed.
-
-## Required implementation
-
-Modify only:
-
-- `.agent/validate_task_scope.py`
-- `.agent/tests/test_validate_task_scope.py`
-
-The core committed-path rule must be equivalent to:
-
-```python
-path in ARCHITECT_PATHS or path in allowed
-```
-
-Do not dynamically trust any extra task field as an Architect path source.
-
-## Mandatory regression tests
-
-Add/adjust tests proving at least:
-
-1. `committed={CURRENT_TASK.json, CURRENT_TASK.md, allowed_impl.py}` with `allowed={allowed_impl.py}` => PASS.
-2. committed allowed implementation path alone => PASS.
-3. unexpected committed path => FAIL.
-4. Architect handoff paths in committed range => PASS even if not in allowed_paths.
-5. Architect path in worktree => FAIL unless explicitly in allowed_paths; however do NOT add Architect paths to this task's allowed_paths.
-6. unexpected untracked path => FAIL.
-7. allowed worktree implementation path => PASS.
-8. duplicate/malformed allowlist still fails.
-
-## Validation order
-
-### Before commit
-
-Run all commands from `CURRENT_TASK.json`.
-
-They must pass.
-
-### Commit
-
-If and only if pre-commit validations pass:
-
-- create exactly one implementation commit;
-- commit message exactly:
-  `fix: allow committed task-scoped implementation paths`
-
-### CRITICAL post-commit validation
-
-Before push, with worktree clean and HEAD now containing the result commit, run again:
-
-```bash
-python3 .agent/validate_task_scope.py
-```
-
-This post-commit run is mandatory and is the key acceptance check.
-
-It must return:
+Expected executor-side report semantics:
 
 ```text
-UNAUTHORIZED_PATHS=0
-RESULT=PASS
+TASK: HERMES-INTEGRATION-H3-E2E-READONLY-CANARY
+EXECUTOR: hermes
+BRANCH: aither-v2
+HEAD: <launch head>
+WORKTREE: clean
+SOURCE_WRITE: NO
+RUNTIME_WRITE: NO
+SECRETS_EXPOSED: NO
+RESULT: PASS
+STOP
 ```
 
-Also rerun:
+## Invocation requirements
 
-```bash
-PYTHONPATH=.agent python3 .agent/tests/test_validate_task_scope.py
-git diff --check HEAD^..HEAD
-```
+This canary MUST be initiated by the existing supervisor path, not by directly calling Hermes.
 
-If post-commit validator fails:
+Allowed invocation:
 
-- DO NOT amend repeatedly;
-- DO NOT push;
-- return `FAIL` and STOP.
+- one manual start/run of the existing `aither-codex-runner.service` / `systemd_runner.py` path, OR equivalent single `host_task_runner.py --run-once` invocation through the installed supervisor mechanism if that is how the unit is wired.
 
-If it passes, push fast-forward to `aither-v2`.
+Preferred: start the existing service once while the timer remains disabled.
+
+The invocation must result in:
+
+- task sync from GitHub;
+- task loaded as executor=hermes;
+- `hermes_observer.py` launched;
+- fixed `RUN\n` sent to `/run/aither-hermes/execute.sock`;
+- H2 root executor validates governance;
+- root Hermes executes with HOME=/root using the existing owner profile;
+- no direct Hermes CLI from user `codex`;
+- no second Telegram gateway;
+- no Codex process;
+- no repository implementation commit.
 
 ## Hard prohibitions
 
-- DO NOT modify `.agent/CURRENT_TASK.json` or `.agent/CURRENT_TASK.md`.
-- DO NOT modify any path outside the two allowed implementation paths.
-- DO NOT run Codex.
-- DO NOT invoke H2 bridge.
-- DO NOT execute Hermes recursively.
-- DO NOT enable/start runner timer/service.
-- DO NOT touch application/runtime/Kubernetes/database.
-- DO NOT change systemd units.
-- DO NOT read/expose secrets.
+- DO NOT enable `aither-codex-runner.timer`.
+- DO NOT create recurring execution.
+- DO NOT call Codex.
+- DO NOT call `/usr/local/lib/hermes-agent/venv/bin/hermes` directly from `codex`.
+- DO NOT bypass H2 root bridge.
+- DO NOT modify source/application/manifests.
+- DO NOT modify CURRENT_TASK files locally.
+- DO NOT commit or push implementation changes.
+- DO NOT touch Kubernetes/Aither runtime/database.
+- DO NOT read secrets.
+- DO NOT restart/reconfigure Telegram Gateway.
+- DO NOT start a second Telegram process.
+- DO NOT modify systemd units.
 - DO NOT install packages or modify sudoers.
+- Exactly ONE automated Hermes task execution is allowed.
+
+## Preconditions
+
+Before invoking the supervisor:
+
+- local branch `aither-v2`;
+- clean worktree;
+- fetch/sync fast-forward to current GitHub task-control HEAD;
+- task id matches this task;
+- executor=hermes;
+- timer disabled and inactive;
+- service not active/activating;
+- no host runner process;
+- no hermes_observer process;
+- H2 socket exists with expected root:codex permissions;
+- Telegram Gateway active; record MainPID.
+
+If any precondition fails: `BLOCKED`, no execution, STOP.
+
+## Required evidence
+
+Record before/after:
+
+- local HEAD;
+- remote HEAD;
+- worktree clean;
+- timer enabled/active;
+- service state/MainPID;
+- host runner process;
+- hermes_observer process;
+- Telegram Gateway active/MainPID;
+- H2 socket owner/group/mode;
+- root executor process presence during invocation if observable;
+- final host-runner JSON summary;
+- final live status sanitized fields;
+- repository HEAD/worktree after.
+
+Do not paste raw Hermes reasoning/output beyond the required safe canary report.
+
+## PASS criteria
+
+PASS only if all are true:
+
+1. Supervisor actually selects `executor=hermes`.
+2. `hermes_observer.py` is the client path.
+3. H2 bridge is invoked exactly once.
+4. Root Hermes executes exactly once through the bridge.
+5. No Codex execution occurs.
+6. Root Hermes uses the existing `/root/.hermes` identity/profile path; no `/home/codex/.hermes` execution.
+7. Telegram Gateway remains active with unchanged MainPID.
+8. No second Telegram process appears.
+9. Root Hermes returns canary PASS.
+10. Host-runner result is PASS and preserves task_id/executor.
+11. Final live status shows task_id + executor=hermes and no unsafe fields.
+12. No source/runtime changes, no implementation commit/push.
+13. Worktree remains clean.
+14. Timer remains disabled/inactive after execution.
+
+If execution returns BLOCKED/FAIL, do not retry. Capture safe classification and STOP.
 
 ## Required final report
 
 ```text
-TASK: HERMES-INTEGRATION-H1-R4-R2-COMMITTED-SCOPE-VALIDATION
-BASELINE_SHA:
-START_HEAD:
-WORKTREE_BEFORE:
+TASK: HERMES-INTEGRATION-H3-E2E-READONLY-CANARY
 
-COMMITTED_ARCHITECT_PLUS_ALLOWED_IMPL_PASS:
-COMMITTED_ALLOWED_IMPL_PASS:
-UNEXPECTED_COMMITTED_FAILS:
-ARCHITECT_WORKTREE_FAILS:
-UNEXPECTED_UNTRACKED_FAILS:
-VALIDATOR_TESTS_PRE_COMMIT:
-TASK_SCOPE_VALIDATOR_PRE_COMMIT:
+LOCAL_HEAD_BEFORE:
+REMOTE_HEAD_BEFORE:
+WORKTREE_CLEAN_BEFORE:
+CURRENT_TASK:
+CURRENT_EXECUTOR:
 
-CHANGED_PATHS:
-OUTSIDE_ALLOWLIST:
-CURRENT_TASK_FILES_MODIFIED: NO
-APPLICATION_RUNTIME_MODIFIED: NO
-CODEX_EXECUTED: NO
-REAL_HERMES_EXECUTED: NO
+TIMER_ENABLED_BEFORE:
+TIMER_ACTIVE_BEFORE:
+RUNNER_SERVICE_ACTIVE_BEFORE:
+HOST_RUNNER_PROCESS_BEFORE:
+HERMES_OBSERVER_PROCESS_BEFORE:
+
+H2_SOCKET_EXISTS:
+H2_SOCKET_OWNER_GROUP_MODE:
+TELEGRAM_GATEWAY_ACTIVE_BEFORE:
+TELEGRAM_GATEWAY_MAIN_PID_BEFORE:
+
+SUPERVISOR_INVOCATION:
+SUPERVISOR_SELECTED_EXECUTOR:
+HERMES_OBSERVER_INVOKED:
+H2_RUN_COUNT:
+ROOT_HERMES_EXECUTION_COUNT:
+CODEX_EXECUTION_COUNT:
+ROOT_PROFILE_USED:
+
+EXECUTOR_CANARY_TASK:
+EXECUTOR_CANARY_BRANCH:
+EXECUTOR_CANARY_HEAD:
+EXECUTOR_CANARY_WORKTREE:
+EXECUTOR_CANARY_RESULT:
+
+HOST_RUNNER_RESULT:
+HOST_RUNNER_TASK_ID:
+HOST_RUNNER_EXECUTOR:
+HOST_RUNNER_COMMIT_SHA:
+
+LIVE_STATE:
+LIVE_PHASE:
+LIVE_TASK_ID:
+LIVE_EXECUTOR:
+LIVE_UNSAFE_FIELDS_PRESENT:
+
+LOCAL_HEAD_AFTER:
+REMOTE_HEAD_AFTER:
+WORKTREE_CLEAN_AFTER:
+REPOSITORY_FILES_MODIFIED:
+NEW_IMPLEMENTATION_COMMIT:
+IMPLEMENTATION_PUSH:
+
+TIMER_ENABLED_AFTER:
+TIMER_ACTIVE_AFTER:
+RUNNER_SERVICE_ACTIVE_AFTER:
+HOST_RUNNER_PROCESS_AFTER:
+HERMES_OBSERVER_PROCESS_AFTER:
+
+TELEGRAM_GATEWAY_ACTIVE_AFTER:
+TELEGRAM_GATEWAY_MAIN_PID_AFTER:
+TELEGRAM_GATEWAY_RESTARTED:
+SECOND_TELEGRAM_PROCESS:
+
+AITHER_RUNTIME_TOUCHED: NO
+KUBERNETES_TOUCHED: NO
 SECRETS_EXPOSED: NO
-
-RESULT_COMMIT:
-POST_COMMIT_WORKTREE_CLEAN:
-TASK_SCOPE_VALIDATOR_POST_COMMIT:
-POST_COMMIT_UNAUTHORIZED_PATHS:
-VALIDATOR_TESTS_POST_COMMIT:
-GIT_DIFF_CHECK_POST_COMMIT:
-PUSH:
-REMOTE_HEAD:
-WORKTREE_AFTER:
 
 RESULT: PASS|FAIL|BLOCKED
 STOP
 ```
 
-PASS is allowed only when the post-commit validator passes on the actual result HEAD before push.
+Do not declare Architect acceptance.
 
 STOP.
