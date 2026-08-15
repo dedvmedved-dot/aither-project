@@ -1,19 +1,16 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H1-R4-ROOT-BRIDGE-EXECUTOR-ABSTRACTION",
+  "task_id": "HERMES-INTEGRATION-H1-R4-R1-GOVERNANCE-PROTOCOL-CORRECTION",
   "executor": "hermes",
-  "mode": "MANUAL_HERMES_MANAGEMENT_HARNESS_IMPLEMENTATION",
+  "mode": "MANUAL_HERMES_MANAGEMENT_HARNESS_CORRECTION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "8ae6bddb90dfabc5eee6383d3d5765d502b8b714",
+  "baseline_sha": "bf5ce3c9a5a59d2cb600b4d54aba985723dc35cb",
   "allowed_paths": [
-    ".agent/host_task_runner.py",
-    ".agent/systemd_runner.py",
-    ".agent/runner_live.py",
+    ".agent/validate_task_scope.py",
     ".agent/hermes_observer.py",
-    ".agent/tests/test_host_task_runner.py",
-    ".agent/tests/test_live_observability.py",
-    ".agent/tests/test_hermes_observer.py"
+    ".agent/tests/test_hermes_observer.py",
+    ".agent/tests/test_validate_task_scope.py"
   ],
   "capabilities": {
     "source_write": true,
@@ -32,11 +29,11 @@
   "require_clean_finish": true,
   "architect_acceptance_required": true,
   "validation_commands": [
-    ["python3", "-m", "py_compile", ".agent/host_task_runner.py", ".agent/systemd_runner.py", ".agent/runner_live.py", ".agent/hermes_observer.py"],
-    ["python3", ".agent/tests/test_host_task_runner.py"],
-    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_live_observability.py"],
+    ["python3", "-m", "py_compile", ".agent/validate_task_scope.py", ".agent/hermes_observer.py", ".agent/tests/test_validate_task_scope.py", ".agent/tests/test_hermes_observer.py"],
+    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_validate_task_scope.py"],
     ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_hermes_observer.py"],
+    ["python3", ".agent/validate_task_scope.py"],
     ["git", "diff", "--check"]
   ],
-  "commit_message": "feat: add governed Hermes root-bridge executor support"
+  "commit_message": "fix: align task scope validation with architect handoff"
 }
