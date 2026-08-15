@@ -26,6 +26,8 @@ REQUIRED_FIELDS = {
     "architect_acceptance_required": bool,
 }
 
+ARCHITECT_PATHS = frozenset({".agent/CURRENT_TASK.json", ".agent/CURRENT_TASK.md"})
+
 
 def run_git(repo: Path, *args: str) -> str:
     result = subprocess.run(
@@ -65,6 +67,23 @@ def validate_task(task: Any) -> dict[str, Any]:
     return task
 
 
+def classify_unauthorized(committed, worktree, untracked, allowed) -> list[str]:
+    """Return sorted unauthorized paths.
+
+    committed  = paths in the committed baseline..HEAD Architect handoff range.
+    worktree   = uncommitted modified paths (staged + unstaged).
+    untracked  = untracked paths.
+    allowed    = task allowed_paths (executor implementation allowlist).
+    """
+    allowed = set(allowed)
+    unauthorized = (
+        {path for path in committed if path not in ARCHITECT_PATHS}
+        | {path for path in worktree if path not in allowed}
+        | {path for path in untracked if path not in allowed}
+    )
+    return sorted(unauthorized)
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parent.parent
     task_path = repo / ".agent" / "CURRENT_TASK.json"
@@ -91,14 +110,14 @@ def main() -> int:
         baseline = run_git(repo, "rev-parse", "--verify", f"{task['baseline_sha']}^{{commit}}")
         head = run_git(repo, "rev-parse", "HEAD")
 
-        changed_output = run_git(repo, "diff", "--name-only", baseline)
+        committed_output = run_git(repo, "diff", "--name-only", f"{baseline}..{head}")
+        worktree_output = run_git(repo, "diff", "--name-only", "HEAD")
         untracked_output = run_git(repo, "ls-files", "--others", "--exclude-standard")
-        changed = sorted(
-            {path for path in changed_output.splitlines() if path}
-            | {path for path in untracked_output.splitlines() if path}
-        )
-        allowed = set(task["allowed_paths"])
-        unauthorized = sorted(path for path in changed if path not in allowed)
+        committed = {path for path in committed_output.splitlines() if path}
+        worktree = {path for path in worktree_output.splitlines() if path}
+        untracked = {path for path in untracked_output.splitlines() if path}
+        changed = sorted(committed | worktree | untracked)
+        unauthorized = classify_unauthorized(committed, worktree, untracked, task["allowed_paths"])
     except (OSError, json.JSONDecodeError, subprocess.CalledProcessError) as exc:
         fail(str(exc).replace("\n", " "))
 
