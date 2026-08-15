@@ -1,15 +1,13 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H1-R4-R1-GOVERNANCE-PROTOCOL-CORRECTION",
+  "task_id": "HERMES-INTEGRATION-H1-R4-R2-COMMITTED-SCOPE-VALIDATION",
   "executor": "hermes",
   "mode": "MANUAL_HERMES_MANAGEMENT_HARNESS_CORRECTION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "bf5ce3c9a5a59d2cb600b4d54aba985723dc35cb",
+  "baseline_sha": "329f56943342f900495fb22591351998537138dd",
   "allowed_paths": [
     ".agent/validate_task_scope.py",
-    ".agent/hermes_observer.py",
-    ".agent/tests/test_hermes_observer.py",
     ".agent/tests/test_validate_task_scope.py"
   ],
   "capabilities": {
@@ -29,11 +27,10 @@
   "require_clean_finish": true,
   "architect_acceptance_required": true,
   "validation_commands": [
-    ["python3", "-m", "py_compile", ".agent/validate_task_scope.py", ".agent/hermes_observer.py", ".agent/tests/test_validate_task_scope.py", ".agent/tests/test_hermes_observer.py"],
+    ["python3", "-m", "py_compile", ".agent/validate_task_scope.py", ".agent/tests/test_validate_task_scope.py"],
     ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_validate_task_scope.py"],
-    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_hermes_observer.py"],
     ["python3", ".agent/validate_task_scope.py"],
     ["git", "diff", "--check"]
   ],
-  "commit_message": "fix: align task scope validation with architect handoff"
+  "commit_message": "fix: allow committed task-scoped implementation paths"
 }
