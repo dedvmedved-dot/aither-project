@@ -1,160 +1,168 @@
-# TASK: HERMES-INTEGRATION-H1-R4-R1-GOVERNANCE-PROTOCOL-CORRECTION
+# TASK: HERMES-INTEGRATION-H1-R4-R2-COMMITTED-SCOPE-VALIDATION
 
 ## Goal
 
-Correct two remaining acceptance blockers found during independent Architect audit of commit `bf5ce3c9a5a59d2cb600b4d54aba985723dc35cb`:
+Fix one remaining acceptance defect in `.agent/validate_task_scope.py` discovered by independent Architect audit of commit `329f56943342f900495fb22591351998537138dd`.
 
-1. `.agent/validate_task_scope.py` incorrectly treats Architect-managed task-control handoff files (`.agent/CURRENT_TASK.json`, `.agent/CURRENT_TASK.md`) as unauthorized implementation changes when they appear in the baseline-to-HEAD range.
-2. The new Hermes bridge client currently uses `FIXED_SIGNAL = b"RUN\n"`; independently confirm the actual H2 executor framing semantics from the installed root executor source and align the client/tests to the exact accepted protocol without invoking a real Hermes execution.
+The current validator incorrectly treats committed implementation files in `baseline..HEAD` as unauthorized unless they are Architect task-control paths. That means a legitimate result commit containing files from `allowed_paths` can fail validation after commit.
 
-This is a manual Hermes correction task. Do not invoke Codex or a real H2 RUN.
+This task must correct only that behavior and add a regression test for the committed-result state.
 
 ## Confirmed repository state
 
 - Branch: `aither-v2`
-- Baseline: `bf5ce3c9a5a59d2cb600b4d54aba985723dc35cb`
-- H1-R4 implementation commit is present and pushed.
-- H1-R4 is NOT Architect accepted yet.
+- Baseline: `329f56943342f900495fb22591351998537138dd`
+- Executor: `hermes`
+- H1-R4-R1 is NOT Architect accepted.
 - `aither-codex-runner.timer` must remain disabled.
-- Existing Telegram Hermes Gateway must remain active and unrestarted.
+- Aither/Kubernetes/runtime must not be touched.
 
-## Required correction 1 — validator governance semantics
+## Exact defect
 
-Update `.agent/validate_task_scope.py` so repository scope validation distinguishes:
+Current logic is effectively:
 
-- Architect-managed task-control handoff paths:
-  - `.agent/CURRENT_TASK.json`
-  - `.agent/CURRENT_TASK.md`
-- executor implementation paths from `allowed_paths`.
+```python
+{path for path in committed if path not in ARCHITECT_PATHS}
+```
 
-The validator MUST:
+This rejects a legitimate committed implementation path even when that path is present in `allowed_paths`.
 
-- still require branch/baseline/task structure checks;
-- accept Architect handoff files in the committed baseline-to-HEAD range even when they are not in `allowed_paths`;
-- continue to reject any other changed path outside `allowed_paths`;
-- continue to include untracked files in scope validation;
-- fail closed;
-- not weaken implementation allowlisting.
+Correct semantics:
 
-Use a fixed constant such as `ARCHITECT_PATHS` rather than dynamically trusting arbitrary task fields.
+- committed `baseline..HEAD` path is authorized if it is either:
+  - in fixed `ARCHITECT_PATHS`, OR
+  - in current task `allowed_paths`;
+- worktree and untracked paths are authorized ONLY if in `allowed_paths`;
+- Architect task-control paths must NOT become writable implementation paths merely because they are architect paths;
+- all other paths fail closed.
 
-Add `.agent/tests/test_validate_task_scope.py` covering at least:
+## Required implementation
 
-- only Architect handoff paths + allowed implementation paths => PASS;
-- unexpected committed path => FAIL;
-- unexpected untracked path => FAIL;
-- duplicate/malformed task allowlist still fails;
-- Architect paths do NOT become generally writable implementation paths.
+Modify only:
 
-## Required correction 2 — H2 protocol framing audit
+- `.agent/validate_task_scope.py`
+- `.agent/tests/test_validate_task_scope.py`
 
-Read-only inspect the installed root executor source:
+The core committed-path rule must be equivalent to:
 
-`/usr/local/sbin/aither-hermes-root-exec`
+```python
+path in ARCHITECT_PATHS or path in allowed
+```
 
-Do not execute it.
-Do not connect to `/run/aither-hermes/execute.sock` with `RUN`.
-Do not print secrets or unrelated file contents.
+Do not dynamically trust any extra task field as an Architect path source.
 
-Determine exactly how it parses socket input and whether the accepted wire form is:
+## Mandatory regression tests
 
-- `RUN`
-- `RUN\n`
-- or another fixed framing that is explicitly normalized before exact comparison.
+Add/adjust tests proving at least:
 
-Then align `.agent/hermes_observer.py` and `.agent/tests/test_hermes_observer.py` to the factual protocol.
+1. `committed={CURRENT_TASK.json, CURRENT_TASK.md, allowed_impl.py}` with `allowed={allowed_impl.py}` => PASS.
+2. committed allowed implementation path alone => PASS.
+3. unexpected committed path => FAIL.
+4. Architect handoff paths in committed range => PASS even if not in allowed_paths.
+5. Architect path in worktree => FAIL unless explicitly in allowed_paths; however do NOT add Architect paths to this task's allowed_paths.
+6. unexpected untracked path => FAIL.
+7. allowed worktree implementation path => PASS.
+8. duplicate/malformed allowlist still fails.
 
-Requirements remain:
+## Validation order
 
-- fixed non-user-controlled signal only;
-- no direct Hermes CLI;
-- no arbitrary prompt/command;
-- bounded response;
-- timeout;
-- fail closed on `BLOCKED_*` / `FAIL`;
-- no shell/eval/exec.
+### Before commit
 
-If `RUN\n` is already exactly compatible because the executor strips line framing before comparing literal `RUN`, document that in the final report and no code change is required for framing.
+Run all commands from `CURRENT_TASK.json`.
 
-If the current client framing is incompatible, correct it and update tests.
+They must pass.
 
-## Hard prohibitions
+### Commit
 
-- DO NOT modify `.agent/CURRENT_TASK.json` or `.agent/CURRENT_TASK.md`.
-- DO NOT modify any path outside the allowed paths in CURRENT_TASK.json.
-- DO NOT run Codex.
-- DO NOT invoke real H2 bridge RUN.
-- DO NOT start another Hermes.
-- DO NOT restart/reconfigure Telegram Gateway.
-- DO NOT enable/start `aither-codex-runner.timer`.
-- DO NOT modify systemd unit files.
-- DO NOT touch application/runtime/Kubernetes/database.
-- DO NOT read or expose secrets.
-- DO NOT install packages or modify sudoers.
+If and only if pre-commit validations pass:
 
-## Required validation
+- create exactly one implementation commit;
+- commit message exactly:
+  `fix: allow committed task-scoped implementation paths`
 
-Run every command from CURRENT_TASK.json. All must PASS, including:
+### CRITICAL post-commit validation
+
+Before push, with worktree clean and HEAD now containing the result commit, run again:
 
 ```bash
 python3 .agent/validate_task_scope.py
 ```
 
-No waiver is allowed for the scope validator in this correction task.
+This post-commit run is mandatory and is the key acceptance check.
 
-## Commit / push
+It must return:
 
-If and only if all validations pass:
+```text
+UNAUTHORIZED_PATHS=0
+RESULT=PASS
+```
 
-- exactly one implementation commit;
-- commit message: `fix: align task scope validation with architect handoff`;
-- push to `aither-v2`;
-- clean worktree after push.
+Also rerun:
+
+```bash
+PYTHONPATH=.agent python3 .agent/tests/test_validate_task_scope.py
+git diff --check HEAD^..HEAD
+```
+
+If post-commit validator fails:
+
+- DO NOT amend repeatedly;
+- DO NOT push;
+- return `FAIL` and STOP.
+
+If it passes, push fast-forward to `aither-v2`.
+
+## Hard prohibitions
+
+- DO NOT modify `.agent/CURRENT_TASK.json` or `.agent/CURRENT_TASK.md`.
+- DO NOT modify any path outside the two allowed implementation paths.
+- DO NOT run Codex.
+- DO NOT invoke H2 bridge.
+- DO NOT execute Hermes recursively.
+- DO NOT enable/start runner timer/service.
+- DO NOT touch application/runtime/Kubernetes/database.
+- DO NOT change systemd units.
+- DO NOT read/expose secrets.
+- DO NOT install packages or modify sudoers.
 
 ## Required final report
 
 ```text
-TASK: HERMES-INTEGRATION-H1-R4-R1-GOVERNANCE-PROTOCOL-CORRECTION
+TASK: HERMES-INTEGRATION-H1-R4-R2-COMMITTED-SCOPE-VALIDATION
 BASELINE_SHA:
 START_HEAD:
 WORKTREE_BEFORE:
 
-VALIDATOR_ARCHITECT_PATHS_FIXED:
-VALIDATOR_ALLOWED_IMPLEMENTATION_PATHS_PRESERVED:
-VALIDATOR_UNEXPECTED_COMMITTED_FAILS:
-VALIDATOR_UNTRACKED_FAILS:
-VALIDATOR_TESTS:
-TASK_SCOPE_VALIDATOR:
-
-ROOT_EXECUTOR_READ_ONLY_INSPECTED:
-ROOT_EXECUTOR_PROTOCOL_PARSE:
-ROOT_EXECUTOR_LITERAL_COMPARE:
-CLIENT_SIGNAL_BEFORE:
-CLIENT_SIGNAL_AFTER:
-PROTOCOL_COMPATIBLE:
-REAL_H2_RUN_INVOKED: NO
-REAL_HERMES_EXECUTED: NO
-
-PY_COMPILE:
-HERMES_OBSERVER_TESTS:
-GIT_DIFF_CHECK:
+COMMITTED_ARCHITECT_PLUS_ALLOWED_IMPL_PASS:
+COMMITTED_ALLOWED_IMPL_PASS:
+UNEXPECTED_COMMITTED_FAILS:
+ARCHITECT_WORKTREE_FAILS:
+UNEXPECTED_UNTRACKED_FAILS:
+VALIDATOR_TESTS_PRE_COMMIT:
+TASK_SCOPE_VALIDATOR_PRE_COMMIT:
 
 CHANGED_PATHS:
 OUTSIDE_ALLOWLIST:
 CURRENT_TASK_FILES_MODIFIED: NO
 APPLICATION_RUNTIME_MODIFIED: NO
-SYSTEMD_UNIT_FILES_MODIFIED: NO
 CODEX_EXECUTED: NO
-TELEGRAM_GATEWAY_RESTARTED: NO
+REAL_HERMES_EXECUTED: NO
 SECRETS_EXPOSED: NO
 
 RESULT_COMMIT:
+POST_COMMIT_WORKTREE_CLEAN:
+TASK_SCOPE_VALIDATOR_POST_COMMIT:
+POST_COMMIT_UNAUTHORIZED_PATHS:
+VALIDATOR_TESTS_POST_COMMIT:
+GIT_DIFF_CHECK_POST_COMMIT:
 PUSH:
+REMOTE_HEAD:
 WORKTREE_AFTER:
+
 RESULT: PASS|FAIL|BLOCKED
 STOP
 ```
 
-Return PASS only if every required validation passes. Do not declare Architect acceptance.
+PASS is allowed only when the post-commit validator passes on the actual result HEAD before push.
 
 STOP.
