@@ -1,22 +1,23 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H1-EXECUTOR-ABSTRACTION",
-  "executor": "codex",
-  "mode": "MANAGEMENT_HARNESS_IMPLEMENTATION",
+  "task_id": "HERMES-INTEGRATION-H1-R4-ROOT-BRIDGE-EXECUTOR-ABSTRACTION",
+  "executor": "hermes",
+  "mode": "MANUAL_HERMES_MANAGEMENT_HARNESS_IMPLEMENTATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "15c99e8b686a39eaa44ebac04830d82138fe0f4c",
+  "baseline_sha": "8ae6bddb90dfabc5eee6383d3d5765d502b8b714",
   "allowed_paths": [
     ".agent/host_task_runner.py",
     ".agent/systemd_runner.py",
     ".agent/runner_live.py",
     ".agent/hermes_observer.py",
     ".agent/tests/test_host_task_runner.py",
-    ".agent/tests/test_live_observability.py"
+    ".agent/tests/test_live_observability.py",
+    ".agent/tests/test_hermes_observer.py"
   ],
   "capabilities": {
     "source_write": true,
-    "agent_exec": true,
+    "agent_exec": false,
     "network_git": false,
     "kubernetes": false,
     "deployment": false,
@@ -34,7 +35,8 @@
     ["python3", "-m", "py_compile", ".agent/host_task_runner.py", ".agent/systemd_runner.py", ".agent/runner_live.py", ".agent/hermes_observer.py"],
     ["python3", ".agent/tests/test_host_task_runner.py"],
     ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_live_observability.py"],
+    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_hermes_observer.py"],
     ["git", "diff", "--check"]
   ],
-  "commit_message": "feat: add governed Hermes executor support"
+  "commit_message": "feat: add governed Hermes root-bridge executor support"
 }
