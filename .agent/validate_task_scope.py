@@ -70,14 +70,19 @@ def validate_task(task: Any) -> dict[str, Any]:
 def classify_unauthorized(committed, worktree, untracked, allowed) -> list[str]:
     """Return sorted unauthorized paths.
 
-    committed  = paths in the committed baseline..HEAD Architect handoff range.
+    committed  = paths in the committed baseline..HEAD range (Architect handoff
+                 plus any committed result implementation paths).
     worktree   = uncommitted modified paths (staged + unstaged).
     untracked  = untracked paths.
     allowed    = task allowed_paths (executor implementation allowlist).
+
+    A committed path is authorized when it is an Architect task-control path
+    OR a current allowed_paths implementation path. Worktree/untracked paths
+    are authorized only when in allowed_paths.
     """
     allowed = set(allowed)
     unauthorized = (
-        {path for path in committed if path not in ARCHITECT_PATHS}
+        {path for path in committed if path not in ARCHITECT_PATHS and path not in allowed}
         | {path for path in worktree if path not in allowed}
         | {path for path in untracked if path not in allowed}
     )

@@ -33,59 +33,49 @@ def base_task(**updates):
 
 
 class Tests(unittest.TestCase):
-    def test_architect_handoff_plus_allowed_impl_passes(self):
+    def test_architect_handoff_plus_committed_impl_pass(self):
         ua = validator.classify_unauthorized(
-            committed={'.agent/CURRENT_TASK.json', '.agent/CURRENT_TASK.md'},
-            worktree={'.agent/hermes_observer.py'},
-            untracked=set(),
-            allowed={'.agent/hermes_observer.py'},
-        )
+            committed={'.agent/CURRENT_TASK.json', '.agent/CURRENT_TASK.md', 'impl.py'},
+            worktree=set(), untracked=set(), allowed={'impl.py'})
+        self.assertEqual(ua, [])
+
+    def test_committed_allowed_impl_alone_pass(self):
+        ua = validator.classify_unauthorized(
+            committed={'impl.py'}, worktree=set(), untracked=set(), allowed={'impl.py'})
         self.assertEqual(ua, [])
 
     def test_unexpected_committed_fails(self):
         ua = validator.classify_unauthorized(
-            committed={'app.py'},
-            worktree=set(),
-            untracked=set(),
-            allowed=set(),
-        )
+            committed={'app.py'}, worktree=set(), untracked=set(), allowed={'impl.py'})
         self.assertIn('app.py', ua)
+
+    def test_architect_handoff_committed_pass(self):
+        ua = validator.classify_unauthorized(
+            committed={'.agent/CURRENT_TASK.json', '.agent/CURRENT_TASK.md'},
+            worktree=set(), untracked=set(), allowed={'impl.py'})
+        self.assertEqual(ua, [])
+
+    def test_architect_path_in_worktree_fails(self):
+        ua = validator.classify_unauthorized(
+            committed=set(), worktree={'.agent/CURRENT_TASK.md'},
+            untracked=set(), allowed={'impl.py'})
+        self.assertIn('.agent/CURRENT_TASK.md', ua)
+
+    def test_architect_path_in_untracked_fails(self):
+        ua = validator.classify_unauthorized(
+            committed=set(), worktree=set(),
+            untracked={'.agent/CURRENT_TASK.json'}, allowed={'impl.py'})
+        self.assertIn('.agent/CURRENT_TASK.json', ua)
 
     def test_unexpected_untracked_fails(self):
         ua = validator.classify_unauthorized(
-            committed=set(),
-            worktree=set(),
-            untracked={'bad.txt'},
-            allowed={'.agent/hermes_observer.py'},
-        )
+            committed=set(), worktree=set(), untracked={'bad.txt'}, allowed={'impl.py'})
         self.assertIn('bad.txt', ua)
 
-    def test_unexpected_worktree_fails(self):
+    def test_allowed_worktree_impl_pass(self):
         ua = validator.classify_unauthorized(
-            committed=set(),
-            worktree={'other.py'},
-            untracked=set(),
-            allowed={'.agent/hermes_observer.py'},
-        )
-        self.assertIn('other.py', ua)
-
-    def test_architect_path_not_writable_as_worktree(self):
-        ua = validator.classify_unauthorized(
-            committed=set(),
-            worktree={'.agent/CURRENT_TASK.md'},
-            untracked=set(),
-            allowed={'.agent/hermes_observer.py'},
-        )
-        self.assertIn('.agent/CURRENT_TASK.md', ua)
-
-    def test_architect_path_not_writable_as_untracked(self):
-        ua = validator.classify_unauthorized(
-            committed=set(),
-            worktree=set(),
-            untracked={'.agent/CURRENT_TASK.json'},
-            allowed={'.agent/hermes_observer.py'},
-        )
-        self.assertIn('.agent/CURRENT_TASK.json', ua)
+            committed=set(), worktree={'impl.py'}, untracked=set(), allowed={'impl.py'})
+        self.assertEqual(ua, [])
 
     def test_duplicate_allowlist_fails(self):
         with self.assertRaises(SystemExit):
