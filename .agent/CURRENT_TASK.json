@@ -1,18 +1,15 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H1-R4-R2-COMMITTED-SCOPE-VALIDATION",
+  "task_id": "HERMES-INTEGRATION-H3-E2E-READONLY-CANARY",
   "executor": "hermes",
-  "mode": "MANUAL_HERMES_MANAGEMENT_HARNESS_CORRECTION",
+  "mode": "AUTOMATED_E2E_READONLY_CANARY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "329f56943342f900495fb22591351998537138dd",
-  "allowed_paths": [
-    ".agent/validate_task_scope.py",
-    ".agent/tests/test_validate_task_scope.py"
-  ],
+  "baseline_sha": "dadfc21d07088ea1b29dd35220ff03de4009668b",
+  "allowed_paths": [],
   "capabilities": {
-    "source_write": true,
-    "agent_exec": false,
+    "source_write": false,
+    "agent_exec": true,
     "network_git": false,
     "kubernetes": false,
     "deployment": false,
@@ -21,16 +18,14 @@
     "secret_access": false,
     "package_install": false
   },
-  "host_capabilities": {"sync": true, "commit": true, "push": true},
-  "max_commits": 1,
+  "host_capabilities": {
+    "sync": true,
+    "commit": false,
+    "push": false
+  },
+  "max_commits": 0,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "validation_commands": [
-    ["python3", "-m", "py_compile", ".agent/validate_task_scope.py", ".agent/tests/test_validate_task_scope.py"],
-    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_validate_task_scope.py"],
-    ["python3", ".agent/validate_task_scope.py"],
-    ["git", "diff", "--check"]
-  ],
-  "commit_message": "fix: allow committed task-scoped implementation paths"
+  "validation_commands": []
 }
