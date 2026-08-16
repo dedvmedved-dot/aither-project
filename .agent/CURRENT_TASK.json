@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H5B-SCHEDULER-HERMES-IDEMPOTENCE-CANARY",
+  "task_id": "HERMES-INTEGRATION-H6-PERSISTENT-SCHEDULER-ACTIVATION",
   "executor": "hermes",
-  "mode": "MANUAL_HERMES_SCHEDULER_E2E_CANARY",
+  "mode": "PERSISTENT_HERMES_SCHEDULER_ACTIVATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "5feeaf41bebdf6f734bc2f14330a45f1e41da2a2",
+  "baseline_sha": "8ab4c077a0afbe21d904f18ee83be3b51e3d7416",
   "allowed_paths": [],
   "capabilities": {
     "source_write": false,
@@ -14,7 +14,7 @@
     "kubernetes": false,
     "deployment": false,
     "database_write": false,
-    "runtime_write": false,
+    "runtime_write": true,
     "secret_access": false,
     "package_install": false
   },
