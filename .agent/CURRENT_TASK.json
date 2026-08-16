@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H7A-SAFE-RESULT-PUBLICATION",
+  "task_id": "HERMES-INTEGRATION-H7A-R1-OWNERSHIP-FAIL-CLOSED",
   "executor": "hermes",
-  "mode": "AUTONOMOUS_SOURCE_IMPLEMENTATION",
+  "mode": "AUTONOMOUS_SOURCE_CORRECTION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "e5dea631e01ac73f3ed20cf63194058725c8b5ea",
+  "baseline_sha": "859b75e03fc0e0a28056f5948d88e313afd279a2",
   "allowed_paths": [
     ".agent/host_task_runner.py",
     ".agent/tests/test_host_task_runner.py"
@@ -30,7 +30,7 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "feat: add governed execution result publication",
+  "commit_message": "fix: fail closed on source ownership checks",
   "validation_commands": [
     ["python3", ".agent/tests/test_host_task_runner.py"]
   ]
