@@ -1,168 +1,181 @@
-# TASK: HERMES-INTEGRATION-H4-R1-GOVERNANCE-BEFORE-ELIGIBILITY
+# TASK: HERMES-INTEGRATION-H5A-SCHEDULER-SUPPRESSION-CANARY
 
 ## Goal
 
-Correct one acceptance defect found by independent Architect audit of commit `e83cc345fffedfe1a731a76e864bd3242fc8a1d6`.
+Validate the retry governor in the real systemd scheduler path without invoking any AI executor.
 
-The H4 retry governor correctly preserves fast sync and suppresses repeated failed executor attempts, but it currently performs `IDLE` / `SUPPRESSED` eligibility returns before baseline and committed-handoff governance validation.
+This canary must prove that:
 
-That ordering is not acceptable because a newly fetched remote commit that does not change the task fingerprint can be fast-forwarded locally and then hidden behind `SUPPRESSED` or `IDLE` without running `verify_baseline_ancestor()` / `committed_handoff_paths()`.
+1. the scheduler can poll GitHub through the installed timer/service path;
+2. the first poll of this new task reaches the host runner and is blocked by `agent_exec=false` before any Hermes/Codex execution;
+3. that failed attempt is persisted by task fingerprint;
+4. the next scheduler poll of the same unchanged task returns `SUPPRESSED` with exit 0 and does not invoke the executor again;
+5. GitHub sync/polling remains active between attempts;
+6. the timer is returned to disabled/inactive after the test.
 
-This correction must preserve all H4 retry semantics while enforcing governance before any eligibility-based early return.
+This is a runtime scheduler canary only. No repository implementation changes are authorized.
 
-## Confirmed defect
+## Confirmed state
 
-Current flow after sync is effectively:
+- Branch: `aither-v2`
+- Baseline: `cb5b9de8dd6dc8d765c7ec5b187048a80c9c9bf9`
+- H4 retry governor and H4-R1 governance ordering are Architect-accepted at repository level.
+- Existing timer Source of Truth remains frequent (`OnUnitInactiveSec=1min`).
+- Existing Telegram Hermes Gateway must remain active and unrestarted.
+- H2 root bridge must not be invoked in this task.
+- Codex must not be invoked.
+- This task has `agent_exec=false` intentionally.
 
-```text
-sync -> load task -> fingerprint/state -> IDLE/SUPPRESSED return -> governance
-```
+## Required runtime sequence
 
-Required flow:
+### Preconditions
 
-```text
-sync
- -> load synchronized task
- -> branch validation
- -> baseline ancestor validation
- -> committed handoff path validation
- -> fingerprint/state
- -> IDLE / SUPPRESSED / execute eligibility
-```
+Record before changes:
 
-No synced repository state may bypass baseline/handoff governance merely because the task fingerprint matches a prior PASS/BLOCKED state.
+- local/remote HEAD;
+- clean worktree;
+- current task id/executor;
+- timer enabled/active state;
+- runner service state;
+- host-runner/hermes-observer processes absent;
+- H2 socket present;
+- Telegram Gateway active/MainPID;
+- current runner state file contents limited to safe scalar fields only.
 
-## Required implementation
+If worktree is not clean or branch/task identity is wrong: BLOCKED and STOP.
 
-Modify only:
+### Scheduler canary
 
-- `.agent/host_task_runner.py`
-- `.agent/tests/test_host_task_runner.py`
+1. Ensure local checkout is fast-forward synced to current GitHub task-control HEAD.
+2. Keep timer **disabled** persistently. Do NOT `enable` it.
+3. Start the existing timer transiently with `systemctl start aither-codex-runner.timer`.
+4. Observe the first service execution caused by the timer.
+5. The first execution must:
+   - sync GitHub;
+   - load this task;
+   - pass branch/baseline/handoff governance;
+   - see `agent_exec=false`;
+   - return `BLOCKED`;
+   - record `last_attempt_fingerprint=<current fingerprint>` and `last_attempt_result=BLOCKED`;
+   - NOT invoke Hermes observer, H2, root Hermes, or Codex.
+6. Leave the timer active only long enough for one subsequent scheduled poll of the same unchanged task.
+7. The second execution must:
+   - sync GitHub again;
+   - pass governance;
+   - identify the same failed fingerprint;
+   - return `SUPPRESSED`;
+   - service exit status 0;
+   - publish live state `WAITING / EXECUTOR_RETRY_SUPPRESSED`;
+   - NOT invoke any executor.
+8. As soon as the second poll is proven, stop the timer with `systemctl stop aither-codex-runner.timer`.
+9. Confirm timer remains disabled and is now inactive.
 
-Move or restructure the eligibility checks so both:
-
-- successful-fingerprint `IDLE`, and
-- failed-fingerprint `SUPPRESSED`
-
-occur only after all synchronized Git governance checks for the current HEAD have passed.
-
-Do not change Codex/Hermes dispatcher behavior.
-Do not change retry-state field names or live/systemd mappings unless absolutely necessary; preferred correction is limited to host runner ordering and tests.
-
-## Mandatory regression tests
-
-Tests must prove at least:
-
-1. Same BLOCKED fingerprint + unchanged governed HEAD => `SUPPRESSED`, executor not called.
-2. Same PASS fingerprint + unchanged governed HEAD => `IDLE`, executor not called.
-3. Suppressed poll still performs fetch/sync.
-4. If fetch/sync advances HEAD with an unexpected committed path while task fingerprint is unchanged, runner MUST NOT return `SUPPRESSED`; it must fail governance before executor eligibility.
-5. The same scenario for a previously successful fingerprint MUST NOT return `IDLE`; governance must fail first.
-6. A valid Architect task-control handoff that changes fingerprint remains eligible immediately after governance passes.
-7. Existing BLOCKED state recording remains correct.
-8. Existing `SUPPRESSED` CLI exit-0 behavior remains unchanged.
-9. Existing Codex/Hermes dispatcher tests remain unchanged/passing.
-10. No real executor is invoked during this implementation task.
-
-Important: remove/replace any test that treats an arbitrary remote `extra.txt` commit as acceptable merely because suppression occurs. That behavior is the defect.
-
-## Required validation
-
-Run every command from CURRENT_TASK.json. All must PASS.
-
-At minimum:
-
-```bash
-python3 -m py_compile .agent/host_task_runner.py .agent/tests/test_host_task_runner.py
-PYTHONPATH=.agent python3 .agent/tests/test_host_task_runner.py
-PYTHONPATH=.agent python3 .agent/tests/test_live_observability.py
-python3 .agent/validate_task_scope.py
-git diff --check
-```
+Exactly two scheduler service executions are authorized for this task: first BLOCKED, second SUPPRESSED. Do not allow a third execution.
 
 ## Hard prohibitions
 
 DO NOT:
 
-- modify `.agent/CURRENT_TASK.json` or `.agent/CURRENT_TASK.md` locally;
-- modify systemd timer/service files;
-- enable/start timer;
-- run Codex;
+- enable the timer persistently;
+- allow more than two scheduler service executions;
+- invoke Hermes manually;
 - invoke H2 RUN;
-- spawn Hermes recursively;
+- invoke Codex;
 - modify root executor;
+- modify repository files;
+- modify task-control locally;
+- commit or push implementation changes;
+- modify timer/service unit files;
 - restart/reconfigure Telegram Gateway;
 - touch Aither runtime/Kubernetes/database;
-- install packages;
-- modify sudoers;
 - read/expose secrets;
-- modify paths outside CURRENT_TASK.json allowed_paths.
+- install packages or modify sudoers.
 
-## Commit / push
+## PASS criteria
 
-If and only if all validations pass:
+PASS only if all are true:
 
-- exactly one implementation commit;
-- commit message exactly: `fix: enforce governance before retry suppression`;
-- push fast-forward to `aither-v2`;
-- clean worktree after push.
+1. Timer was disabled before and remains disabled after.
+2. Exactly two scheduler service executions occurred.
+3. First result is BLOCKED due to `agent_exec=false` after governance.
+4. First result records failed fingerprint/result in runner state.
+5. No executor was invoked on first poll.
+6. Second poll performs GitHub fetch/sync again.
+7. Second result is SUPPRESSED for the same fingerprint.
+8. Second service exits successfully (0).
+9. Live state is WAITING / EXECUTOR_RETRY_SUPPRESSED with task_id/executor preserved and no unsafe fields.
+10. No Hermes observer/H2/root Hermes/Codex execution occurs across both polls.
+11. Repository HEAD/worktree unchanged except fast-forward of Architect task-control commits.
+12. No implementation commit/push occurs.
+13. Telegram Gateway remains active with unchanged MainPID and no second gateway process.
+14. Timer is stopped immediately after second proven poll and ends inactive.
 
 ## Required final report
 
 ```text
-TASK: HERMES-INTEGRATION-H4-R1-GOVERNANCE-BEFORE-ELIGIBILITY
-BASELINE_SHA:
-START_HEAD:
-WORKTREE_BEFORE:
+TASK: HERMES-INTEGRATION-H5A-SCHEDULER-SUPPRESSION-CANARY
 
-SYNC_BEFORE_GOVERNANCE:
-BRANCH_CHECK_BEFORE_ELIGIBILITY:
-BASELINE_CHECK_BEFORE_ELIGIBILITY:
-COMMITTED_HANDOFF_CHECK_BEFORE_ELIGIBILITY:
-IDLE_AFTER_GOVERNANCE_ONLY:
-SUPPRESSED_AFTER_GOVERNANCE_ONLY:
+LOCAL_HEAD_BEFORE:
+REMOTE_HEAD_BEFORE:
+WORKTREE_CLEAN_BEFORE:
+CURRENT_TASK:
+CURRENT_EXECUTOR:
+AGENT_EXEC:
 
-BLOCKED_SAME_FINGERPRINT_SUPPRESSED:
-PASS_SAME_FINGERPRINT_IDLE:
-SUPPRESSED_STILL_FETCHES:
-UNEXPECTED_REMOTE_COMMIT_BLOCKS_BEFORE_SUPPRESSION:
-UNEXPECTED_REMOTE_COMMIT_BLOCKS_BEFORE_IDLE:
-NEW_VALID_TASK_FINGERPRINT_UNLOCKS:
-EXECUTOR_NOT_CALLED_DURING_SUPPRESSION:
+TIMER_ENABLED_BEFORE:
+TIMER_ACTIVE_BEFORE:
+RUNNER_SERVICE_STATE_BEFORE:
+TELEGRAM_GATEWAY_MAIN_PID_BEFORE:
+H2_SOCKET_EXISTS:
 
-CODEX_DISPATCH_UNCHANGED:
-HERMES_DISPATCH_UNCHANGED:
-REAL_CODEX_EXECUTED: NO
-REAL_H2_RUN_INVOKED: NO
-REAL_HERMES_EXECUTED: NO
+TIMER_STARTED_TRANSIENTLY:
+SERVICE_EXECUTION_COUNT:
 
-PY_COMPILE:
-HOST_RUNNER_TESTS:
-LIVE_OBSERVABILITY_TESTS:
-TASK_SCOPE_VALIDATOR:
-GIT_DIFF_CHECK:
+FIRST_POLL_RESULT:
+FIRST_POLL_TASK_ID:
+FIRST_POLL_EXECUTOR:
+FIRST_POLL_BLOCK_REASON:
+FIRST_POLL_STATE_FINGERPRINT_RECORDED:
+FIRST_POLL_STATE_RESULT_RECORDED:
+FIRST_POLL_HERMES_OBSERVER_COUNT:
+FIRST_POLL_H2_RUN_COUNT:
+FIRST_POLL_ROOT_HERMES_COUNT:
+FIRST_POLL_CODEX_COUNT:
 
-CHANGED_PATHS:
-OUTSIDE_ALLOWLIST:
-CURRENT_TASK_FILES_MODIFIED: NO
-TIMER_FILES_MODIFIED: NO
-TIMER_ENABLED: disabled
-TIMER_ACTIVE: inactive
-ROOT_EXECUTOR_MODIFIED: NO
-TELEGRAM_GATEWAY_RESTARTED: NO
-AITHER_RUNTIME_MODIFIED: NO
+SECOND_POLL_SYNC_OCCURRED:
+SECOND_POLL_RESULT:
+SECOND_POLL_TASK_ID:
+SECOND_POLL_EXECUTOR:
+SECOND_POLL_SERVICE_EXIT:
+SECOND_POLL_LIVE_STATE:
+SECOND_POLL_LIVE_PHASE:
+SECOND_POLL_UNSAFE_FIELDS_PRESENT:
+SECOND_POLL_HERMES_OBSERVER_COUNT:
+SECOND_POLL_H2_RUN_COUNT:
+SECOND_POLL_ROOT_HERMES_COUNT:
+SECOND_POLL_CODEX_COUNT:
+
+TIMER_STOPPED_AFTER_SECOND_POLL:
+TIMER_ENABLED_AFTER:
+TIMER_ACTIVE_AFTER:
+LOCAL_HEAD_AFTER:
+REMOTE_HEAD_AFTER:
+WORKTREE_CLEAN_AFTER:
+REPOSITORY_FILES_MODIFIED:
+NEW_IMPLEMENTATION_COMMIT:
+IMPLEMENTATION_PUSH:
+
+TELEGRAM_GATEWAY_ACTIVE_AFTER:
+TELEGRAM_GATEWAY_MAIN_PID_AFTER:
+TELEGRAM_GATEWAY_RESTARTED:
+SECOND_TELEGRAM_PROCESS:
+AITHER_RUNTIME_TOUCHED: NO
 KUBERNETES_TOUCHED: NO
 SECRETS_EXPOSED: NO
 
-RESULT_COMMIT:
-PUSH:
-REMOTE_HEAD:
-WORKTREE_AFTER:
 RESULT: PASS|FAIL|BLOCKED
 STOP
 ```
-
-PASS only if governance is proven to run before both IDLE and SUPPRESSED eligibility returns and exactly one allowed implementation commit is pushed.
 
 Do not declare Architect acceptance.
 
