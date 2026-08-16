@@ -166,10 +166,12 @@ def verify_baseline_ancestor(repo: Path, baseline: str, head: str,
 
 
 def committed_handoff_paths(repo: Path, baseline: str, head: str,
+                            allowed_paths: Iterable[str],
                             run: CommandRunner = execute_command) -> list[str]:
     output = run(['git', 'diff', '--name-only', '-z', f'{baseline}..{head}'], repo).stdout
     paths = sorted(filter(None, output.split('\0')))
-    unexpected = sorted(set(paths) - ARCHITECT_PATHS)
+    allowed = set(allowed_paths)
+    unexpected = sorted(set(paths) - ARCHITECT_PATHS - allowed)
     if unexpected:
         raise RunnerError(f'unexpected committed handoff paths: {unexpected}')
     return paths
@@ -411,6 +413,9 @@ def run_once(repo: Path, run: CommandRunner = execute_command,
         executor = task['executor']
         fingerprint = task_fingerprint(repo)
         state = read_state(state_path)
+        verify_baseline_ancestor(repo, task['baseline_sha'], start_head, run)
+        committed_handoff_paths(repo, task['baseline_sha'], start_head,
+                                task['allowed_paths'], run)
         if state.get('last_success_fingerprint') == fingerprint:
             return make_summary(task['task_id'], start_head, [], [], 'IDLE',
                                 'task already completed successfully',
@@ -420,8 +425,6 @@ def run_once(repo: Path, run: CommandRunner = execute_command,
             return make_summary(task['task_id'], start_head, [], [], 'SUPPRESSED',
                                 'executor retry suppressed pending Architect task change',
                                 executor=executor)
-        verify_baseline_ancestor(repo, task['baseline_sha'], start_head, run)
-        committed_handoff_paths(repo, task['baseline_sha'], start_head, run)
         if not execute_agent:
             return make_summary(task['task_id'], start_head, [], [], 'PASS', 'dry-run',
                                 executor=executor)

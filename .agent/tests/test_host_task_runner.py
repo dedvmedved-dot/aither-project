@@ -123,7 +123,11 @@ class HostRunnerTests(unittest.TestCase):
         self.assertIn((['git','merge-base','--is-ancestor','base','later'],Path('/repo')),fake.calls)
     def test_unexpected_handoff_path_rejected(self):
         cmd=('git','diff','--name-only','-z','base..head')
-        with self.assertRaises(runner.RunnerError): runner.committed_handoff_paths(Path('/repo'),'base','head',FakeRun({cmd:'app.py\0'}))
+        with self.assertRaises(runner.RunnerError): runner.committed_handoff_paths(Path('/repo'),'base','head',['impl.txt'],FakeRun({cmd:'app.py\0'}))
+    def test_handoff_allows_implementation_paths(self):
+        cmd=('git','diff','--name-only','-z','base..head')
+        paths=runner.committed_handoff_paths(Path('/repo'),'base','head',['impl.txt'],FakeRun({cmd:'.agent/CURRENT_TASK.json\0impl.txt\0'}))
+        self.assertEqual(paths,['.agent/CURRENT_TASK.json','impl.txt'])
     def test_summary_deterministic(self):
         summary=runner.make_summary('T','H',['z','a'],['z'],'PASS',commit_sha='C'); self.assertEqual(summary['changed_paths'],['a','z']); self.assertEqual(summary['implementation_paths'],['z'])
     def test_flock_contention_fails_closed(self):
@@ -174,12 +178,33 @@ class HostRunnerTests(unittest.TestCase):
             (work/'.agent'/'CURRENT_TASK.md').write_text('changed task\n'); self._git(work,'add','.agent/CURRENT_TASK.md'); self._git(work,'commit','-m','change task'); self._git(work,'push','origin','aither-v2')
             result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'BLOCKED')
     def test_suppressed_still_fetches(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo=Path(directory); (repo/'.agent').mkdir(parents=True); (repo/'.git').mkdir()
+            task=base_task(baseline_sha='a'*40); (repo/'.agent'/'CURRENT_TASK.json').write_text(json.dumps(task)); (repo/'.agent'/'CURRENT_TASK.md').write_text('task\n')
+            fp=runner.task_fingerprint(repo); (repo/'.git'/'host-task-runner-state.json').write_text(json.dumps({'last_attempt_fingerprint':fp,'last_attempt_result':'BLOCKED'}))
+            fake=FakeRun()
+            fake.outputs[('git','rev-parse','--show-toplevel')]=str(repo)
+            fake.outputs[('git','rev-parse','--git-path','host-task-runner.lock')]='.git/host-task-runner.lock'
+            fake.outputs[('git','rev-parse','--git-path','host-task-runner-state.json')]='.git/host-task-runner-state.json'
+            fake.outputs[('git','branch','--show-current')]='aither-v2'
+            fake.outputs[('git','rev-parse','HEAD')]='h'*40
+            fake.outputs[('git','rev-parse','origin/aither-v2')]='h'*40
+            result=runner.run_once(repo,run=fake,execute_agent=True); self.assertEqual(result['result'],'SUPPRESSED')
+            self.assertTrue(any(c[0]==['git','fetch','--prune','origin','aither-v2'] for c in fake.calls))
+    def test_unexpected_remote_commit_blocks_before_suppression(self):
         temp,work,remote,baseline,task_head=self._fixture('exit 1')
         with temp:
             result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'BLOCKED')
             (work/'extra.txt').write_text('extra\n'); self._git(work,'add','extra.txt'); self._git(work,'commit','-m','extra'); self._git(work,'push','origin','aither-v2'); self._git(work,'reset','--hard',task_head)
-            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'SUPPRESSED')
-            work_head=self._git(work,'rev-parse','HEAD'); remote_head=subprocess.run(['git','--git-dir',str(remote),'rev-parse','refs/heads/aither-v2'],check=True,capture_output=True,text=True).stdout.strip(); self.assertEqual(work_head,remote_head)
+            with self.assertRaises(runner.RunnerError) as ctx: runner.run_once(work,execute_agent=True)
+            self.assertIn('unexpected committed handoff paths',str(ctx.exception))
+    def test_unexpected_remote_commit_blocks_before_idle(self):
+        temp,work,remote,baseline,task_head=self._fixture("printf 'ok\\n' > impl.txt")
+        with temp:
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'PASS')
+            (work/'extra.txt').write_text('extra\n'); self._git(work,'add','extra.txt'); self._git(work,'commit','-m','extra'); self._git(work,'push','origin','aither-v2'); self._git(work,'reset','--hard',result['commit_sha'])
+            with self.assertRaises(runner.RunnerError) as ctx: runner.run_once(work,execute_agent=True)
+            self.assertIn('unexpected committed handoff paths',str(ctx.exception))
     def test_main_returns_zero_for_suppressed(self):
         with unittest.mock.patch.object(runner,'run_once',return_value={'result':'SUPPRESSED'}):
             self.assertEqual(runner.main(['--run-once']),0)
