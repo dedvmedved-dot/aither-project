@@ -1,215 +1,228 @@
-# TASK: HERMES-INTEGRATION-H3-R1-ROOT-GIT-IDENTITY-CORRECTION
+# TASK: HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY
 
 ## Goal
 
-Correct the H2 root bridge governance failure discovered by the first H3 E2E canary.
+Retry the complete automated Hermes execution path exactly once after acceptance of `HERMES-INTEGRATION-H3-R1-ROOT-GIT-IDENTITY-CORRECTION`.
 
-The canary proved the chain through:
+Target path:
 
-`systemd runner -> host_task_runner -> executor=hermes -> hermes_observer -> H2 socket`
+`systemd runner -> host_task_runner -> executor=hermes -> hermes_observer -> H2 root socket bridge -> Git governance as codex -> root Hermes (/root/.hermes) -> read-only canary -> supervisor summary/live status`.
 
-but H2 returned `BLOCKED_GOVERNANCE` before spawning root Hermes because the root executor runs Git governance against `/home/codex/aither-project` as Linux user `root`, while the repository is owned by `codex`. Git therefore rejects the repository as dubious ownership.
+This retry must prove the full E2E path without source/runtime mutation.
 
-This task must correct only that identity mismatch.
+## Confirmed state
 
-## Confirmed facts
+- Branch: `aither-v2`
+- Baseline: `101269d65e3308ef51425b60cd2739b1db1ec959`
+- H1 implementation is Architect accepted at repository level.
+- H3 first canary reached H2 and was blocked only by root Git dubious ownership.
+- H3-R1 corrected H2 Git governance identity: Git checks now run as `codex`, while Hermes remains root with `HOME=/root` and the existing `/root/.hermes` profile.
+- H2 socket remains `/run/aither-hermes/execute.sock`.
+- Telegram Hermes Gateway must remain active and unrestarted.
+- `aither-codex-runner.timer` must remain disabled/inactive.
+- Exactly ONE automated Hermes execution is allowed in this task.
 
-- Repository checkout: `/home/codex/aither-project`
-- Repository owner: `codex`
-- H2 service/root executor runs as root.
-- Existing H2 socket remains `/run/aither-hermes/execute.sock`.
-- Existing Telegram Hermes Gateway must remain active and unrestarted.
-- Root Hermes must continue to execute as root with `HOME=/root` and existing `/root/.hermes` profile.
-- H3 canary was invoked exactly once and must NOT be repeated in this correction task.
-- `aither-codex-runner.timer` remains disabled/inactive.
+## Root Hermes canary semantics
 
-## Required design
+When H2 invokes root Hermes, Hermes must do only:
 
-Separate governance identity from Hermes execution identity:
+1. Read `AGENTS.md`, `.agent/CURRENT_TASK.json`, `.agent/CURRENT_TASK.md`.
+2. Verify current task id is `HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY`.
+3. Verify `executor=hermes`, `agent_exec=true`, `source_write=false`.
+4. Read-only inspect repository identity:
+   - branch;
+   - HEAD;
+   - clean/dirty worktree.
+5. Do not modify any file.
+6. Do not use Kubernetes/runtime/database/deployment/package/secret capabilities.
+7. Return only concise safe canary evidence and STOP.
+
+Expected safe executor report:
 
 ```text
-H2 root service
-   |
-   +-- Git governance checks -> run as Linux user codex
-   |      repository=/home/codex/aither-project
-   |
-   +-- only after governance PASS -> spawn Hermes as root
-          HOME=/root
-          exact Hermes executable
-          existing /root/.hermes profile
+TASK: HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY
+EXECUTOR: hermes
+BRANCH: aither-v2
+HEAD: <launch head>
+WORKTREE: clean
+SOURCE_WRITE: NO
+RUNTIME_WRITE: NO
+SECRETS_EXPOSED: NO
+RESULT: PASS
+STOP
 ```
 
-Git governance must execute as the repository owner, not as root trusting a foreign-owned working tree.
+## Invocation
 
-## Preferred implementation
+Use the existing supervisor path exactly once.
 
-Modify only the installed root executor:
+Preferred invocation:
 
-`/usr/local/sbin/aither-hermes-root-exec`
+```text
+systemctl start aither-codex-runner.service
+```
 
-Use an argv-safe privilege drop for Git-only commands, e.g. a fixed helper based on `runuser -u codex -- git ...` or equivalent local mechanism already available on the host.
+Timer must remain disabled and inactive.
 
-Requirements:
+Do NOT invoke `host_task_runner.py`, `hermes_observer.py`, H2 socket, or Hermes directly as a second execution path.
 
-- only Git governance commands change identity to `codex`;
-- Hermes process remains root;
-- no shell interpolation;
-- no arbitrary command supplied by caller;
-- repository path remains fixed `/home/codex/aither-project`;
-- branch/task/capability/baseline/clean-worktree governance semantics remain unchanged;
-- H2 protocol remains fixed `RUN` with existing framing normalization;
-- existing lock remains unchanged;
-- existing timeout remains unchanged;
-- fail closed if privilege drop or Git command fails.
+## Preconditions
 
-## Explicitly forbidden
+Before invocation record and verify:
 
-DO NOT:
+- local branch `aither-v2`;
+- local/remote HEAD synchronized by fast-forward;
+- clean worktree;
+- current task id matches this task;
+- executor=hermes;
+- `agent_exec=true`;
+- `source_write=false`;
+- timer disabled/inactive;
+- runner service not active/activating;
+- no host runner process;
+- no hermes_observer process;
+- H2 socket exists/listens and is `root:codex 0660`;
+- root executor exists, remains root-owned executable;
+- Telegram Gateway active; record MainPID.
 
-- run H3 canary in this task;
-- send `RUN` to the H2 socket;
-- spawn real Hermes;
-- launch Codex;
-- enable/start the recurring runner timer;
-- change `/root/.gitconfig`;
-- change `/etc/gitconfig`;
-- run `git config --global --add safe.directory ...`;
-- run `git config --system --add safe.directory ...`;
-- use `safe.directory=*`;
-- change ownership of `/home/codex/aither-project`;
-- chmod/chown the repository to root;
-- move/copy the repository;
-- modify sudoers;
-- modify `.agent` source/task-control locally;
-- modify Aither application/runtime/Kubernetes/database;
-- restart/reconfigure Telegram Gateway;
-- start a second Telegram process;
-- install packages.
+If any precondition fails: `BLOCKED`, no execution, STOP.
 
-## Precheck
+## Required proof during/after invocation
 
-Before any mutation record:
+Prove where possible:
 
-- root executor owner/group/mode and SHA256;
-- H2 socket owner/group/mode;
-- timer enabled/active;
-- Telegram Gateway active/MainPID;
-- repository owner/group;
-- local branch/HEAD/worktree using Linux user `codex`;
-- confirm root Git currently fails with `dubious ownership`;
-- confirm `runuser -u codex -- git -C /home/codex/aither-project rev-parse --abbrev-ref HEAD` succeeds and returns `aither-v2`.
+1. Supervisor selected `executor=hermes`.
+2. `hermes_observer.py` was invoked.
+3. H2 accepted exactly one RUN.
+4. H2 Git governance passed using Linux identity `codex`.
+5. Root Hermes was spawned exactly once.
+6. Root Hermes identity is root and `HOME=/root`; existing `/root/.hermes` profile is used.
+7. Codex was not executed.
+8. Telegram Gateway MainPID unchanged; no second Telegram process.
+9. Root Hermes canary returned PASS.
+10. Host-runner final result PASS with correct task_id/executor.
+11. Live status final result PASS with correct task_id/executor and no unsafe fields.
+12. Repository HEAD unchanged by executor; worktree clean.
+13. No Aither/Kubernetes/runtime mutation.
+14. Timer still disabled/inactive.
 
-If the codex-user Git check does not succeed, return `BLOCKED` and STOP without modifying the executor.
+## Hard prohibitions
 
-## Mutation
+- Exactly ONE automated execution. No retry in this task.
+- DO NOT enable/start the recurring timer.
+- DO NOT invoke Codex.
+- DO NOT invoke Hermes directly as user `codex`.
+- DO NOT bypass H2 bridge.
+- DO NOT manually send RUN to H2 socket.
+- DO NOT modify H2 executor in this task.
+- DO NOT change safe.directory, sudoers, repository ownership, systemd units, or Telegram configuration.
+- DO NOT modify source/application/manifests/task-control locally.
+- DO NOT create implementation commits or push executor changes.
+- DO NOT touch Kubernetes/Aither runtime/database.
+- DO NOT read or expose secrets.
+- If BLOCKED/FAIL occurs, capture safe evidence and STOP without retry.
 
-Make one minimal backup of the executor outside the repository, mode 0600, timestamped under `/root` or `/var/tmp`.
+## PASS criteria
 
-Then modify only `/usr/local/sbin/aither-hermes-root-exec` so its Git governance helper executes fixed Git argv as Linux user `codex`.
+PASS only if all are true:
 
-Do not alter Hermes spawn identity.
-
-## Static validation
-
-After modification, without invoking H2 RUN:
-
-1. Syntax/compile check as appropriate.
-2. Static inspection proves:
-   - Git commands are executed as `codex`;
-   - repository path fixed;
-   - root Hermes executable unchanged;
-   - `HOME=/root` preserved for Hermes;
-   - no direct/user-controlled command forwarding;
-   - no `shell=True`, `os.system`, `eval`, `exec` added;
-   - no safe.directory configuration added.
-3. Execute the exact read-only governance Git commands used by the executor through the new Git helper/identity, but do NOT spawn Hermes and do NOT connect to the socket.
-4. Confirm they return:
-   - branch `aither-v2`;
-   - current HEAD;
-   - clean worktree;
-   - baseline ancestor checks as required by current task state.
-
-## Service handling
-
-If the root executor is an ordinary executable invoked by the existing templated service and no unit file changes are needed, do NOT daemon-reload or restart persistent services.
-
-Do not restart Telegram Gateway.
-
-The socket must remain active/listening.
+1. One supervisor invocation only.
+2. Supervisor selects `executor=hermes`.
+3. Hermes observer invoked.
+4. H2 invoked once.
+5. H2 Git governance passes as `codex`.
+6. Root Hermes executes exactly once with root identity and `HOME=/root`.
+7. Root Hermes canary returns PASS.
+8. Host runner returns PASS with correct task id/executor.
+9. Live status returns PASS with correct task id/executor and no unsafe fields.
+10. No Codex execution.
+11. Telegram Gateway unchanged and no second gateway.
+12. Repository/runtime unchanged; worktree clean.
+13. Timer remains disabled/inactive.
 
 ## Required final report
 
 ```text
-TASK: HERMES-INTEGRATION-H3-R1-ROOT-GIT-IDENTITY-CORRECTION
+TASK: HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY
 
-ROOT_EXECUTOR_SHA_BEFORE:
-ROOT_EXECUTOR_OWNER_GROUP_MODE_BEFORE:
-H2_SOCKET_OWNER_GROUP_MODE_BEFORE:
-REPO_OWNER_GROUP:
+LOCAL_HEAD_BEFORE:
+REMOTE_HEAD_BEFORE:
+WORKTREE_CLEAN_BEFORE:
+CURRENT_TASK:
+CURRENT_EXECUTOR:
+AGENT_EXEC:
+SOURCE_WRITE:
+
 TIMER_ENABLED_BEFORE:
 TIMER_ACTIVE_BEFORE:
+RUNNER_SERVICE_ACTIVE_BEFORE:
+HOST_RUNNER_PROCESS_BEFORE:
+HERMES_OBSERVER_PROCESS_BEFORE:
+
+H2_SOCKET_EXISTS:
+H2_SOCKET_OWNER_GROUP_MODE:
+ROOT_EXECUTOR_OWNER_GROUP_MODE:
+TELEGRAM_GATEWAY_ACTIVE_BEFORE:
 TELEGRAM_GATEWAY_MAIN_PID_BEFORE:
 
-ROOT_GIT_DUBIOUS_OWNERSHIP_REPRODUCED:
-CODEX_GIT_BRANCH_PRECHECK:
-CODEX_GIT_HEAD_PRECHECK:
-CODEX_GIT_WORKTREE_PRECHECK:
+SUPERVISOR_INVOCATION_COUNT:
+SUPERVISOR_SELECTED_EXECUTOR:
+HERMES_OBSERVER_INVOKED:
+H2_RUN_COUNT:
+H2_GIT_GOVERNANCE_IDENTITY:
+H2_GOVERNANCE_RESULT:
+ROOT_HERMES_EXECUTION_COUNT:
+ROOT_HERMES_USER:
+ROOT_HERMES_HOME:
+ROOT_PROFILE_USED:
+CODEX_EXECUTION_COUNT:
 
-BACKUP_CREATED:
-ROOT_EXECUTOR_MODIFIED: YES|NO
-GIT_GOVERNANCE_IDENTITY_AFTER: codex
-GIT_GOVERNANCE_REPO_FIXED: YES|NO
-ROOT_HERMES_IDENTITY_PRESERVED: YES|NO
-ROOT_HERMES_HOME_PRESERVED: YES|NO
-ROOT_HERMES_EXECUTABLE_PRESERVED: YES|NO
-SAFE_DIRECTORY_CONFIG_CHANGED: NO
-SUDOERS_CHANGED: NO
+EXECUTOR_CANARY_TASK:
+EXECUTOR_CANARY_BRANCH:
+EXECUTOR_CANARY_HEAD:
+EXECUTOR_CANARY_WORKTREE:
+EXECUTOR_CANARY_SOURCE_WRITE:
+EXECUTOR_CANARY_RUNTIME_WRITE:
+EXECUTOR_CANARY_SECRETS_EXPOSED:
+EXECUTOR_CANARY_RESULT:
 
-STATIC_SYNTAX_CHECK:
-STATIC_NO_SHELL_EVAL_EXEC:
-STATIC_FIXED_PROTOCOL_PRESERVED:
-STATIC_LOCK_PRESERVED:
-STATIC_TIMEOUT_PRESERVED:
-GOVERNANCE_BRANCH_CHECK:
-GOVERNANCE_HEAD_CHECK:
-GOVERNANCE_CLEAN_WORKTREE_CHECK:
-GOVERNANCE_BASELINE_CHECK:
+HOST_RUNNER_RESULT:
+HOST_RUNNER_TASK_ID:
+HOST_RUNNER_EXECUTOR:
+HOST_RUNNER_COMMIT_SHA:
 
-REAL_H2_RUN_INVOKED: NO
-REAL_HERMES_EXECUTED: NO
-CODEX_EXECUTED: NO
-AITHER_RUNTIME_TOUCHED: NO
-KUBERNETES_TOUCHED: NO
-REPOSITORY_FILES_MODIFIED: NO
+LIVE_STATE:
+LIVE_PHASE:
+LIVE_TASK_ID:
+LIVE_EXECUTOR:
+LIVE_UNSAFE_FIELDS_PRESENT:
 
-ROOT_EXECUTOR_SHA_AFTER:
-ROOT_EXECUTOR_OWNER_GROUP_MODE_AFTER:
-H2_SOCKET_EXISTS_AFTER:
-H2_SOCKET_OWNER_GROUP_MODE_AFTER:
+LOCAL_HEAD_AFTER:
+REMOTE_HEAD_AFTER:
+WORKTREE_CLEAN_AFTER:
+REPOSITORY_FILES_MODIFIED:
+NEW_IMPLEMENTATION_COMMIT:
+IMPLEMENTATION_PUSH:
+
 TIMER_ENABLED_AFTER:
 TIMER_ACTIVE_AFTER:
+RUNNER_SERVICE_ACTIVE_AFTER:
+HOST_RUNNER_PROCESS_AFTER:
+HERMES_OBSERVER_PROCESS_AFTER:
+
 TELEGRAM_GATEWAY_ACTIVE_AFTER:
 TELEGRAM_GATEWAY_MAIN_PID_AFTER:
-TELEGRAM_GATEWAY_RESTARTED: NO
-SECOND_TELEGRAM_PROCESS: NO
+TELEGRAM_GATEWAY_RESTARTED:
+SECOND_TELEGRAM_PROCESS:
+
+AITHER_RUNTIME_TOUCHED: NO
+KUBERNETES_TOUCHED: NO
 SECRETS_EXPOSED: NO
 
 RESULT: PASS|FAIL|BLOCKED
 STOP
 ```
 
-## PASS criteria
+Do not declare Architect acceptance.
 
-PASS only if:
-
-1. `codex` identity can perform every required Git governance check on the fixed repository.
-2. Root executor was minimally changed so Git governance uses `codex`.
-3. Root Hermes identity/HOME/executable are unchanged.
-4. No safe.directory configuration was added.
-5. No H2 RUN or Hermes execution occurred.
-6. Socket remains healthy.
-7. Telegram Gateway PID unchanged.
-8. Timer remains disabled/inactive.
-9. Repository and Aither runtime remain untouched.
-
-After PASS, STOP. Do not repeat H3 canary; Architect will authorize the retry separately.
+STOP.
