@@ -1,227 +1,236 @@
-# TASK: HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY
+# TASK: HERMES-INTEGRATION-H4-SYNC-RETRY-GOVERNOR
 
 ## Goal
 
-Retry the complete automated Hermes execution path exactly once after acceptance of `HERMES-INTEGRATION-H3-R1-ROOT-GIT-IDENTITY-CORRECTION`.
+Eliminate the old infinite executor retry loop without sacrificing fast GitHub task delivery.
 
-Target path:
+The current timer polls every ~1 minute. That cadence is useful for discovering a new Architect task, but after a BLOCKED executor result the same task fingerprint can be executed again every timer cycle. That behavior previously caused the Codex quota failure to repeat indefinitely.
 
-`systemd runner -> host_task_runner -> executor=hermes -> hermes_observer -> H2 root socket bridge -> Git governance as codex -> root Hermes (/root/.hermes) -> read-only canary -> supervisor summary/live status`.
+Implement a fail-closed retry governor in the supervisor so:
 
-This retry must prove the full E2E path without source/runtime mutation.
+- GitHub fetch/sync still happens on every poll;
+- a newly published task fingerprint is eligible to run immediately;
+- a task already completed successfully remains IDLE;
+- a task that returned BLOCKED/FAIL does NOT automatically re-run every minute;
+- the same failed fingerprint is suppressed until explicit Architect change to the task-control fingerprint;
+- no timer re-enable occurs in this task.
+
+This is repository implementation only. Do not execute Hermes/Codex from the modified runner during this task.
 
 ## Confirmed state
 
 - Branch: `aither-v2`
-- Baseline: `101269d65e3308ef51425b60cd2739b1db1ec959`
-- H1 implementation is Architect accepted at repository level.
-- H3 first canary reached H2 and was blocked only by root Git dubious ownership.
-- H3-R1 corrected H2 Git governance identity: Git checks now run as `codex`, while Hermes remains root with `HOME=/root` and the existing `/root/.hermes` profile.
-- H2 socket remains `/run/aither-hermes/execute.sock`.
-- Telegram Hermes Gateway must remain active and unrestarted.
-- `aither-codex-runner.timer` must remain disabled/inactive.
-- Exactly ONE automated Hermes execution is allowed in this task.
+- Baseline: `ad7d54f41a5543bbf0a0883dc386e55016839f64`
+- H1 implementation: Architect accepted.
+- H3-R2 E2E canary: PASS at runtime; full path through root Hermes is proven.
+- Existing timer remains disabled/inactive.
+- Current timer Source of Truth uses `OnUnitInactiveSec=1min`; the timer itself may remain frequent.
+- Root H2 bridge and Telegram Gateway must not be changed.
 
-## Root Hermes canary semantics
+## Required design
 
-When H2 invokes root Hermes, Hermes must do only:
+### 1. Keep sync independent from execution eligibility
 
-1. Read `AGENTS.md`, `.agent/CURRENT_TASK.json`, `.agent/CURRENT_TASK.md`.
-2. Verify current task id is `HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY`.
-3. Verify `executor=hermes`, `agent_exec=true`, `source_write=false`.
-4. Read-only inspect repository identity:
-   - branch;
-   - HEAD;
-   - clean/dirty worktree.
-5. Do not modify any file.
-6. Do not use Kubernetes/runtime/database/deployment/package/secret capabilities.
-7. Return only concise safe canary evidence and STOP.
+`run_once()` must still:
 
-Expected safe executor report:
+1. acquire the existing lock;
+2. require clean worktree;
+3. resolve branch;
+4. fast-forward/sync from GitHub;
+5. load the synchronized CURRENT_TASK;
+6. validate branch/baseline/governance;
+7. calculate current task fingerprint;
+8. consult runner state to decide whether executor invocation is allowed.
 
-```text
-TASK: HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY
-EXECUTOR: hermes
-BRANCH: aither-v2
-HEAD: <launch head>
-WORKTREE: clean
-SOURCE_WRITE: NO
-RUNTIME_WRITE: NO
-SECRETS_EXPOSED: NO
-RESULT: PASS
-STOP
-```
+A suppressed task MUST NOT prevent future GitHub sync.
 
-## Invocation
+### 2. Persist last execution outcome by task fingerprint
 
-Use the existing supervisor path exactly once.
+Extend runner state safely so it can distinguish at least:
 
-Preferred invocation:
+- last successful fingerprint;
+- last attempted fingerprint;
+- last attempt result (`PASS`, `BLOCKED`, optionally `FAIL` if used internally);
+- last task id;
+- last executor;
+- last commit SHA when applicable.
 
-```text
-systemctl start aither-codex-runner.service
-```
+Do not store raw prompts, stdout, stderr, secrets, tokens, reasoning, or arbitrary executor output.
 
-Timer must remain disabled and inactive.
+### 3. Suppress repeated execution of the same failed fingerprint
 
-Do NOT invoke `host_task_runner.py`, `hermes_observer.py`, H2 socket, or Hermes directly as a second execution path.
+If the synchronized task fingerprint equals the last attempted fingerprint and the last attempt result was `BLOCKED` or `FAIL`:
 
-## Preconditions
+- DO NOT invoke Codex;
+- DO NOT invoke Hermes observer/H2;
+- return a safe non-error supervisor summary indicating execution is suppressed pending Architect task change;
+- preserve task_id and executor;
+- keep repository synced;
+- do not mutate source/task files.
 
-Before invocation record and verify:
+Use a distinct result/state such as `SUPPRESSED` or equivalent safe classification. Do not overload `PASS` in a way that hides the reason.
 
-- local branch `aither-v2`;
-- local/remote HEAD synchronized by fast-forward;
-- clean worktree;
-- current task id matches this task;
-- executor=hermes;
-- `agent_exec=true`;
-- `source_write=false`;
-- timer disabled/inactive;
-- runner service not active/activating;
-- no host runner process;
-- no hermes_observer process;
-- H2 socket exists/listens and is `root:codex 0660`;
-- root executor exists, remains root-owned executable;
-- Telegram Gateway active; record MainPID.
+Systemd service should exit successfully for this suppression state so the timer can continue polling GitHub without entering a failed-service loop.
 
-If any precondition fails: `BLOCKED`, no execution, STOP.
+### 4. New fingerprint unlocks execution immediately
 
-## Required proof during/after invocation
+If Architect changes either CURRENT_TASK.json or CURRENT_TASK.md so the task fingerprint changes:
 
-Prove where possible:
+- suppression from the previous fingerprint must not block the new task;
+- the new synchronized task is eligible immediately, subject to normal governance/capability checks.
 
-1. Supervisor selected `executor=hermes`.
-2. `hermes_observer.py` was invoked.
-3. H2 accepted exactly one RUN.
-4. H2 Git governance passed using Linux identity `codex`.
-5. Root Hermes was spawned exactly once.
-6. Root Hermes identity is root and `HOME=/root`; existing `/root/.hermes` profile is used.
-7. Codex was not executed.
-8. Telegram Gateway MainPID unchanged; no second Telegram process.
-9. Root Hermes canary returned PASS.
-10. Host-runner final result PASS with correct task_id/executor.
-11. Live status final result PASS with correct task_id/executor and no unsafe fields.
-12. Repository HEAD unchanged by executor; worktree clean.
-13. No Aither/Kubernetes/runtime mutation.
-14. Timer still disabled/inactive.
+This is the core task-delivery requirement.
+
+### 5. Successful fingerprint remains idempotent
+
+Existing behavior for a successful fingerprint should remain logically equivalent to `IDLE`:
+
+- do not re-run executor;
+- keep polling/sync operational;
+- return task_id/executor safely.
+
+### 6. Failure state must be recorded before returning BLOCKED
+
+Currently a BLOCKED result can be returned without durable state that suppresses the next timer poll.
+
+Update the flow so after a task has been synchronized, validated and an executor attempt actually occurs, a resulting BLOCKED/FAIL outcome records the attempted fingerprint/result in runner state before returning the summary.
+
+Do not record a fingerprint as "attempted" when no executor invocation happened due to pre-execution governance failures that require Architect intervention before task execution eligibility is established, unless the implementation has a precise safe classification and tests prove the semantics. Prefer conservative behavior and document the distinction.
+
+### 7. Safe summaries and live observability
+
+Extend only safe scalar status as needed, e.g.:
+
+- `retry_state`
+- `suppressed`
+- `last_attempt_result`
+
+If adding fields, update `runner_live.py` whitelist and tests.
+
+Never publish raw exception text to remote live state beyond existing safe message classification.
+
+`systemd_runner.py` must map suppression to a non-failed observable state such as:
+
+- state=`IDLE` or `WAITING`
+- phase=`EXECUTOR_RETRY_SUPPRESSED`
+- runner_result=`SUPPRESSED`
+
+Use whichever exact names are simplest, but tests must make semantics unambiguous.
+
+### 8. Do not change the timer cadence in this task
+
+Do not modify:
+
+- `.agent/systemd/aither-codex-runner.timer`
+- installed timer unit
+- timer enablement state
+
+The point is to preserve frequent GitHub polling while preventing repeated executor invocation.
+
+## Mandatory tests
+
+Add/adjust tests proving at least:
+
+1. First unseen task fingerprint is eligible for execution.
+2. PASS fingerprint becomes IDLE on next poll and executor is not called.
+3. BLOCKED executor attempt records the fingerprint/result.
+4. Same BLOCKED fingerprint on next poll returns SUPPRESSED and executor is not called.
+5. Repeated SUPPRESSED polls still perform fetch/sync.
+6. A new Architect task fingerprint immediately clears the suppression and is eligible for execution.
+7. Suppression preserves `task_id` and `executor` in summary.
+8. `SUPPRESSED` is treated as successful service/poll outcome by CLI/systemd wrapper, not a failed service.
+9. Live status publishes only allowed safe fields and identifies retry suppression without raw stderr/stdout.
+10. Existing Codex/Hermes dispatcher behavior remains unchanged.
+11. Existing task governance, scope validation, rollback, clean-worktree, and success-idempotence tests still pass.
+12. No agent execution occurs when `agent_exec=false` for this implementation task.
 
 ## Hard prohibitions
 
-- Exactly ONE automated execution. No retry in this task.
-- DO NOT enable/start the recurring timer.
-- DO NOT invoke Codex.
-- DO NOT invoke Hermes directly as user `codex`.
-- DO NOT bypass H2 bridge.
-- DO NOT manually send RUN to H2 socket.
-- DO NOT modify H2 executor in this task.
-- DO NOT change safe.directory, sudoers, repository ownership, systemd units, or Telegram configuration.
-- DO NOT modify source/application/manifests/task-control locally.
-- DO NOT create implementation commits or push executor changes.
-- DO NOT touch Kubernetes/Aither runtime/database.
-- DO NOT read or expose secrets.
-- If BLOCKED/FAIL occurs, capture safe evidence and STOP without retry.
+DO NOT:
 
-## PASS criteria
+- modify `.agent/CURRENT_TASK.json` or `.agent/CURRENT_TASK.md` locally;
+- modify timer files or installed timer state;
+- enable/start recurring timer;
+- run Codex;
+- invoke real H2 RUN;
+- spawn Hermes recursively;
+- change root executor;
+- restart/reconfigure Telegram Gateway;
+- touch Aither runtime/Kubernetes/database;
+- read/expose secrets;
+- install packages;
+- modify sudoers;
+- modify paths outside CURRENT_TASK.json allowed_paths.
 
-PASS only if all are true:
+## Validation
 
-1. One supervisor invocation only.
-2. Supervisor selects `executor=hermes`.
-3. Hermes observer invoked.
-4. H2 invoked once.
-5. H2 Git governance passes as `codex`.
-6. Root Hermes executes exactly once with root identity and `HOME=/root`.
-7. Root Hermes canary returns PASS.
-8. Host runner returns PASS with correct task id/executor.
-9. Live status returns PASS with correct task id/executor and no unsafe fields.
-10. No Codex execution.
-11. Telegram Gateway unchanged and no second gateway.
-12. Repository/runtime unchanged; worktree clean.
-13. Timer remains disabled/inactive.
+Run every validation command in CURRENT_TASK.json.
+
+All must PASS, including scope validator and diff check.
+
+## Commit / push
+
+If and only if all validations pass:
+
+- exactly one implementation commit;
+- commit message exactly: `feat: add sync-preserving executor retry governor`;
+- push fast-forward to `aither-v2`;
+- clean worktree after push.
 
 ## Required final report
 
 ```text
-TASK: HERMES-INTEGRATION-H3-R2-E2E-READONLY-CANARY
+TASK: HERMES-INTEGRATION-H4-SYNC-RETRY-GOVERNOR
+BASELINE_SHA:
+START_HEAD:
+WORKTREE_BEFORE:
 
-LOCAL_HEAD_BEFORE:
-REMOTE_HEAD_BEFORE:
-WORKTREE_CLEAN_BEFORE:
-CURRENT_TASK:
-CURRENT_EXECUTOR:
-AGENT_EXEC:
-SOURCE_WRITE:
+SYNC_BEFORE_ELIGIBILITY: PASS|FAIL
+STATE_LAST_ATTEMPT_FINGERPRINT_ADDED:
+STATE_LAST_ATTEMPT_RESULT_ADDED:
+BLOCKED_FINGERPRINT_RECORDED:
+SAME_BLOCKED_FINGERPRINT_SUPPRESSED:
+SUPPRESSED_EXECUTOR_NOT_CALLED:
+SUPPRESSED_STILL_FETCHES:
+NEW_FINGERPRINT_UNLOCKS_EXECUTION:
+SUCCESS_IDEMPOTENCE_PRESERVED:
+TASK_ID_EXECUTOR_PRESERVED:
+SYSTEMD_SUPPRESSED_NONFAILED:
+LIVE_SUPPRESSION_SAFE:
 
-TIMER_ENABLED_BEFORE:
-TIMER_ACTIVE_BEFORE:
-RUNNER_SERVICE_ACTIVE_BEFORE:
-HOST_RUNNER_PROCESS_BEFORE:
-HERMES_OBSERVER_PROCESS_BEFORE:
+CODEX_DISPATCH_UNCHANGED:
+HERMES_DISPATCH_UNCHANGED:
+REAL_CODEX_EXECUTED: NO
+REAL_H2_RUN_INVOKED: NO
+REAL_HERMES_EXECUTED: NO
 
-H2_SOCKET_EXISTS:
-H2_SOCKET_OWNER_GROUP_MODE:
-ROOT_EXECUTOR_OWNER_GROUP_MODE:
-TELEGRAM_GATEWAY_ACTIVE_BEFORE:
-TELEGRAM_GATEWAY_MAIN_PID_BEFORE:
+PY_COMPILE:
+HOST_RUNNER_TESTS:
+LIVE_OBSERVABILITY_TESTS:
+TASK_SCOPE_VALIDATOR:
+GIT_DIFF_CHECK:
 
-SUPERVISOR_INVOCATION_COUNT:
-SUPERVISOR_SELECTED_EXECUTOR:
-HERMES_OBSERVER_INVOKED:
-H2_RUN_COUNT:
-H2_GIT_GOVERNANCE_IDENTITY:
-H2_GOVERNANCE_RESULT:
-ROOT_HERMES_EXECUTION_COUNT:
-ROOT_HERMES_USER:
-ROOT_HERMES_HOME:
-ROOT_PROFILE_USED:
-CODEX_EXECUTION_COUNT:
-
-EXECUTOR_CANARY_TASK:
-EXECUTOR_CANARY_BRANCH:
-EXECUTOR_CANARY_HEAD:
-EXECUTOR_CANARY_WORKTREE:
-EXECUTOR_CANARY_SOURCE_WRITE:
-EXECUTOR_CANARY_RUNTIME_WRITE:
-EXECUTOR_CANARY_SECRETS_EXPOSED:
-EXECUTOR_CANARY_RESULT:
-
-HOST_RUNNER_RESULT:
-HOST_RUNNER_TASK_ID:
-HOST_RUNNER_EXECUTOR:
-HOST_RUNNER_COMMIT_SHA:
-
-LIVE_STATE:
-LIVE_PHASE:
-LIVE_TASK_ID:
-LIVE_EXECUTOR:
-LIVE_UNSAFE_FIELDS_PRESENT:
-
-LOCAL_HEAD_AFTER:
-REMOTE_HEAD_AFTER:
-WORKTREE_CLEAN_AFTER:
-REPOSITORY_FILES_MODIFIED:
-NEW_IMPLEMENTATION_COMMIT:
-IMPLEMENTATION_PUSH:
-
-TIMER_ENABLED_AFTER:
-TIMER_ACTIVE_AFTER:
-RUNNER_SERVICE_ACTIVE_AFTER:
-HOST_RUNNER_PROCESS_AFTER:
-HERMES_OBSERVER_PROCESS_AFTER:
-
-TELEGRAM_GATEWAY_ACTIVE_AFTER:
-TELEGRAM_GATEWAY_MAIN_PID_AFTER:
-TELEGRAM_GATEWAY_RESTARTED:
-SECOND_TELEGRAM_PROCESS:
-
-AITHER_RUNTIME_TOUCHED: NO
+CHANGED_PATHS:
+OUTSIDE_ALLOWLIST:
+CURRENT_TASK_FILES_MODIFIED: NO
+TIMER_FILES_MODIFIED: NO
+TIMER_ENABLED: disabled
+TIMER_ACTIVE: inactive
+ROOT_EXECUTOR_MODIFIED: NO
+TELEGRAM_GATEWAY_RESTARTED: NO
+AITHER_RUNTIME_MODIFIED: NO
 KUBERNETES_TOUCHED: NO
 SECRETS_EXPOSED: NO
 
+RESULT_COMMIT:
+PUSH:
+REMOTE_HEAD:
+WORKTREE_AFTER:
 RESULT: PASS|FAIL|BLOCKED
 STOP
 ```
+
+PASS only if all required tests/validations pass and exactly one allowed implementation commit is pushed.
 
 Do not declare Architect acceptance.
 
