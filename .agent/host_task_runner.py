@@ -415,6 +415,11 @@ def run_once(repo: Path, run: CommandRunner = execute_command,
             return make_summary(task['task_id'], start_head, [], [], 'IDLE',
                                 'task already completed successfully',
                                 state.get('last_commit_sha', ''), executor=executor)
+        if state.get('last_attempt_fingerprint') == fingerprint and \
+                state.get('last_attempt_result') in ('BLOCKED', 'FAIL'):
+            return make_summary(task['task_id'], start_head, [], [], 'SUPPRESSED',
+                                'executor retry suppressed pending Architect task change',
+                                executor=executor)
         verify_baseline_ancestor(repo, task['baseline_sha'], start_head, run)
         committed_handoff_paths(repo, task['baseline_sha'], start_head, run)
         if not execute_agent:
@@ -423,12 +428,23 @@ def run_once(repo: Path, run: CommandRunner = execute_command,
         try:
             result = execute_task(repo, task, start_head, run)
         except (RunnerError, subprocess.CalledProcessError) as exc:
+            write_state(state_path, {
+                'last_commit_sha': state.get('last_commit_sha', ''),
+                'last_success_fingerprint': state.get('last_success_fingerprint', ''),
+                'last_task_id': task['task_id'],
+                'last_executor': executor,
+                'last_attempt_fingerprint': fingerprint,
+                'last_attempt_result': 'BLOCKED',
+            })
             return make_summary(task['task_id'], start_head, [], [], 'BLOCKED',
                                 str(exc), executor=executor)
         write_state(state_path, {
             'last_commit_sha': result['commit_sha'],
             'last_success_fingerprint': fingerprint,
             'last_task_id': task['task_id'],
+            'last_executor': executor,
+            'last_attempt_fingerprint': fingerprint,
+            'last_attempt_result': 'PASS',
         })
         return result
 
@@ -445,7 +461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (RunnerError, subprocess.CalledProcessError) as exc:
         summary = make_summary('', '', [], [], 'BLOCKED', str(exc))
     print(json.dumps(summary, sort_keys=True, separators=(',', ':')))
-    return 0 if summary['result'] in {'PASS', 'IDLE'} else 1
+    return 0 if summary['result'] in {'PASS', 'IDLE', 'SUPPRESSED'} else 1
 
 
 if __name__ == '__main__':

@@ -21,6 +21,8 @@ def build_final_status(summary: dict, returncode: int) -> dict:
     message_code = ""
     if result == "IDLE":
         state, phase = "IDLE", "HOST_RUNNER_IDLE"
+    elif result == "SUPPRESSED":
+        state, phase = "WAITING", "EXECUTOR_RETRY_SUPPRESSED"
     elif returncode == 0 and result == "PASS":
         state, phase = "PASS", "HOST_RUNNER_COMPLETE"
     else:
@@ -45,6 +47,9 @@ def build_final_status(summary: dict, returncode: int) -> dict:
         "exit_code": returncode,
         "message_code": message_code,
     }
+    if result == "SUPPRESSED":
+        status["suppressed"] = True
+        status["retry_state"] = "SUPPRESSED"
     task_id_value = summary.get("task_id")
     if isinstance(task_id_value, str) and task_id_value:
         status["task_id"] = task_id_value

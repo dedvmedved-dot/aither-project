@@ -89,6 +89,25 @@ class Tests(unittest.TestCase):
         self.assertNotIn('task_id', status)
         self.assertNotIn('executor', status)
 
+    def test_sanitizer_accepts_retry_fields(self):
+        safe = runner_live.sanitize_status({'retry_state': 'SUPPRESSED', 'suppressed': True,
+                                            'last_attempt_result': 'BLOCKED'})
+        self.assertEqual(safe['retry_state'], 'SUPPRESSED')
+        self.assertEqual(safe['suppressed'], True)
+        self.assertEqual(safe['last_attempt_result'], 'BLOCKED')
+
+    def test_systemd_suppressed_mapping(self):
+        status = systemd_runner.build_final_status(
+            {'task_id': 'H4', 'executor': 'hermes', 'result': 'SUPPRESSED',
+             'message': 'executor retry suppressed pending Architect task change'}, 0)
+        self.assertEqual(status['state'], 'WAITING')
+        self.assertEqual(status['phase'], 'EXECUTOR_RETRY_SUPPRESSED')
+        self.assertEqual(status['runner_result'], 'SUPPRESSED')
+        self.assertEqual(status['suppressed'], True)
+        self.assertEqual(status['retry_state'], 'SUPPRESSED')
+        self.assertEqual(status['task_id'], 'H4')
+        self.assertEqual(status['executor'], 'hermes')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

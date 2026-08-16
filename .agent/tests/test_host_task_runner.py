@@ -9,6 +9,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / 'host_task_runner.py'
@@ -163,5 +164,24 @@ class HostRunnerTests(unittest.TestCase):
         temp,work,remote,baseline,task_head=self._fixture('exit 99')
         with temp:
             result=runner.run_once(work,execute_agent=False); self.assertEqual(result['result'],'PASS'); self.assertEqual(result['message'],'dry-run'); self.assertEqual(self._git(work,'rev-parse','HEAD'),task_head)
+    def test_blocked_then_suppressed_then_new_fingerprint(self):
+        temp,work,remote,baseline,task_head=self._fixture('exit 1')
+        with temp:
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'BLOCKED'); self.assertEqual(result['task_id'],'TEST-1'); self.assertEqual(result['executor'],'codex')
+            state=runner.read_state(Path(work)/'.git'/'host-task-runner-state.json')
+            self.assertEqual(state['last_attempt_result'],'BLOCKED'); self.assertEqual(state['last_attempt_fingerprint'],runner.task_fingerprint(work))
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'SUPPRESSED'); self.assertEqual(result['task_id'],'TEST-1'); self.assertEqual(result['executor'],'codex')
+            (work/'.agent'/'CURRENT_TASK.md').write_text('changed task\n'); self._git(work,'add','.agent/CURRENT_TASK.md'); self._git(work,'commit','-m','change task'); self._git(work,'push','origin','aither-v2')
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'BLOCKED')
+    def test_suppressed_still_fetches(self):
+        temp,work,remote,baseline,task_head=self._fixture('exit 1')
+        with temp:
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'BLOCKED')
+            (work/'extra.txt').write_text('extra\n'); self._git(work,'add','extra.txt'); self._git(work,'commit','-m','extra'); self._git(work,'push','origin','aither-v2'); self._git(work,'reset','--hard',task_head)
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'SUPPRESSED')
+            work_head=self._git(work,'rev-parse','HEAD'); remote_head=subprocess.run(['git','--git-dir',str(remote),'rev-parse','refs/heads/aither-v2'],check=True,capture_output=True,text=True).stdout.strip(); self.assertEqual(work_head,remote_head)
+    def test_main_returns_zero_for_suppressed(self):
+        with unittest.mock.patch.object(runner,'run_once',return_value={'result':'SUPPRESSED'}):
+            self.assertEqual(runner.main(['--run-once']),0)
 
 if __name__=='__main__': unittest.main(verbosity=2)

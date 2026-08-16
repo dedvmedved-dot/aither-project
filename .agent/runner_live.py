@@ -26,6 +26,7 @@ SAFE_KEYS = frozenset({
     "exit_code", "runner_result", "head_sha", "message_code",
     "executor", "repo_state", "aither_state", "deployed_sha",
     "progress_current", "progress_total",
+    "retry_state", "suppressed", "last_attempt_result",
 })
 MAX_STRING = 160
 
