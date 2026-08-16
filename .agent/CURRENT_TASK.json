@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H7B-AUTONOMOUS-RESULT-ONLY-CANARY",
+  "task_id": "HERMES-INTEGRATION-H8-FINAL-AUTONOMOUS-HANDOFF-GATE",
   "executor": "hermes",
-  "mode": "AUTONOMOUS_RESULT_ONLY_CANARY",
+  "mode": "FINAL_AUTONOMOUS_HANDOFF_GATE",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "a9b8b4641e8eddfac950f076aaa68dbbd0779891",
+  "baseline_sha": "349b285f603430e4015980df8bc5cef758a1885b",
   "allowed_paths": [],
   "capabilities": {
     "source_write": false,
@@ -27,7 +27,7 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "test: publish autonomous H7B result",
+  "commit_message": "gate: prove final autonomous Hermes handoff",
   "validation_commands": [
     ["python3", ".agent/tests/test_host_task_runner.py"]
   ]
