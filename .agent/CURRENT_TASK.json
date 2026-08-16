@@ -1,17 +1,14 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H7A-R1-OWNERSHIP-FAIL-CLOSED",
+  "task_id": "HERMES-INTEGRATION-H7B-AUTONOMOUS-RESULT-ONLY-CANARY",
   "executor": "hermes",
-  "mode": "AUTONOMOUS_SOURCE_CORRECTION",
+  "mode": "AUTONOMOUS_RESULT_ONLY_CANARY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "859b75e03fc0e0a28056f5948d88e313afd279a2",
-  "allowed_paths": [
-    ".agent/host_task_runner.py",
-    ".agent/tests/test_host_task_runner.py"
-  ],
+  "baseline_sha": "a9b8b4641e8eddfac950f076aaa68dbbd0779891",
+  "allowed_paths": [],
   "capabilities": {
-    "source_write": true,
+    "source_write": false,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": false,
@@ -30,7 +27,7 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "fix: fail closed on source ownership checks",
+  "commit_message": "test: publish autonomous H7B result",
   "validation_commands": [
     ["python3", ".agent/tests/test_host_task_runner.py"]
   ]
