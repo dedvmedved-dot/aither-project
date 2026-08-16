@@ -254,13 +254,20 @@ def implementation_paths(changed: Iterable[str], task: dict[str, Any]) -> list[s
 
 def verify_source_ownership(repo: Path, paths: Iterable[str], runner_uid: int) -> None:
     """Fail closed when any existing changed implementation path is owned by a
-    uid other than the host-runner uid (e.g. a root-written file)."""
+    uid other than the host-runner uid (e.g. a root-written file).
+
+    Uses lstat() so a symlink's own ownership is checked without following the
+    target. Only a genuinely absent path (FileNotFoundError) may be skipped;
+    every other metadata failure raises RunnerError."""
     for rel in paths:
         path = repo / rel
         try:
-            st = path.stat()
-        except OSError:
+            st = path.lstat()
+        except FileNotFoundError:
             continue
+        except OSError as exc:
+            raise RunnerError(
+                f'cannot stat changed implementation path {rel}: {exc}') from exc
         if st.st_uid != runner_uid:
             raise RunnerError(
                 f'changed implementation path owned by uid {st.st_uid} '

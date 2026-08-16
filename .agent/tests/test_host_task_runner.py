@@ -165,6 +165,28 @@ class HostRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             runner.verify_source_ownership(Path(d),['missing.txt'],os.geteuid())
 
+    def test_broken_symlink_checked_via_non_following_metadata(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / 'impl.txt').symlink_to(repo / 'missing-target')
+            self.assertTrue((repo / 'impl.txt').is_symlink())
+            with self.assertRaises(runner.RunnerError) as ctx:
+                runner.verify_source_ownership(repo, ['impl.txt'], os.geteuid() + 12345)
+            self.assertIn('owned by uid', str(ctx.exception))
+
+    def test_non_filenotfound_metadata_failure_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / 'impl.txt').write_text('x')
+
+            def deny(_self):
+                raise PermissionError('permission denied')
+
+            with unittest.mock.patch.object(Path, 'lstat', deny):
+                with self.assertRaises(runner.RunnerError) as ctx:
+                    runner.verify_source_ownership(repo, ['impl.txt'], os.geteuid())
+            self.assertIn('cannot stat', str(ctx.exception))
+
     # --- H7A: result payload whitelist ---
     def test_result_payload_whitelist_enforced(self):
         with tempfile.TemporaryDirectory() as d:
