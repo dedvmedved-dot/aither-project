@@ -1,17 +1,14 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H4-SYNC-RETRY-GOVERNOR",
+  "task_id": "HERMES-INTEGRATION-H4-R1-GOVERNANCE-BEFORE-ELIGIBILITY",
   "executor": "hermes",
-  "mode": "MANUAL_HERMES_SUPERVISOR_IMPLEMENTATION",
+  "mode": "MANUAL_HERMES_SUPERVISOR_CORRECTION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "ad7d54f41a5543bbf0a0883dc386e55016839f64",
+  "baseline_sha": "e83cc345fffedfe1a731a76e864bd3242fc8a1d6",
   "allowed_paths": [
     ".agent/host_task_runner.py",
-    ".agent/systemd_runner.py",
-    ".agent/runner_live.py",
-    ".agent/tests/test_host_task_runner.py",
-    ".agent/tests/test_live_observability.py"
+    ".agent/tests/test_host_task_runner.py"
   ],
   "capabilities": {
     "source_write": true,
@@ -34,11 +31,11 @@
   "require_clean_finish": true,
   "architect_acceptance_required": true,
   "validation_commands": [
-    ["python3", "-m", "py_compile", ".agent/host_task_runner.py", ".agent/systemd_runner.py", ".agent/runner_live.py", ".agent/tests/test_host_task_runner.py", ".agent/tests/test_live_observability.py"],
+    ["python3", "-m", "py_compile", ".agent/host_task_runner.py", ".agent/tests/test_host_task_runner.py"],
     ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_host_task_runner.py"],
     ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_live_observability.py"],
     ["python3", ".agent/validate_task_scope.py"],
     ["git", "diff", "--check"]
   ],
-  "commit_message": "feat: add sync-preserving executor retry governor"
+  "commit_message": "fix: enforce governance before retry suppression"
 }
