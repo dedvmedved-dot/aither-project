@@ -1,41 +1,31 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H4-R1-GOVERNANCE-BEFORE-ELIGIBILITY",
+  "task_id": "HERMES-INTEGRATION-H5A-SCHEDULER-SUPPRESSION-CANARY",
   "executor": "hermes",
-  "mode": "MANUAL_HERMES_SUPERVISOR_CORRECTION",
+  "mode": "MANUAL_HERMES_SCHEDULER_SUPPRESSION_CANARY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "e83cc345fffedfe1a731a76e864bd3242fc8a1d6",
-  "allowed_paths": [
-    ".agent/host_task_runner.py",
-    ".agent/tests/test_host_task_runner.py"
-  ],
+  "baseline_sha": "cb5b9de8dd6dc8d765c7ec5b187048a80c9c9bf9",
+  "allowed_paths": [],
   "capabilities": {
-    "source_write": true,
+    "source_write": false,
     "agent_exec": false,
     "network_git": false,
     "kubernetes": false,
     "deployment": false,
     "database_write": false,
-    "runtime_write": false,
+    "runtime_write": true,
     "secret_access": false,
     "package_install": false
   },
   "host_capabilities": {
     "sync": true,
-    "commit": true,
-    "push": true
+    "commit": false,
+    "push": false
   },
-  "max_commits": 1,
+  "max_commits": 0,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "validation_commands": [
-    ["python3", "-m", "py_compile", ".agent/host_task_runner.py", ".agent/tests/test_host_task_runner.py"],
-    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_host_task_runner.py"],
-    ["bash", "-lc", "PYTHONPATH=.agent python3 .agent/tests/test_live_observability.py"],
-    ["python3", ".agent/validate_task_scope.py"],
-    ["git", "diff", "--check"]
-  ],
-  "commit_message": "fix: enforce governance before retry suppression"
+  "validation_commands": []
 }
