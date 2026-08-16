@@ -1,31 +1,37 @@
 {
   "schema_version": 1,
-  "task_id": "HERMES-INTEGRATION-H6-PERSISTENT-SCHEDULER-ACTIVATION",
+  "task_id": "HERMES-INTEGRATION-H7A-SAFE-RESULT-PUBLICATION",
   "executor": "hermes",
-  "mode": "PERSISTENT_HERMES_SCHEDULER_ACTIVATION",
+  "mode": "AUTONOMOUS_SOURCE_IMPLEMENTATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "8ab4c077a0afbe21d904f18ee83be3b51e3d7416",
-  "allowed_paths": [],
+  "baseline_sha": "e5dea631e01ac73f3ed20cf63194058725c8b5ea",
+  "allowed_paths": [
+    ".agent/host_task_runner.py",
+    ".agent/tests/test_host_task_runner.py"
+  ],
   "capabilities": {
-    "source_write": false,
+    "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": false,
     "deployment": false,
     "database_write": false,
-    "runtime_write": true,
+    "runtime_write": false,
     "secret_access": false,
     "package_install": false
   },
   "host_capabilities": {
     "sync": true,
-    "commit": false,
-    "push": false
+    "commit": true,
+    "push": true
   },
-  "max_commits": 0,
+  "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "validation_commands": []
+  "commit_message": "feat: add governed execution result publication",
+  "validation_commands": [
+    ["python3", ".agent/tests/test_host_task_runner.py"]
+  ]
 }
