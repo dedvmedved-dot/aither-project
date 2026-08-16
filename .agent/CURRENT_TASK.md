@@ -1,202 +1,134 @@
-# TASK: HERMES-INTEGRATION-H4-SYNC-RETRY-GOVERNOR
+# TASK: HERMES-INTEGRATION-H4-R1-GOVERNANCE-BEFORE-ELIGIBILITY
 
 ## Goal
 
-Eliminate the old infinite executor retry loop without sacrificing fast GitHub task delivery.
+Correct one acceptance defect found by independent Architect audit of commit `e83cc345fffedfe1a731a76e864bd3242fc8a1d6`.
 
-The current timer polls every ~1 minute. That cadence is useful for discovering a new Architect task, but after a BLOCKED executor result the same task fingerprint can be executed again every timer cycle. That behavior previously caused the Codex quota failure to repeat indefinitely.
+The H4 retry governor correctly preserves fast sync and suppresses repeated failed executor attempts, but it currently performs `IDLE` / `SUPPRESSED` eligibility returns before baseline and committed-handoff governance validation.
 
-Implement a fail-closed retry governor in the supervisor so:
+That ordering is not acceptable because a newly fetched remote commit that does not change the task fingerprint can be fast-forwarded locally and then hidden behind `SUPPRESSED` or `IDLE` without running `verify_baseline_ancestor()` / `committed_handoff_paths()`.
 
-- GitHub fetch/sync still happens on every poll;
-- a newly published task fingerprint is eligible to run immediately;
-- a task already completed successfully remains IDLE;
-- a task that returned BLOCKED/FAIL does NOT automatically re-run every minute;
-- the same failed fingerprint is suppressed until explicit Architect change to the task-control fingerprint;
-- no timer re-enable occurs in this task.
+This correction must preserve all H4 retry semantics while enforcing governance before any eligibility-based early return.
 
-This is repository implementation only. Do not execute Hermes/Codex from the modified runner during this task.
+## Confirmed defect
 
-## Confirmed state
+Current flow after sync is effectively:
 
-- Branch: `aither-v2`
-- Baseline: `ad7d54f41a5543bbf0a0883dc386e55016839f64`
-- H1 implementation: Architect accepted.
-- H3-R2 E2E canary: PASS at runtime; full path through root Hermes is proven.
-- Existing timer remains disabled/inactive.
-- Current timer Source of Truth uses `OnUnitInactiveSec=1min`; the timer itself may remain frequent.
-- Root H2 bridge and Telegram Gateway must not be changed.
+```text
+sync -> load task -> fingerprint/state -> IDLE/SUPPRESSED return -> governance
+```
 
-## Required design
+Required flow:
 
-### 1. Keep sync independent from execution eligibility
+```text
+sync
+ -> load synchronized task
+ -> branch validation
+ -> baseline ancestor validation
+ -> committed handoff path validation
+ -> fingerprint/state
+ -> IDLE / SUPPRESSED / execute eligibility
+```
 
-`run_once()` must still:
+No synced repository state may bypass baseline/handoff governance merely because the task fingerprint matches a prior PASS/BLOCKED state.
 
-1. acquire the existing lock;
-2. require clean worktree;
-3. resolve branch;
-4. fast-forward/sync from GitHub;
-5. load the synchronized CURRENT_TASK;
-6. validate branch/baseline/governance;
-7. calculate current task fingerprint;
-8. consult runner state to decide whether executor invocation is allowed.
+## Required implementation
 
-A suppressed task MUST NOT prevent future GitHub sync.
+Modify only:
 
-### 2. Persist last execution outcome by task fingerprint
+- `.agent/host_task_runner.py`
+- `.agent/tests/test_host_task_runner.py`
 
-Extend runner state safely so it can distinguish at least:
+Move or restructure the eligibility checks so both:
 
-- last successful fingerprint;
-- last attempted fingerprint;
-- last attempt result (`PASS`, `BLOCKED`, optionally `FAIL` if used internally);
-- last task id;
-- last executor;
-- last commit SHA when applicable.
+- successful-fingerprint `IDLE`, and
+- failed-fingerprint `SUPPRESSED`
 
-Do not store raw prompts, stdout, stderr, secrets, tokens, reasoning, or arbitrary executor output.
+occur only after all synchronized Git governance checks for the current HEAD have passed.
 
-### 3. Suppress repeated execution of the same failed fingerprint
+Do not change Codex/Hermes dispatcher behavior.
+Do not change retry-state field names or live/systemd mappings unless absolutely necessary; preferred correction is limited to host runner ordering and tests.
 
-If the synchronized task fingerprint equals the last attempted fingerprint and the last attempt result was `BLOCKED` or `FAIL`:
+## Mandatory regression tests
 
-- DO NOT invoke Codex;
-- DO NOT invoke Hermes observer/H2;
-- return a safe non-error supervisor summary indicating execution is suppressed pending Architect task change;
-- preserve task_id and executor;
-- keep repository synced;
-- do not mutate source/task files.
+Tests must prove at least:
 
-Use a distinct result/state such as `SUPPRESSED` or equivalent safe classification. Do not overload `PASS` in a way that hides the reason.
+1. Same BLOCKED fingerprint + unchanged governed HEAD => `SUPPRESSED`, executor not called.
+2. Same PASS fingerprint + unchanged governed HEAD => `IDLE`, executor not called.
+3. Suppressed poll still performs fetch/sync.
+4. If fetch/sync advances HEAD with an unexpected committed path while task fingerprint is unchanged, runner MUST NOT return `SUPPRESSED`; it must fail governance before executor eligibility.
+5. The same scenario for a previously successful fingerprint MUST NOT return `IDLE`; governance must fail first.
+6. A valid Architect task-control handoff that changes fingerprint remains eligible immediately after governance passes.
+7. Existing BLOCKED state recording remains correct.
+8. Existing `SUPPRESSED` CLI exit-0 behavior remains unchanged.
+9. Existing Codex/Hermes dispatcher tests remain unchanged/passing.
+10. No real executor is invoked during this implementation task.
 
-Systemd service should exit successfully for this suppression state so the timer can continue polling GitHub without entering a failed-service loop.
+Important: remove/replace any test that treats an arbitrary remote `extra.txt` commit as acceptable merely because suppression occurs. That behavior is the defect.
 
-### 4. New fingerprint unlocks execution immediately
+## Required validation
 
-If Architect changes either CURRENT_TASK.json or CURRENT_TASK.md so the task fingerprint changes:
+Run every command from CURRENT_TASK.json. All must PASS.
 
-- suppression from the previous fingerprint must not block the new task;
-- the new synchronized task is eligible immediately, subject to normal governance/capability checks.
+At minimum:
 
-This is the core task-delivery requirement.
-
-### 5. Successful fingerprint remains idempotent
-
-Existing behavior for a successful fingerprint should remain logically equivalent to `IDLE`:
-
-- do not re-run executor;
-- keep polling/sync operational;
-- return task_id/executor safely.
-
-### 6. Failure state must be recorded before returning BLOCKED
-
-Currently a BLOCKED result can be returned without durable state that suppresses the next timer poll.
-
-Update the flow so after a task has been synchronized, validated and an executor attempt actually occurs, a resulting BLOCKED/FAIL outcome records the attempted fingerprint/result in runner state before returning the summary.
-
-Do not record a fingerprint as "attempted" when no executor invocation happened due to pre-execution governance failures that require Architect intervention before task execution eligibility is established, unless the implementation has a precise safe classification and tests prove the semantics. Prefer conservative behavior and document the distinction.
-
-### 7. Safe summaries and live observability
-
-Extend only safe scalar status as needed, e.g.:
-
-- `retry_state`
-- `suppressed`
-- `last_attempt_result`
-
-If adding fields, update `runner_live.py` whitelist and tests.
-
-Never publish raw exception text to remote live state beyond existing safe message classification.
-
-`systemd_runner.py` must map suppression to a non-failed observable state such as:
-
-- state=`IDLE` or `WAITING`
-- phase=`EXECUTOR_RETRY_SUPPRESSED`
-- runner_result=`SUPPRESSED`
-
-Use whichever exact names are simplest, but tests must make semantics unambiguous.
-
-### 8. Do not change the timer cadence in this task
-
-Do not modify:
-
-- `.agent/systemd/aither-codex-runner.timer`
-- installed timer unit
-- timer enablement state
-
-The point is to preserve frequent GitHub polling while preventing repeated executor invocation.
-
-## Mandatory tests
-
-Add/adjust tests proving at least:
-
-1. First unseen task fingerprint is eligible for execution.
-2. PASS fingerprint becomes IDLE on next poll and executor is not called.
-3. BLOCKED executor attempt records the fingerprint/result.
-4. Same BLOCKED fingerprint on next poll returns SUPPRESSED and executor is not called.
-5. Repeated SUPPRESSED polls still perform fetch/sync.
-6. A new Architect task fingerprint immediately clears the suppression and is eligible for execution.
-7. Suppression preserves `task_id` and `executor` in summary.
-8. `SUPPRESSED` is treated as successful service/poll outcome by CLI/systemd wrapper, not a failed service.
-9. Live status publishes only allowed safe fields and identifies retry suppression without raw stderr/stdout.
-10. Existing Codex/Hermes dispatcher behavior remains unchanged.
-11. Existing task governance, scope validation, rollback, clean-worktree, and success-idempotence tests still pass.
-12. No agent execution occurs when `agent_exec=false` for this implementation task.
+```bash
+python3 -m py_compile .agent/host_task_runner.py .agent/tests/test_host_task_runner.py
+PYTHONPATH=.agent python3 .agent/tests/test_host_task_runner.py
+PYTHONPATH=.agent python3 .agent/tests/test_live_observability.py
+python3 .agent/validate_task_scope.py
+git diff --check
+```
 
 ## Hard prohibitions
 
 DO NOT:
 
 - modify `.agent/CURRENT_TASK.json` or `.agent/CURRENT_TASK.md` locally;
-- modify timer files or installed timer state;
-- enable/start recurring timer;
+- modify systemd timer/service files;
+- enable/start timer;
 - run Codex;
-- invoke real H2 RUN;
+- invoke H2 RUN;
 - spawn Hermes recursively;
-- change root executor;
+- modify root executor;
 - restart/reconfigure Telegram Gateway;
 - touch Aither runtime/Kubernetes/database;
-- read/expose secrets;
 - install packages;
 - modify sudoers;
+- read/expose secrets;
 - modify paths outside CURRENT_TASK.json allowed_paths.
-
-## Validation
-
-Run every validation command in CURRENT_TASK.json.
-
-All must PASS, including scope validator and diff check.
 
 ## Commit / push
 
 If and only if all validations pass:
 
 - exactly one implementation commit;
-- commit message exactly: `feat: add sync-preserving executor retry governor`;
+- commit message exactly: `fix: enforce governance before retry suppression`;
 - push fast-forward to `aither-v2`;
 - clean worktree after push.
 
 ## Required final report
 
 ```text
-TASK: HERMES-INTEGRATION-H4-SYNC-RETRY-GOVERNOR
+TASK: HERMES-INTEGRATION-H4-R1-GOVERNANCE-BEFORE-ELIGIBILITY
 BASELINE_SHA:
 START_HEAD:
 WORKTREE_BEFORE:
 
-SYNC_BEFORE_ELIGIBILITY: PASS|FAIL
-STATE_LAST_ATTEMPT_FINGERPRINT_ADDED:
-STATE_LAST_ATTEMPT_RESULT_ADDED:
-BLOCKED_FINGERPRINT_RECORDED:
-SAME_BLOCKED_FINGERPRINT_SUPPRESSED:
-SUPPRESSED_EXECUTOR_NOT_CALLED:
+SYNC_BEFORE_GOVERNANCE:
+BRANCH_CHECK_BEFORE_ELIGIBILITY:
+BASELINE_CHECK_BEFORE_ELIGIBILITY:
+COMMITTED_HANDOFF_CHECK_BEFORE_ELIGIBILITY:
+IDLE_AFTER_GOVERNANCE_ONLY:
+SUPPRESSED_AFTER_GOVERNANCE_ONLY:
+
+BLOCKED_SAME_FINGERPRINT_SUPPRESSED:
+PASS_SAME_FINGERPRINT_IDLE:
 SUPPRESSED_STILL_FETCHES:
-NEW_FINGERPRINT_UNLOCKS_EXECUTION:
-SUCCESS_IDEMPOTENCE_PRESERVED:
-TASK_ID_EXECUTOR_PRESERVED:
-SYSTEMD_SUPPRESSED_NONFAILED:
-LIVE_SUPPRESSION_SAFE:
+UNEXPECTED_REMOTE_COMMIT_BLOCKS_BEFORE_SUPPRESSION:
+UNEXPECTED_REMOTE_COMMIT_BLOCKS_BEFORE_IDLE:
+NEW_VALID_TASK_FINGERPRINT_UNLOCKS:
+EXECUTOR_NOT_CALLED_DURING_SUPPRESSION:
 
 CODEX_DISPATCH_UNCHANGED:
 HERMES_DISPATCH_UNCHANGED:
@@ -230,7 +162,7 @@ RESULT: PASS|FAIL|BLOCKED
 STOP
 ```
 
-PASS only if all required tests/validations pass and exactly one allowed implementation commit is pushed.
+PASS only if governance is proven to run before both IDLE and SUPPRESSED eligibility returns and exactly one allowed implementation commit is pushed.
 
 Do not declare Architect acceptance.
 
