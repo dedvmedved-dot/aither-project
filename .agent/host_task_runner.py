@@ -16,6 +16,13 @@ from typing import Any, Callable, Iterable, Sequence
 TASK_PATH = Path('.agent/CURRENT_TASK.json')
 TASK_MD_PATH = Path('.agent/CURRENT_TASK.md')
 ARCHITECT_PATHS = frozenset({str(TASK_PATH), str(TASK_MD_PATH)})
+RESULT_PATH = '.agent/EXECUTION_RESULT.json'
+RESULT_SCHEMA_VERSION = 1
+RESULT_KEYS = frozenset({
+    'schema_version', 'task_id', 'task_fingerprint', 'executor',
+    'result', 'start_head', 'changed_paths', 'implementation_paths', 'message',
+})
+RESULT_MESSAGE_MAX = 1000
 STATE_NAME = 'host-task-runner-state.json'
 LOCK_NAME = 'host-task-runner.lock'
 FIXED_PROMPT = (
@@ -170,7 +177,7 @@ def committed_handoff_paths(repo: Path, baseline: str, head: str,
                             run: CommandRunner = execute_command) -> list[str]:
     output = run(['git', 'diff', '--name-only', '-z', f'{baseline}..{head}'], repo).stdout
     paths = sorted(filter(None, output.split('\0')))
-    allowed = set(allowed_paths)
+    allowed = set(allowed_paths) | {RESULT_PATH}
     unexpected = sorted(set(paths) - ARCHITECT_PATHS - allowed)
     if unexpected:
         raise RunnerError(f'unexpected committed handoff paths: {unexpected}')
@@ -233,6 +240,9 @@ def validate_changed_paths(changed: Iterable[str], task: dict[str, Any]) -> list
     tampered = sorted(set(paths) & ARCHITECT_PATHS)
     if tampered:
         raise RunnerError(f'Architect-managed task files modified by executor: {tampered}')
+    result_tamper = sorted(set(paths) & {RESULT_PATH})
+    if result_tamper:
+        raise RunnerError(f'runner-managed result path modified by executor: {result_tamper}')
     if paths and not task['capabilities']['source_write']:
         raise RunnerError('source_write=false but executor changed files')
     return paths
@@ -240,6 +250,21 @@ def validate_changed_paths(changed: Iterable[str], task: dict[str, Any]) -> list
 
 def implementation_paths(changed: Iterable[str], task: dict[str, Any]) -> list[str]:
     return validate_changed_paths(changed, task)
+
+
+def verify_source_ownership(repo: Path, paths: Iterable[str], runner_uid: int) -> None:
+    """Fail closed when any existing changed implementation path is owned by a
+    uid other than the host-runner uid (e.g. a root-written file)."""
+    for rel in paths:
+        path = repo / rel
+        try:
+            st = path.stat()
+        except OSError:
+            continue
+        if st.st_uid != runner_uid:
+            raise RunnerError(
+                f'changed implementation path owned by uid {st.st_uid} '
+                f'(expected {runner_uid}): {rel}')
 
 
 def require_agent_capability(task: dict[str, Any], name: str) -> None:
@@ -250,6 +275,14 @@ def require_agent_capability(task: dict[str, Any], name: str) -> None:
 def require_host_capability(task: dict[str, Any], name: str) -> None:
     if not task['host_capabilities'].get(name, False):
         raise RunnerError(f'host capability prohibits action: {name}')
+
+
+def safe_error_message(exc: BaseException) -> str:
+    """Collapse subprocess errors (which embed full argv, possibly the prompt)
+    to a short non-sensitive description."""
+    if isinstance(exc, subprocess.CalledProcessError):
+        return f'command exited with status {exc.returncode}'
+    return str(exc)
 
 
 def read_state(path: Path) -> dict[str, Any]:
@@ -268,6 +301,33 @@ def write_state(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + '.tmp')
     tmp.write_text(json.dumps(data, sort_keys=True) + '\n', encoding='utf-8')
+    os.replace(tmp, path)
+
+
+def write_result_file(repo: Path, result: str, task: dict[str, Any],
+                      fingerprint: str, start_head: str,
+                      changed_paths: Iterable[str],
+                      implementation: Iterable[str],
+                      message: str = '') -> None:
+    """Write the fixed runner-managed result file with a strict whitelist."""
+    payload = {
+        'schema_version': RESULT_SCHEMA_VERSION,
+        'task_id': task['task_id'],
+        'task_fingerprint': fingerprint,
+        'executor': task['executor'],
+        'result': result,
+        'start_head': start_head,
+        'changed_paths': sorted(set(changed_paths)),
+        'implementation_paths': sorted(set(implementation)),
+        'message': str(message)[:RESULT_MESSAGE_MAX],
+    }
+    unexpected = sorted(set(payload) - RESULT_KEYS)
+    if unexpected:
+        raise RunnerError(f'result payload contains non-whitelisted keys: {unexpected}')
+    path = repo / RESULT_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp')
+    tmp.write_text(json.dumps(payload, sort_keys=True) + '\n', encoding='utf-8')
     os.replace(tmp, path)
 
 
@@ -372,19 +432,24 @@ def stage_commit_push(repo: Path, task: dict[str, Any], start_head: str,
 
 
 def execute_task(repo: Path, task: dict[str, Any], start_head: str,
-                 run: CommandRunner = execute_command) -> dict[str, Any]:
+                 fingerprint: str, run: CommandRunner = execute_command) -> dict[str, Any]:
     require_agent_capability(task, 'agent_exec')
     try:
         run(build_executor_argv(task), repo)
         changed = changed_worktree_paths(repo, run)
         implementation = implementation_paths(changed, task)
+        verify_source_ownership(repo, implementation, os.geteuid())
         run_validations(repo, task, run)
         final_changed = changed_worktree_paths(repo, run)
         final_implementation = implementation_paths(final_changed, task)
         if final_implementation != implementation:
             implementation = final_implementation
             changed = final_changed
-        commit_sha = stage_commit_push(repo, task, start_head, implementation, run)
+            verify_source_ownership(repo, implementation, os.geteuid())
+        write_result_file(repo, 'PASS', task, fingerprint, start_head,
+                          changed, implementation)
+        stage_paths = sorted(set(implementation) | {RESULT_PATH})
+        commit_sha = stage_commit_push(repo, task, start_head, stage_paths, run)
         require_clean_worktree(repo, run)
         return make_summary(task['task_id'], start_head, changed, implementation,
                             'PASS', commit_sha=commit_sha, executor=task['executor'])
@@ -392,8 +457,33 @@ def execute_task(repo: Path, task: dict[str, Any], start_head: str,
         try:
             restore_after_failed_executor(repo, start_head, run)
         except Exception as restore_exc:
-            raise RunnerError(f'task failed: {exc}; restore also failed: {restore_exc}') from restore_exc
-        raise RunnerError(str(exc)) from exc
+            raise RunnerError(
+                f'task failed: {safe_error_message(exc)}; '
+                f'restore also failed: {safe_error_message(restore_exc)}') from restore_exc
+        raise RunnerError(safe_error_message(exc)) from exc
+
+
+def publish_result_commit(repo: Path, task: dict[str, Any], start_head: str,
+                          fingerprint: str, result: str, message: str,
+                          run: CommandRunner = execute_command) -> str:
+    """Controlled BLOCKED publication: write a safe result file and commit it
+    result-only when host commit/push permits. Returns the commit SHA or ''."""
+    try:
+        require_host_capability(task, 'commit')
+        require_host_capability(task, 'push')
+    except RunnerError:
+        return ''
+    if task['max_commits'] < 1:
+        return ''
+    write_result_file(repo, result, task, fingerprint, start_head, [], [], message)
+    try:
+        return stage_commit_push(repo, task, start_head, [RESULT_PATH], run)
+    except (RunnerError, subprocess.CalledProcessError):
+        try:
+            restore_after_failed_executor(repo, start_head, run)
+        except Exception:
+            pass
+        return ''
 
 
 def run_once(repo: Path, run: CommandRunner = execute_command,
@@ -429,10 +519,13 @@ def run_once(repo: Path, run: CommandRunner = execute_command,
             return make_summary(task['task_id'], start_head, [], [], 'PASS', 'dry-run',
                                 executor=executor)
         try:
-            result = execute_task(repo, task, start_head, run)
+            result = execute_task(repo, task, start_head, fingerprint, run)
         except (RunnerError, subprocess.CalledProcessError) as exc:
+            message = safe_error_message(exc)
+            blocked_commit = publish_result_commit(
+                repo, task, start_head, fingerprint, 'BLOCKED', message, run)
             write_state(state_path, {
-                'last_commit_sha': state.get('last_commit_sha', ''),
+                'last_commit_sha': blocked_commit or state.get('last_commit_sha', ''),
                 'last_success_fingerprint': state.get('last_success_fingerprint', ''),
                 'last_task_id': task['task_id'],
                 'last_executor': executor,
@@ -440,7 +533,7 @@ def run_once(repo: Path, run: CommandRunner = execute_command,
                 'last_attempt_result': 'BLOCKED',
             })
             return make_summary(task['task_id'], start_head, [], [], 'BLOCKED',
-                                str(exc), executor=executor)
+                                message, executor=executor)
         write_state(state_path, {
             'last_commit_sha': result['commit_sha'],
             'last_success_fingerprint': fingerprint,
@@ -462,7 +555,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         summary = run_once(args.repo, execute_agent=args.run_once)
     except (RunnerError, subprocess.CalledProcessError) as exc:
-        summary = make_summary('', '', [], [], 'BLOCKED', str(exc))
+        summary = make_summary('', '', [], [], 'BLOCKED', safe_error_message(exc))
     print(json.dumps(summary, sort_keys=True, separators=(',', ':')))
     return 0 if summary['result'] in {'PASS', 'IDLE', 'SUPPRESSED'} else 1
 

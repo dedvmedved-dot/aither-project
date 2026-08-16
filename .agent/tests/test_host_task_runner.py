@@ -114,7 +114,7 @@ class HostRunnerTests(unittest.TestCase):
         with self.assertRaises(runner.RunnerError): runner.require_agent_capability(base_task(capabilities=caps),'agent_exec')
     def test_agent_exec_false_blocks_execution(self):
         caps={**base_task()['capabilities'],'agent_exec':False}; task=base_task(capabilities=caps); fake=FakeRun()
-        with self.assertRaises(runner.RunnerError): runner.execute_task(Path('/repo'),task,'HEAD',fake)
+        with self.assertRaises(runner.RunnerError): runner.execute_task(Path('/repo'),task,'HEAD','f'*64,fake)
         self.assertEqual(fake.calls, [])
     def test_host_push_false_blocks(self):
         with self.assertRaises(runner.RunnerError): runner.require_host_capability(base_task(host_capabilities={'sync':True,'commit':True,'push':False}),'push')
@@ -137,27 +137,79 @@ class HostRunnerTests(unittest.TestCase):
                 with self.assertRaises(runner.RunnerError):
                     with runner.InterProcessLock(path): pass
 
+    # --- H7A: fixed runner-managed result path governance ---
+    def test_result_path_accepted_by_committed_handoff(self):
+        cmd=('git','diff','--name-only','-z','base..head')
+        paths=runner.committed_handoff_paths(Path('/repo'),'base','head',['impl.txt'],FakeRun({cmd:'.agent/EXECUTION_RESULT.json\0impl.txt\0'}))
+        self.assertIn('.agent/EXECUTION_RESULT.json',paths)
+    def test_unrelated_agent_path_still_rejected(self):
+        cmd=('git','diff','--name-only','-z','base..head')
+        with self.assertRaises(runner.RunnerError): runner.committed_handoff_paths(Path('/repo'),'base','head',['impl.txt'],FakeRun({cmd:'.agent/random.json\0'}))
+    def test_executor_result_path_tamper_rejected(self):
+        with self.assertRaises(runner.RunnerError) as ctx:
+            runner.validate_changed_paths(['.agent/EXECUTION_RESULT.json'],base_task(allowed_paths=['.agent/EXECUTION_RESULT.json']))
+        self.assertIn('runner-managed result path',str(ctx.exception))
+
+    # --- H7A: source ownership enforcement ---
+    def test_changed_impl_wrong_uid_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo=Path(d); (repo/'impl.txt').write_text('x')
+            with self.assertRaises(runner.RunnerError) as ctx:
+                runner.verify_source_ownership(repo,['impl.txt'],os.geteuid()+12345)
+            self.assertIn('owned by uid',str(ctx.exception))
+    def test_changed_impl_correct_uid_accepted(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo=Path(d); (repo/'impl.txt').write_text('x')
+            runner.verify_source_ownership(repo,['impl.txt'],os.geteuid())
+    def test_missing_impl_path_skipped(self):
+        with tempfile.TemporaryDirectory() as d:
+            runner.verify_source_ownership(Path(d),['missing.txt'],os.geteuid())
+
+    # --- H7A: result payload whitelist ---
+    def test_result_payload_whitelist_enforced(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo=Path(d); (repo/'.agent').mkdir()
+            runner.write_result_file(repo,'PASS',base_task(),'f'*64,'H',['impl.txt'],['impl.txt'],'msg')
+            payload=json.loads((repo/'.agent/EXECUTION_RESULT.json').read_text())
+            self.assertEqual(set(payload.keys()),runner.RESULT_KEYS)
+            self.assertEqual(payload['result'],'PASS')
+            self.assertEqual(payload['message'],'msg')
+            self.assertEqual(payload['implementation_paths'],['impl.txt'])
+
+    # --- H7A: remote-moved protection still fails closed ---
+    def test_remote_moved_during_stage_fails_closed(self):
+        fake=FakeRun({('git','rev-parse','origin/aither-v2'):'b'*40})
+        with self.assertRaises(runner.RunnerError) as ctx:
+            runner.stage_commit_push(Path('/repo'),base_task(),'a'*40,['impl.txt'],fake)
+        self.assertIn('remote moved',str(ctx.exception))
+
     def _git(self,cwd:Path,*args:str)->str: return subprocess.run(['git',*args],cwd=cwd,check=True,capture_output=True,text=True).stdout.strip()
-    def _fixture(self,codex_body:str):
+    def _fixture(self,codex_body:str, task_updates: dict | None = None):
         temp=tempfile.TemporaryDirectory(); root=Path(temp.name); remote=root/'remote.git'; work=root/'work'
         self._git(root,'init','--bare',str(remote)); self._git(root,'clone',str(remote),str(work)); self._git(work,'checkout','-b','aither-v2')
         self._git(work,'config','user.name','Test Agent'); self._git(work,'config','user.email','agent@example.invalid'); (work/'.agent').mkdir()
         (work/'.agent'/'CURRENT_TASK.json').write_text('{}\n'); (work/'.agent'/'CURRENT_TASK.md').write_text('bootstrap\n'); (work/'.agent'/'validate_task_scope.py').write_text('raise SystemExit(0)\n'); (work/'AGENTS.md').write_text('test\n')
         self._git(work,'add','.'); self._git(work,'commit','-m','baseline'); baseline=self._git(work,'rev-parse','HEAD'); task=base_task(baseline_sha=baseline)
+        if task_updates: task.update(task_updates)
         (work/'.agent'/'CURRENT_TASK.json').write_text(json.dumps(task,indent=2)+'\n'); (work/'.agent'/'CURRENT_TASK.md').write_text('task\n'); self._git(work,'add','.agent/CURRENT_TASK.json','.agent/CURRENT_TASK.md'); self._git(work,'commit','-m','publish task'); task_head=self._git(work,'rev-parse','HEAD'); self._git(work,'push','-u','origin','aither-v2')
         fake=root/'fake-codex'; fake.write_text('#!/bin/sh\nset -eu\n'+codex_body+'\n'); fake.chmod(fake.stat().st_mode|stat.S_IXUSR); os.environ['CODEX_BIN']=str(fake)
         return temp,work,remote,baseline,task_head
+
     def test_end_to_end_success_commit_push_and_idempotence(self):
         temp,work,remote,baseline,task_head=self._fixture("printf 'ok\\n' > impl.txt")
         with temp:
             result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'PASS'); self.assertEqual(result['implementation_paths'],['impl.txt']); self.assertEqual(result['executor'],'codex'); self.assertTrue(result['commit_sha']); self.assertEqual(self._git(work,'status','--porcelain'),'')
             remote_head=subprocess.run(['git','--git-dir',str(remote),'rev-parse','refs/heads/aither-v2'],check=True,capture_output=True,text=True).stdout.strip(); self.assertEqual(remote_head,result['commit_sha']); self.assertEqual(runner.run_once(work,execute_agent=True)['result'],'IDLE')
-    def test_end_to_end_unauthorized_path_restores_and_does_not_push(self):
+    def test_end_to_end_unauthorized_path_restores_and_publishes_blocked_result(self):
         temp,work,remote,baseline,task_head=self._fixture("printf 'bad\\n' > bad.txt")
         with temp:
             result=runner.run_once(work,execute_agent=True)
             self.assertEqual(result['result'],'BLOCKED'); self.assertEqual(result['task_id'],'TEST-1'); self.assertEqual(result['executor'],'codex')
-            self.assertEqual(self._git(work,'status','--porcelain'),''); self.assertEqual(self._git(work,'rev-parse','HEAD'),task_head)
+            self.assertEqual(self._git(work,'status','--porcelain'),'')
+            head=self._git(work,'rev-parse','HEAD'); self.assertNotEqual(head,task_head)
+            self.assertEqual(self._git(work,'show','--name-only','--format=',head).splitlines(),['.agent/EXECUTION_RESULT.json'])
+            payload=json.loads((work/'.agent/EXECUTION_RESULT.json').read_text()); self.assertEqual(payload['result'],'BLOCKED')
+            remote_head=subprocess.run(['git','--git-dir',str(remote),'rev-parse','refs/heads/aither-v2'],check=True,capture_output=True,text=True).stdout.strip(); self.assertEqual(remote_head,head)
     def test_end_to_end_architect_tamper_restores(self):
         temp,work,remote,baseline,task_head=self._fixture("printf 'tamper\\n' > .agent/CURRENT_TASK.md")
         with temp:
@@ -175,7 +227,7 @@ class HostRunnerTests(unittest.TestCase):
             state=runner.read_state(Path(work)/'.git'/'host-task-runner-state.json')
             self.assertEqual(state['last_attempt_result'],'BLOCKED'); self.assertEqual(state['last_attempt_fingerprint'],runner.task_fingerprint(work))
             result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'SUPPRESSED'); self.assertEqual(result['task_id'],'TEST-1'); self.assertEqual(result['executor'],'codex')
-            (work/'.agent'/'CURRENT_TASK.md').write_text('changed task\n'); self._git(work,'add','.agent/CURRENT_TASK.md'); self._git(work,'commit','-m','change task'); self._git(work,'push','origin','aither-v2')
+            (work/'.agent'/'CURRENT_TASK.md').write_text('changed task\\n'); self._git(work,'add','.agent/CURRENT_TASK.md'); self._git(work,'commit','-m','change task'); self._git(work,'push','origin','aither-v2')
             result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'BLOCKED')
     def test_suppressed_still_fetches(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -208,5 +260,74 @@ class HostRunnerTests(unittest.TestCase):
     def test_main_returns_zero_for_suppressed(self):
         with unittest.mock.patch.object(runner,'run_once',return_value={'result':'SUPPRESSED'}):
             self.assertEqual(runner.main(['--run-once']),0)
+
+    # --- H7A: PASS commits implementation + result exactly once ---
+    def test_pass_commits_implementation_and_result_once(self):
+        temp,work,remote,baseline,task_head=self._fixture("printf 'ok\\n' > impl.txt")
+        with temp:
+            result=runner.run_once(work,execute_agent=True)
+            self.assertEqual(result['result'],'PASS'); self.assertEqual(result['implementation_paths'],['impl.txt'])
+            head=self._git(work,'rev-parse','HEAD')
+            names=self._git(work,'show','--name-only','--format=',head).splitlines()
+            self.assertEqual(sorted(names),['.agent/EXECUTION_RESULT.json','impl.txt'])
+            self.assertEqual(self._git(work,'rev-list','--count',f'{task_head}..HEAD'),'1')
+            self.assertEqual(self._git(work,'status','--porcelain'),'')
+            payload=json.loads((work/'.agent/EXECUTION_RESULT.json').read_text())
+            self.assertEqual(payload['result'],'PASS'); self.assertEqual(payload['task_fingerprint'],runner.task_fingerprint(work))
+
+    # --- H7A: read-only task produces a result-only commit ---
+    def test_read_only_task_result_only_commit(self):
+        caps={**base_task()['capabilities'],'source_write':False}
+        temp,work,remote,baseline,task_head=self._fixture('exit 0',{'allowed_paths':[],'capabilities':caps})
+        with temp:
+            result=runner.run_once(work,execute_agent=True)
+            self.assertEqual(result['result'],'PASS'); self.assertEqual(result['implementation_paths'],[])
+            head=self._git(work,'rev-parse','HEAD')
+            self.assertEqual(self._git(work,'show','--name-only','--format=',head).splitlines(),['.agent/EXECUTION_RESULT.json'])
+            self.assertEqual(self._git(work,'rev-list','--count',f'{task_head}..HEAD'),'1')
+            self.assertEqual(self._git(work,'status','--porcelain'),'')
+
+    # --- H7A: result JSON safe whitelist (no raw stdout/stderr/env) ---
+    def test_result_json_contains_only_safe_whitelist(self):
+        temp,work,remote,baseline,task_head=self._fixture("printf 'secret-data\\n' > impl.txt")
+        with temp:
+            result=runner.run_once(work,execute_agent=True)
+            self.assertEqual(result['result'],'PASS')
+            payload=json.loads((work/'.agent/EXECUTION_RESULT.json').read_text())
+            self.assertLessEqual(set(payload.keys()),runner.RESULT_KEYS)
+            self.assertEqual(payload['schema_version'],1); self.assertEqual(payload['result'],'PASS')
+            for banned in ('stdout','stderr','stdin','environment','prompt','secret','token','credential','HOME','USER'):
+                self.assertNotIn(banned,payload)
+                for value in payload.values():
+                    if isinstance(value,str): self.assertNotIn(banned.lower(),value.lower())
+
+    # --- H7A: PASS idempotence does not re-invoke executor ---
+    def test_pass_idempotence_does_not_reinvoke_executor(self):
+        temp,work,remote,baseline,task_head=self._fixture("printf x >> ../exec-count.txt && printf 'ok\\n' > impl.txt")
+        with temp:
+            result=runner.run_once(work,execute_agent=True); self.assertEqual(result['result'],'PASS')
+            counter=Path(work).parent/'exec-count.txt'; self.assertEqual(counter.read_text(),'x')
+            second=runner.run_once(work,execute_agent=True); self.assertEqual(second['result'],'IDLE')
+            self.assertEqual(counter.read_text(),'x')
+
+    # --- H7A: post-executor BLOCKED publishes result-only commit after restore ---
+    def test_executor_failure_publishes_blocked_result(self):
+        temp,work,remote,baseline,task_head=self._fixture('exit 1')
+        with temp:
+            result=runner.run_once(work,execute_agent=True)
+            self.assertEqual(result['result'],'BLOCKED')
+            head=self._git(work,'rev-parse','HEAD')
+            self.assertEqual(self._git(work,'show','--name-only','--format=',head).splitlines(),['.agent/EXECUTION_RESULT.json'])
+            payload=json.loads((work/'.agent/EXECUTION_RESULT.json').read_text())
+            self.assertEqual(payload['result'],'BLOCKED'); self.assertEqual(payload['task_id'],'TEST-1')
+            self.assertEqual(self._git(work,'status','--porcelain'),'')
+
+    # --- H7A: next poll after BLOCKED result is SUPPRESSED without executor call ---
+    def test_blocked_then_suppressed_no_reinvocation(self):
+        temp,work,remote,baseline,task_head=self._fixture("printf x >> ../exec-count.txt && exit 1")
+        with temp:
+            first=runner.run_once(work,execute_agent=True); self.assertEqual(first['result'],'BLOCKED')
+            second=runner.run_once(work,execute_agent=True); self.assertEqual(second['result'],'SUPPRESSED')
+            self.assertEqual(Path(work).parent.joinpath('exec-count.txt').read_text(),'x')
 
 if __name__=='__main__': unittest.main(verbosity=2)
