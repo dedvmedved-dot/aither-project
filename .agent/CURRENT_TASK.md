@@ -1,119 +1,133 @@
-# TASK: HERMES-INTEGRATION-H5A-SCHEDULER-SUPPRESSION-CANARY
+# TASK: HERMES-INTEGRATION-H5B-SCHEDULER-HERMES-IDEMPOTENCE-CANARY
 
 ## Goal
 
-Validate the retry governor in the real systemd scheduler path without invoking any AI executor.
+Validate the complete real scheduler path to root Hermes and prove success idempotence under the existing timer/service path.
 
-This canary must prove that:
+The required path is:
 
-1. the scheduler can poll GitHub through the installed timer/service path;
-2. the first poll of this new task reaches the host runner and is blocked by `agent_exec=false` before any Hermes/Codex execution;
-3. that failed attempt is persisted by task fingerprint;
-4. the next scheduler poll of the same unchanged task returns `SUPPRESSED` with exit 0 and does not invoke the executor again;
-5. GitHub sync/polling remains active between attempts;
-6. the timer is returned to disabled/inactive after the test.
+`systemd timer -> aither-codex-runner.service -> systemd_runner.py -> host_task_runner.py -> executor=hermes -> hermes_observer.py -> H2 root bridge -> Git governance as codex -> root Hermes (/root/.hermes) -> PASS -> next poll IDLE without a second Hermes execution`.
 
-This is a runtime scheduler canary only. No repository implementation changes are authorized.
+This is a runtime-only read-only canary. No repository implementation changes are authorized.
 
 ## Confirmed state
 
 - Branch: `aither-v2`
-- Baseline: `cb5b9de8dd6dc8d765c7ec5b187048a80c9c9bf9`
-- H4 retry governor and H4-R1 governance ordering are Architect-accepted at repository level.
-- Existing timer Source of Truth remains frequent (`OnUnitInactiveSec=1min`).
-- Existing Telegram Hermes Gateway must remain active and unrestarted.
-- H2 root bridge must not be invoked in this task.
-- Codex must not be invoked.
-- This task has `agent_exec=false` intentionally.
+- Baseline: `5feeaf41bebdf6f734bc2f14330a45f1e41da2a2`
+- H3-R2 proved manual supervisor -> H2 -> root Hermes E2E PASS.
+- H4/H4-R1 retry governor and governance ordering are Architect-accepted.
+- H5A proved real timer retry suppression: BLOCKED -> SUPPRESSED with continued sync and no AI execution.
+- Timer must remain persistently disabled; only transient `systemctl start` is allowed for this canary.
+- Existing Telegram Gateway must remain active and unrestarted.
+- Codex must not execute.
 
-## Required runtime sequence
+## Root Hermes task semantics
 
-### Preconditions
+When invoked through H2, root Hermes must perform only this read-only canary:
 
-Record before changes:
+1. Read `AGENTS.md`, `.agent/CURRENT_TASK.json`, `.agent/CURRENT_TASK.md`.
+2. Verify task id is `HERMES-INTEGRATION-H5B-SCHEDULER-HERMES-IDEMPOTENCE-CANARY`.
+3. Verify `executor=hermes`, `agent_exec=true`, `source_write=false`.
+4. Read-only inspect branch, HEAD and clean worktree.
+5. Do not modify any file.
+6. Do not touch Aither runtime, Kubernetes, database, deployment, packages or secrets.
+7. Return concise PASS and STOP.
 
-- local/remote HEAD;
-- clean worktree;
-- current task id/executor;
+## Preconditions
+
+Before transiently starting the timer, record:
+
+- local/remote HEAD and clean worktree;
+- current task identity/executor/capabilities;
 - timer enabled/active state;
 - runner service state;
-- host-runner/hermes-observer processes absent;
-- H2 socket present;
+- host-runner/hermes-observer absence;
+- H2 socket owner/group/mode;
 - Telegram Gateway active/MainPID;
-- current runner state file contents limited to safe scalar fields only.
+- H2/root-executor state sufficient to prove root Hermes will use root identity and `/root/.hermes`, without reading secrets.
 
-If worktree is not clean or branch/task identity is wrong: BLOCKED and STOP.
+If any precondition fails: BLOCKED and STOP.
 
-### Scheduler canary
+## Required scheduler sequence
 
-1. Ensure local checkout is fast-forward synced to current GitHub task-control HEAD.
-2. Keep timer **disabled** persistently. Do NOT `enable` it.
-3. Start the existing timer transiently with `systemctl start aither-codex-runner.timer`.
-4. Observe the first service execution caused by the timer.
-5. The first execution must:
+1. Fast-forward sync local checkout to current GitHub task-control HEAD.
+2. Keep timer persistently **disabled**. Do not enable it.
+3. Start timer transiently with `systemctl start aither-codex-runner.timer`.
+4. Observe the first scheduler-triggered service execution.
+5. First poll must:
    - sync GitHub;
    - load this task;
    - pass branch/baseline/handoff governance;
-   - see `agent_exec=false`;
-   - return `BLOCKED`;
-   - record `last_attempt_fingerprint=<current fingerprint>` and `last_attempt_result=BLOCKED`;
-   - NOT invoke Hermes observer, H2, root Hermes, or Codex.
-6. Leave the timer active only long enough for one subsequent scheduled poll of the same unchanged task.
-7. The second execution must:
+   - select `executor=hermes`;
+   - invoke `hermes_observer.py` exactly once;
+   - send fixed H2 `RUN` exactly once;
+   - pass H2 Git governance as `codex`;
+   - invoke root Hermes exactly once as `root`, `HOME=/root`, using existing `/root/.hermes` profile;
+   - return executor canary PASS;
+   - produce host-runner PASS and live PASS;
+   - record successful fingerprint in runner state;
+   - not invoke Codex.
+6. Leave timer active only long enough for exactly one subsequent scheduled poll of the same unchanged task.
+7. Second poll must:
    - sync GitHub again;
-   - pass governance;
-   - identify the same failed fingerprint;
-   - return `SUPPRESSED`;
-   - service exit status 0;
-   - publish live state `WAITING / EXECUTOR_RETRY_SUPPRESSED`;
-   - NOT invoke any executor.
-8. As soon as the second poll is proven, stop the timer with `systemctl stop aither-codex-runner.timer`.
-9. Confirm timer remains disabled and is now inactive.
+   - pass governance again;
+   - identify the same successful fingerprint;
+   - return `IDLE`;
+   - service exit 0;
+   - NOT invoke Hermes observer, H2, root Hermes or Codex a second time;
+   - publish safe live IDLE state with task_id/executor preserved.
+8. Immediately after the second proven poll, stop timer with `systemctl stop aither-codex-runner.timer`.
+9. Confirm timer remains disabled and inactive.
 
-Exactly two scheduler service executions are authorized for this task: first BLOCKED, second SUPPRESSED. Do not allow a third execution.
+Exactly two scheduler service executions are authorized: first PASS with one root Hermes execution, second IDLE with zero executor execution.
 
 ## Hard prohibitions
 
 DO NOT:
 
-- enable the timer persistently;
-- allow more than two scheduler service executions;
-- invoke Hermes manually;
-- invoke H2 RUN;
+- persistently enable the timer;
+- allow a third scheduler service execution;
+- manually start `aither-codex-runner.service`;
+- invoke host runner manually;
+- invoke Hermes observer manually;
+- send H2 RUN manually;
+- invoke Hermes directly;
 - invoke Codex;
-- modify root executor;
-- modify repository files;
-- modify task-control locally;
+- modify source/task-control locally;
 - commit or push implementation changes;
 - modify timer/service unit files;
+- modify root executor;
 - restart/reconfigure Telegram Gateway;
-- touch Aither runtime/Kubernetes/database;
+- touch Aither runtime/Kubernetes/database/deployment;
 - read/expose secrets;
 - install packages or modify sudoers.
+
+If first poll returns BLOCKED/FAIL, stop timer immediately; do not wait for or allow a retry poll. Capture evidence and STOP.
 
 ## PASS criteria
 
 PASS only if all are true:
 
-1. Timer was disabled before and remains disabled after.
-2. Exactly two scheduler service executions occurred.
-3. First result is BLOCKED due to `agent_exec=false` after governance.
-4. First result records failed fingerprint/result in runner state.
-5. No executor was invoked on first poll.
-6. Second poll performs GitHub fetch/sync again.
-7. Second result is SUPPRESSED for the same fingerprint.
-8. Second service exits successfully (0).
-9. Live state is WAITING / EXECUTOR_RETRY_SUPPRESSED with task_id/executor preserved and no unsafe fields.
-10. No Hermes observer/H2/root Hermes/Codex execution occurs across both polls.
-11. Repository HEAD/worktree unchanged except fast-forward of Architect task-control commits.
-12. No implementation commit/push occurs.
-13. Telegram Gateway remains active with unchanged MainPID and no second gateway process.
-14. Timer is stopped immediately after second proven poll and ends inactive.
+1. Timer disabled before and after, transiently active only for the canary.
+2. Exactly two scheduler service executions occur.
+3. First poll selects Hermes and reaches root Hermes exactly once through observer/H2.
+4. H2 Git governance runs as `codex` and passes.
+5. Root Hermes runs as `root`, HOME `/root`, existing `/root/.hermes` identity/profile.
+6. First poll executor, host-runner and live state are PASS.
+7. Successful fingerprint is recorded.
+8. Second poll performs GitHub sync/governance but returns IDLE for same successful fingerprint.
+9. Second poll does not invoke observer/H2/root Hermes/Codex.
+10. Second service exit is 0 and live state identifies IDLE safely.
+11. Telegram Gateway stays active with unchanged MainPID and no second gateway.
+12. Repository HEAD/worktree unchanged except Architect task-control fast-forward.
+13. No implementation commit/push.
+14. No Aither/Kubernetes/runtime/database mutation.
+15. Timer is stopped immediately after second poll and ends inactive.
 
 ## Required final report
 
 ```text
-TASK: HERMES-INTEGRATION-H5A-SCHEDULER-SUPPRESSION-CANARY
+TASK: HERMES-INTEGRATION-H5B-SCHEDULER-HERMES-IDEMPOTENCE-CANARY
 
 LOCAL_HEAD_BEFORE:
 REMOTE_HEAD_BEFORE:
@@ -121,26 +135,38 @@ WORKTREE_CLEAN_BEFORE:
 CURRENT_TASK:
 CURRENT_EXECUTOR:
 AGENT_EXEC:
+SOURCE_WRITE:
 
 TIMER_ENABLED_BEFORE:
 TIMER_ACTIVE_BEFORE:
 RUNNER_SERVICE_STATE_BEFORE:
+HOST_RUNNER_PROCESS_BEFORE:
+HERMES_OBSERVER_PROCESS_BEFORE:
+H2_SOCKET_OWNER_GROUP_MODE:
+TELEGRAM_GATEWAY_ACTIVE_BEFORE:
 TELEGRAM_GATEWAY_MAIN_PID_BEFORE:
-H2_SOCKET_EXISTS:
 
 TIMER_STARTED_TRANSIENTLY:
 SERVICE_EXECUTION_COUNT:
 
+FIRST_POLL_SYNC_OCCURRED:
 FIRST_POLL_RESULT:
 FIRST_POLL_TASK_ID:
 FIRST_POLL_EXECUTOR:
-FIRST_POLL_BLOCK_REASON:
-FIRST_POLL_STATE_FINGERPRINT_RECORDED:
-FIRST_POLL_STATE_RESULT_RECORDED:
 FIRST_POLL_HERMES_OBSERVER_COUNT:
 FIRST_POLL_H2_RUN_COUNT:
+FIRST_POLL_H2_GOVERNANCE_IDENTITY:
+FIRST_POLL_H2_GOVERNANCE_RESULT:
 FIRST_POLL_ROOT_HERMES_COUNT:
+FIRST_POLL_ROOT_HERMES_USER:
+FIRST_POLL_ROOT_HERMES_HOME:
+FIRST_POLL_ROOT_PROFILE_USED:
 FIRST_POLL_CODEX_COUNT:
+FIRST_POLL_EXECUTOR_CANARY_RESULT:
+FIRST_POLL_HOST_RUNNER_RESULT:
+FIRST_POLL_LIVE_STATE:
+FIRST_POLL_LIVE_PHASE:
+FIRST_POLL_SUCCESS_FINGERPRINT_RECORDED:
 
 SECOND_POLL_SYNC_OCCURRED:
 SECOND_POLL_RESULT:
@@ -149,11 +175,11 @@ SECOND_POLL_EXECUTOR:
 SECOND_POLL_SERVICE_EXIT:
 SECOND_POLL_LIVE_STATE:
 SECOND_POLL_LIVE_PHASE:
-SECOND_POLL_UNSAFE_FIELDS_PRESENT:
 SECOND_POLL_HERMES_OBSERVER_COUNT:
 SECOND_POLL_H2_RUN_COUNT:
 SECOND_POLL_ROOT_HERMES_COUNT:
 SECOND_POLL_CODEX_COUNT:
+SECOND_POLL_UNSAFE_FIELDS_PRESENT:
 
 TIMER_STOPPED_AFTER_SECOND_POLL:
 TIMER_ENABLED_AFTER:
