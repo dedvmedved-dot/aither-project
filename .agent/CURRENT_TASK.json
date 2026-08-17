@@ -5,7 +5,7 @@
   "mode": "OPS_RC1",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "ebd59bb057dbe54c731d2145f526fe636d56b0c2",
+  "baseline_sha": "b454764cf9ff8fafba973fd897a4084b3a27725b",
   "allowed_paths": [
     "manifests/",
     "scripts/",
@@ -18,7 +18,7 @@
     "network_git": false,
     "kubernetes": true,
     "deployment": true,
-    "database_write": false,
+    "database_write": true,
     "runtime_write": true,
     "secret_access": false,
     "package_install": false

@@ -1,66 +1,74 @@
-# TASK: AITHER-MVP-ROADMAP-RECONCILIATION-R1
+# TASK: AITHER-MVP-OPS-RC1-R1
 
 ## Goal
+Close the operational RC1 blockers that can be completed autonomously: D1 Alertmanager/Telegram alerting, D2 NTP monitoring, D3 PostgreSQL+Redis backup/restore, #30 multi-tenant isolation, and C3 Kubernetes cluster hygiene.
 
-Reconcile `ROADMAP-RECOVERY.md` with the actual Aither project state after the late security, runtime-recovery and H0-H8 autonomy work. This is the first normal bounded work package after the autonomous handoff gates.
-
-Update **only** `ROADMAP-RECOVERY.md`. Do not change application source, manifests, runtime, Kubernetes, databases, deployments, packages, secrets or host configuration.
-
-## Starting state
-
+## Baseline
 - Branch: `aither-v2`
-- Baseline: `8e97e1ed576ffbf7a8a3eeb067e0f1b8c6e83a98`
-- H8 autonomous handoff gate: PASS / Architect accepted.
-- Current model scope contract in `.agent/GOVERNANCE.md`:
-  - `qwen2.5-32b-instruct` -> `model:qwen2.5:chat`
-  - `qwen3-32b` -> `model:qwen3:chat`
-  - `model:32b:chat` is legacy compatibility only.
-  - `UPSTREAM_14B_*` is a stale variable name only.
-- The old recovery roadmap still uses retired generic model labels `14B` and `32B` and an obsolete 27.07.2026 / 68% snapshot.
-- The repository also contains old manifests and historical evidence with obsolete model names. They are evidence of drift; they do not override the current scope contract for this roadmap reconciliation.
+- Baseline SHA: `b454764cf9ff8fafba973fd897a4084b3a27725b`
+- Roadmap reconciliation: ACCEPTED.
+- H0-H8 autonomous handoff: ACCEPTED.
 
-## Required reconciliation
+## Critical behavior requirements
+1. Work only inside the authorized OPS-RC1 scope. Do not start SEC-RC1, INFRA-RC1, BIZ-RC1, RC1 release/tagging, hardware expansion, model replacement, billing production activation, or Owner-only browser/email flows.
+2. Inspect current source and live runtime before changing anything. Reuse canonical manifests/components; do not create duplicate monitoring, backup, or isolation stacks when an existing implementation can be corrected.
+3. Do not print, copy, rotate, expose, or commit secret values. Existing Kubernetes Secret references may be reused by name only. If Telegram delivery requires an unavailable secret/value, implement and validate everything possible and report the delivery step as BLOCKED rather than exposing credentials.
+4. Do not change model identities or model placement. Current model contract remains `qwen2.5-32b-instruct` and `qwen3-32b`.
+5. Runtime claims require runtime evidence. Source-only presence is not PASS.
+6. Preserve running production services. Use reversible changes and bounded tests. Do not intentionally disrupt healthy model/portal/identity services.
+7. Keep the worktree clean at finish. Commit only authorized paths. No unrelated refactors.
 
-1. Read the current roadmap plus repository history/evidence relevant to its open items. Use only evidence actually present. Do not invent runtime facts.
-2. Remove **all uppercase legacy roadmap labels** `14B` and `32B` from `ROADMAP-RECOVERY.md`. Replace model references with the current exact IDs `qwen2.5-32b-instruct` and `qwen3-32b`, or use model-neutral wording where the evidence does not support a specific model.
-3. Preserve useful legacy task numbering, but reclassify each formerly open item conservatively using these explicit states where appropriate:
-   - `DONE`
-   - `PARTIAL`
-   - `OPEN`
-   - `OWNER_REQUIRED`
-   - `HARDWARE_DEFERRED`
-   - `SUPERSEDED`
-4. Do not mark a runtime task DONE merely because source/config exists. Runtime completion requires existing accepted runtime evidence.
-5. Reconcile the emergency-stabilization items against later accepted runtime recovery. Do not reopen the closed Qwen3 GPU admission incident unless an unresolved requirement remains distinct from that incident.
-6. Reconcile security items against the later REG/C2 work present in Git history/evidence. Distinguish completed code/security work from Owner-only browser/email/credential evidence.
-7. Add a dated reconciliation header for 2026-08-17 and baseline SHA.
-8. Add a section `Current model contract` containing the two current exact model IDs above and explaining that old generic model-size labels have been retired from the roadmap.
-9. Add a supplemental completed track for H0-H8 autonomous execution, without renumbering the original 59 legacy tasks.
-10. Replace the obsolete 40/59 = 68% summary with a new conservative summary derived from the reconciled statuses. Keep the old 68% only as an explicitly labelled historical snapshot if it is useful; otherwise remove it.
-11. Separate active RC1 blockers from `HARDWARE_DEFERRED` items. Do not silently declare hardware-deferred work outside RC1: mark that release-scope decision as requiring Architect/Owner approval if not already evidenced.
-12. End the roadmap with a short proposed critical path to RC1, expressed as larger bounded gates rather than one-command STOP tasks. This proposal is **for Owner approval only** and must not launch any next task.
-13. Note repository drift discovered during reconciliation: legacy manifests/catalogs may still contain retired model naming and require a later dedicated configuration-alignment task; do not modify those files in this task.
+## Workstream A — D1 Alertmanager + Telegram alerts
+- Determine the current Prometheus/Grafana/Alertmanager state from repo and runtime.
+- Ensure Prometheus actually loads the intended alert rules (`rule_files`/equivalent must be effective, not merely mounted).
+- Deploy or correct Alertmanager using the existing observability architecture.
+- Required alert coverage at minimum: GPU temperature threshold, GPU memory pressure, pod/container restart anomaly, and one safe synthetic/test alert path.
+- Configure Telegram notification through existing secret references if available. Never print token/chat secret values.
+- Runtime evidence: Prometheus rule load succeeds, Alertmanager healthy/ready, routing configuration accepted, synthetic alert reaches Alertmanager. Telegram end delivery must be evidenced if credentials are available; otherwise classify only that subcheck BLOCKED and report exact non-secret reason.
 
-## Required evidence discipline
+## Workstream B — D2 NTP monitoring
+- Verify time synchronization mechanism on relevant Kubernetes nodes without installing packages.
+- Add/correct Prometheus monitoring/alerting for material clock offset using metrics actually available in this environment; do not hard-code a nonexistent metric.
+- If `node_timex_offset_seconds` is available, use it with the roadmap threshold semantics; otherwise implement an equivalent evidence-backed signal and document the mapping.
+- Runtime evidence must show current synchronization/offset state for N7 and N8 (or explain any inaccessible node explicitly) and prove the alert rule is loaded.
 
-- GitHub/source facts may be stated as repository evidence.
-- Accepted runtime evidence may be used when present in the repository/task history.
-- Unknown live runtime state remains `PARTIAL` or `OPEN`, not guessed.
-- Owner-only actions remain `OWNER_REQUIRED`.
-- Do not print or copy secret values.
+## Workstream C — D3 PostgreSQL + Redis backup and restore
+- Inspect existing persistence/backup implementation first.
+- Implement automated scheduled PostgreSQL and Redis backups using existing Kubernetes storage conventions.
+- Backups must have bounded retention or a documented retention mechanism, failure visibility, and no secret values in manifests/logs.
+- Perform a non-destructive restore validation into temporary/test targets. Do not overwrite production data.
+- Prove PostgreSQL restored data is readable and Redis restored data is readable, then remove temporary restore resources if safe.
+- Record commands/results and backup artifact metadata without embedding credentials or sensitive payloads.
 
-## Validation / PASS criteria
+## Workstream D — #30 Multi-tenant isolation
+- Audit existing NetworkPolicies and any ResourceQuota/LimitRange controls.
+- Complete missing isolation controls using the current namespace/tenant architecture rather than inventing a parallel tenancy model.
+- At minimum prove: intended allow path works, prohibited cross-tenant path is denied, quotas/limits are enforced for the scoped tenant namespace(s), and existing platform traffic required for normal operation remains functional.
+- Do not weaken security policies to make tests pass.
 
-PASS only if:
+## Workstream E — C3 cluster hygiene
+- Inspect pods/events/jobs for stale Failed/Evicted/Completed artifacts and abnormal restart accumulation.
+- Remove only objectively stale disposable workload artifacts; never delete healthy running application/model pods merely to obtain a clean output.
+- Re-check cluster state after cleanup and document remaining non-healthy objects with reasons.
+- Do not reopen the previously accepted Qwen3 GPU admission incident unless a genuinely new symptom is present.
 
-- only `ROADMAP-RECOVERY.md` is modified by the executor;
-- the roadmap contains no uppercase `14B` or `32B` legacy labels;
-- it contains both `qwen2.5-32b-instruct` and `qwen3-32b`;
-- it contains an updated reconciliation date/baseline;
-- every unresolved legacy item is conservatively classified;
-- H0-H8 is represented as completed supplemental work;
-- the obsolete 68% snapshot is no longer presented as current truth;
-- the roadmap ends with a proposed RC1 critical path awaiting Owner approval;
-- no runtime or application changes are made.
+## Repository drift to handle only when directly required by OPS-RC1
+- Observability labels/config may still contain retired generic model naming. Where touched for operational correctness, align labels with the current model contract without changing model deployments.
+- Do not conduct a broad repository renaming campaign in this task.
 
-Return PASS and STOP. Do not declare Architect acceptance.
+## Required evidence and report
+Create/update evidence under authorized `docs/` or existing evidence convention and update `ROADMAP-RECOVERY.md` only for items actually proven by this task.
+
+The final evidence must state separately for D1, D2, D3, #30 and C3:
+- source/config change summary;
+- runtime validation performed;
+- PASS / PARTIAL / BLOCKED;
+- exact non-secret blocker for anything not PASS;
+- rollback/reversibility note;
+- `SECRET_VALUES_PRINTED: NO`;
+- `SECRETS_EXPOSED: NO`.
+
+## Acceptance
+Overall PASS requires all autonomously achievable checks to pass and no unreported regression. A single Owner-only Telegram credential/delivery dependency may be reported as PARTIAL/BLOCKED without fabricating success; all other work must continue independently.
+
+Do not declare Architect acceptance. Commit/push authorized changes and publish `EXECUTION_RESULT.json`, then STOP.
