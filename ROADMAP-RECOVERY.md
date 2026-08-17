@@ -1,10 +1,30 @@
 # Aither Platform — Пошаговый план: 59 задач от текущего состояния до ROADMAP 100%
 
-**Дата:** 27.07.2026
-**Текущий HEAD:** `4cf0847`
-**Выполнено:** 40/59 (68%)
-**Осталось:** 17 действующих + 2 заблокированных
-**Принцип:** Одна строка = одна задача. После каждой — STOP, verify, commit. Существующий функционал не разрушать.
+**Реконсиляция (Reconciliation):** 2026-08-17
+**Baseline SHA:** `8e97e1ed576ffbf7a8a3eeb067e0f1b8c6e83a98`
+**Задача:** AITHER-MVP-ROADMAP-RECONCILIATION-R1 — ROADMAP_RECONCILIATION
+**Область изменения:** только `ROADMAP-RECOVERY.md`. Исходный код, манифесты, рантайм, Kubernetes, БД, деплой, пакеты, секреты и конфигурация хостов НЕ изменялись.
+
+> **Исторический снапшот (НЕ текущая истина):** 27.07.2026, HEAD `4cf0847`, «Выполнено 40/59 (68%)».
+> Сохранён только как помеченная историческая справка. Актуальная консервативная оценка —
+> в разделе «Сводка» ниже.
+
+---
+
+## Текущий контракт моделей (Current model contract)
+
+| Точный ID модели | Scope | Статус |
+|---|---|---|
+| `qwen2.5-32b-instruct` | `model:qwen2.5:chat` | Канонический |
+| `qwen3-32b` | `model:qwen3:chat` | Канонический |
+
+- `model:32b:chat` — только legacy-совместимость; не вводить заново как дефолт эмитента.
+- Устаревшие generic-метки размера модели выведены из роадмапа и заменены точными ID моделей
+  либо модельно-нейтральными формулировками.
+- Устаревшие имена переменных окружения upstream-маршрутизации сами по себе не меняют маршрутизацию.
+- Развёрнутые модели: `vllm-32b-instruct-awq` (n7, TP=2) и `vllm-qwen3-32b-awq` (n8, TP=2).
+  Прежние инференс-деплои (инструкционная модель на N8 и GPTQ-модель на N7) переведены в scale-to-0
+  и заменены указанными выше.
 
 ---
 
@@ -12,13 +32,15 @@
 
 | Статус | Обозначение |
 |---|---|
-| ✅ | Выполнено (40 задач — подтверждено аудитом или emergency-операциями) |
-| ⬜ | Не выполнено — действующая |
-| 🔒 | Заблокировано (железо) |
+| ✅ DONE | Выполнено (подтверждено аудитом или emergency-операциями) |
+| ◐ PARTIAL | Частично выполнено / требует доводки |
+| ⬜ OPEN | Не выполнено — действующая |
+| 👤 OWNER_REQUIRED | Требует действия OWNER (ручное / браузер / учётные данные) |
+| 🔒 HARDWARE_DEFERRED | Отложено — требуется железо / закупка |
+| 🗑 SUPERSEDED | Снято — заменено более поздней принятой работой |
 | 🚨 | Аварийный режим — требует stabilisation |
 | ⚙️ | Требует изменения K8s/инфраструктуры |
 | ✏️ | Требует изменения кода/файлов |
-| 👤 | Требует OWNER ACTION |
 | ⏸️ | STOP после задачи — ждать команду |
 
 ---
@@ -29,9 +51,9 @@
 |---|---|---|---|---|
 | 1 | K8s + GPU Operator на N8 | #1 | ✅ | K8s v1.33.5, 2 узла, GPU Operator Running |
 | 2 | containerd + nvidia-runtime | #2 | ✅ | `runtimeClassName: nvidia` на обоих узлах |
-| 3 | vLLM 14B загрузка и запуск | #3 | ✅ | `vllm-14b-instruct` Running, FP16 28 GB |
-| 4 | Tensor Parallelism (TP=2) | #4 | ✅ | TP=2 на 14B (N8) и 32B (N7) |
-| 5 | Gateway (FastAPI + Redis RL) | #5 | ✅ | `nginx-gateway-32b` (2 реплики), Redis |
+| 3 | vLLM: загрузка и запуск модели | #3 | ✅ | vLLM-деплой Running (исторически; текущие модели — `qwen2.5-32b-instruct`, `qwen3-32b`) |
+| 4 | Tensor Parallelism (TP=2) | #4 | ✅ | TP=2 на обоих узлах (N7, N8) |
+| 5 | Gateway (FastAPI + Redis RL) | #5 | ✅ | nginx-gateway (2 реплики), Redis |
 | 6 | Portal (SPA + BFF + SSE) | #6 | ✅ | `aither-portal` NodePort 30080, aither-bff (2 реплики) |
 | 7 | OAuth (GitHub, Google, Яндекс) | #7 | ✅ | `aither-identity` + 3 провайдера + LDAP |
 
@@ -42,8 +64,8 @@
 | # | Задача | ROADMAP | Статус | Коммит/Evidence |
 |---|---|---|---|---|
 | 8 | ЮKassa — пополнение баланса (dev-режим) | #8 | ✅ | `POST /api/v1/billing/topup`, dev-режим работает |
-| 9 | Каталог моделей (YAML → Gateway) | #9 | ✅ | `catalog.yaml`, `GET /v1/models` → 14B + 32B |
-| 10 | Второй узел N7 + 32B модель | #10 | ✅ | N7 worker, `vllm-32b-gptq` GPTQ Int4 TP=2 |
+| 9 | Каталог моделей (YAML → Gateway) | #9 | ✅ | `catalog.yaml`, `GET /v1/models` → модели каталога |
+| 10 | Второй узел N7 + вторая модель | #10 | ✅ | N7 worker (историч. GPTQ Int4 → заменён `qwen2.5-32b-instruct` AWQ, TP=2) |
 | 11 | Фиксы портала (502/404/500) | #11 | ✅ | org_id UUID→TEXT, nginx SSE, 404 fix |
 
 ---
@@ -59,13 +81,13 @@
 
 # ЭТАП 3: Observability и продакшен — 6 задач
 
-| # | Задача | ROADMAP | Статус | Действие |
+| # | Задача | ROADMAP | Статус | Коммит/Evidence |
 |---|---|---|---|---|
 | 14 | Observability — Grafana дашборд | #12 | ✅ | Prometheus + Grafana, GPU+vLLM дашборды, DCGM |
-| **15** | **D1: Alertmanager + Telegram-алерты** 🚨 | **NEW** | **⬜** | ✏️⚙️ Развернуть Alertmanager. Правила: GPU temp>85°, GPU mem>95%, pod restarts>3. Telegram webhook через бота/Hermes. Проверить: тестовый алерт → Telegram. 📦 `infra(observability): deploy Alertmanager with Telegram alerts` ⏸️ |
+| 15 | D1: Alertmanager + Telegram-алерты 🚨 | NEW | ⬜ OPEN | Развернуть Alertmanager; правила GPU temp/mem, pod restarts; Telegram webhook. Нет принятого рантайм-свидетельства. |
 | 16 | AI Security Gateway (расширенный) | #14 | ✅ | Prompt injection + DLP (29 паттернов) |
-| **17** | **D2: NTP-мониторинг** 🚨 | **NEW** | **⬜** | ✏️ Добавить Prometheus алерт: `node_timex_offset_seconds > 5`. Проверить `chronyc tracking` на N7 и N8. 📦 `infra(observability): add NTP offset alert` ⏸️ |
-| 18 | Gateway в K8s (вынос из BFF) | #16 | ✅ | `nginx-gateway-32b` Deployment (2 реплики) |
+| 17 | D2: NTP-мониторинг 🚨 | NEW | ⬜ OPEN | Prometheus-алерт `node_timex_offset_seconds > 5`; проверка `chronyc tracking`. Нет принятого рантайм-свидетельства. |
+| 18 | Gateway в K8s (вынос из BFF) | #16 | ✅ | nginx-gateway Deployment (2 реплики) |
 | 19 | Портал: стабилизация (OAuth fix, chat bugs) | #16a | ✅ | `095afdc` — JS fix, closeModal, feedback, timeout — применено в EMG-01 |
 
 ---
@@ -75,26 +97,26 @@
 | # | Задача | ROADMAP | Статус | Коммит/Evidence |
 |---|---|---|---|---|
 | 20 | RAG-подсистема (Wiki-Graph, гибридный) | #17 | ✅ | Замена ChromaDB на Wiki-Graph RAG (Karpathy-style) |
-| 21 | Fine-tuning пайплайн (LoRA) | #18 | ✅ | LoRA `astra-14b` (68.9 MB), PEFT-конвертер |
-| 22 | Cost-aware routing | #19 | ✅ | `catalog.resolve()` — маршрутизация 14B/32B |
+| 21 | Fine-tuning пайплайн (LoRA) | #18 | ✅ | LoRA-адаптер (68.9 MB), PEFT-конвертер |
+| 22 | Cost-aware routing | #19 | ✅ | `catalog.resolve()` — маршрутизация по моделям |
 | 23 | Model playground (A/B сравнение) | #20 | ✅ | Выпадающий список моделей в портале |
 
 ---
 
-# ЭТАП 5: Продакшен-класс — 7 задач
+# ЭТАП 5: Продакшен-класс — 10 задач
 
-| # | Задача | ROADMAP | Статус | Действие |
+| # | Задача | ROADMAP | Статус | Коммит/Evidence |
 |---|---|---|---|---|
-| **24** | **D3: Автоматические бэкапы (PostgreSQL + Redis)** 🚨 | **NEW** | **⬜** | ⚙️ Создать K8s CronJob: ежедневный `pg_dump` → PVC. Ежедневный `redis-cli BGSAVE` → PVC. Проверить восстановление. 📦 `infra(backup): daily PostgreSQL + Redis backup CronJobs` ⏸️ |
+| 24 | D3: Автоматические бэкапы (PostgreSQL + Redis) 🚨 | NEW | ⬜ OPEN | K8s CronJob `pg_dump` → PVC; `redis-cli BGSAVE` → PVC. Нет принятого рантайм-свидетельства. |
 | 25 | Тарифные планы (Free/Standard/VIP/Enterprise) | #21a | ✅ | 4 тарифа, Redis-cached limits, model access control |
 | 26 | VPS3 Failover (горячий резерв) | #22 | ✅ | VPS3 поднят, stateless BFF, SSH-туннель, nginx backup |
 | 27 | SaaS-портал (signup/login/dashboard) | #23 | ✅ | Signup/login/billing/tiers/upgrade — VPS2+VPS3 |
-| **28** | **#13 ЮKassa боевой режим** | **#13** | **⬜** | 👤✏️⚙️ **3 подзадачи:** (a) Получить `shopId`+`secretKey` от OWNER. (b) Создать K8s Secret `yookassa-credentials`. Обновить BFF ConfigMap: `IS_PRODUCTION=true`, `YOOKASSA_ENABLED=true`. (c) Тестовый платёж 1₽ → зачисление ~100 токенов. 📦 `feat(billing): enable YooKassa production mode` ⏸️ |
-| **29** | **#15 Parsec на N7 (`max_ilev=63`)** | **#15** | **⬜** | ⚙️ SSH на N7. Убрать `parsec=0`, добавить `max_ilev=63 execstack=1` в GRUB. `update-grub`. Плановая перезагрузка N7. Проверить `parsec_status` и 32B после ребута. 📦 `infra(security): re-enable Parsec on N7 (max_ilev=63)` ⏸️ |
-| **30** | **#21 Multi-tenant изоляция** | **#21** | **⬜** | ⚙️ **2 подзадачи:** (a) ResourceQuota на `aither-inference`. (b) NetworkPolicies: BFF→Gateway→vLLM, запрет cross-pod трафика. Проверить: связность не сломана. 📦 `infra(security): add ResourceQuota + NetworkPolicies` ⏸️ |
-| **31** | **#24 HA K8s Control Plane** | **#24** | **⬜** | ⚙️ Оценить возможность повышения N7 до control-plane. `kubeadm join --control-plane` (если возможно). Задокументировать ограничение 2-членного etcd. 📦 `infra(k8s): promote N7 to control-plane for HA` ⏸️ |
-| **32** | NVLink-мосты | #25 | 🔒 | Нет физических мостов. Заявка на закупку. |
-| **33** | Модели 70B+ | #26 | 🔒 | Нужны NVLink + NVSwitch + ≥4 GPU. |
+| 28 | #13 ЮKassa боевой режим | #13 | 👤 OWNER_REQUIRED | Требует `shopId`+`secretKey` от OWNER; затем K8s Secret `yookassa-credentials` + ConfigMap + тестовый платёж. |
+| 29 | #15 Parsec на N7 (`max_ilev=63`) | #15 | ⬜ OPEN | SSH на N7; GRUB `max_ilev=63 execstack=1`; плановая перезагрузка N7; проверка `parsec_status` и работы моделей после ребута. Нет принятого рантайм-свидетельства. |
+| 30 | #21 Multi-tenant изоляция | #21 | ◐ PARTIAL | Часть NetworkPolicy-манифестов присутствует в репозитории; полный ResourceQuota на `aither-inference` и сквозная проверка связности не подтверждены рантаймом. |
+| 31 | #24 HA K8s Control Plane | #24 | ⬜ OPEN | Оценка повышения N7 до control-plane; документирование ограничения 2-членного etcd. Не начато. |
+| 32 | NVLink-мосты | #25 | 🔒 HARDWARE_DEFERRED | Нет физических мостов. Заявка на закупку. |
+| 33 | Модели 70B+ | #26 | 🔒 HARDWARE_DEFERRED | Нужны NVLink + NVSwitch + ≥4 GPU. |
 
 ---
 
@@ -137,55 +159,124 @@
 
 # ЭТАП 8: АВАРИЙНАЯ СТАБИЛИЗАЦИЯ (EMG-01) — 5 задач 🚨
 
-| # | Задача | Статус | Действие |
+Реконсилировано против более позднего принятого восстановления рантайма (миграция моделей
+`qwen2.5-32b-instruct` / `qwen3-32b`, восстановление внешнего агентского доступа).
+
+| # | Задача | Статус | Коммит/Evidence |
 |---|---|---|---|
-| **50** | **C1: N7 GPU#1 idle — диагностика и исправление** 🚨 | **⬜** | 🔍 `kubectl logs vllm-32b-gptq --tail=50`. Проверить `tensor_parallel_size` в логах vLLM. Если TP=1 — пропатчить деплоймент на TP=2, 2 GPU. `kubectl rollout restart`. Если TP=2 уже — зафиксировать limitation с evidence. 📦 `evidence/emg-01/c1-n7-gpu-idle.md` ⏸️ |
-| **51** | **C2: Верификация 14B на N8 (availability probe)** 🚨 | **⬜** | 🔍 `python3 scripts/ops/http_availability_probe.py --target http://vllm-14b-instruct.aither-inference:8000 --count 240 --interval 1`. Ожидание: 240/240 HTTP 200, p95 < 5s. 📦 `evidence/emg-01/c2-14b-availability-probe.md` ⏸️ |
-| **52** | **C3: Очистка кластера (stale pods)** 🚨 | **⬜** | ⚙️ `kubectl delete pod test-curl test-curl2 test-pf test-vllm test-vllm2 tmp-curl tmp-curl2 -n aither-inference`. `kubectl delete pod node-debugger-* -n default`. Проверить: 0 Completed/Error подов. 📦 `chore(emg-01): remove stale pods from cluster` ⏸️ |
-| **53** | **C4: Node labels → Git** 🚨 | **⬜** | ✏️ Добавить `aither.io/vllm14b-primary: "true"` в nodeSelector манифеста `03-vllm-14b-deploy/manifests/vllm-deployment.yaml`. 📦 `infra(vllm-14b): persist N8 node label in deployment manifest` ⏸️ |
-| **54** | **C5: Удалить дубликат 32B с N8 (19 GB)** 🚨 | **⬜** | ⚙️ `ssh root@10.129.13.78 'rm -rf /data/models/Qwen2.5-32B-GPTQ/'`. Проверить: 32B на N7 работает. 📦 `chore(emg-01): remove unused 32B model copy from N8` ⏸️ |
+| 50 | C1: N7 GPU#1 idle — диагностика и исправление 🚨 | 🗑 SUPERSEDED | Относилось к прежнему GPTQ-деплою на N7; снято миграцией на `qwen2.5-32b-instruct` (TP=2, n7). |
+| 51 | C2: Верификация прежней инструкционной модели на N8 (availability probe) 🚨 | 🗑 SUPERSEDED | Прежняя модель на N8 переведена в scale-to-0 и заменена `qwen3-32b` (TP=2, n8). |
+| 52 | C3: Очистка кластера (stale pods) 🚨 | ⬜ OPEN | Generic-гигиена кластера; нет принятого рантайм-свидетельства завершения. |
+| 53 | C4: Node labels → Git 🚨 | 🗑 SUPERSEDED | Манифест `03-vllm-14b-deploy` стал историческим; текущие деплои используют собственные nodeSelector/nodeName. |
+| 54 | C5: Удалить дубликат модели с N8 🚨 | 🗑 SUPERSEDED | Дубликат прежней GPTQ-модели на N8 снят в ходе миграции; текущая модель N8 — `qwen3-32b`. |
 
 ---
 
 # ЭТАП 9: БЕЗОПАСНОСТЬ — 3 задачи
 
-| # | Задача | Статус | Действие |
+| # | Задача | Статус | Коммит/Evidence |
 |---|---|---|---|
-| **55** | **E2: HTTPS (Let's Encrypt)** 🔴 | **⬜** | 👤⚙️ Проверить текущий сертификат `fb1.spb.ru`. Подтвердить управление доменом у OWNER. `certbot certonly --nginx -d fb1.spb.ru`. Настроить авто-обновление. 📦 `infra(nginx): enable HTTPS with Let's Encrypt` ⏸️ |
-| **56** | **E3: Удалить dev-аккаунты из БД** 🟡 | **⬜** | ⚙️ `SELECT user_id, login FROM portal_users WHERE oauth_provider='dev'`. `DELETE` — все, кроме `owner-r5`. Проверить: OAuth работает, admin работает. 📦 `fix(security): remove dev-test accounts` ⏸️ |
-| **57** | **E1: Закрытие 14 исторических R6-блокеров** 🟡 | **⬜** | ✏️⚙️ Credential rotation evidence. Gitleaks classification fix (runtime, не эвристика). Model-switch contract restore. Probe contract complete (stats, concurrency, JUnit). Fresh-clone evidence. Acceptance Matrix. Behavioral Compliance Checklist. Placeholder Scan. Final gate script. Markdown files content. Final report fix. 📦 Серия commits: `evidence(r6): ...` ⏸️ |
+| 55 | E2: HTTPS (Let's Encrypt) 🔴 | 👤 OWNER_REQUIRED | Требует подтверждения управления доменом `fb1.spb.ru` OWNER'ом + выпуск/автопродление сертификата. HTTPS на `:10443` эксплуатируется, но процедура Let's Encrypt не подтверждена. |
+| 56 | E3: Удалить dev-аккаунты из БД 🟡 | 👤 OWNER_REQUIRED | Мутация БД (DELETE) — вне прав исполнителя; требует решения/действия OWNER. |
+| 57 | E1: Закрытие 14 исторических R6-блокеров 🟡 | ◐ PARTIAL | Частично: BFF race fix, model-switch strengthening, credential rotation, session invalidation (R7); позже REG-C/L/A — защита endpoints identity (в Git). Остаются deferred-элементы: Acceptance Matrix, Behavioral Compliance Checklist, fresh-clone, placeholder scan, final gate. |
 
 ---
 
 # ЭТАП 10: UX И ФИНАЛИЗАЦИЯ — 2 задачи
 
-| # | Задача | Статус | Действие |
+| # | Задача | Статус | Коммит/Evidence |
 |---|---|---|---|
-| **58** | **F1: Верификация 7 инвайт-кодов** 🟢 | **⬜** | 🔍 Для каждого из 7 кодов: регистрация → вход → чат 14B → чат 32B. 7/7 успешно. 📦 `evidence/beta/invite-codes-verification.md` ⏸️ |
-| **59** | **F2: Оптимизация портала + финальный снапшот** 🟢 | **⬜** | ⚙️ Минификация `index.html`, gzip в nginx, кэширование статики. Lighthouse > 80. Создать финальный снапшот `configs/snapshot-final/`. 📦 `perf(portal): minification + gzip + final snapshot` ⏸️ |
+| 58 | F1: Верификация 7 инвайт-кодов 🟢 | ⬜ OPEN | Для каждого из 7 кодов: регистрация → вход → чат (обе модели). Нет принятого рантайм-свидетельства. |
+| 59 | F2: Оптимизация портала + финальный снапшот 🟢 | ⬜ OPEN | Минификация, gzip, кэширование статики, Lighthouse > 80, финальный снапшот. Не начато. |
 
 ---
 
-# СВОДКА
+# Дополнительный трек: автономное исполнение H0–H8 (завершено)
 
-| Этап | Задач | ✅ | ⬜ | 🔒 |
-|---|---|---|---|---|
-| 1. MVP | 7 | 7 | 0 | 0 |
-| 2. Биллинг + каталог | 4 | 4 | 0 | 0 |
-| 2.5. Авто-баланс + Grafana | 2 | 2 | 0 | 0 |
-| 3. Observability + продакшен | 6 | 4 | **2** (D1, D2) | 0 |
-| 4. RAG + кастомизация | 4 | 4 | 0 | 0 |
-| 5. Продакшен-класс | 7 | 3 | **3** (#13,#15,#21,#24) + D3 | **2** (#25,#26) |
-| 5a. Требования руководства | 9 | 9 | 0 | 0 |
-| 6. Эксплуатация | 6 | 6 | 0 | 0 |
-| 7. Закрытый контур | 1 | 1 | 0 | 0 |
-| 8. EMG-01 Stabilization 🚨 | 5 | 0 | **5** (C1–C5) | 0 |
-| 9. Security | 3 | 0 | **3** (E1,E2,E3) | 0 |
-| 10. UX + Final | 2 | 0 | **2** (F1,F2) | 0 |
-| **Итого** | **59** | **40** | **17** | **2** |
+Выполнено ПОСЛЕ легаси-роадмапа (59 задач) и НЕ пересчитывает их нумерацию.
+Итоговый результат: H8 final autonomous handoff gate — PASS (HERMES-INTEGRATION-H8-FINAL-AUTONOMOUS-HANDOFF-GATE).
 
-**Готовность:** 40/59 = 68%. Осталось 17 действующих задач.
+| Этап | Содержание | Статус |
+|---|---|---|
+| H0 | Обнаружение топологии исполнения Hermes | ✅ DONE |
+| H1 | Абстракция root-bridge executor + валидатор governance + framing моста | ✅ DONE |
+| H2 | Разделение Git-идентичности (git как `codex`, Hermes как `root`) | ✅ DONE |
+| H3 | Валидация committed implementation scope + E2E read-only канарейка | ✅ DONE |
+| H4 | Sync-preserving retry governor + порядок governance-before-suppression | ✅ DONE |
+| H5 | Валидация scheduler retry suppression | ✅ DONE |
+| H6 | Валидация идемпотентности scheduler→Hermes | ✅ DONE |
+| H7 | Активация persistent Hermes scheduler | ✅ DONE |
+| H7B | Result-only feedback + безопасная публикация результата | ✅ DONE |
+| H8 | Финальный гейт автономного handoff — PASS | ✅ DONE |
 
 ---
 
-**Первая невыполненная задача: #50 (C1) — N7 GPU#1 idle. Жду команду.**
+# СВОДКА (реконсилированная, 2026-08-17)
+
+| Этап | Задач | ✅ DONE | ◐ PARTIAL | ⬜ OPEN | 👤 OWNER_REQUIRED | 🔒 HARDWARE_DEFERRED | 🗑 SUPERSEDED |
+|---|---|---|---|---|---|---|---|
+| 1. MVP | 7 | 7 | 0 | 0 | 0 | 0 | 0 |
+| 2. Биллинг + каталог | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
+| 2.5. Авто-баланс + Grafana | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
+| 3. Observability + продакшен | 6 | 4 | 0 | 2 (D1, D2) | 0 | 0 | 0 |
+| 4. RAG + кастомизация | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
+| 5. Продакшен-класс | 10 | 3 | 1 (#21) | 3 (D3, #15, #24) | 1 (#13) | 2 (#25, #26) | 0 |
+| 5a. Требования руководства | 9 | 9 | 0 | 0 | 0 | 0 | 0 |
+| 6. Эксплуатация | 6 | 6 | 0 | 0 | 0 | 0 | 0 |
+| 7. Закрытый контур | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| 8. EMG-01 Stabilization 🚨 | 5 | 0 | 0 | 1 (C3) | 0 | 0 | 4 (C1, C2, C4, C5) |
+| 9. Security | 3 | 0 | 1 (E1) | 0 | 2 (E2, E3) | 0 | 0 |
+| 10. UX + Final | 2 | 0 | 0 | 2 (F1, F2) | 0 | 0 | 0 |
+| **Итого** | **59** | **40** | **2** | **8** | **3** | **2** | **4** |
+
+**Консервативная готовность (реконсилированная):**
+
+- ✅ DONE: 40 (не менялись; подтверждены ранее аудитом или emergency-операциями).
+- ◐ PARTIAL: 2 — #21 (multi-tenant изоляция), E1 (закрытие R6-блокеров).
+- ⬜ OPEN: 8 — D1, D2, D3, #15 (Parsec), #24 (HA control-plane), C3 (stale pods), F1, F2.
+- 👤 OWNER_REQUIRED: 3 — #13 (ЮKassa), E2 (HTTPS/Let's Encrypt), E3 (dev-аккаунты).
+- 🔒 HARDWARE_DEFERRED: 2 — #25 (NVLink), #26 (модели 70B+).
+- 🗑 SUPERSEDED: 4 — C1, C2, C4, C5 (сняты миграцией моделей).
+
+Историческая цифра «40/59 = 68%» сохранена только как помеченный снапшот (см. шапку) и более
+не является текущей истиной. Активная работа к RC1: **13 задач** (8 OPEN + 2 PARTIAL + 3 OWNER_REQUIRED);
+плюс **2 HARDWARE_DEFERRED** вне RC1 и **4 SUPERSEDED**, выведенные из роадмапа.
+
+---
+
+# Обнаруженный дрейф репозитория
+
+При реконсиляции выявлено: легаси-манифесты и каталоги (например, `03-vllm-14b-deploy/`,
+конфиги `nginx-gateway-32b*`, а также README-секции с устаревшими именами моделей и переменными
+окружения) всё ещё содержат устаревшие имена моделей. Это свидетельство дрейфа, НЕ основание
+для изменения в рамках данной задачи. Требуется отдельная будущая задача по выравниванию
+конфигурации; эти файлы в данной задаче НЕ изменяются.
+
+---
+
+# Предлагаемый критический путь к RC1 (на утверждение OWNER)
+
+> Это ПРЕДЛОЖЕНИЕ на утверждение OWNER / Архитектора. Оно НЕ запускает следующую задачу.
+
+Активные RC1-блокеры сгруппированы в крупные ограниченные гейты (не одно-командные STOP-задачи):
+
+1. **GATE SEC-RC1 — закрытие безопасности.**
+   - E1: довести closure R6-блокеров (Acceptance Matrix, Behavioral Compliance Checklist, fresh-clone, placeholder scan, final gate).
+   - E2: выпуск/автопродление HTTPS-сертификата (OWNER: подтверждение управления доменом).
+   - E3: удаление dev-аккаунтов (OWNER: решение о мутации БД).
+
+2. **GATE OPS-RC1 — наблюдаемость и устойчивость.**
+   - D1: Alertmanager + Telegram-алерты; D2: NTP-мониторинг; D3: автоматические бэкапы.
+   - #21: довести multi-tenant изоляцию (ResourceQuota + NetworkPolicies + проверка связности).
+
+3. **GATE INFRA-RC1 — укрепление узлов и HA.**
+   - #15: Parsec на N7 (GRUB + плановая перезагрузка).
+   - #24: оценка HA control-plane (принять решение о целесообразности).
+
+4. **GATE BIZ-RC1 — биллинг и бета-финализация.**
+   - #13: боевой режим ЮKassa (OWNER: `shopId`/`secretKey`).
+   - F1: верификация инвайт-кодов; F2: оптимизация портала + финальный снапшот.
+
+**Вне RC1 (требует отдельного решения Архитектора/OWNER о скоупе релиза):**
+- #25 (NVLink-мосты) и #26 (модели 70B+) — HARDWARE_DEFERRED; не входят в RC1, пока не принято
+  отдельное решение о расширении скоупа.
