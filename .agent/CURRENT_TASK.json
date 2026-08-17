@@ -1,22 +1,25 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-ROADMAP-RECONCILIATION-R1",
+  "task_id": "AITHER-MVP-OPS-RC1-R1",
   "executor": "hermes",
-  "mode": "ROADMAP_RECONCILIATION",
+  "mode": "OPS_RC1",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "8e97e1ed576ffbf7a8a3eeb067e0f1b8c6e83a98",
+  "baseline_sha": "ebd59bb057dbe54c731d2145f526fe636d56b0c2",
   "allowed_paths": [
+    "manifests/",
+    "scripts/",
+    "docs/",
     "ROADMAP-RECOVERY.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
-    "kubernetes": false,
-    "deployment": false,
+    "kubernetes": true,
+    "deployment": true,
     "database_write": false,
-    "runtime_write": false,
+    "runtime_write": true,
     "secret_access": false,
     "package_install": false
   },
@@ -25,12 +28,9 @@
     "commit": true,
     "push": true
   },
-  "max_commits": 1,
+  "max_commits": 4,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "docs: reconcile Aither recovery roadmap",
-  "validation_commands": [
-    ["python3", "-c", "from pathlib import Path; s=Path('ROADMAP-RECOVERY.md').read_text(); assert '14B' not in s and '32B' not in s; assert 'qwen2.5-32b-instruct' in s and 'qwen3-32b' in s"]
-  ]
+  "commit_message": "ops: close RC1 operations gate"
 }
