@@ -1,49 +1,66 @@
-# TASK: HERMES-INTEGRATION-H8-FINAL-AUTONOMOUS-HANDOFF-GATE
+# TASK: AITHER-MVP-ROADMAP-RECONCILIATION-R1
 
 ## Goal
 
-Final integration gate before normal Aither development resumes.
+Reconcile `ROADMAP-RECOVERY.md` with the actual Aither project state after the late security, runtime-recovery and H0-H8 autonomy work. This is the first normal bounded work package after the autonomous handoff gates.
 
-Prove the already-built autonomous loop end to end:
-
-`Architect task -> GitHub -> persistent scheduler -> Hermes -> validation -> EXECUTION_RESULT.json -> result-only commit -> next poll IDLE`.
-
-This is a strict read-only executor canary. No implementation changes are authorized.
+Update **only** `ROADMAP-RECOVERY.md`. Do not change application source, manifests, runtime, Kubernetes, databases, deployments, packages, secrets or host configuration.
 
 ## Starting state
 
-- Branch: `aither-v2`.
-- Baseline: `349b285f603430e4015980df8bc5cef758a1885b`.
-- H6 persistent scheduler is accepted.
-- H7A/H7A-R1 result publication and ownership safeguards are installed.
-- H7B autonomous result-only publication passed.
+- Branch: `aither-v2`
+- Baseline: `8e97e1ed576ffbf7a8a3eeb067e0f1b8c6e83a98`
+- H8 autonomous handoff gate: PASS / Architect accepted.
+- Current model scope contract in `.agent/GOVERNANCE.md`:
+  - `qwen2.5-32b-instruct` -> `model:qwen2.5:chat`
+  - `qwen3-32b` -> `model:qwen3:chat`
+  - `model:32b:chat` is legacy compatibility only.
+  - `UPSTREAM_14B_*` is a stale variable name only.
+- The old recovery roadmap still uses retired generic model labels `14B` and `32B` and an obsolete 27.07.2026 / 68% snapshot.
+- The repository also contains old manifests and historical evidence with obsolete model names. They are evidence of drift; they do not override the current scope contract for this roadmap reconciliation.
 
-## Required behavior
+## Required reconciliation
 
-1. The persistent scheduler must discover H8 automatically. No manual host sync or manual runner start.
-2. Hermes must read the current task and perform only read-only checks of task identity, branch, HEAD and clean worktree.
-3. Hermes must make zero repository or application changes and return PASS only when the task is correctly loaded and the existing execution path is healthy.
-4. Existing host-runner validations must pass.
-5. The host runner alone must update `.agent/EXECUTION_RESULT.json`.
-6. Exactly one result-only commit must be pushed with message `gate: prove final autonomous Hermes handoff`.
-7. That commit must contain only `.agent/EXECUTION_RESULT.json`.
-8. Result JSON must report this H8 task, `executor=hermes`, `result=PASS`, and empty `changed_paths` / `implementation_paths`.
-9. The next unchanged scheduler poll must return IDLE without executor reinvocation and without another result commit.
-10. The persistent scheduler remains active after PASS.
+1. Read the current roadmap plus repository history/evidence relevant to its open items. Use only evidence actually present. Do not invent runtime facts.
+2. Remove **all uppercase legacy roadmap labels** `14B` and `32B` from `ROADMAP-RECOVERY.md`. Replace model references with the current exact IDs `qwen2.5-32b-instruct` and `qwen3-32b`, or use model-neutral wording where the evidence does not support a specific model.
+3. Preserve useful legacy task numbering, but reclassify each formerly open item conservatively using these explicit states where appropriate:
+   - `DONE`
+   - `PARTIAL`
+   - `OPEN`
+   - `OWNER_REQUIRED`
+   - `HARDWARE_DEFERRED`
+   - `SUPERSEDED`
+4. Do not mark a runtime task DONE merely because source/config exists. Runtime completion requires existing accepted runtime evidence.
+5. Reconcile the emergency-stabilization items against later accepted runtime recovery. Do not reopen the closed Qwen3 GPU admission incident unless an unresolved requirement remains distinct from that incident.
+6. Reconcile security items against the later REG/C2 work present in Git history/evidence. Distinguish completed code/security work from Owner-only browser/email/credential evidence.
+7. Add a dated reconciliation header for 2026-08-17 and baseline SHA.
+8. Add a section `Current model contract` containing the two current exact model IDs above and explaining that old generic model-size labels have been retired from the roadmap.
+9. Add a supplemental completed track for H0-H8 autonomous execution, without renumbering the original 59 legacy tasks.
+10. Replace the obsolete 40/59 = 68% summary with a new conservative summary derived from the reconciled statuses. Keep the old 68% only as an explicitly labelled historical snapshot if it is useful; otherwise remove it.
+11. Separate active RC1 blockers from `HARDWARE_DEFERRED` items. Do not silently declare hardware-deferred work outside RC1: mark that release-scope decision as requiring Architect/Owner approval if not already evidenced.
+12. End the roadmap with a short proposed critical path to RC1, expressed as larger bounded gates rather than one-command STOP tasks. This proposal is **for Owner approval only** and must not launch any next task.
+13. Note repository drift discovered during reconciliation: legacy manifests/catalogs may still contain retired model naming and require a later dedicated configuration-alignment task; do not modify those files in this task.
 
-## Restrictions
+## Required evidence discipline
 
-- Do not modify source files or task-control locally.
-- Do not modify `.agent/EXECUTION_RESULT.json` from Hermes; it is runner-managed.
-- Do not manually start the scheduler execution chain.
-- Do not invoke another executor.
-- Do not change application runtime, cluster state, database, deployment, packages, access configuration or repository ownership.
-- Do not print sensitive values.
+- GitHub/source facts may be stated as repository evidence.
+- Accepted runtime evidence may be used when present in the repository/task history.
+- Unknown live runtime state remains `PARTIAL` or `OPEN`, not guessed.
+- Owner-only actions remain `OWNER_REQUIRED`.
+- Do not print or copy secret values.
 
-## PASS criteria
+## Validation / PASS criteria
 
-PASS requires autonomous discovery, exactly one Hermes execution for the H8 fingerprint, zero executor file changes, successful validation, exactly one result-only commit, safe H8 PASS result JSON, and next-poll IDLE with no repeated executor.
+PASS only if:
 
-After independent Architect verification of the H8 result commit, the integration-canary sequence is complete. Subsequent work must return to normal bounded Aither development tasks unless a new integration fault appears.
+- only `ROADMAP-RECOVERY.md` is modified by the executor;
+- the roadmap contains no uppercase `14B` or `32B` legacy labels;
+- it contains both `qwen2.5-32b-instruct` and `qwen3-32b`;
+- it contains an updated reconciliation date/baseline;
+- every unresolved legacy item is conservatively classified;
+- H0-H8 is represented as completed supplemental work;
+- the obsolete 68% snapshot is no longer presented as current truth;
+- the roadmap ends with a proposed RC1 critical path awaiting Owner approval;
+- no runtime or application changes are made.
 
-Do not declare Architect acceptance. STOP.
+Return PASS and STOP. Do not declare Architect acceptance.
