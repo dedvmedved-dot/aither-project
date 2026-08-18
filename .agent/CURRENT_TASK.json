@@ -1,35 +1,22 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-OPS-RC1-R2",
+  "task_id": "AITHER-MVP-GOV-R2-FINALIZE-R1",
   "executor": "hermes",
-  "mode": "OPS_RC1",
+  "mode": "GOVERNANCE_FINALIZATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "63ad4ef91221aa32cfa3d1be6cdc770787a0a9a4",
+  "baseline_sha": "e51f06b3d38906ac1c3c33a0c2bf1f8516f3b4c1",
   "allowed_paths": [
-    "manifests/observability/prometheus.yaml",
-    "manifests/observability/alertmanager.yaml",
-    "manifests/observability/node-exporter.yaml",
-    "manifests/observability/kube-state-metrics.yaml",
-    "manifests/postgres.yaml",
-    "manifests/redis.yaml",
-    "manifests/backups.yaml",
-    "manifests/quotas.yaml",
-    "manifests/network-policies.yaml",
-    "docs/operations/MONITORING_GUIDE.md",
-    "docs/operations/BACKUP_RESTORE_GUIDE.md",
-    "docs/operations/OPERATIONS_GUIDE.md",
-    "docs/operations/OPS_RC1_R2_EVIDENCE.md",
-    "ROADMAP-RECOVERY.md"
+    "docs/operations/OPS_RC1_R2_GOVERNANCE_AUDIT.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
-    "kubernetes": true,
-    "deployment": true,
-    "database_write": true,
-    "runtime_write": true,
+    "kubernetes": false,
+    "deployment": false,
+    "database_write": false,
+    "runtime_write": false,
     "secret_access": false,
     "package_install": false
   },
@@ -38,9 +25,9 @@
     "commit": true,
     "push": true
   },
-  "max_commits": 4,
+  "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "ops: close RC1 operations gate R2"
+  "commit_message": "governance: finalize OPS-RC1-R2 handoff"
 }

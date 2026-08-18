@@ -1,101 +1,63 @@
-# TASK: AITHER-MVP-OPS-RC1-R2
+# TASK: AITHER-MVP-GOV-R2-FINALIZE-R1
 
 ## Goal
-Correct the R1 exact-path allowlist defect and complete the same bounded OPS-RC1 closure scope: D1 Alertmanager/Telegram alerting, D2 NTP/time-sync monitoring, D3 PostgreSQL+Redis backup/restore, #30 multi-tenant isolation, and C3 Kubernetes cluster hygiene.
+Perform a narrow governance finalization audit for `AITHER-MVP-OPS-RC1-R2` after implementation commit `e51f06b3d38906ac1c3c33a0c2bf1f8516f3b4c1` appeared in GitHub without an R2 `.agent/EXECUTION_RESULT.json` update. Do not repeat OPS-RC1 implementation. Do not change Kubernetes/runtime. Do not change governance code.
 
 ## Baseline
 - Branch: `aither-v2`
-- Baseline SHA: `63ad4ef91221aa32cfa3d1be6cdc770787a0a9a4`
-- R1 result: `BLOCKED / NOT ACCEPTED` because directory-prefix allowlist entries were interpreted as exact filenames.
-- R2 is corrective execution of the same OPS-RC1 scope. It is not authorization to reopen unrelated work.
+- Baseline SHA: `e51f06b3d38906ac1c3c33a0c2bf1f8516f3b4c1`
+- R2 implementation commit is one commit ahead of Architect publication `d850f55a18c0370ea3a0e196c5043b0fc0ba6981`.
+- Independent Architect audit confirmed that the R2 commit changed only exact R2-authorized implementation/evidence paths.
+- Current anomaly: `.agent/EXECUTION_RESULT.json` still describes R1, while runner-live reports retry suppression for R2.
 
 ## Critical behavior requirements
-1. GitHub is Source of Truth. Read this file and `.agent/CURRENT_TASK.json` before any implementation.
-2. Work only on the exact paths authorized below. The runner treats `allowed_paths` as exact filenames, not directory prefixes.
-3. If another repository path becomes necessary, STOP and return BLOCKED with the exact non-secret reason. Do not improvise, create a nearby file, or expand scope.
-4. Inspect source and live runtime before changing anything. Reuse the existing architecture; do not create duplicate monitoring, backup, tenancy, Telegram, scheduler, runner, or bridge stacks.
-5. Do not modify `.agent/*`, scheduler, host runner, H2 bridge, Telegram gateway, `/root/.hermes`, model placement, model identities, billing production activation, or Owner-only flows.
-6. Model contract remains `qwen2.5-32b-instruct` / `model:qwen2.5:chat` and `qwen3-32b` / `model:qwen3:chat`. Legacy `model:32b:chat` is compatibility-only.
-7. Do not reopen the previously accepted Qwen3 GPU admission incident unless a genuinely new runtime symptom is observed.
-8. Never print, copy, rotate, expose, or commit secret values. Existing Secret references may be used by name only. `secret_access=false` remains binding.
-9. Runtime claims require runtime evidence. Manifest existence alone is not PASS.
-10. Preserve healthy running services. Use bounded, reversible validation and non-destructive restore tests.
-11. Temporary runtime/evidence artifacts that are not exact allowed repository paths must not remain in the worktree. Clean them before finish. Persist final evidence only in `docs/operations/OPS_RC1_R2_EVIDENCE.md`.
-12. Finish with a clean worktree. Commit/push only authorized implementation paths; runner owns `.agent/EXECUTION_RESULT.json`.
+1. GitHub is Source of Truth. Read `.agent/CURRENT_TASK.json`, this file, `.agent/host_task_runner.py`, and the relevant local git state before acting.
+2. This is a governance-finalization audit only. Do not modify or redeploy any application, Kubernetes object, database, network, monitoring stack, backup job, CNI, model, portal, identity service, scheduler, runner, H2 bridge, Telegram gateway, or `/root/.hermes`.
+3. The ONLY repository path Hermes may create/modify is `docs/operations/OPS_RC1_R2_GOVERNANCE_AUDIT.md`.
+4. ABSOLUTE PROHIBITION for Hermes: do not run `git add`, `git commit`, `git push`, `git reset`, `git clean`, `git checkout`, `git switch`, `git merge`, `git rebase`, `git tag`, or any command that changes refs/index/history. Host runner alone must stage, commit and push this task result.
+5. `network_git=false` is binding. Git network operations by Hermes are forbidden. Read-only local commands such as `git status`, `git log`, `git show`, `git diff`, `git rev-parse`, and `git reflog` are allowed if they do not mutate state.
+6. Do not modify `.agent/EXECUTION_RESULT.json`; it is runner-managed.
+7. Do not declare Architect acceptance. Produce the audit file, leave it uncommitted in the worktree, and STOP so host runner can validate, write EXECUTION_RESULT, commit, and push.
+8. Never print or copy secret values.
 
-## Exact authorized repository paths
-- `manifests/observability/prometheus.yaml`
-- `manifests/observability/alertmanager.yaml`
-- `manifests/observability/node-exporter.yaml`
-- `manifests/observability/kube-state-metrics.yaml`
-- `manifests/postgres.yaml`
-- `manifests/redis.yaml`
-- `manifests/backups.yaml`
-- `manifests/quotas.yaml`
-- `manifests/network-policies.yaml`
-- `docs/operations/MONITORING_GUIDE.md`
-- `docs/operations/BACKUP_RESTORE_GUIDE.md`
-- `docs/operations/OPERATIONS_GUIDE.md`
-- `docs/operations/OPS_RC1_R2_EVIDENCE.md`
-- `ROADMAP-RECOVERY.md`
+## Audit questions to answer with evidence
+Write `docs/operations/OPS_RC1_R2_GOVERNANCE_AUDIT.md` and answer:
 
-Do not modify any repository file not listed above.
+### A. R2 commit provenance
+- Confirm HEAD and parent relationship for `e51f06b3d38906ac1c3c33a0c2bf1f8516f3b4c1`.
+- Enumerate changed paths in `d850f55a..e51f06b3` and confirm whether they are all within R2 exact allowlist.
+- Determine, from available local git/runner evidence, which actor/path created and pushed `e51f06b3...`.
+- If exact provenance cannot be proven, state `PROVENANCE: INDETERMINATE` rather than guessing.
 
-## Workstream A — D1 Alertmanager + Telegram alerts
-- Inspect current Prometheus/Grafana runtime and source first.
-- Ensure Prometheus actually loads intended alert rules; prove active rule loading in runtime.
-- Deploy/correct Alertmanager within existing observability architecture and prove healthy/ready state and accepted routing configuration.
-- Minimum alert coverage: GPU temperature, GPU memory pressure, pod/container restart anomaly, and a safe synthetic alert path.
-- Prove a synthetic alert reaches Alertmanager.
-- Use only existing secret references for Telegram if already available without reading/printing secret values. If end-delivery cannot be proven without unavailable Owner credentials, mark only Telegram end-delivery PARTIAL/BLOCKED and continue all other work.
+### B. Why R2 EXECUTION_RESULT was not finalized
+- Inspect host runner logic and available runner/local state.
+- Determine the most evidence-backed root cause for R2 being `SUPPRESSED` while `.agent/EXECUTION_RESULT.json` remains R1.
+- Specifically test the hypothesis that remote HEAD moved during executor execution before host runner `stage_commit_push` could publish its own PASS result.
+- Distinguish confirmed facts from inference.
 
-## Workstream B — D2 NTP/time synchronization monitoring
-- Verify the actual time-sync mechanism on relevant Kubernetes nodes without package installation.
-- Determine the metric actually available in this environment; do not invent a metric.
-- Prefer `node_timex_offset_seconds` only if runtime confirms it exists; otherwise use an evidence-backed equivalent signal and document the mapping.
-- Provide runtime evidence for N7 and N8 synchronization/offset state (or exact non-secret accessibility blocker) and prove the corresponding Prometheus rule is loaded.
+### C. R2 implementation integrity
+- Read-only verify that R2 evidence file exists and its task/baseline match R2.
+- Verify no path outside the R2 allowlist was committed in `e51f06b3...`.
+- Do not re-run destructive/runtime tests; this task audits repository/governance only.
 
-## Workstream C — D3 PostgreSQL + Redis backup/restore
-- Inspect existing persistence and backup behavior first.
-- Implement scheduled PostgreSQL and Redis backups using existing storage conventions.
-- Require bounded retention/cleanup and visible failure behavior.
-- Do not embed credentials or sensitive payloads in manifests/evidence.
-- Perform non-destructive restore validation into temporary/test targets only; never overwrite production data.
-- Prove restored PostgreSQL data is readable and restored Redis data is readable.
-- Remove temporary restore resources when validation completes safely.
+### D. Host-runner finalization test
+- Before stopping, leave exactly one worktree change: `docs/operations/OPS_RC1_R2_GOVERNANCE_AUDIT.md`.
+- Do not commit it yourself.
+- The expected success condition is that host runner detects that one allowed path, writes a PASS `.agent/EXECUTION_RESULT.json`, creates the commit with message `governance: finalize OPS-RC1-R2 handoff`, pushes it, and leaves a clean worktree.
 
-## Workstream D — #30 Multi-tenant isolation
-- Audit current namespaces, NetworkPolicies, ResourceQuota and LimitRange state.
-- Complete isolation using current tenancy architecture; do not invent a parallel tenancy model.
-- Runtime proof must include: intended allowed path succeeds; prohibited cross-tenant path is denied; quota/limits enforcement is demonstrated; platform traffic required for normal operation remains functional.
-- Do not weaken isolation to make tests pass.
-
-## Workstream E — C3 Kubernetes cluster hygiene
-- Inspect pods, jobs, events and restart state for stale Failed/Evicted/Completed artifacts.
-- Remove only objectively stale/disposable workload artifacts.
-- Never delete or restart healthy production application/model pods merely for cleaner output.
-- Re-check cluster state and document any remaining non-healthy objects and their reasons.
-
-## Evidence contract
-Write a single final repository evidence report to `docs/operations/OPS_RC1_R2_EVIDENCE.md`.
-
-For each of D1, D2, D3, #30 and C3 include:
-- source/config change summary;
-- exact runtime validation performed;
-- relevant non-secret command/result excerpts or structured summaries;
-- PASS / PARTIAL / BLOCKED;
-- exact blocker for anything not PASS;
-- regression/health check;
-- rollback/reversibility note.
-
-The report must explicitly state:
+## Required audit conclusion
+The file must include:
+- `R2_IMPLEMENTATION_COMMIT: e51f06b3d38906ac1c3c33a0c2bf1f8516f3b4c1`
+- `R2_SCOPE_INTEGRITY: PASS|FAIL`
+- `R2_EXECUTION_RESULT_PRESENT: NO` (unless current facts change before execution; then state exact new fact)
+- `ROOT_CAUSE: ...`
+- `ROOT_CAUSE_CONFIDENCE: CONFIRMED|HIGH|MEDIUM|LOW`
+- `HERMES_GIT_WRITE_USED_IN_THIS_TASK: NO`
+- `RUNTIME_MUTATIONS_IN_THIS_TASK: NO`
 - `SECRET_VALUES_PRINTED: NO`
 - `SECRETS_EXPOSED: NO`
-- `OWNER_ACTION_REQUIRED: YES/NO` with reason if YES.
-
-Update `ROADMAP-RECOVERY.md` only for items actually proven by runtime evidence in this task.
 
 ## Acceptance
-Overall PASS requires every autonomously achievable OPS-RC1 gate to pass without unreported regression. Telegram end-delivery may remain PARTIAL/BLOCKED only when it genuinely depends on unavailable external/Owner credentials; do not fabricate delivery.
+This corrective task is successful only if Hermes does not self-commit/push and the host runner itself publishes the audit plus a fresh PASS `.agent/EXECUTION_RESULT.json` for `AITHER-MVP-GOV-R2-FINALIZE-R1`.
 
-Do not declare Architect acceptance. Hermes may inspect -> implement -> test -> fix -> retest within this bounded task, then commit/push authorized changes through the governed runner, publish the machine-readable result, and STOP.
+After writing the one allowed audit file, STOP.
