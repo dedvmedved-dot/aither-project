@@ -1,0 +1,140 @@
+# Scheduled backups — Aither PostgreSQL + Redis (D3)
+# Source of truth for the backup CronJobs and their storage PVC.
+# Credentials are referenced by Secret name only; no secret values are embedded.
+#
+# Storage convention: hostPath PV /data/aither-backup (node n8), bound via PVC
+# aither-backup. Retention: backups older than 7 days are pruned on each run
+# (find -mtime +7 -delete). Failure behavior: backoffLimit 2, failedJobsHistoryLimit 3,
+# successfulJobsHistoryLimit 3.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aither-backup
+  namespace: aither-inference
+  labels:
+    app: aither-backup
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: ""
+  volumeName: pv-aither-backup
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-aither-backup
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /data/aither-backup
+    type: DirectoryOrCreate
+  claimRef:
+    namespace: aither-inference
+    name: aither-backup
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: aither-inference
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  suspend: false
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: bootsman-k8s-clnt01-n8-gpu
+          restartPolicy: OnFailure
+          containers:
+          - name: pg-backup
+            image: postgres:16-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              TS=$(date +%Y%m%d_%H%M%S)
+              pg_dump -Fc -f "/backup/aither-pg-${TS}.dump"
+              find /backup -name 'aither-pg-*.dump' -mtime +7 -delete
+              echo "postgres backup written: aither-pg-${TS}.dump"
+              ls -la /backup
+            env:
+            - name: PGHOST
+              value: postgres.aiops.svc
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: aither-gateway-postgres
+                  key: PG_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aither-gateway-postgres
+                  key: PG_PASSWORD
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: aither-gateway-postgres
+                  key: PG_DB
+            volumeMounts:
+            - name: backup
+              mountPath: /backup
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: aither-backup
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: redis-backup
+  namespace: aither-inference
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  suspend: false
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: bootsman-k8s-clnt01-n8-gpu
+          restartPolicy: OnFailure
+          containers:
+          - name: redis-backup
+            image: redis:7-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              TS=$(date +%Y%m%d_%H%M%S)
+              redis-cli -h aither-redis-rate-limit.aither-inference.svc -p 6379 --rdb "/backup/aither-redis-${TS}.rdb"
+              find /backup -name 'aither-redis-*.rdb' -mtime +7 -delete
+              echo "redis backup written: aither-redis-${TS}.rdb"
+              ls -la /backup
+            volumeMounts:
+            - name: backup
+              mountPath: /backup
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: aither-backup

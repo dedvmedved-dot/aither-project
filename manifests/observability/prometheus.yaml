@@ -1,3 +1,6 @@
+# Prometheus — Aither observability stack
+# Source of truth for the monitoring namespace Prometheus deployment.
+# Reconciles the live cluster state (OPS-RC1 R2).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,8 +12,23 @@ data:
       scrape_interval: 15s
       evaluation_interval: 15s
 
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets: ['alertmanager.monitoring.svc:9093']
+
+    rule_files:
+      - /etc/prometheus/rules/*.rules
+
     scrape_configs:
     - job_name: 'dcgm-exporter'
+      static_configs:
+      - targets: ['nvidia-dcgm-exporter.gpu-operator.svc:9400']
+      metric_relabel_configs:
+      - source_labels: [Hostname]
+        target_label: node
+
+    - job_name: 'node-exporter'
       kubernetes_sd_configs:
       - role: endpoints
         namespaces:
@@ -18,29 +36,23 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_label_app]
         action: keep
-        regex: dcgm-exporter
+        regex: node-exporter
+
+    - job_name: 'kube-state-metrics'
+      static_configs:
+      - targets: ['kube-state-metrics.monitoring.svc:8080']
 
     - job_name: 'vllm'
+      metrics_path: /metrics
       static_configs:
-      - targets: ['10.244.0.168:8000']
+      - targets: ['vllm-32b-instruct-awq.aither-inference.svc:8000']
         labels:
-          model: 'qwen-14b'
-          node: 'n8'
-      - targets: ['10.244.1.47:8000']
-        labels:
-          model: 'qwen-32b'
+          model: 'qwen2.5-32b-instruct'
           node: 'n7'
-      metrics_path: /metrics
-
-    - job_name: 'vllm-nodeport'
-      static_configs:
-      - targets: ['10.129.13.78:32293']
+      - targets: ['vllm-qwen3-32b-awq.aither-inference.svc:8000']
         labels:
-          model: 'qwen-14b'
-      - targets: ['10.129.13.77:32294']
-        labels:
-          model: 'qwen-32b'
-      metrics_path: /metrics
+          model: 'qwen3-32b'
+          node: 'n8'
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -48,7 +60,7 @@ metadata:
   name: prometheus-rules
   namespace: monitoring
 data:
-  gpu.rules: |
+  alerts.rules: |
     groups:
     - name: gpu
       rules:
@@ -58,14 +70,47 @@ data:
         labels:
           severity: warning
         annotations:
-          summary: "GPU temperature > 85°C on {{ $labels.node }}"
-      - alert: GPUMemoryHigh
-        expr: (DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL) * 100 > 90
+          summary: "GPU temperature > 85°C"
+          description: "GPU {{ $labels.gpu }} on node {{ $labels.node }} is at {{ $value }}°C"
+      - alert: GPUMemoryPressure
+        expr: (DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE)) * 100 > 90
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "GPU memory > 90% on {{ $labels.node }}"
+          summary: "GPU memory pressure > 90%"
+          description: "GPU {{ $labels.gpu }} on node {{ $labels.node }} is at {{ $value }}% framebuffer usage"
+    - name: node
+      rules:
+      - alert: ClockOffsetHigh
+        expr: abs(node_timex_offset_seconds) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NTP clock offset exceeds 5s"
+          description: "Node {{ $labels.instance }} clock offset is {{ $value }} seconds (threshold 5s)"
+    - name: kubernetes
+      rules:
+      - alert: PodRestartAnomaly
+        expr: increase(kube_pod_container_status_restarts_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container restart anomaly"
+          description: "Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace {{ $labels.namespace }}) restarted {{ $value }} times in the last 1h"
+    - name: test
+      rules:
+      - alert: SyntheticTestAlert
+        expr: vector(1) == 1
+        for: 1m
+        labels:
+          severity: none
+          test: "true"
+        annotations:
+          summary: "Synthetic test alert"
+          description: "Safe synthetic alert validating the Prometheus -> Alertmanager path"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -84,6 +129,7 @@ spec:
     spec:
       nodeSelector:
         nvidia.com/gpu.present: "true"
+      serviceAccountName: prometheus
       containers:
       - name: prometheus
         image: prom/prometheus:v2.54.1

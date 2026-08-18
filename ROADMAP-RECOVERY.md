@@ -84,9 +84,9 @@
 | # | Задача | ROADMAP | Статус | Коммит/Evidence |
 |---|---|---|---|---|
 | 14 | Observability — Grafana дашборд | #12 | ✅ | Prometheus + Grafana, GPU+vLLM дашборды, DCGM |
-| 15 | D1: Alertmanager + Telegram-алерты 🚨 | NEW | ⬜ OPEN | Развернуть Alertmanager; правила GPU temp/mem, pod restarts; Telegram webhook. Нет принятого рантайм-свидетельства. |
+| 15 | D1: Alertmanager + Telegram-алерты 🚨 | NEW | ◐ PARTIAL | Alertmanager + правила (GPU temp/mem, pod restarts, синтетический) PASS в рантайме; синтетический алерт доходит до Alertmanager. Telegram end-delivery BLOCKED — нет bot_token/chat_id (требует OWNER). Evidence: `docs/operations/OPS_RC1_R2_EVIDENCE.md`. |
 | 16 | AI Security Gateway (расширенный) | #14 | ✅ | Prompt injection + DLP (29 паттернов) |
-| 17 | D2: NTP-мониторинг 🚨 | NEW | ⬜ OPEN | Prometheus-алерт `node_timex_offset_seconds > 5`; проверка `chronyc tracking`. Нет принятого рантайм-свидетельства. |
+| 17 | D2: NTP-мониторинг 🚨 | NEW | ✅ DONE | chrony на N7/N8 (`chronyc tracking`); `node_timex_offset_seconds` подтверждён в рантайме и ~0 на обоих узлах; правило `ClockOffsetHigh` загружено. Evidence: `docs/operations/OPS_RC1_R2_EVIDENCE.md`. |
 | 18 | Gateway в K8s (вынос из BFF) | #16 | ✅ | nginx-gateway Deployment (2 реплики) |
 | 19 | Портал: стабилизация (OAuth fix, chat bugs) | #16a | ✅ | `095afdc` — JS fix, closeModal, feedback, timeout — применено в EMG-01 |
 
@@ -107,13 +107,13 @@
 
 | # | Задача | ROADMAP | Статус | Коммит/Evidence |
 |---|---|---|---|---|
-| 24 | D3: Автоматические бэкапы (PostgreSQL + Redis) 🚨 | NEW | ⬜ OPEN | K8s CronJob `pg_dump` → PVC; `redis-cli BGSAVE` → PVC. Нет принятого рантайм-свидетельства. |
+| 24 | D3: Автоматические бэкапы (PostgreSQL + Redis) 🚨 | NEW | ✅ DONE | CronJobs (0 2 * * *) → PVC `/data/aither-backup`; retention 7d; non-destructive restore доказан (PG 13 таблиц, Redis 418 ключей). Evidence: `docs/operations/OPS_RC1_R2_EVIDENCE.md`. |
 | 25 | Тарифные планы (Free/Standard/VIP/Enterprise) | #21a | ✅ | 4 тарифа, Redis-cached limits, model access control |
 | 26 | VPS3 Failover (горячий резерв) | #22 | ✅ | VPS3 поднят, stateless BFF, SSH-туннель, nginx backup |
 | 27 | SaaS-портал (signup/login/dashboard) | #23 | ✅ | Signup/login/billing/tiers/upgrade — VPS2+VPS3 |
 | 28 | #13 ЮKassa боевой режим | #13 | 👤 OWNER_REQUIRED | Требует `shopId`+`secretKey` от OWNER; затем K8s Secret `yookassa-credentials` + ConfigMap + тестовый платёж. |
 | 29 | #15 Parsec на N7 (`max_ilev=63`) | #15 | ⬜ OPEN | SSH на N7; GRUB `max_ilev=63 execstack=1`; плановая перезагрузка N7; проверка `parsec_status` и работы моделей после ребута. Нет принятого рантайм-свидетельства. |
-| 30 | #21 Multi-tenant изоляция | #21 | ◐ PARTIAL | Часть NetworkPolicy-манифестов присутствует в репозитории; полный ResourceQuota на `aither-inference` и сквозная проверка связности не подтверждены рантаймом. |
+| 30 | #21 Multi-tenant изоляция | #21 | ◐ PARTIAL | ResourceQuota + LimitRange подтверждены (enforced). NetworkPolicies объявлены, НО не enforced — CNI flannel без policy-engine; cross-tenant путь НЕ блокируется (доказано рантаймом). Требует OWNER: решение о Calico/Cilium. Evidence: `docs/operations/OPS_RC1_R2_EVIDENCE.md`. |
 | 31 | #24 HA K8s Control Plane | #24 | ⬜ OPEN | Оценка повышения N7 до control-plane; документирование ограничения 2-членного etcd. Не начато. |
 | 32 | NVLink-мосты | #25 | 🔒 HARDWARE_DEFERRED | Нет физических мостов. Заявка на закупку. |
 | 33 | Модели 70B+ | #26 | 🔒 HARDWARE_DEFERRED | Нужны NVLink + NVSwitch + ≥4 GPU. |
@@ -166,7 +166,7 @@
 |---|---|---|---|
 | 50 | C1: N7 GPU#1 idle — диагностика и исправление 🚨 | 🗑 SUPERSEDED | Относилось к прежнему GPTQ-деплою на N7; снято миграцией на `qwen2.5-32b-instruct` (TP=2, n7). |
 | 51 | C2: Верификация прежней инструкционной модели на N8 (availability probe) 🚨 | 🗑 SUPERSEDED | Прежняя модель на N8 переведена в scale-to-0 и заменена `qwen3-32b` (TP=2, n8). |
-| 52 | C3: Очистка кластера (stale pods) 🚨 | ⬜ OPEN | Generic-гигиена кластера; нет принятого рантайм-свидетельства завершения. |
+| 52 | C3: Очистка кластера (stale pods) 🚨 | ✅ DONE | Failed/Evicted подов нет; stale-артефактов для удаления нет. Остаточные не-healthy объекты задокументированы (aither-gateway, nginx-gateway-32b, flink-taskmanager в aiops — вне скоупа). Evidence: `docs/operations/OPS_RC1_R2_EVIDENCE.md`. |
 | 53 | C4: Node labels → Git 🚨 | 🗑 SUPERSEDED | Манифест `03-vllm-14b-deploy` стал историческим; текущие деплои используют собственные nodeSelector/nodeName. |
 | 54 | C5: Удалить дубликат модели с N8 🚨 | 🗑 SUPERSEDED | Дубликат прежней GPTQ-модели на N8 снят в ходе миграции; текущая модель N8 — `qwen3-32b`. |
 
@@ -218,28 +218,28 @@
 | 1. MVP | 7 | 7 | 0 | 0 | 0 | 0 | 0 |
 | 2. Биллинг + каталог | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
 | 2.5. Авто-баланс + Grafana | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
-| 3. Observability + продакшен | 6 | 4 | 0 | 2 (D1, D2) | 0 | 0 | 0 |
+| 3. Observability + продакшен | 6 | 5 | 1 (D1) | 0 | 0 | 0 | 0 |
 | 4. RAG + кастомизация | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
-| 5. Продакшен-класс | 10 | 3 | 1 (#21) | 3 (D3, #15, #24) | 1 (#13) | 2 (#25, #26) | 0 |
+| 5. Продакшен-класс | 10 | 4 | 1 (#21) | 2 (#15, #24) | 1 (#13) | 2 (#25, #26) | 0 |
 | 5a. Требования руководства | 9 | 9 | 0 | 0 | 0 | 0 | 0 |
 | 6. Эксплуатация | 6 | 6 | 0 | 0 | 0 | 0 | 0 |
 | 7. Закрытый контур | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
-| 8. EMG-01 Stabilization 🚨 | 5 | 0 | 0 | 1 (C3) | 0 | 0 | 4 (C1, C2, C4, C5) |
+| 8. EMG-01 Stabilization 🚨 | 5 | 1 | 0 | 0 | 0 | 0 | 4 (C1, C2, C4, C5) |
 | 9. Security | 3 | 0 | 1 (E1) | 0 | 2 (E2, E3) | 0 | 0 |
 | 10. UX + Final | 2 | 0 | 0 | 2 (F1, F2) | 0 | 0 | 0 |
-| **Итого** | **59** | **40** | **2** | **8** | **3** | **2** | **4** |
+| **Итого** | **59** | **43** | **3** | **4** | **3** | **2** | **4** |
 
-**Консервативная готовность (реконсилированная):**
+**Консервативная готовность (реконсилированная, обновлена OPS-RC1-R2):**
 
-- ✅ DONE: 40 (не менялись; подтверждены ранее аудитом или emergency-операциями).
-- ◐ PARTIAL: 2 — #21 (multi-tenant изоляция), E1 (закрытие R6-блокеров).
-- ⬜ OPEN: 8 — D1, D2, D3, #15 (Parsec), #24 (HA control-plane), C3 (stale pods), F1, F2.
+- ✅ DONE: 43 (D2 NTP, D3 бэкапы, C3 гигиена кластера — добавлены OPS-RC1-R2).
+- ◐ PARTIAL: 3 — #21 (multi-tenant изоляция: quota/limits enforced, NetworkPolicy не enforced), D1 (Alertmanager PASS, Telegram end-delivery BLOCKED), E1 (закрытие R6-блокеров).
+- ⬜ OPEN: 4 — #15 (Parsec), #24 (HA control-plane), F1, F2.
 - 👤 OWNER_REQUIRED: 3 — #13 (ЮKassa), E2 (HTTPS/Let's Encrypt), E3 (dev-аккаунты).
 - 🔒 HARDWARE_DEFERRED: 2 — #25 (NVLink), #26 (модели 70B+).
 - 🗑 SUPERSEDED: 4 — C1, C2, C4, C5 (сняты миграцией моделей).
 
 Историческая цифра «40/59 = 68%» сохранена только как помеченный снапшот (см. шапку) и более
-не является текущей истиной. Активная работа к RC1: **13 задач** (8 OPEN + 2 PARTIAL + 3 OWNER_REQUIRED);
+не является текущей истиной. Активная работа к RC1: **10 задач** (4 OPEN + 3 PARTIAL + 3 OWNER_REQUIRED);
 плюс **2 HARDWARE_DEFERRED** вне RC1 и **4 SUPERSEDED**, выведенные из роадмапа.
 
 ---

@@ -1,0 +1,36 @@
+# ResourceQuota + LimitRange — Aither multi-tenant isolation (#30)
+# Namespace-level resource bounds for aither-inference.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: aither-quota
+  namespace: aither-inference
+spec:
+  hard:
+    limits.cpu: "60"
+    limits.memory: 200Gi
+    persistentvolumeclaims: "20"
+    pods: "60"
+    requests.cpu: "30"
+    requests.memory: 140Gi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: aither-limits
+  namespace: aither-inference
+spec:
+  limits:
+  - type: Container
+    min:
+      cpu: 10m
+      memory: 32Mi
+    max:
+      cpu: "8"
+      memory: 64Gi
+    default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi

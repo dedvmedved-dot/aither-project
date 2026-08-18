@@ -1,0 +1,167 @@
+# NetworkPolicies — Aither multi-tenant isolation (#30)
+# Current tenancy architecture: namespace-scoped isolation between the aither
+# inference workloads, the vault secrets namespace, and the SIEM/gateway paths.
+#
+# NOTE (OPS-RC1 R2): these policies are declared and applied to the cluster, but
+# enforcement depends on a NetworkPolicy-capable CNI. The current CNI is plain
+# flannel (no Calico/Cilium/kube-router), so policy enforcement is NOT active.
+# See docs/operations/OPS_RC1_R2_EVIDENCE.md for the runtime finding.
+---
+# Ingress to vLLM model pods only from namespaces labelled aither.io/vllm-client=true
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vllm-ingress
+  namespace: aither-inference
+spec:
+  podSelector:
+    matchLabels:
+      app: vllm
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          aither.io/vllm-client: "true"
+    ports:
+    - port: 8000
+      protocol: TCP
+---
+# Gateway egress/ingress boundary
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aither-gateway
+  namespace: aither-inference
+spec:
+  podSelector:
+    matchLabels:
+      app: aither-gateway
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: aither-bff
+    ports:
+    - port: 8000
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: vllm
+    ports:
+    - port: 8000
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: aither-redis-rate-limit
+    ports:
+    - port: 6379
+      protocol: TCP
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - port: 5432
+      protocol: TCP
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: vault
+      podSelector:
+        matchLabels:
+          app: vault
+    ports:
+    - port: 8200
+      protocol: TCP
+---
+# SIEM ingress/egress boundary
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aither-siem
+  namespace: aither-inference
+spec:
+  podSelector:
+    matchLabels:
+      app: aither-siem
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: aither-gateway
+    ports:
+    - port: 8080
+      protocol: TCP
+  - from:
+    - podSelector:
+        matchLabels:
+          app: aither-gateway
+    ports:
+    - port: 1514
+      protocol: UDP
+  egress:
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 514
+      protocol: UDP
+---
+# Vault ingress/egress boundary (vault namespace)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  podSelector:
+    matchLabels:
+      app: vault
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: aither-inference
+    - podSelector:
+        matchLabels:
+          app: aither-gateway
+    ports:
+    - port: 8200
+      protocol: TCP
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+    ports:
+    - port: 8200
+      protocol: TCP
+  egress:
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
