@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-EXT-API-CHAT-RECOVERY-R1",
+  "task_id": "AITHER-MVP-EXT-API-CHAT-RECOVERY-R2",
   "executor": "hermes",
   "mode": "RUNTIME_DIAGNOSIS_AND_MINIMAL_RECOVERY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "b3f135cb3390e49d8d41526cba65b1d4bb602dab",
+  "baseline_sha": "f8557f930393138cf6a9fa6e6be1ab2383890529",
   "allowed_paths": [
     "portal/api-gateway.ts",
     "portal/server.ts",
@@ -14,7 +14,7 @@
     "portal/Dockerfile",
     "portal/package.json",
     "portal/package-lock.json",
-    "docs/evidence/EXT_API_CHAT_RECOVERY_R1.md"
+    "docs/evidence/EXT_API_CHAT_RECOVERY_R2.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -36,5 +36,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "api: recover Test Zone chat completions"
+  "commit_message": "api: recover Test Zone chat completions R2"
 }

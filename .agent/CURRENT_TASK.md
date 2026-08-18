@@ -1,106 +1,128 @@
-# AITHER-MVP-EXT-API-CHAT-RECOVERY-R1
+# AITHER-MVP-EXT-API-CHAT-RECOVERY-R2
 
 ## Goal
-Restore the Aither Test Zone external OpenAI-compatible chat endpoint on `http://10.129.13.78:30080/api/v1` and eliminate logging of full API/Bearer secrets.
+Repeat the Test Zone external API recovery after R1 was rolled back by governance ownership enforcement. Preserve the same technical scope, but obey the repository ownership handoff contract so host runner can accept the result.
 
-## Proven current runtime facts
-- `GET /api/v1/models` on `10.129.13.78:30080` returns HTTP 200.
-- Returned canonical models: `qwen2.5-32b-instruct`, `qwen3-32b`.
-- `POST /api/v1/chat/completions` on the same endpoint returns HTTP 404 with `{"detail":"Not Found"}`.
-- Astra Monitoring proxies correctly to `http://10.129.13.78:30080/api/v1/chat/completions`; it reproduces the Aither-side 404.
-- A full API key was previously exposed in diagnostic/application logs. Treat it as compromised. Never print or commit secret values.
+## Baseline
+- Branch: `aither-v2`
+- Baseline SHA: `f8557f930393138cf6a9fa6e6be1ab2383890529`
+- R1 technical work was not committed; runner published BLOCKED because `docs/evidence/EXT_API_CHAT_RECOVERY_R1.md` was owned by uid 0 instead of uid 1000.
 
-## Mandatory execution order
-INSPECT -> PROVE ROOT CAUSE -> MINIMAL FIX -> DEPLOY -> TEST -> RETEST -> EVIDENCE -> STOP.
+## Mandatory ownership contract
+Root Hermes MUST NOT leave any changed repository path owned by uid/gid 0.
 
-Do not assume which component is broken. First prove which Service/Pod/container/image serves NodePort 30080 and which component emits the 404.
+For every repository file created or replaced during this task, ensure final ownership is exactly the repository owner (`codex`, uid 1000, gid 1000) BEFORE returning control to host runner.
 
-## Preflight and topology
-Record safe evidence for:
-- hostname/user/uid/pwd
-- `git rev-parse HEAD`
-- `git status --short`
-- nodes, pods, services, deployments, endpoints matching aither/portal/bff/gateway/nginx/vllm
-- exact Service owning NodePort 30080
-- selector, targetPort, endpoints
-- backend Deployment/Pod/container/image/imageID/command/args
-- mounted ConfigMap/Secret names and environment variable names only; never secret values
+Preferred safe methods:
+- write/create the repository file as user `codex`; or
+- if root execution is unavoidable, immediately set ownership only on the exact changed allowed path to `1000:1000`.
 
-If repository is dirty at start, STOP BLOCKED. Do not reset/clean/checkout/switch.
+Do NOT recursively chown the repository. Do NOT change repository root ownership. Do NOT use `safe.directory=*`.
 
-## Route matrix before change
-Test and record status codes for:
+Before STOP, run ownership verification for every changed allowed path and record only uid/gid/mode/path, never secret content. PASS requires every existing changed implementation path to show uid 1000 and gid 1000.
+
+## Proven runtime facts
+- `GET http://10.129.13.78:30080/api/v1/models` returns HTTP 200.
+- Models returned: `qwen2.5-32b-instruct`, `qwen3-32b`.
+- `POST http://10.129.13.78:30080/api/v1/chat/completions` returns HTTP 404 with `{"detail":"Not Found"}`.
+- Astra Monitoring correctly proxies to that POST and reproduces the Aither-side 404.
+- A full API key was previously exposed in logs. Treat it as compromised. Never print or commit any secret value.
+
+## Required execution order
+INSPECT -> PROVE ROOT CAUSE -> MINIMAL FIX -> DEPLOY -> TEST -> RETEST -> OWNERSHIP VERIFY -> EVIDENCE -> STOP.
+
+## Preflight
+Record hostname/user/uid/pwd, `git rev-parse HEAD`, `git status --short`. Worktree must be clean. Do not reset/clean/checkout/switch.
+
+Determine exact NodePort 30080 topology:
+NodePort -> Service -> endpoints -> Pod -> container -> image/imageID -> command/args -> mounted ConfigMap/Secret names and env variable names only.
+
+Do not print Secret values.
+
+## Route matrix before
+Record status codes for:
 - GET `/`
 - GET `/health`
 - GET `/api/v1/health`
 - GET `/api/v1/models`
 - POST `/api/v1/chat/completions`
 
-For POST test no-auth, wrong-auth, and valid-auth safely. Never use verbose curl with a real Authorization header. Use an existing secret source/secure environment variable without echoing it.
+For POST test no-auth, wrong-auth and valid-auth safely. Never use verbose curl with a real Authorization header.
 
-Determine the exact component returning `{"detail":"Not Found"}`. Inspect application routes/OpenAPI or registered route table inside the runtime where safe.
+Prove which component emits `{"detail":"Not Found"}` by inspecting actual runtime routes/OpenAPI or equivalent.
 
 ## Source/runtime drift audit
-Compare deployed runtime against the repository, especially:
+Compare deployed runtime against repository, especially:
 - `portal/server.ts`
 - `portal/api-gateway.ts`
 - `portal/nginx/default.conf`
 - `portal/nginx.conf`
-- the actual image/config used by the live Test Zone
+- actual live Test Zone image/config
 
-Prove one root cause such as stale image, stale ConfigMap, wrong image, wrong Service selector, wrong nginx upstream/rewrite, absent route, different prefix, mixed old/new runtime artifacts, or another evidenced cause.
+Prove root cause: stale image, stale ConfigMap, wrong image, wrong Service selector, nginx upstream/rewrite, absent route, different prefix, mixed runtime artifacts, or another evidenced cause.
 
-Explain why live `/api/v1/models` returns `qwen2.5-32b-instruct` and `qwen3-32b` even if some repository source still contains legacy model IDs.
+Explain the new live model IDs versus any legacy source model map.
 
-## Minimal correction only
-Target external contract:
-- Base URL: `http://10.129.13.78:30080/api/v1`
+## Minimal correction
+External contract must remain:
+- Base URL `http://10.129.13.78:30080/api/v1`
 - GET `/models`
 - POST `/chat/completions`
-- canonical models only: `qwen2.5-32b-instruct`, `qwen3-32b`
+- models `qwen2.5-32b-instruct`, `qwen3-32b`
 
-Do not revert runtime to legacy `qwen2.5-14b` / `qwen2.5-32b`.
+Do not create a second NodePort. Do not bypass Gateway directly to vLLM. Do not disable authentication. Do not revert to legacy model IDs.
 
-`POST /api/v1/chat/completions` must support at least `model`, `messages`, `max_tokens`, `temperature`, `stream`. With `stream:false`, return OpenAI-compatible JSON with non-empty `choices[0].message.content`.
+POST must accept at least `model`, `messages`, `max_tokens`, `temperature`, `stream`. For `stream:false`, return OpenAI-compatible JSON with non-empty `choices[0].message.content`.
 
-Do not disable existing auth. Do not create a second arbitrary NodePort or bypass the Aither Gateway directly to vLLM.
+## Security logging
+Inspect relevant edge/backend source/runtime logging for full Authorization/Bearer/API key/token/secret/password output. If present, minimally redact/mask it. New logs after E2E must contain no real secret.
 
-## Security fix
-Inspect source/runtime logging for full `Authorization`, Bearer/API key, token, secret, or password values. If the real API key can be emitted, fix logging so secrets are redacted/masked. Confirm new logs after E2E contain no real secret.
-
-Do not rotate/revoke/delete keys by database mutation in this task. Report compromised-key rotation as OWNER REQUIRED or SAFE API AVAILABLE. Never include the key itself in evidence.
+Do not rotate/delete the compromised key by DB mutation. Report rotation as OWNER REQUIRED or SAFE API AVAILABLE. Never include the key itself.
 
 ## Deployment constraints
-Apply only the exact changed workload/config objects required by the proven root cause. Do not apply an entire manifests directory. Verify rollout, readiness, pods and endpoints afterward.
+Apply only exact changed workload/config objects needed by the proven root cause. Do not apply a whole manifests directory. Verify rollout/readiness/endpoints afterward.
 
-Do not change CNI, control-plane, model GPU placement, PostgreSQL data/schema, billing, users, ROADMAP, E1 evidence, observability, Telegram, YooKassa, Parsec, backups or `.agent/*`.
+Do not modify CNI, control-plane, PostgreSQL schema/data, billing, users, ROADMAP, E1 evidence, observability, Telegram, YooKassa, Parsec, backups or `.agent/*`.
 
-## Required E2E acceptance tests
-1. GET `/api/v1/models` -> HTTP 200 and both canonical model IDs present.
-2. POST chat with `qwen2.5-32b-instruct`, `stream:false`, prompt `Reply exactly: AITHER_OK` -> HTTP 200, non-empty assistant content.
-3. POST chat with `qwen3-32b`, same conditions -> HTTP 200, non-empty assistant content.
+## Required E2E tests
+1. GET `/api/v1/models` -> HTTP 200, both canonical model IDs present.
+2. POST chat `qwen2.5-32b-instruct`, `stream:false`, prompt `Reply exactly: AITHER_OK` -> HTTP 200, non-empty assistant content.
+3. POST chat `qwen3-32b` -> HTTP 200, non-empty assistant content.
 4. Invalid model -> 4xx, not 500.
 5. No auth -> 401/403.
 6. Wrong auth -> 401/403.
-7. Health endpoint -> record real path/status.
-8. Fresh edge/backend logs after tests -> no full secret exposure.
+7. Health -> record actual supported path/status.
+8. Fresh logs -> no full secret exposure.
 
-Astra Monitoring must remain unchanged. Final compatibility target:
-- API key: Aither bearer key (value never shown)
-- Base URL: `http://10.129.13.78:30080/api/v1`
-- Model: `qwen2.5-32b-instruct` or `qwen3-32b`
+Astra Monitoring itself must remain unchanged.
 
-## Evidence
-Create only `docs/evidence/EXT_API_CHAT_RECOVERY_R1.md` for the audit report, plus the minimum allowed source files actually needed for the repair.
+## Allowed repository changes
+Only exact paths from CURRENT_TASK.json. Evidence file is `docs/evidence/EXT_API_CHAT_RECOVERY_R2.md`.
 
-Evidence must include baseline/start HEAD, safe runtime topology before/after, route matrix before/after, backend image/imageID, proven root cause, source/runtime drift conclusion, exact files/objects changed, rollout result, both model E2E results, negative auth tests, secret logging result, Astra compatibility conclusion, remaining blockers, and final worktree state.
+## Git/governance prohibitions
+Hermes MUST NOT run git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref/index/history mutation. Read-only git commands only. Hermes MUST NOT modify `.agent/EXECUTION_RESULT.json`.
 
-No API keys, JWTs, passwords, cookies, Secret values, private keys, or sensitive request dumps in evidence.
+## Final ownership gate
+Before STOP, determine changed implementation paths using read-only Git status. For each existing changed allowed path, output safe metadata equivalent to `uid gid mode path`.
 
-## Git/governance prohibitions for Hermes
-Hermes MUST NOT run git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref/index/history mutation. Read-only git commands are allowed. Hermes MUST NOT modify `.agent/EXECUTION_RESULT.json`. Host runner owns final sync/commit/push/result.
+Required:
+- UID = 1000
+- GID = 1000
+
+If any changed path is still owned by root, correct ownership only for that exact allowed path before STOP. Do not recursively change ownership.
 
 ## PASS gate
-PASS only if the 404 source and root cause are proven; NodePort topology is proven; `/api/v1/models` is still 200; both canonical model chats return HTTP 200 through `10.129.13.78:30080`; invalid/no-auth/wrong-auth tests behave correctly; new logs expose no real secret; K8s is healthy after the minimal fix; only allowed source/evidence paths changed; no secret is committed; and Hermes performed no Git write.
+PASS only if:
+- source of 404 and root cause proven;
+- NodePort topology proven;
+- `/api/v1/models` stays HTTP 200;
+- both model chat requests return HTTP 200 through `10.129.13.78:30080`;
+- invalid/no-auth/wrong-auth tests behave correctly;
+- new logs expose no secret;
+- K8s healthy after minimal fix;
+- only allowed paths changed;
+- every changed repository path is uid/gid 1000:1000;
+- no secret committed;
+- Hermes performed no Git write.
 
-Otherwise report BLOCKED/FAIL with evidence and STOP.
+Otherwise BLOCKED/FAIL with evidence and STOP.
