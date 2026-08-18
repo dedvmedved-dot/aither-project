@@ -1,15 +1,25 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-OPS-RC1-R1",
+  "task_id": "AITHER-MVP-OPS-RC1-R2",
   "executor": "hermes",
   "mode": "OPS_RC1",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "b454764cf9ff8fafba973fd897a4084b3a27725b",
+  "baseline_sha": "63ad4ef91221aa32cfa3d1be6cdc770787a0a9a4",
   "allowed_paths": [
-    "manifests/",
-    "scripts/",
-    "docs/",
+    "manifests/observability/prometheus.yaml",
+    "manifests/observability/alertmanager.yaml",
+    "manifests/observability/node-exporter.yaml",
+    "manifests/observability/kube-state-metrics.yaml",
+    "manifests/postgres.yaml",
+    "manifests/redis.yaml",
+    "manifests/backups.yaml",
+    "manifests/quotas.yaml",
+    "manifests/network-policies.yaml",
+    "docs/operations/MONITORING_GUIDE.md",
+    "docs/operations/BACKUP_RESTORE_GUIDE.md",
+    "docs/operations/OPERATIONS_GUIDE.md",
+    "docs/operations/OPS_RC1_R2_EVIDENCE.md",
     "ROADMAP-RECOVERY.md"
   ],
   "capabilities": {
@@ -32,5 +42,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "ops: close RC1 operations gate"
+  "commit_message": "ops: close RC1 operations gate R2"
 }
