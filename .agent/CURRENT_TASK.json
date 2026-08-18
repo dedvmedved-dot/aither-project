@@ -1,23 +1,30 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-E1-FINAL-ACCEPTANCE-R1",
+  "task_id": "AITHER-MVP-EXT-API-CHAT-RECOVERY-R1",
   "executor": "hermes",
-  "mode": "SECURITY_FINAL_ACCEPTANCE",
+  "mode": "RUNTIME_DIAGNOSIS_AND_MINIMAL_RECOVERY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "28ddccd02fa9ef28086f8565681f4a5dbd4a9488",
+  "baseline_sha": "b3f135cb3390e49d8d41526cba65b1d4bb602dab",
   "allowed_paths": [
-    "docs/evidence/E1_FINAL_ACCEPTANCE_R1.md"
+    "portal/api-gateway.ts",
+    "portal/server.ts",
+    "portal/nginx/default.conf",
+    "portal/nginx.conf",
+    "portal/Dockerfile",
+    "portal/package.json",
+    "portal/package-lock.json",
+    "docs/evidence/EXT_API_CHAT_RECOVERY_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
-    "kubernetes": false,
-    "deployment": false,
+    "kubernetes": true,
+    "deployment": true,
     "database_write": false,
-    "runtime_write": false,
-    "secret_access": false,
+    "runtime_write": true,
+    "secret_access": true,
     "package_install": false
   },
   "host_capabilities": {
@@ -29,5 +36,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "security: verify E1 final acceptance gate"
+  "commit_message": "api: recover Test Zone chat completions"
 }

@@ -1,80 +1,106 @@
-# TASK: AITHER-MVP-E1-FINAL-ACCEPTANCE-R1
+# AITHER-MVP-EXT-API-CHAT-RECOVERY-R1
 
 ## Goal
-Close the remaining autonomously verifiable portion of roadmap item E1 by performing a strict read-only final security acceptance audit. Produce a single evidence document covering the outstanding E1 acceptance artifacts: Acceptance Matrix, Behavioral Compliance Checklist, fresh-clone reproducibility assessment, placeholder/secret scan, and final gate conclusion.
+Restore the Aither Test Zone external OpenAI-compatible chat endpoint on `http://10.129.13.78:30080/api/v1` and eliminate logging of full API/Bearer secrets.
 
-## Baseline
-- Repository: `dedvmedved-dot/aither-project`
-- Branch: `aither-v2`
-- Baseline SHA: `28ddccd02fa9ef28086f8565681f4a5dbd4a9488`
-- GitHub is Source of Truth.
-- Prior accepted governance finalization: `AITHER-MVP-GOV-R2-FINALIZE-R1` = PASS / CONNECTOR VERIFIED / ACCEPTED.
+## Proven current runtime facts
+- `GET /api/v1/models` on `10.129.13.78:30080` returns HTTP 200.
+- Returned canonical models: `qwen2.5-32b-instruct`, `qwen3-32b`.
+- `POST /api/v1/chat/completions` on the same endpoint returns HTTP 404 with `{"detail":"Not Found"}`.
+- Astra Monitoring proxies correctly to `http://10.129.13.78:30080/api/v1/chat/completions`; it reproduces the Aither-side 404.
+- A full API key was previously exposed in diagnostic/application logs. Treat it as compromised. Never print or commit secret values.
 
-## Critical behavior requirements
-1. This task is READ-ONLY with respect to runtime, Kubernetes, databases, services, host configuration, secrets, scheduler, runner, H2 bridge, Telegram gateway, and `/root/.hermes`.
-2. The ONLY repository path Hermes may create/modify is `docs/evidence/E1_FINAL_ACCEPTANCE_R1.md`.
-3. Hermes MUST NOT run `git add`, `git commit`, `git push`, `git reset`, `git clean`, `git checkout`, `git switch`, `git merge`, `git rebase`, `git tag`, or any command that changes refs/index/history. Read-only git commands are allowed.
-4. `network_git=false` is binding. Host runner alone stages, commits, pushes, and writes `.agent/EXECUTION_RESULT.json`.
-5. Do not modify `.agent/*`, ROADMAP, manifests, source code, tests, configuration, or documentation other than the one evidence file.
-6. Never print secret values. Scan for placeholders/secrets using names/patterns only; redact any accidental value immediately and mark the affected check FAIL/BLOCKED.
-7. Do not claim PASS from historical reports alone where direct repository verification is possible. Re-check the current baseline.
-8. If a check cannot be completed read-only, mark it BLOCKED with the exact reason. Do not improvise or widen scope.
+## Mandatory execution order
+INSPECT -> PROVE ROOT CAUSE -> MINIMAL FIX -> DEPLOY -> TEST -> RETEST -> EVIDENCE -> STOP.
 
-## Required verification
+Do not assume which component is broken. First prove which Service/Pod/container/image serves NodePort 30080 and which component emits the 404.
 
-### A. E1 Acceptance Matrix
-Build a matrix for the remaining E1/R6 closure requirements. At minimum include:
-- authentication/authorization boundaries;
-- internal endpoint protection;
-- model access/scope enforcement;
-- API-key lifecycle and scope restrictions;
-- session invalidation / credential rotation evidence already present in Git;
-- BFF/model-switch race or equivalent historical blocker closure;
-- secret handling / no embedded production credentials;
-- acceptance evidence traceability.
+## Preflight and topology
+Record safe evidence for:
+- hostname/user/uid/pwd
+- `git rev-parse HEAD`
+- `git status --short`
+- nodes, pods, services, deployments, endpoints matching aither/portal/bff/gateway/nginx/vllm
+- exact Service owning NodePort 30080
+- selector, targetPort, endpoints
+- backend Deployment/Pod/container/image/imageID/command/args
+- mounted ConfigMap/Secret names and environment variable names only; never secret values
 
-For each row provide: requirement, current evidence path/commit, verification performed now, result PASS/PARTIAL/BLOCKED/FAIL.
+If repository is dirty at start, STOP BLOCKED. Do not reset/clean/checkout/switch.
 
-### B. Behavioral Compliance Checklist
-Create a concise checklist that proves the current repository contract does not regress accepted behavior. Use current source/tests/docs only. Include negative-path expectations where represented in the repository (forbidden/internal access, wrong secret/token, scope denial, invalid/expired credential behavior).
+## Route matrix before change
+Test and record status codes for:
+- GET `/`
+- GET `/health`
+- GET `/api/v1/health`
+- GET `/api/v1/models`
+- POST `/api/v1/chat/completions`
 
-### C. Fresh-clone reproducibility assessment
-Without changing the repository or installing packages:
-- inspect bootstrap/deployment/test documentation and scripts needed to reproduce the accepted system from a fresh clone;
-- verify referenced paths exist;
-- identify stale, missing, environment-specific, or non-reproducible steps;
-- distinguish a true blocker from an external dependency.
-Do NOT actually redeploy the production system.
+For POST test no-auth, wrong-auth, and valid-auth safely. Never use verbose curl with a real Authorization header. Use an existing secret source/secure environment variable without echoing it.
 
-### D. Placeholder / secret scan
-Perform a repository-wide read-only scan appropriate to the current checkout for:
-- obvious credential placeholders (`TODO`, `CHANGEME`, example passwords/tokens, unresolved secret markers);
-- accidental hard-coded secrets/private keys/tokens;
-- legacy model names/config drift where it materially affects security acceptance.
-Do not output any discovered secret value. Report path + category only.
+Determine the exact component returning `{"detail":"Not Found"}`. Inspect application routes/OpenAPI or registered route table inside the runtime where safe.
 
-### E. Final E1 gate
-State whether the autonomously verifiable E1 portion can be closed on the current baseline.
-PASS requires:
-- no unresolved security-critical repository blocker found in A-D;
-- no secret exposure;
-- acceptance matrix and behavioral checklist complete enough to trace all E1 closure claims;
-- fresh-clone assessment has no security-critical undocumented gap.
-If not, state exact remaining blockers and the narrow next corrective action.
+## Source/runtime drift audit
+Compare deployed runtime against the repository, especially:
+- `portal/server.ts`
+- `portal/api-gateway.ts`
+- `portal/nginx/default.conf`
+- `portal/nginx.conf`
+- the actual image/config used by the live Test Zone
 
-## Required evidence conclusion
-The file must end with:
-- `TASK_ID: AITHER-MVP-E1-FINAL-ACCEPTANCE-R1`
-- `BASELINE_SHA: 28ddccd02fa9ef28086f8565681f4a5dbd4a9488`
-- `E1_ACCEPTANCE_MATRIX: PASS|PARTIAL|BLOCKED|FAIL`
-- `BEHAVIORAL_COMPLIANCE: PASS|PARTIAL|BLOCKED|FAIL`
-- `FRESH_CLONE_ASSESSMENT: PASS|PARTIAL|BLOCKED|FAIL`
-- `PLACEHOLDER_SECRET_SCAN: PASS|PARTIAL|BLOCKED|FAIL`
-- `E1_FINAL_GATE: PASS|PARTIAL|BLOCKED|FAIL`
-- `HERMES_GIT_WRITE_USED: NO`
-- `RUNTIME_MUTATIONS: NO`
-- `SECRET_VALUES_PRINTED: NO`
-- `SECRETS_EXPOSED: NO`
+Prove one root cause such as stale image, stale ConfigMap, wrong image, wrong Service selector, wrong nginx upstream/rewrite, absent route, different prefix, mixed old/new runtime artifacts, or another evidenced cause.
 
-## Acceptance
-Hermes writes exactly one evidence file and STOPs. Host runner must then validate the one allowed path, write a fresh PASS/FAIL `.agent/EXECUTION_RESULT.json`, commit with `security: verify E1 final acceptance gate`, push, and leave a clean worktree. Only ChatGPT Architect may assign CONNECTOR VERIFIED / ACCEPTED after independent audit.
+Explain why live `/api/v1/models` returns `qwen2.5-32b-instruct` and `qwen3-32b` even if some repository source still contains legacy model IDs.
+
+## Minimal correction only
+Target external contract:
+- Base URL: `http://10.129.13.78:30080/api/v1`
+- GET `/models`
+- POST `/chat/completions`
+- canonical models only: `qwen2.5-32b-instruct`, `qwen3-32b`
+
+Do not revert runtime to legacy `qwen2.5-14b` / `qwen2.5-32b`.
+
+`POST /api/v1/chat/completions` must support at least `model`, `messages`, `max_tokens`, `temperature`, `stream`. With `stream:false`, return OpenAI-compatible JSON with non-empty `choices[0].message.content`.
+
+Do not disable existing auth. Do not create a second arbitrary NodePort or bypass the Aither Gateway directly to vLLM.
+
+## Security fix
+Inspect source/runtime logging for full `Authorization`, Bearer/API key, token, secret, or password values. If the real API key can be emitted, fix logging so secrets are redacted/masked. Confirm new logs after E2E contain no real secret.
+
+Do not rotate/revoke/delete keys by database mutation in this task. Report compromised-key rotation as OWNER REQUIRED or SAFE API AVAILABLE. Never include the key itself in evidence.
+
+## Deployment constraints
+Apply only the exact changed workload/config objects required by the proven root cause. Do not apply an entire manifests directory. Verify rollout, readiness, pods and endpoints afterward.
+
+Do not change CNI, control-plane, model GPU placement, PostgreSQL data/schema, billing, users, ROADMAP, E1 evidence, observability, Telegram, YooKassa, Parsec, backups or `.agent/*`.
+
+## Required E2E acceptance tests
+1. GET `/api/v1/models` -> HTTP 200 and both canonical model IDs present.
+2. POST chat with `qwen2.5-32b-instruct`, `stream:false`, prompt `Reply exactly: AITHER_OK` -> HTTP 200, non-empty assistant content.
+3. POST chat with `qwen3-32b`, same conditions -> HTTP 200, non-empty assistant content.
+4. Invalid model -> 4xx, not 500.
+5. No auth -> 401/403.
+6. Wrong auth -> 401/403.
+7. Health endpoint -> record real path/status.
+8. Fresh edge/backend logs after tests -> no full secret exposure.
+
+Astra Monitoring must remain unchanged. Final compatibility target:
+- API key: Aither bearer key (value never shown)
+- Base URL: `http://10.129.13.78:30080/api/v1`
+- Model: `qwen2.5-32b-instruct` or `qwen3-32b`
+
+## Evidence
+Create only `docs/evidence/EXT_API_CHAT_RECOVERY_R1.md` for the audit report, plus the minimum allowed source files actually needed for the repair.
+
+Evidence must include baseline/start HEAD, safe runtime topology before/after, route matrix before/after, backend image/imageID, proven root cause, source/runtime drift conclusion, exact files/objects changed, rollout result, both model E2E results, negative auth tests, secret logging result, Astra compatibility conclusion, remaining blockers, and final worktree state.
+
+No API keys, JWTs, passwords, cookies, Secret values, private keys, or sensitive request dumps in evidence.
+
+## Git/governance prohibitions for Hermes
+Hermes MUST NOT run git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref/index/history mutation. Read-only git commands are allowed. Hermes MUST NOT modify `.agent/EXECUTION_RESULT.json`. Host runner owns final sync/commit/push/result.
+
+## PASS gate
+PASS only if the 404 source and root cause are proven; NodePort topology is proven; `/api/v1/models` is still 200; both canonical model chats return HTTP 200 through `10.129.13.78:30080`; invalid/no-auth/wrong-auth tests behave correctly; new logs expose no real secret; K8s is healthy after the minimal fix; only allowed source/evidence paths changed; no secret is committed; and Hermes performed no Git write.
+
+Otherwise report BLOCKED/FAIL with evidence and STOP.
