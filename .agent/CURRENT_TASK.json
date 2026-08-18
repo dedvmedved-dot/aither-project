@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-GOV-R2-FINALIZE-R1",
+  "task_id": "AITHER-MVP-E1-FINAL-ACCEPTANCE-R1",
   "executor": "hermes",
-  "mode": "GOVERNANCE_FINALIZATION",
+  "mode": "SECURITY_FINAL_ACCEPTANCE",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "e51f06b3d38906ac1c3c33a0c2bf1f8516f3b4c1",
+  "baseline_sha": "28ddccd02fa9ef28086f8565681f4a5dbd4a9488",
   "allowed_paths": [
-    "docs/operations/OPS_RC1_R2_GOVERNANCE_AUDIT.md"
+    "docs/evidence/E1_FINAL_ACCEPTANCE_R1.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -29,5 +29,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "governance: finalize OPS-RC1-R2 handoff"
+  "commit_message": "security: verify E1 final acceptance gate"
 }
