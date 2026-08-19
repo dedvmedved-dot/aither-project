@@ -1,28 +1,21 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-EXT-API-CHAT-RECOVERY-R2",
+  "task_id": "AITHER-MVP-EXT-API-GOV-CLEANUP-R1",
   "executor": "hermes",
-  "mode": "RUNTIME_DIAGNOSIS_AND_MINIMAL_RECOVERY",
+  "mode": "GOVERNANCE_CREDENTIAL_CLEANUP",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "f8557f930393138cf6a9fa6e6be1ab2383890529",
+  "baseline_sha": "122684e8fc7caef859291df5f28f44f7f0ddb2ff",
   "allowed_paths": [
-    "portal/api-gateway.ts",
-    "portal/server.ts",
-    "portal/nginx/default.conf",
-    "portal/nginx.conf",
-    "portal/Dockerfile",
-    "portal/package.json",
-    "portal/package-lock.json",
-    "docs/evidence/EXT_API_CHAT_RECOVERY_R2.md"
+    "docs/evidence/EXT_API_GOV_CLEANUP_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": true,
-    "deployment": true,
-    "database_write": false,
+    "deployment": false,
+    "database_write": true,
     "runtime_write": true,
     "secret_access": true,
     "package_install": false
@@ -36,5 +29,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "api: recover Test Zone chat completions R2"
+  "commit_message": "security: clean up R2 test credential"
 }

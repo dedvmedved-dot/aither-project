@@ -1,128 +1,138 @@
-# AITHER-MVP-EXT-API-CHAT-RECOVERY-R2
+# AITHER-MVP-EXT-API-GOV-CLEANUP-R1
 
 ## Goal
-Repeat the Test Zone external API recovery after R1 was rolled back by governance ownership enforcement. Preserve the same technical scope, but obey the repository ownership handoff contract so host runner can accept the result.
+Close the governance violation introduced during `AITHER-MVP-EXT-API-CHAT-RECOVERY-R2` by revoking only the temporary API key created for E2E validation (`key id=21`), verifying that no other credential/user mutations were introduced by that task, and preserving the already verified working external API runtime.
 
 ## Baseline
 - Branch: `aither-v2`
-- Baseline SHA: `f8557f930393138cf6a9fa6e6be1ab2383890529`
-- R1 technical work was not committed; runner published BLOCKED because `docs/evidence/EXT_API_CHAT_RECOVERY_R1.md` was owned by uid 0 instead of uid 1000.
+- Baseline SHA: `122684e8fc7caef859291df5f28f44f7f0ddb2ff`
+- Prior technical result: external API runtime is functional and R2 host runner result is PASS.
+- Governance defect: R2 evidence states Hermes created temporary API key `id=21` even though the R2 task had `database_write=false`.
 
-## Mandatory ownership contract
-Root Hermes MUST NOT leave any changed repository path owned by uid/gid 0.
-
-For every repository file created or replaced during this task, ensure final ownership is exactly the repository owner (`codex`, uid 1000, gid 1000) BEFORE returning control to host runner.
-
-Preferred safe methods:
-- write/create the repository file as user `codex`; or
-- if root execution is unavoidable, immediately set ownership only on the exact changed allowed path to `1000:1000`.
-
-Do NOT recursively chown the repository. Do NOT change repository root ownership. Do NOT use `safe.directory=*`.
-
-Before STOP, run ownership verification for every changed allowed path and record only uid/gid/mode/path, never secret content. PASS requires every existing changed implementation path to show uid 1000 and gid 1000.
-
-## Proven runtime facts
-- `GET http://10.129.13.78:30080/api/v1/models` returns HTTP 200.
-- Models returned: `qwen2.5-32b-instruct`, `qwen3-32b`.
-- `POST http://10.129.13.78:30080/api/v1/chat/completions` returns HTTP 404 with `{"detail":"Not Found"}`.
-- Astra Monitoring correctly proxies to that POST and reproduces the Aither-side 404.
-- A full API key was previously exposed in logs. Treat it as compromised. Never print or commit any secret value.
+## Critical behavior requirements
+1. This task is cleanup/audit only. Do NOT repeat API recovery, redeploy workloads, restart pods, change manifests, change nginx, change models, or alter billing/users except the single temporary API key `id=21`.
+2. Do NOT modify PostgreSQL directly. No SQL DELETE/UPDATE/INSERT. No psql mutation. Use only the existing supported Identity/API key lifecycle interface.
+3. Mutation authority is limited to revoking/deleting exactly API key `id=21` if it still exists and is identifiable as the R2 temporary test key.
+4. Do NOT create replacement keys. Do NOT rotate unrelated keys. Do NOT alter user accounts, roles, passwords, sessions, invite codes, quotas, scopes, billing, model access, or database schema.
+5. Never print or commit any full API key, bearer token, password, cookie, secret, JWT, private key, or secret-bearing request dump.
+6. If key `id=21` is already absent/revoked, prove that fact and do not mutate anything else.
+7. If `id=21` no longer maps unambiguously to the R2 temporary key, STOP BLOCKED rather than touching another credential.
+8. GitHub remains Source of Truth. Hermes must not perform git write operations; host runner owns result/commit/push.
+9. Repository ownership handoff remains mandatory: every changed implementation path must finish uid/gid 1000:1000. No recursive chown, no repo-root ownership change, no `safe.directory=*`.
 
 ## Required execution order
-INSPECT -> PROVE ROOT CAUSE -> MINIMAL FIX -> DEPLOY -> TEST -> RETEST -> OWNERSHIP VERIFY -> EVIDENCE -> STOP.
+PREFLIGHT -> IDENTIFY KEY 21 SAFELY -> REVOKE/DELETE VIA SUPPORTED API -> VERIFY ABSENCE/INACTIVE -> AUDIT OTHER R2 CREDENTIAL/USER MUTATIONS -> SANITY CHECK EXTERNAL API WITHOUT CREATING NEW KEY -> OWNERSHIP VERIFY -> EVIDENCE -> STOP.
 
 ## Preflight
-Record hostname/user/uid/pwd, `git rev-parse HEAD`, `git status --short`. Worktree must be clean. Do not reset/clean/checkout/switch.
+Record safe evidence for:
+- hostname/user/uid/pwd
+- `git rev-parse HEAD`
+- `git status --short`
+- current branch
+- relevant Identity/API service readiness
 
-Determine exact NodePort 30080 topology:
-NodePort -> Service -> endpoints -> Pod -> container -> image/imageID -> command/args -> mounted ConfigMap/Secret names and env variable names only.
+Worktree must be clean. Do not reset/clean/checkout/switch.
 
-Do not print Secret values.
+## Identify key id=21
+Use the supported administrative Identity/API interface to inspect key metadata only. Record only non-secret fields sufficient to prove identity, such as:
+- key id
+- non-secret name/label if available
+- prefix only if the product exposes a safe short prefix
+- owner/user id if non-sensitive
+- scopes
+- created_at
+- expires_at
+- revoked/active state
 
-## Route matrix before
-Record status codes for:
+Do not request or print the full key material.
+
+The evidence from R2 indicates key id `21` was created as the temporary E2E key with scopes for both canonical models and 30-day expiry. If metadata does not safely match that R2 artifact, STOP BLOCKED.
+
+## Cleanup mutation
+Preferred order:
+1. Use an existing supported API-key revoke endpoint if available.
+2. Otherwise use the supported API-key delete endpoint.
+3. Do not fall back to direct database mutation.
+
+Perform exactly one credential mutation targeting id=21. Record method, endpoint shape without secret-bearing headers, HTTP status, and non-secret response summary.
+
+## Verification
+After cleanup, prove one of:
+- key id=21 is absent; or
+- key id=21 is explicitly revoked/inactive and cannot authenticate.
+
+If a negative auth test can be performed without revealing the old full key, use a safe existing mechanism. Do not recover or print key material merely to test it.
+
+## Audit for collateral R2 mutations
+Using audit/event/history data and supported read-only APIs where available, determine whether the R2 execution introduced any other credential/user mutations near the R2 execution window.
+
+At minimum inspect for:
+- additional API-key creates/deletes/revokes attributable to R2
+- user creation/deletion
+- password reset/change
+- role/scope changes
+- session invalidation
+- invite-code mutation
+
+Do not expose secrets or personal data beyond minimal IDs/types/timestamps needed for evidence.
+
+If evidence shows any additional unauthorized mutation, do NOT remediate it automatically unless it is unambiguously another R2-created disposable test artifact. Report BLOCKED with exact metadata and STOP.
+
+## External API sanity check
+Do not create a new key for this task.
+
+Perform only non-mutating checks that require no new credential, such as:
 - GET `/`
 - GET `/health`
-- GET `/api/v1/health`
-- GET `/api/v1/models`
-- POST `/api/v1/chat/completions`
+- no-auth POST `/api/v1/chat/completions` expected 401/403
+- no-auth or otherwise safe metadata endpoint as appropriate
 
-For POST test no-auth, wrong-auth and valid-auth safely. Never use verbose curl with a real Authorization header.
+The purpose is only to prove cleanup did not disturb the live API. Do not repeat full model inference if it would require creating another credential.
 
-Prove which component emits `{"detail":"Not Found"}` by inspecting actual runtime routes/OpenAPI or equivalent.
+## Repository evidence
+Create exactly:
+`docs/evidence/EXT_API_GOV_CLEANUP_R1.md`
 
-## Source/runtime drift audit
-Compare deployed runtime against repository, especially:
-- `portal/server.ts`
-- `portal/api-gateway.ts`
-- `portal/nginx/default.conf`
-- `portal/nginx.conf`
-- actual live Test Zone image/config
+The evidence must include:
+- task/baseline/start HEAD
+- preflight clean state
+- safe metadata identifying key id=21
+- cleanup method and result
+- post-cleanup state of id=21
+- collateral mutation audit result
+- external API sanity result
+- whether any OWNER REQUIRED action remains
+- changed repository paths
+- final ownership metadata
+- final worktree state
+- explicit final verdict
 
-Prove root cause: stale image, stale ConfigMap, wrong image, wrong Service selector, nginx upstream/rewrite, absent route, different prefix, mixed runtime artifacts, or another evidenced cause.
-
-Explain the new live model IDs versus any legacy source model map.
-
-## Minimal correction
-External contract must remain:
-- Base URL `http://10.129.13.78:30080/api/v1`
-- GET `/models`
-- POST `/chat/completions`
-- models `qwen2.5-32b-instruct`, `qwen3-32b`
-
-Do not create a second NodePort. Do not bypass Gateway directly to vLLM. Do not disable authentication. Do not revert to legacy model IDs.
-
-POST must accept at least `model`, `messages`, `max_tokens`, `temperature`, `stream`. For `stream:false`, return OpenAI-compatible JSON with non-empty `choices[0].message.content`.
-
-## Security logging
-Inspect relevant edge/backend source/runtime logging for full Authorization/Bearer/API key/token/secret/password output. If present, minimally redact/mask it. New logs after E2E must contain no real secret.
-
-Do not rotate/delete the compromised key by DB mutation. Report rotation as OWNER REQUIRED or SAFE API AVAILABLE. Never include the key itself.
-
-## Deployment constraints
-Apply only exact changed workload/config objects needed by the proven root cause. Do not apply a whole manifests directory. Verify rollout/readiness/endpoints afterward.
-
-Do not modify CNI, control-plane, PostgreSQL schema/data, billing, users, ROADMAP, E1 evidence, observability, Telegram, YooKassa, Parsec, backups or `.agent/*`.
-
-## Required E2E tests
-1. GET `/api/v1/models` -> HTTP 200, both canonical model IDs present.
-2. POST chat `qwen2.5-32b-instruct`, `stream:false`, prompt `Reply exactly: AITHER_OK` -> HTTP 200, non-empty assistant content.
-3. POST chat `qwen3-32b` -> HTTP 200, non-empty assistant content.
-4. Invalid model -> 4xx, not 500.
-5. No auth -> 401/403.
-6. Wrong auth -> 401/403.
-7. Health -> record actual supported path/status.
-8. Fresh logs -> no full secret exposure.
-
-Astra Monitoring itself must remain unchanged.
-
-## Allowed repository changes
-Only exact paths from CURRENT_TASK.json. Evidence file is `docs/evidence/EXT_API_CHAT_RECOVERY_R2.md`.
+Required concluding fields:
+- `TASK_ID: AITHER-MVP-EXT-API-GOV-CLEANUP-R1`
+- `KEY_21_IDENTIFIED: YES|NO`
+- `KEY_21_CLEANUP: PASS|BLOCKED|FAIL`
+- `DIRECT_DB_MUTATION_USED: NO`
+- `OTHER_R2_CREDENTIAL_MUTATIONS: NONE|FOUND|UNKNOWN`
+- `OTHER_R2_USER_MUTATIONS: NONE|FOUND|UNKNOWN`
+- `EXTERNAL_API_SANITY: PASS|BLOCKED|FAIL`
+- `SECRET_VALUES_PRINTED: NO`
+- `HERMES_GIT_WRITE_USED: NO`
+- `OWNERSHIP_GATE: PASS|FAIL`
+- `FINAL_GATE: PASS|BLOCKED|FAIL`
 
 ## Git/governance prohibitions
-Hermes MUST NOT run git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref/index/history mutation. Read-only git commands only. Hermes MUST NOT modify `.agent/EXECUTION_RESULT.json`.
-
-## Final ownership gate
-Before STOP, determine changed implementation paths using read-only Git status. For each existing changed allowed path, output safe metadata equivalent to `uid gid mode path`.
-
-Required:
-- UID = 1000
-- GID = 1000
-
-If any changed path is still owned by root, correct ownership only for that exact allowed path before STOP. Do not recursively change ownership.
+Hermes MUST NOT run git add/commit/push/pull/reset/clean/checkout/switch/merge/rebase/tag or modify refs/index/history. Read-only git commands are allowed. Hermes MUST NOT modify `.agent/*`.
 
 ## PASS gate
 PASS only if:
-- source of 404 and root cause proven;
-- NodePort topology proven;
-- `/api/v1/models` stays HTTP 200;
-- both model chat requests return HTTP 200 through `10.129.13.78:30080`;
-- invalid/no-auth/wrong-auth tests behave correctly;
-- new logs expose no secret;
-- K8s healthy after minimal fix;
-- only allowed paths changed;
-- every changed repository path is uid/gid 1000:1000;
-- no secret committed;
-- Hermes performed no Git write.
+- key id=21 is safely identified as the R2 temporary test key or proven already absent/revoked;
+- id=21 is revoked/deleted through the supported API without direct DB mutation;
+- no unrelated credential/user mutation is performed;
+- collateral audit finds no additional unauthorized R2 mutation, or proves none with available evidence;
+- external API remains healthy after cleanup;
+- exactly the allowed evidence file is changed in Git;
+- evidence path is uid/gid 1000:1000;
+- no secret is printed or committed;
+- Hermes performs no Git write.
 
-Otherwise BLOCKED/FAIL with evidence and STOP.
+Otherwise report BLOCKED/FAIL with evidence and STOP.
