@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-HERMES-LIVE-OBS-R1",
-  "executor": "hermes",
+  "task_id": "AITHER-MVP-HERMES-LIVE-OBS-R2",
+  "executor": "codex",
   "mode": "GOVERNED_OBSERVABILITY_REPAIR",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "5b67c3eba402ce8bd0d7e4a5c143c634237a4c97",
+  "baseline_sha": "a9279170c4d6d9fb4154f9135663eb04bf32b930",
   "allowed_paths": [
     ".agent/hermes_observer.py",
     ".agent/tests/test_hermes_observer.py",
     ".agent/tests/test_live_observability.py",
-    "docs/evidence/HERMES_LIVE_OBS_R1.md"
+    "docs/evidence/HERMES_LIVE_OBS_R2.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -29,11 +29,12 @@
     "push": true
   },
   "validation_commands": [
-    ["python3", "-m", "unittest", ".agent/tests/test_hermes_observer.py", ".agent/tests/test_live_observability.py"]
+    ["python3", ".agent/tests/test_hermes_observer.py"],
+    ["python3", ".agent/tests/test_live_observability.py"]
   ],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "agent: add Hermes live observability"
+  "commit_message": "agent: add Hermes live observability R2"
 }

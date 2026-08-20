@@ -1,94 +1,121 @@
-# TASK: AITHER-MVP-HERMES-LIVE-OBS-R1
+# AITHER-MVP-HERMES-LIVE-OBS-R2
 
 ## Goal
-Add safe live observability for Hermes execution so `runner-live` shows that the H2 bridge is connected/alive during long-running Hermes tasks instead of exposing only the initial `HOST_RUNNER_START` state.
+Repair the Hermes execution observability gap without changing the accepted H2 socket protocol, root-Hermes boundary, repository ownership model, or host-runner governance.
+
+R1 was BLOCKED before implementation with `command exited with status 1`. The Architect review identified a task-definition defect: validation invoked existing executable unittest scripts through `python3 -m unittest` using hidden-directory paths. R2 uses direct script execution and switches the executor to `codex` because this task modifies the Hermes execution wrapper itself.
 
 ## Baseline
-- Repository: `dedvmedved-dot/aither-project`
 - Branch: `aither-v2`
-- Baseline SHA: `5b67c3eba402ce8bd0d7e4a5c143c634237a4c97`
-- GitHub is Source of Truth.
+- Baseline SHA: `a9279170c4d6d9fb4154f9135663eb04bf32b930`
+- R1 result commit: `7c5bc3061b9ec4ccdbcf86a0d03b6988b5e089a0` — BLOCKED, no implementation paths committed.
 
-## Proven defect
-`codex_observer.py` publishes periodic safe heartbeat/progress metadata. `hermes_observer.py` currently connects to `/run/aither-hermes/execute.sock`, sends fixed `RUN\n`, and blocks waiting for the final bridge response for up to 3600s without publishing intermediate live status. Therefore an active Hermes run is externally indistinguishable from a stalled H2 bridge.
+## Required design
+Keep the existing H2 contract exactly:
+- Unix socket default `/run/aither-hermes/execute.sock`.
+- Send exactly `RUN\n`.
+- No caller prompt/command accepted.
+- No direct Hermes CLI invocation.
+- No shell/eval/exec.
+- Existing timeout/max-response fail-closed behavior preserved.
 
-## Required behavior
-Implement safe live status for Hermes without changing the accepted H2 execution contract:
-- still send exactly `RUN\n`;
-- accept no prompt or arbitrary command from caller;
-- do not invoke Hermes CLI directly;
-- do not use shell/eval/exec;
-- keep bounded response and fail-closed behavior;
-- preserve 3600s hard timeout semantics unless tests prove an equivalent safer implementation.
+Add sanitized live observability to the Hermes observer, using the existing `.agent/runner_live.py` publication mechanism and following the safety model of `.agent/codex_observer.py` where applicable.
 
-## Required live states
-At minimum publish sanitized `runner-live` metadata for:
-- `HERMES_DISPATCH` before connect/send;
-- `H2_CONNECTED` after successful socket connect;
-- `HERMES_RUNNING` while waiting for the bridge response;
-- periodic heartbeat while waiting;
-- `HERMES_COMPLETE` on successful response;
-- `HERMES_BLOCKED` or equivalent on timeout/connect/empty/fail-closed result.
+Required externally visible states/phases must make these moments distinguishable in `runner-live`:
+1. observer started / dispatch beginning;
+2. H2 socket connected;
+3. fixed RUN signal sent and Hermes execution considered running;
+4. periodic heartbeat while waiting for bridge response;
+5. bridge response completed successfully;
+6. fail-closed terminal states for timeout/connect/empty/fail responses.
 
-Use existing `.agent/runner_live.py` and its safe-key whitelist. Do not publish response text, prompt text, commands, stdout/stderr, socket payload contents, secrets, credentials, or reasoning.
+The exact naming may be concise, but evidence must show that a long-running Hermes call is distinguishable from a dead/stuck supervisor.
 
-A safe status may include only already-whitelisted metadata such as task_id, state, phase, pid, timestamps, silent_seconds, stall_warning, process_alive, exit_code, executor, and message_code.
+## Mandatory sanitized fields
+Where applicable publish only safe metadata such as:
+- `task_id`
+- `state`
+- `phase`
+- `heartbeat_at`
+- `started_at`
+- `last_event_at`
+- `silent_seconds`
+- `process_alive`
+- bounded non-sensitive counters/status codes
 
-## Task identity
-Read task_id safely from `.agent/CURRENT_TASK.json` as `codex_observer.py` already does. Never include the task prompt/body in live status.
+Never publish:
+- bridge response body;
+- Hermes stdout/stderr text;
+- prompt/task markdown content;
+- commands/argv containing user content;
+- Authorization/API keys/tokens/passwords/secrets;
+- environment values.
 
-## Heartbeat
-Reuse the same environment conventions where practical:
-- `AITHER_HEARTBEAT_SECONDS` default 30;
-- `AITHER_STALL_WARNING_SECONDS` default 600;
-- Hermes hard timeout remains bounded by `AITHER_HERMES_TIMEOUT` / 3600s.
+## Heartbeat behavior
+- Default heartbeat interval should be comparable to Codex observer (about 30 seconds) and configurable through a narrowly named environment variable.
+- Heartbeat publication must continue while blocked in socket receive; therefore implementation may need polling/select or bounded socket receive time slices rather than one synchronous 3600-second `recv` wait.
+- The overall hard timeout remains fail-closed and must not be weakened.
+- `runner-live` publication failure must not leak response content. Decide and document whether publication failure is fail-closed or best-effort; preserve executor safety either way.
 
-The implementation must publish heartbeat while the socket call is waiting. Do not solve this by weakening the timeout or by busy-looping aggressively.
+## Tests
+Extend/create tests to prove at minimum:
+1. exactly `RUN\n` is sent;
+2. arbitrary args remain rejected;
+3. success response exits 0;
+4. `BLOCKED_*` / `FAIL*` responses fail closed;
+5. connection failure fails closed;
+6. hard timeout fails closed;
+7. bounded response remains bounded;
+8. live status includes dispatch/connected/running/completed states for a fake Unix-socket bridge;
+9. heartbeat advances during a deliberately delayed fake bridge response without exposing response text;
+10. status payload contains no prompt/secret/bridge-body text;
+11. no direct Hermes CLI, `shell=True`, `os.system`, eval/exec is introduced.
 
-## Testing
-Extend unit tests to prove at minimum:
-1. fixed signal remains exactly `RUN\n`;
-2. no arbitrary argv accepted;
-3. successful bridge response still returns success;
-4. BLOCKED_/FAIL responses remain fail-closed;
-5. connect failure produces safe blocked status;
-6. timeout produces safe blocked status;
-7. periodic heartbeat can occur while a fake bridge delays its response;
-8. no response body/prompt/secret appears in published status;
-9. `runner_live.sanitize_status` remains the final safety boundary;
-10. no direct Hermes CLI / shell=True / os.system / eval / exec is introduced.
+Use deterministic local fake Unix-socket tests. Do not call the real H2 bridge or root Hermes during unit tests.
 
-Tests must not require root, Kubernetes, network access, package installation, or the real H2 socket.
+## Validation
+The host runner will run these directly:
+- `python3 .agent/tests/test_hermes_observer.py`
+- `python3 .agent/tests/test_live_observability.py`
+
+Also run `python3 -m py_compile` on changed Python files and `git diff --check` before STOP.
+
+## Evidence
+Create `docs/evidence/HERMES_LIVE_OBS_R2.md` containing:
+- root cause of R1 BLOCKED;
+- before/after observability model;
+- state/phase contract;
+- sanitized field contract;
+- heartbeat and hard-timeout semantics;
+- test commands and exact PASS counts;
+- changed paths;
+- ownership metadata for changed paths;
+- confirmation no runtime/H2/root-Hermes execution occurred;
+- confirmation no secret/output content is published.
+
+## Ownership and Git governance
+All final changed repository paths must be owned by uid/gid 1000:1000. Codex is the executor, so preserve normal repository ownership.
+
+Executor MUST NOT run git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref/history mutation. Read-only Git commands are allowed. Host runner alone finalizes commit/push.
 
 ## Scope
-Allowed repository changes only:
+Allowed repository changes are exactly those listed in CURRENT_TASK.json:
 - `.agent/hermes_observer.py`
 - `.agent/tests/test_hermes_observer.py`
 - `.agent/tests/test_live_observability.py`
-- `docs/evidence/HERMES_LIVE_OBS_R1.md`
+- `docs/evidence/HERMES_LIVE_OBS_R2.md`
 
-Do not modify host_task_runner, systemd units, runner_live, governance docs, CURRENT_TASK/EXECUTION_RESULT, application source, manifests, runtime, DB, users, credentials, Kubernetes, or `/root/.hermes`.
-
-## Ownership contract
-Root Hermes MUST NOT leave any changed repository file owned by uid/gid 0. Every changed path must be uid=1000 gid=1000 before STOP. Prefer writing as `codex`; otherwise chown only the exact changed allowed paths. No recursive chown. No `safe.directory=*`.
-
-## Git prohibitions
-Hermes MUST NOT run git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref/index/history mutation. Read-only git commands only. Host runner owns final validation/commit/push/result.
-
-## Evidence
-Create `docs/evidence/HERMES_LIVE_OBS_R1.md` with:
-- baseline/start HEAD;
-- defect statement;
-- implementation summary;
-- exact live-state contract;
-- security/sanitization proof;
-- unit-test results;
-- changed paths;
-- ownership metadata;
-- final worktree state;
-- explicit statement that H2 protocol stayed `RUN\n` only and no Hermes direct CLI was introduced.
+Do not modify `host_task_runner.py`, `systemd_runner.py`, `runner_live.py`, service units, H2 server, `/root/.hermes`, Kubernetes, database, portal, roadmap, or any other path.
 
 ## PASS gate
-PASS only if tests pass; heartbeat/status updates are implemented without exposing sensitive content; H2 contract remains unchanged; no runtime or systemd modification occurs; only allowed paths change; ownership is 1000:1000; Hermes performs no Git write.
+PASS only if:
+- H2 fixed-signal contract is unchanged;
+- heartbeat visibly progresses during delayed fake bridge execution;
+- terminal success/failure states are published safely;
+- no bridge body/prompt/secret is published;
+- all direct validation scripts pass;
+- only exact allowed paths changed;
+- ownership gate passes;
+- no Git write by executor.
 
-Otherwise BLOCKED/FAIL with exact evidence and STOP.
+Otherwise BLOCKED/FAIL with safe evidence and STOP.
