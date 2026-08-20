@@ -4,9 +4,15 @@ from __future__ import annotations
 import importlib.util
 import os
 import unittest
+import socket
+import tempfile
+import threading
+import time
+import sys
 from pathlib import Path
 
 AGENT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(AGENT))
 
 
 def load(name, filename):
@@ -20,9 +26,54 @@ def load(name, filename):
 runner_live = load('runner_live', 'runner_live.py')
 codex_observer = load('codex_observer', 'codex_observer.py')
 systemd_runner = load('systemd_runner', 'systemd_runner.py')
+hermes_observer = load('hermes_observer_live', 'hermes_observer.py')
 
 
 class Tests(unittest.TestCase):
+    def test_hermes_live_states_and_heartbeat_are_sanitized(self):
+        secret_body = 'PASS secret-bridge-body'
+        with tempfile.TemporaryDirectory(prefix='hermes-live-') as tmp:
+            path = str(Path(tmp) / 'bridge.sock')
+            ready = threading.Event()
+            received = {}
+
+            def serve():
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                    listener.bind(path)
+                    listener.listen(1)
+                    ready.set()
+                    conn, _ = listener.accept()
+                    with conn:
+                        received['signal'] = conn.recv(16)
+                        time.sleep(0.18)
+                        conn.sendall((secret_body + '\n').encode())
+
+            thread = threading.Thread(target=serve, daemon=True)
+            thread.start()
+            ready.wait(2)
+            events = []
+            response = hermes_observer.send_run(
+                path=path, timeout=2, heartbeat=0.05, publisher=events.append)
+            thread.join(2)
+
+        self.assertEqual(received['signal'], b'RUN\n')
+        self.assertEqual(response, secret_body)
+        phases = [event['phase'] for event in events]
+        self.assertEqual(phases[:2], ['H2_CONNECTED', 'HERMES_RUNNING'])
+        self.assertGreaterEqual(phases.count('HERMES_HEARTBEAT'), 2)
+        serialized = repr(events)
+        self.assertNotIn(secret_body, serialized)
+        self.assertNotIn('secret', serialized)
+
+    def test_hermes_status_payload_excludes_content(self):
+        payload = hermes_observer.status_payload(
+            task_id='T', state='RUNNING', phase='HERMES_RUNNING',
+            started_at='2026-01-01T00:00:00Z', last_event_at='2026-01-01T00:00:00Z',
+            start_monotonic=time.monotonic(), last_event_monotonic=time.monotonic())
+        serialized = repr(payload)
+        for forbidden in ('prompt', 'token', 'secret', 'bridge-body', 'command', 'stdout', 'stderr'):
+            self.assertNotIn(forbidden, serialized)
+
     def test_sanitizer(self):
         safe = runner_live.sanitize_status({'task_id': 'T', 'state': 'RUNNING',
                                             'reasoning': 'PRIVATE', 'command': 'cat token',

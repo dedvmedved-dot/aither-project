@@ -7,9 +7,11 @@ import socket
 import tempfile
 import threading
 import unittest
+import sys
 from pathlib import Path
 
 AGENT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(AGENT))
 
 
 def load(name, filename):
@@ -96,10 +98,14 @@ class Tests(unittest.TestCase):
         thread, _, ready = _serve(path, b'BLOCKED_EXECUTOR\n')
         ready.wait(5)
         old = os.environ.get('AITHER_HERMES_SOCKET')
+        old_factory = hermes_observer.make_publisher
         os.environ['AITHER_HERMES_SOCKET'] = path
+        events = []
+        hermes_observer.make_publisher = lambda *args: events.append
         try:
             self.assertEqual(hermes_observer.main([]), 1)
         finally:
+            hermes_observer.make_publisher = old_factory
             if old is None:
                 os.environ.pop('AITHER_HERMES_SOCKET', None)
             else:
@@ -111,10 +117,14 @@ class Tests(unittest.TestCase):
         thread, _, ready = _serve(path, b'PASS\n')
         ready.wait(5)
         old = os.environ.get('AITHER_HERMES_SOCKET')
+        old_factory = hermes_observer.make_publisher
         os.environ['AITHER_HERMES_SOCKET'] = path
+        events = []
+        hermes_observer.make_publisher = lambda *args: events.append
         try:
             self.assertEqual(hermes_observer.main([]), 0)
         finally:
+            hermes_observer.make_publisher = old_factory
             if old is None:
                 os.environ.pop('AITHER_HERMES_SOCKET', None)
             else:
@@ -131,6 +141,10 @@ class Tests(unittest.TestCase):
         with self.assertRaises(socket.timeout):
             hermes_observer.send_run(path=path, timeout=0.3)
         thread.join(5)
+
+    def test_connection_failure_fails_closed(self):
+        with self.assertRaises(OSError):
+            hermes_observer.send_run(path=self._path(), timeout=0.1)
 
     def test_bounded_response(self):
         path = self._path()
