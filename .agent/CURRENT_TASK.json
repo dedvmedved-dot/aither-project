@@ -1,23 +1,26 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-EXT-API-GOV-CLEANUP-R1",
+  "task_id": "AITHER-MVP-HERMES-LIVE-OBS-R1",
   "executor": "hermes",
-  "mode": "GOVERNANCE_CREDENTIAL_CLEANUP",
+  "mode": "GOVERNED_OBSERVABILITY_REPAIR",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "122684e8fc7caef859291df5f28f44f7f0ddb2ff",
+  "baseline_sha": "5b67c3eba402ce8bd0d7e4a5c143c634237a4c97",
   "allowed_paths": [
-    "docs/evidence/EXT_API_GOV_CLEANUP_R1.md"
+    ".agent/hermes_observer.py",
+    ".agent/tests/test_hermes_observer.py",
+    ".agent/tests/test_live_observability.py",
+    "docs/evidence/HERMES_LIVE_OBS_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
-    "kubernetes": true,
+    "kubernetes": false,
     "deployment": false,
-    "database_write": true,
-    "runtime_write": true,
-    "secret_access": true,
+    "database_write": false,
+    "runtime_write": false,
+    "secret_access": false,
     "package_install": false
   },
   "host_capabilities": {
@@ -25,9 +28,12 @@
     "commit": true,
     "push": true
   },
+  "validation_commands": [
+    ["python3", "-m", "unittest", ".agent/tests/test_hermes_observer.py", ".agent/tests/test_live_observability.py"]
+  ],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "security: clean up R2 test credential"
+  "commit_message": "agent: add Hermes live observability"
 }
