@@ -1,22 +1,19 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-HERMES-LIVE-OBS-R2",
-  "executor": "codex",
-  "mode": "GOVERNED_OBSERVABILITY_REPAIR",
+  "task_id": "AITHER-MVP-SOURCE-RUNTIME-DRIFT-AUDIT-R1",
+  "executor": "hermes",
+  "mode": "READ_ONLY_SOURCE_RUNTIME_DRIFT_AUDIT",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "a9279170c4d6d9fb4154f9135663eb04bf32b930",
+  "baseline_sha": "11574b78b992009cb72727514a83908b51eea8ed",
   "allowed_paths": [
-    ".agent/hermes_observer.py",
-    ".agent/tests/test_hermes_observer.py",
-    ".agent/tests/test_live_observability.py",
-    "docs/evidence/HERMES_LIVE_OBS_R2.md"
+    "docs/evidence/SOURCE_RUNTIME_DRIFT_AUDIT_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
-    "kubernetes": false,
+    "kubernetes": true,
     "deployment": false,
     "database_write": false,
     "runtime_write": false,
@@ -28,13 +25,10 @@
     "commit": true,
     "push": true
   },
-  "validation_commands": [
-    ["python3", ".agent/tests/test_hermes_observer.py"],
-    ["python3", ".agent/tests/test_live_observability.py"]
-  ],
+  "validation_commands": [],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "agent: add Hermes live observability R2"
+  "commit_message": "audit: document source runtime drift"
 }

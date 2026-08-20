@@ -1,121 +1,99 @@
-# AITHER-MVP-HERMES-LIVE-OBS-R2
+# AITHER-MVP-SOURCE-RUNTIME-DRIFT-AUDIT-R1
 
 ## Goal
-Repair the Hermes execution observability gap without changing the accepted H2 socket protocol, root-Hermes boundary, repository ownership model, or host-runner governance.
-
-R1 was BLOCKED before implementation with `command exited with status 1`. The Architect review identified a task-definition defect: validation invoked existing executable unittest scripts through `python3 -m unittest` using hidden-directory paths. R2 uses direct script execution and switches the executor to `codex` because this task modifies the Hermes execution wrapper itself.
+Perform a read-only audit of Test Zone source/runtime drift after the external API recovery and Hermes live-observability work. Produce exact evidence of which deployed runtime components/configs differ from GitHub Source of Truth, and identify the narrowest reconciliation scope. Do not modify runtime or source code other than the evidence file.
 
 ## Baseline
 - Branch: `aither-v2`
-- Baseline SHA: `a9279170c4d6d9fb4154f9135663eb04bf32b930`
-- R1 result commit: `7c5bc3061b9ec4ccdbcf86a0d03b6988b5e089a0` — BLOCKED, no implementation paths committed.
+- Baseline SHA: `11574b78b992009cb72727514a83908b51eea8ed`
 
-## Required design
-Keep the existing H2 contract exactly:
-- Unix socket default `/run/aither-hermes/execute.sock`.
-- Send exactly `RUN\n`.
-- No caller prompt/command accepted.
-- No direct Hermes CLI invocation.
-- No shell/eval/exec.
-- Existing timeout/max-response fail-closed behavior preserved.
+## Required execution order
+PREFLIGHT -> OBSERVE LIVE HERMES STATUS -> INSPECT RUNTIME READ-ONLY -> COMPARE WITH GITHUB WORKTREE -> CLASSIFY DRIFT -> PROPOSE EXACT RECONCILIATION PATHS -> EVIDENCE -> STOP.
 
-Add sanitized live observability to the Hermes observer, using the existing `.agent/runner_live.py` publication mechanism and following the safety model of `.agent/codex_observer.py` where applicable.
+## Hermes live-observability acceptance sub-gate
+This is the first real Hermes task after OBS-R2. During execution, the external runner-live observer should expose sanitized Hermes phases without prompt/command/secret content. Do not alter observer code in this task. Evidence should record only whether the expected phases were observed by the execution environment if available; never copy runner-live secret-bearing content (none should exist).
 
-Required externally visible states/phases must make these moments distinguishable in `runner-live`:
-1. observer started / dispatch beginning;
-2. H2 socket connected;
-3. fixed RUN signal sent and Hermes execution considered running;
-4. periodic heartbeat while waiting for bridge response;
-5. bridge response completed successfully;
-6. fail-closed terminal states for timeout/connect/empty/fail responses.
+## Read-only runtime scope
+You MAY use read-only Kubernetes commands such as get/describe/logs limited to the Test Zone components needed to prove drift. Do not apply/patch/edit/delete/restart/rollout anything.
 
-The exact naming may be concise, but evidence must show that a long-running Hermes call is distinguishable from a dead/stuck supervisor.
+Inspect at minimum:
+- NodePort/Service/Endpoint path for `10.129.13.78:30080`.
+- `aither-portal` nginx-only runtime and mounted ConfigMap names/keys.
+- `aither-portal-backend` runtime image, routes/OpenAPI or equivalent route inventory, non-secret env variable names, mounted ConfigMap/Secret names only.
+- `aither-bff`, `aither-identity`, and model upstream Services only as needed to prove routing ownership.
+- Canonical model IDs and external API prefixes.
 
-## Mandatory sanitized fields
-Where applicable publish only safe metadata such as:
-- `task_id`
-- `state`
-- `phase`
-- `heartbeat_at`
-- `started_at`
-- `last_event_at`
-- `silent_seconds`
-- `process_alive`
-- bounded non-sensitive counters/status codes
+Never print Secret values, Authorization headers, full API keys, passwords, JWTs, tokens, or environment values that are credentials.
 
-Never publish:
-- bridge response body;
-- Hermes stdout/stderr text;
-- prompt/task markdown content;
-- commands/argv containing user content;
-- Authorization/API keys/tokens/passwords/secrets;
-- environment values.
+## Repository comparison scope
+Compare the live runtime against relevant current repository files. Read as many source files as needed, but do not modify them. At minimum examine whether these are current, legacy, or superseded:
+- `portal/server.ts`
+- `portal/api-gateway.ts`
+- `portal/nginx/default.conf`
+- `portal/nginx.conf`
+- `portal/Dockerfile`
+- any deploy/manifests/tools files actually corresponding to the live `aither-portal`, `aither-portal-backend`, `aither-bff`, or identity runtime
+- architecture/governance docs that define the canonical external API and model IDs
 
-## Heartbeat behavior
-- Default heartbeat interval should be comparable to Codex observer (about 30 seconds) and configurable through a narrowly named environment variable.
-- Heartbeat publication must continue while blocked in socket receive; therefore implementation may need polling/select or bounded socket receive time slices rather than one synchronous 3600-second `recv` wait.
-- The overall hard timeout remains fail-closed and must not be weakened.
-- `runner-live` publication failure must not leak response content. Decide and document whether publication failure is fail-closed or best-effort; preserve executor safety either way.
+Use exact evidence, not assumptions.
 
-## Tests
-Extend/create tests to prove at minimum:
-1. exactly `RUN\n` is sent;
-2. arbitrary args remain rejected;
-3. success response exits 0;
-4. `BLOCKED_*` / `FAIL*` responses fail closed;
-5. connection failure fails closed;
-6. hard timeout fails closed;
-7. bounded response remains bounded;
-8. live status includes dispatch/connected/running/completed states for a fake Unix-socket bridge;
-9. heartbeat advances during a deliberately delayed fake bridge response without exposing response text;
-10. status payload contains no prompt/secret/bridge-body text;
-11. no direct Hermes CLI, `shell=True`, `os.system`, eval/exec is introduced.
+## Required drift classification
+For every material mismatch classify one of:
+- `RUNTIME_AHEAD_OF_SOURCE`
+- `SOURCE_AHEAD_OF_RUNTIME`
+- `LEGACY_SOURCE_RETAINED`
+- `GENERATED_RUNTIME_NOT_CAPTURED`
+- `NO_DRIFT`
+- `UNKNOWN_NEEDS_OWNER_EVIDENCE`
 
-Use deterministic local fake Unix-socket tests. Do not call the real H2 bridge or root Hermes during unit tests.
+For each mismatch state:
+1. live object/component;
+2. runtime fact;
+3. repository path(s);
+4. exact mismatch;
+5. operational/security impact;
+6. whether it blocks E1 Final Acceptance;
+7. narrowest exact repository paths that a later reconciliation task would need to change.
 
-## Validation
-The host runner will run these directly:
-- `python3 .agent/tests/test_hermes_observer.py`
-- `python3 .agent/tests/test_live_observability.py`
+## Mandatory acceptance questions
+Answer explicitly:
+1. Is the currently working external API configuration reproducible from GitHub alone on a fresh deployment?
+2. Are canonical models `qwen2.5-32b-instruct` and `qwen3-32b` represented correctly in the active Source of Truth?
+3. Is the live `/api/v1/models` + `/api/v1/chat/completions` routing represented in a source-controlled deployment/config artifact?
+4. Is legacy Fastify portal source still authoritative, compatibility-only, or stale?
+5. Which exact files should become the canonical deployment Source of Truth before E1 can be accepted?
+6. Can E1 be rerun now, or must reconciliation occur first?
 
-Also run `python3 -m py_compile` on changed Python files and `git diff --check` before STOP.
+## Sanity checks
+Read-only only:
+- GET `/health` if safely reachable without auth.
+- GET `/api/v1/models` only if an already-existing authorized credential can be used without exposing it and without creating/modifying credentials; otherwise record AUTH_REQUIRED and do not create a key.
+- POST no-auth `/api/v1/chat/completions` may be used to confirm 401/403 contract. Do not create a new credential.
 
-## Evidence
-Create `docs/evidence/HERMES_LIVE_OBS_R2.md` containing:
-- root cause of R1 BLOCKED;
-- before/after observability model;
-- state/phase contract;
-- sanitized field contract;
-- heartbeat and hard-timeout semantics;
-- test commands and exact PASS counts;
-- changed paths;
-- ownership metadata for changed paths;
-- confirmation no runtime/H2/root-Hermes execution occurred;
-- confirmation no secret/output content is published.
+## Repository evidence
+Create exactly:
+`docs/evidence/SOURCE_RUNTIME_DRIFT_AUDIT_R1.md`
 
-## Ownership and Git governance
-All final changed repository paths must be owned by uid/gid 1000:1000. Codex is the executor, so preserve normal repository ownership.
+Final ownership must be uid/gid 1000:1000. Hermes must not perform any Git write. Host runner will commit/push.
 
-Executor MUST NOT run git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref/history mutation. Read-only Git commands are allowed. Host runner alone finalizes commit/push.
-
-## Scope
-Allowed repository changes are exactly those listed in CURRENT_TASK.json:
-- `.agent/hermes_observer.py`
-- `.agent/tests/test_hermes_observer.py`
-- `.agent/tests/test_live_observability.py`
-- `docs/evidence/HERMES_LIVE_OBS_R2.md`
-
-Do not modify `host_task_runner.py`, `systemd_runner.py`, `runner_live.py`, service units, H2 server, `/root/.hermes`, Kubernetes, database, portal, roadmap, or any other path.
+## Forbidden
+- Any runtime mutation.
+- Any deployment restart/rollout/apply/patch/edit/delete.
+- Any DB write or direct DB mutation.
+- Creating, rotating, revoking, or modifying API keys/users/sessions.
+- Secret access/value extraction.
+- Changes to `.agent/*`, ROADMAP, application source, manifests, portal code, identity code, or deployment files.
+- Any git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref write.
 
 ## PASS gate
 PASS only if:
-- H2 fixed-signal contract is unchanged;
-- heartbeat visibly progresses during delayed fake bridge execution;
-- terminal success/failure states are published safely;
-- no bridge body/prompt/secret is published;
-- all direct validation scripts pass;
-- only exact allowed paths changed;
-- ownership gate passes;
-- no Git write by executor.
+- drift is proven with concrete runtime + repository evidence;
+- all mandatory acceptance questions are answered;
+- exact next reconciliation paths are identified;
+- no runtime/DB/credential/source mutation occurred;
+- only the evidence file changed;
+- evidence ownership is 1000:1000;
+- no secret is printed or committed;
+- Hermes performed no Git write.
 
-Otherwise BLOCKED/FAIL with safe evidence and STOP.
+Otherwise BLOCKED with evidence and STOP.
