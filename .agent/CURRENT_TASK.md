@@ -1,99 +1,77 @@
-# AITHER-MVP-SOURCE-RUNTIME-DRIFT-AUDIT-R1
+# AITHER-MVP-SOURCE-RUNTIME-RECONCILE-D1-R1
 
-## Goal
-Perform a read-only audit of Test Zone source/runtime drift after the external API recovery and Hermes live-observability work. Produce exact evidence of which deployed runtime components/configs differ from GitHub Source of Truth, and identify the narrowest reconciliation scope. Do not modify runtime or source code other than the evidence file.
+## Цель
+Закрыть только drift D1 из `SOURCE_RUNTIME_DRIFT_AUDIT_R1`: вернуть рабочую конфигурацию внешнего API routing из live `aither-portal-config/nginx.conf` в GitHub Source of Truth и синхронизировать вторичный `aither-portal-frontend-config/nginx.conf` с этим каноническим файлом.
 
-## Baseline
-- Branch: `aither-v2`
-- Baseline SHA: `11574b78b992009cb72727514a83908b51eea8ed`
+## Жёсткие ограничения
+- Не исправлять D2/D3 в этой задаче.
+- Не менять Service selectors, Deployments BFF, model deployments, Identity, billing, users, DB, secrets, CNI, control-plane, observability, backups.
+- Не читать значения Kubernetes Secrets.
+- Не создавать API keys/credentials.
+- Не выполнять прямые Git write operations: add/commit/push/pull/reset/clean/checkout/switch/merge/rebase/tag/ref mutation. Host runner выполняет commit/push.
+- Не изменять `.agent/*`.
+- Не менять `/root/.hermes`.
+- Не использовать `safe.directory=*`, generic sudo, recursive chown/chmod.
+- Изменённые repo-файлы перед завершением должны иметь uid/gid 1000:1000.
 
-## Required execution order
-PREFLIGHT -> OBSERVE LIVE HERMES STATUS -> INSPECT RUNTIME READ-ONLY -> COMPARE WITH GITHUB WORKTREE -> CLASSIFY DRIFT -> PROPOSE EXACT RECONCILIATION PATHS -> EVIDENCE -> STOP.
+## Разрешённые repo-пути
+1. `aither-v2/services/portal-frontend/nginx.conf`
+2. `docs/evidence/SOURCE_RUNTIME_RECONCILE_D1_R1.md`
 
-## Hermes live-observability acceptance sub-gate
-This is the first real Hermes task after OBS-R2. During execution, the external runner-live observer should expose sanitized Hermes phases without prompt/command/secret content. Do not alter observer code in this task. Evidence should record only whether the expected phases were observed by the execution environment if available; never copy runner-live secret-bearing content (none should exist).
+## Разрешённые runtime-объекты
+Только namespace `aither-inference`:
+- ConfigMap `aither-portal-config` — READ ONLY, кроме случая, если во время проверки обнаружено, что он уже отличается от зафиксированного working D1 runtime; любые изменения здесь допускаются только для возврата к проверенному working content.
+- ConfigMap `aither-portal-frontend-config` — разрешено обновить только key `nginx.conf` до канонического content.
+- Deployment `aither-portal-frontend` — допускается controlled rollout/restart только если нужен reload nginx после ConfigMap update.
+- Deployment `aither-portal` — не рестартовать, если `aither-portal-config` не изменялся.
 
-## Read-only runtime scope
-You MAY use read-only Kubernetes commands such as get/describe/logs limited to the Test Zone components needed to prove drift. Do not apply/patch/edit/delete/restart/rollout anything.
+## Порядок выполнения
+1. INSPECT
+   - Проверить clean worktree, task baseline/HEAD, ownership.
+   - Read-only получить live `aither-portal-config` key `nginx.conf` и вычислить sha256.
+   - Read-only получить `aither-portal-frontend-config` key `nginx.conf` и sha256.
+   - Вычислить sha256 source `aither-v2/services/portal-frontend/nginx.conf`.
+   - Подтвердить наличие в live primary config точных external API routes:
+     - `location = /api/v1/models`
+     - `location = /api/v1/chat/completions`
+2. SOURCE OF TRUTH RECONCILIATION
+   - Обновить `aither-v2/services/portal-frontend/nginx.conf` так, чтобы он представлял полный проверенный working nginx content из live primary `aither-portal-config/nginx.conf`, без сокращений и без ручного удаления существующих working route blocks.
+   - После записи source sha256 должен совпасть с live primary config sha256 (нормализовать только финальный newline, если это единственное отличие; факт нормализации явно записать в evidence).
+3. SECONDARY RUNTIME RECONCILIATION
+   - Если `aither-portal-frontend-config/nginx.conf` отличается от нового canonical source, обновить только этот key до canonical content.
+   - Не изменять `index.html`, `app.js`, `styles.css` и любые другие keys.
+   - При необходимости выполнить controlled rollout `aither-portal-frontend`; дождаться Ready.
+4. VALIDATE
+   - Source nginx hash == live `aither-portal-config/nginx.conf` hash.
+   - Source nginx hash == live `aither-portal-frontend-config/nginx.conf` hash после reconciliation.
+   - Подтвердить, что оба external API route blocks присутствуют в source и обоих ConfigMaps.
+   - Проверить `aither-portal` и `aither-portal-frontend` Ready.
+   - Test Zone `GET http://10.129.13.78:30080/health` -> 200.
+   - Test Zone `POST http://10.129.13.78:30080/api/v1/chat/completions` без Authorization -> 401/403, не 404/5xx.
+   - Internet path `GET https://fb1.spb.ru:10443/health` -> 200, если endpoint доступен из среды; недоступность внешней сети сама по себе не является FAIL, но должна быть зафиксирована.
+   - Не использовать реальный API key и не повторять model inference.
+5. EVIDENCE
+   - Создать `docs/evidence/SOURCE_RUNTIME_RECONCILE_D1_R1.md`.
+   - Зафиксировать before/after hashes, точные изменённые runtime objects/keys, rollout status, HTTP status checks, ownership и `git status`.
+   - Не включать secret values, bearer tokens, credentials, full environment dumps.
+6. OWNERSHIP
+   - Оба изменённых repo-path должны быть uid/gid 1000:1000.
+   - Никакого recursive chown/chmod.
+7. STOP
+   - После evidence и проверок остановиться. D2/D3 не трогать.
 
-Inspect at minimum:
-- NodePort/Service/Endpoint path for `10.129.13.78:30080`.
-- `aither-portal` nginx-only runtime and mounted ConfigMap names/keys.
-- `aither-portal-backend` runtime image, routes/OpenAPI or equivalent route inventory, non-secret env variable names, mounted ConfigMap/Secret names only.
-- `aither-bff`, `aither-identity`, and model upstream Services only as needed to prove routing ownership.
-- Canonical model IDs and external API prefixes.
+## PASS
+PASS только если одновременно:
+- canonical source содержит полный working primary nginx configuration;
+- source hash совпадает с primary live nginx hash;
+- secondary frontend ConfigMap nginx hash совпадает с canonical source;
+- external API route blocks присутствуют во всех трёх копиях;
+- portal health остаётся 200;
+- unauthenticated chat route отвечает 401/403, а не 404/5xx;
+- никаких изменений вне разрешённых runtime objects и repo paths;
+- D2/D3 не затронуты;
+- secrets не читались и не выводились;
+- Hermes не выполнял Git writes;
+- ownership gate PASS.
 
-Never print Secret values, Authorization headers, full API keys, passwords, JWTs, tokens, or environment values that are credentials.
-
-## Repository comparison scope
-Compare the live runtime against relevant current repository files. Read as many source files as needed, but do not modify them. At minimum examine whether these are current, legacy, or superseded:
-- `portal/server.ts`
-- `portal/api-gateway.ts`
-- `portal/nginx/default.conf`
-- `portal/nginx.conf`
-- `portal/Dockerfile`
-- any deploy/manifests/tools files actually corresponding to the live `aither-portal`, `aither-portal-backend`, `aither-bff`, or identity runtime
-- architecture/governance docs that define the canonical external API and model IDs
-
-Use exact evidence, not assumptions.
-
-## Required drift classification
-For every material mismatch classify one of:
-- `RUNTIME_AHEAD_OF_SOURCE`
-- `SOURCE_AHEAD_OF_RUNTIME`
-- `LEGACY_SOURCE_RETAINED`
-- `GENERATED_RUNTIME_NOT_CAPTURED`
-- `NO_DRIFT`
-- `UNKNOWN_NEEDS_OWNER_EVIDENCE`
-
-For each mismatch state:
-1. live object/component;
-2. runtime fact;
-3. repository path(s);
-4. exact mismatch;
-5. operational/security impact;
-6. whether it blocks E1 Final Acceptance;
-7. narrowest exact repository paths that a later reconciliation task would need to change.
-
-## Mandatory acceptance questions
-Answer explicitly:
-1. Is the currently working external API configuration reproducible from GitHub alone on a fresh deployment?
-2. Are canonical models `qwen2.5-32b-instruct` and `qwen3-32b` represented correctly in the active Source of Truth?
-3. Is the live `/api/v1/models` + `/api/v1/chat/completions` routing represented in a source-controlled deployment/config artifact?
-4. Is legacy Fastify portal source still authoritative, compatibility-only, or stale?
-5. Which exact files should become the canonical deployment Source of Truth before E1 can be accepted?
-6. Can E1 be rerun now, or must reconciliation occur first?
-
-## Sanity checks
-Read-only only:
-- GET `/health` if safely reachable without auth.
-- GET `/api/v1/models` only if an already-existing authorized credential can be used without exposing it and without creating/modifying credentials; otherwise record AUTH_REQUIRED and do not create a key.
-- POST no-auth `/api/v1/chat/completions` may be used to confirm 401/403 contract. Do not create a new credential.
-
-## Repository evidence
-Create exactly:
-`docs/evidence/SOURCE_RUNTIME_DRIFT_AUDIT_R1.md`
-
-Final ownership must be uid/gid 1000:1000. Hermes must not perform any Git write. Host runner will commit/push.
-
-## Forbidden
-- Any runtime mutation.
-- Any deployment restart/rollout/apply/patch/edit/delete.
-- Any DB write or direct DB mutation.
-- Creating, rotating, revoking, or modifying API keys/users/sessions.
-- Secret access/value extraction.
-- Changes to `.agent/*`, ROADMAP, application source, manifests, portal code, identity code, or deployment files.
-- Any git add/commit/push/reset/clean/checkout/switch/merge/rebase/tag/ref write.
-
-## PASS gate
-PASS only if:
-- drift is proven with concrete runtime + repository evidence;
-- all mandatory acceptance questions are answered;
-- exact next reconciliation paths are identified;
-- no runtime/DB/credential/source mutation occurred;
-- only the evidence file changed;
-- evidence ownership is 1000:1000;
-- no secret is printed or committed;
-- Hermes performed no Git write.
-
-Otherwise BLOCKED with evidence and STOP.
+Иначе BLOCKED с точной причиной и без расширения scope.

@@ -1,22 +1,23 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-SOURCE-RUNTIME-DRIFT-AUDIT-R1",
+  "task_id": "AITHER-MVP-SOURCE-RUNTIME-RECONCILE-D1-R1",
   "executor": "hermes",
-  "mode": "READ_ONLY_SOURCE_RUNTIME_DRIFT_AUDIT",
+  "mode": "NARROW_SOURCE_RUNTIME_RECONCILIATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "11574b78b992009cb72727514a83908b51eea8ed",
+  "baseline_sha": "f0e7aff2c46ab0f74a8ae3a5011c32a58f4145ac",
   "allowed_paths": [
-    "docs/evidence/SOURCE_RUNTIME_DRIFT_AUDIT_R1.md"
+    "aither-v2/services/portal-frontend/nginx.conf",
+    "docs/evidence/SOURCE_RUNTIME_RECONCILE_D1_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": true,
-    "deployment": false,
+    "deployment": true,
     "database_write": false,
-    "runtime_write": false,
+    "runtime_write": true,
     "secret_access": false,
     "package_install": false
   },
@@ -30,5 +31,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "audit: document source runtime drift"
+  "commit_message": "reconcile: capture live portal routing D1"
 }
