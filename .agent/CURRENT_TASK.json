@@ -1,26 +1,22 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-URGENT-QWEN38-PERMANENT-CUTOVER-R1",
+  "task_id": "AITHER-URGENT-QWEN38-RECOVERY-AUDIT-R1",
   "executor": "hermes",
-  "mode": "PERMANENT_MODEL_REPLACEMENT_WITH_COMPATIBILITY_GATES",
+  "mode": "READ_ONLY_RUNTIME_RECOVERY_AUDIT",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "1ab3dd97801342423c6f709c1d2ad3da77b613d6",
+  "baseline_sha": "4d2472ca1065dfcb011ac4d0150167423ea7a36a",
   "allowed_paths": [
-    "aither-v2/manifests/models/qwen38-27b-fp8.yaml",
-    "aither-v2/services/portal-backend/app/main.py",
-    "aither-v2/services/portal-backend/k8s/portal-backend.yaml",
-    "aither-v2/canonical-image-digests.txt",
-    "docs/evidence/QWEN38_PERMANENT_CUTOVER_R1.md"
+    "docs/evidence/QWEN38_RECOVERY_AUDIT_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": true,
-    "deployment": true,
+    "deployment": false,
     "database_write": false,
-    "runtime_write": true,
+    "runtime_write": false,
     "secret_access": false,
     "package_install": false
   },
@@ -31,8 +27,8 @@
   },
   "validation_commands": [],
   "max_commits": 1,
-  "require_clean_start": true,
-  "require_clean_finish": true,
+  "require_clean_start": false,
+  "require_clean_finish": false,
   "architect_acceptance_required": true,
-  "commit_message": "model: replace Qwen2.5 with Qwen3.8-27B-FP8"
+  "commit_message": "audit: inspect Qwen3.8 failed cutover runtime"
 }
