@@ -1,14 +1,17 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-MVP-SOURCE-RUNTIME-RECONCILE-D1-R1",
+  "task_id": "AITHER-URGENT-QWEN38-PERMANENT-CUTOVER-R1",
   "executor": "hermes",
-  "mode": "NARROW_SOURCE_RUNTIME_RECONCILIATION",
+  "mode": "PERMANENT_MODEL_REPLACEMENT_WITH_COMPATIBILITY_GATES",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "f0e7aff2c46ab0f74a8ae3a5011c32a58f4145ac",
+  "baseline_sha": "1ab3dd97801342423c6f709c1d2ad3da77b613d6",
   "allowed_paths": [
-    "aither-v2/services/portal-frontend/nginx.conf",
-    "docs/evidence/SOURCE_RUNTIME_RECONCILE_D1_R1.md"
+    "aither-v2/manifests/models/qwen38-27b-fp8.yaml",
+    "aither-v2/services/portal-backend/app/main.py",
+    "aither-v2/services/portal-backend/k8s/portal-backend.yaml",
+    "aither-v2/canonical-image-digests.txt",
+    "docs/evidence/QWEN38_PERMANENT_CUTOVER_R1.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -31,5 +34,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "reconcile: capture live portal routing D1"
+  "commit_message": "model: replace Qwen2.5 with Qwen3.8-27B-FP8"
 }
