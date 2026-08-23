@@ -1,8 +1,10 @@
-# AITHER-LIVE-PORTAL-SOURCE-DISCOVERY-R1
+# AITHER-LIVE-PORTAL-SOURCE-DISCOVERY-R2
 
 ## Purpose
 
-Read-only discovery only. Establish with runtime evidence which frontend artifact is actually serving the live Aither Portal seen by users. Do not modify Portal, Kubernetes objects, models, backend, Identity, Gateway, documentation outside the single evidence file, or any runtime state.
+Read-only discovery only. Establish with runtime evidence which frontend artifact is actually serving the live Aither Portal seen by users. This R2 supersedes the blocked R1 handoff and uses a clean baseline at `a29eb83833bfb004c18bfdb2c9f94aa2b719c033` so that the root-executor handoff scope contains only `.agent/CURRENT_TASK.json` and `.agent/CURRENT_TASK.md`.
+
+Do not modify Portal, Kubernetes objects, models, backend, Identity, Gateway, documentation outside the single evidence file, or any runtime state.
 
 ## Governance
 
@@ -12,6 +14,7 @@ Read-only discovery only. Establish with runtime evidence which frontend artifac
 - No Codex execution is authorized.
 - Hermes must not commit or push; host runner finalizes.
 - This task is diagnostic and read-only except for writing the allowed evidence file.
+- Do not weaken or bypass root-executor governance checks.
 
 ## Exact objective
 
@@ -55,7 +58,7 @@ If the live runtime points to another repository path, include that exact path i
 
 Write exactly:
 
-`docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R1.md`
+`docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R2.md`
 
 It must contain:
 

@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-LIVE-PORTAL-SOURCE-DISCOVERY-R1",
+  "task_id": "AITHER-LIVE-PORTAL-SOURCE-DISCOVERY-R2",
   "executor": "hermes",
   "mode": "READ_ONLY_LIVE_PORTAL_SOURCE_DISCOVERY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "b5deccefa30bb488803924a7f65250f57837edee",
+  "baseline_sha": "a29eb83833bfb004c18bfdb2c9f94aa2b719c033",
   "allowed_paths": [
-    "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R1.md"
+    "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R2.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -26,11 +26,11 @@
     "push": true
   },
   "validation_commands": [
-    ["test", "-s", "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R1.md"]
+    ["test", "-s", "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R2.md"]
   ],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "audit: identify canonical live Portal frontend source"
+  "commit_message": "audit: identify canonical live Portal frontend source R2"
 }
