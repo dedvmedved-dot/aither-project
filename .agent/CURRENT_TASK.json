@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-QWEN38-AUTHENTICATED-E2E-R1",
+  "task_id": "AITHER-QWEN38-AUTHENTICATED-E2E-R2",
   "executor": "hermes",
-  "mode": "NARROW_AUTHENTICATED_EXTERNAL_API_E2E",
+  "mode": "NARROW_AUTHENTICATED_EXTERNAL_API_E2E_WITH_EPHEMERAL_SECRET",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "3c58659027af3ec62918f0e11f14ec976c2e4533",
+  "baseline_sha": "8fc9894bdd7843dfbf5aeee2326a4bbfd3f69189",
   "allowed_paths": [
-    "docs/evidence/QWEN38_AUTHENTICATED_E2E_R1.md"
+    "docs/evidence/QWEN38_AUTHENTICATED_E2E_R2.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -30,5 +30,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "test: authenticate external API for both Qwen3 models"
+  "commit_message": "test: complete authenticated E2E for Qwen3 models"
 }
