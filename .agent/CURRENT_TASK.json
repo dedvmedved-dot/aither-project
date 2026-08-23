@@ -1,28 +1,23 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-URGENT-QWEN38-PERMANENT-CUTOVER-R2",
+  "task_id": "AITHER-QWEN38-AUTHENTICATED-E2E-R1",
   "executor": "hermes",
-  "mode": "PERMANENT_MODEL_CUTOVER_WITH_FAIL_CLOSED_ROLLBACK",
+  "mode": "NARROW_AUTHENTICATED_EXTERNAL_API_E2E",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "85e1a83539327f981c9868190c66a0bbbd48c87f",
+  "baseline_sha": "3c58659027af3ec62918f0e11f14ec976c2e4533",
   "allowed_paths": [
-    "aither-v2/deploy/vllm-qwen38-27b-fp8.yaml",
-    "aither-v2/deploy/vllm-32b-instruct-awq.yaml",
-    "aither-v2/services/portal-backend/app/main.py",
-    "aither-v2/services/portal-backend/k8s/portal-backend.yaml",
-    "aither-v2/canonical-image-digests.txt",
-    "docs/evidence/QWEN38_PERMANENT_CUTOVER_R2.md"
+    "docs/evidence/QWEN38_AUTHENTICATED_E2E_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": true,
-    "deployment": true,
+    "deployment": false,
     "database_write": false,
     "runtime_write": true,
-    "secret_access": false,
+    "secret_access": true,
     "package_install": false
   },
   "host_capabilities": {
@@ -35,5 +30,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "feat: permanently cut over n7 to Qwen3.8 FP8"
+  "commit_message": "test: authenticate external API for both Qwen3 models"
 }
