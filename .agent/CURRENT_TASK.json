@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-URGENT-QWEN38-VLLM-COMPAT-N7-R1",
+  "task_id": "AITHER-URGENT-QWEN38-VLLM-COMPAT-RECOVERY-AUDIT-R1",
   "executor": "hermes",
-  "mode": "ISOLATED_VLLM_COMPATIBILITY_TEST_WITH_ROLLBACK",
+  "mode": "READ_ONLY_RUNTIME_RECOVERY_AUDIT",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "a233de05254a9d74a9c8ea89698013dbdfc2a14b",
+  "baseline_sha": "14bf1cff8224ca48a3d453aaf099a71ab6d5ee4b",
   "allowed_paths": [
-    "docs/evidence/QWEN38_VLLM_COMPAT_N7_R1.md"
+    "docs/evidence/QWEN38_VLLM_COMPAT_RECOVERY_AUDIT_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": true,
-    "deployment": true,
+    "deployment": false,
     "database_write": false,
-    "runtime_write": true,
+    "runtime_write": false,
     "secret_access": false,
     "package_install": false
   },
@@ -30,5 +30,5 @@
   "require_clean_start": false,
   "require_clean_finish": false,
   "architect_acceptance_required": true,
-  "commit_message": "test: validate Qwen3.8 FP8 on n7 with vLLM 0.27.1"
+  "commit_message": "audit: inspect Qwen3.8 compatibility test recovery"
 }
