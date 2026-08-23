@@ -1,13 +1,14 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-URGENT-QWEN38-VLLM-COMPAT-RECOVERY-CORRECTIVE-R1",
+  "task_id": "AITHER-URGENT-QWEN25-N7-RESTORE-LIMITRANGE-R1",
   "executor": "hermes",
-  "mode": "BOUNDED_RUNTIME_RESTORE_WITH_FORENSIC_CAPTURE",
+  "mode": "NARROW_SOURCE_RUNTIME_RESTORE",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "228bbb6e2484f99aa8600c90724a57b79772c2a4",
+  "baseline_sha": "92d15a97a360304cb3066ac626f8b1ae149bb4fb",
   "allowed_paths": [
-    "docs/evidence/QWEN38_VLLM_COMPAT_RECOVERY_CORRECTIVE_R1.md"
+    "aither-v2/deploy/vllm-32b-instruct-awq.yaml",
+    "docs/evidence/QWEN25_N7_RESTORE_LIMITRANGE_R1.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -27,8 +28,8 @@
   },
   "validation_commands": [],
   "max_commits": 1,
-  "require_clean_start": false,
+  "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "fix: restore n7 after Qwen3.8 compatibility test"
+  "commit_message": "fix: align Qwen2.5 cpu limit with namespace LimitRange"
 }

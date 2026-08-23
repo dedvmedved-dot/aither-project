@@ -1,101 +1,31 @@
-# AITHER URGENT — Qwen3.8 Compatibility Recovery Corrective R1
+# AITHER URGENT — Restore Qwen2.5 on n7 by aligning CPU limit with namespace LimitRange R1
 
 ## Goal
-Restore n7 to the known-good pre-test state after `AITHER-URGENT-QWEN38-VLLM-COMPAT-N7-R1` timed out before rollback, while preserving forensic evidence that Qwen3.8 itself passed the FP8/Turing compatibility gate.
+Restore the baseline Qwen2.5 service on n7 after the Qwen3.8 compatibility test, using the smallest source/runtime change proven necessary by the prior recovery evidence.
 
-## Critical facts from accepted read-only audit
-- Qwen3.8 official FP8 snapshot is complete (66/66 shards).
-- vLLM 0.27.1 exact digest is present on n7.
-- Qwen3.8 compat workload successfully loaded on 2× Quadro RTX 6000, sm_75, TP=2.
-- max-model-len 16384 reached Ready, `/health` 200, no OOM/fatal CUDA/kernel error.
-- Qwen2.5 was left scaled to 0 because the 3600 s H2 timeout fired before rollback.
-- Temporary Deployment/Service `vllm-qwen38-27b-fp8-compat` remain on n7.
-- An untracked root-owned `aither-v2/manifests/models/` directory prevents supervisor `git clean -fd` and caused `restore also failed`.
+## Known blocker
+Namespace `aither-inference` has LimitRange `aither-limits` with per-container `max.cpu: 8`.
+Committed manifest `aither-v2/deploy/vllm-32b-instruct-awq.yaml` requests `cpu: 8` but sets `limits.cpu: 16`, so new pods are rejected.
 
-## Rules
-1. This is a recovery task only. Do not continue permanent Qwen3.8 cutover, Portal routing/catalog, D2/D3/E1/F1/F2.
-2. Do not modify n8 except read-only health verification.
-3. Do not read Secret values or create credentials.
-4. Do not modify DB, Identity, Billing, networking, GPU driver, containerd, CUDA, or model files.
-5. Do not delete the downloaded Qwen3.8 weights or cached vLLM 0.27.1 image.
-6. Preserve enough non-secret forensic evidence from the current running compat pod BEFORE deleting it: image digest, args, Ready state, `/health`, `/v1/models`, startup lines proving 16384 KV/cache init and absence of fatal CUDA/OOM; if safe, one short internal completion only if the pod is already ready. Do not extend the test.
-7. Hermes must not git commit/push/reset/clean; host runner finalizes.
-8. Repo output only `docs/evidence/QWEN38_VLLM_COMPAT_RECOVERY_CORRECTIVE_R1.md`.
-
-## Phase A — capture current proof before cleanup
-Record read-only:
-- Qwen3.8 compat Deployment/Pod/Service state;
-- exact image digest `vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967` if runtime still matches;
-- node n7, 2 GPU allocation, Ready/restarts;
-- `/health` status;
-- `/v1/models` served model;
-- safe relevant startup log excerpts showing FP8 model load, TP=2, max-model-len 16384, KV cache capacity, engine init completion, server start, and no fatal CUDA/OOM/kernel failure.
-Do not spend more than a few minutes on optional inference capture; recovery has priority.
-
-## Phase B — remove temporary compatibility workload
-Delete only in namespace `aither-inference`:
-- Deployment `vllm-qwen38-27b-fp8-compat`
-- Service `vllm-qwen38-27b-fp8-compat`
-Wait until all associated pods/ReplicaSets are gone and both n7 GPUs are released.
-Verify no external exposure/NodePort/Ingress was created.
-
-## Phase C — restore Qwen2.5 baseline
-Scale Deployment `vllm-32b-instruct-awq` to exactly 1 replica.
-Wait for Ready=True.
-Verify:
-- pod scheduled on n7;
-- restarts=0 or explain any restart count;
-- `/health` -> 200;
-- `/v1/models` identifies `qwen2.5-32b-instruct`;
-- both n7 GPUs are held by Qwen2.5 TP=2;
-- no Qwen3.8 temporary workload remains.
-Verify n8 `vllm-qwen3-32b-awq` remains 1/1 Ready and `/health` 200.
-
-## Phase D — repair worktree ownership leak safely
-Target only the untracked leak identified by audit:
-`aither-v2/manifests/models/`
-containing `qwen38-27b-fp8.yaml`.
-
-Before changing it, record metadata only (path, uid/gid, mode, file size/hash if readable without exposing secrets). This manifest must contain no secret values; do not print env/Secret data.
-
-Because the directory/file are untracked and outside any accepted source publication, and were created by a previous root executor, remove the leaked artifact safely. Preferred approach:
-- if needed, adjust ownership/permissions minimally so `codex` can remove it;
-- delete only `aither-v2/manifests/models/qwen38-27b-fp8.yaml` and the now-empty `aither-v2/manifests/models/` directory;
-- do not run broad `chown` on the repo;
-- do not use `safe.directory=*`;
-- do not delete any tracked file.
-
-Then verify as user `codex`:
-- `git status --porcelain` shows only the allowed evidence file before runner finalization;
-- `git clean -fd --dry-run` no longer reports permission errors;
-- no root-owned files/directories remain under the affected leaked path.
+## Required actions
+1. Verify current blocker is still exactly the LimitRange CPU admission failure and no new blocker exists.
+2. Change ONLY `resources.limits.cpu` for container `vllm` in `aither-v2/deploy/vllm-32b-instruct-awq.yaml` from `"16"` to `"8"`.
+3. Do not modify requests.cpu, memory, GPU count, model args, image, service, probes, nodeSelector, LimitRange, namespace quota, Secret refs, n8, Portal, Identity, Billing, routing or Qwen3.8 files.
+4. Apply the corrected manifest to namespace `aither-inference`.
+5. Ensure deployment `vllm-32b-instruct-awq` has replicas=1.
+6. Wait for pod Ready=True and rollout complete.
+7. Verify `/health` HTTP 200 from the restored pod.
+8. Verify `/v1/models` reports `qwen2.5-32b-instruct` using an existing authorized runtime path without exposing credentials. If auth prevents this without secret access, record AUTH_REQUIRED and do not read secrets; `/health` remains mandatory.
+9. Verify both n7 GPUs are allocated to the restored Qwen2.5 pod and there are no `qwen38`/`compat` temporary objects.
+10. Verify n8 `vllm-qwen3-32b-awq` remains 1/1 Ready and `/health` 200.
+11. Verify worktree clean and no non-codex-owned files under repo paths touched.
 
 ## Evidence
-Create only:
-`docs/evidence/QWEN38_VLLM_COMPAT_RECOVERY_CORRECTIVE_R1.md`
+Create only `docs/evidence/QWEN25_N7_RESTORE_LIMITRANGE_R1.md` plus the single authorized manifest edit.
 
-Include:
-- task/timestamps;
-- pre-cleanup compat state and proof;
-- Qwen3.8 compatibility facts already observable at recovery time;
-- exact deleted temporary K8s objects;
-- n7 GPU release;
-- Qwen2.5 restore evidence (1/1, health 200, model API);
-- n8 Qwen3 health evidence;
-- leaked path metadata and exact cleanup performed;
-- `git clean -fd --dry-run` result as codex;
-- final runtime classification;
-- `SECRETS_EXPOSED: NO`.
+Evidence must include before/after CPU resource stanza, admission event before fix, apply/rollout result, pod/node/restart state, health result, GPU allocation, absence of qwen38 temp objects, n8 health, git diff summary, and `SECRETS_EXPOSED: NO`.
 
 ## PASS criteria
-PASS only if all are true:
-- temporary Qwen3.8 Deployment/Service/Pods/ReplicaSets are gone;
-- Qwen2.5 is restored 1/1 Ready on n7 and `/health` 200;
-- Qwen3-32B remains healthy on n8;
-- Qwen3.8 weights and vLLM 0.27.1 cache remain intact;
-- root-owned leaked untracked manifest path is removed without touching tracked source;
-- codex can run `git clean -fd --dry-run` without permission error;
-- final repo changes are only the allowed evidence file plus host-runner-managed `.agent/EXECUTION_RESULT.json`;
-- no secrets exposed.
+PASS only if Qwen2.5 is 1/1 Ready on n7, `/health`=200, the only source change is cpu limit 16→8, no Qwen3.8 temp objects remain, n8 Qwen3 remains healthy, worktree is clean, and no secret is exposed.
 
-On PASS: STOP. Do not start permanent cutover.
+On PASS: STOP. Do not restart Qwen3.8 and do not perform permanent cutover in this task.
