@@ -7,8 +7,11 @@
 # Identity Service (FE-04: /me tier/org_status, fresh DB rights, no entitlement fallback)
 aither-identity: sha256:3a916b25666faf5e2d8d4a98b6965698796a8f87c77eaa6b6d5a39df6a2cafb1
 
-# Portal Backend (FE-04: model scope enforcement, RAG exact scopes, facade cleanup)
-aither-portal-backend: sha256:286eea31b95374f6f28cdcb1a8d205db9b22a9b11aa9d1167b9fadc84f815dab
+# Portal Backend (QWEN38 permanent cutover R2: exact Qwen3-family routing)
+aither-portal-backend: sha256:b5a0c352243341abe9a602e666594525ff5f4dbd94d5a01a1f65b2243e58aa94
+
+# vLLM permanent Qwen3.8-27B-FP8 on n7 (vLLM v0.27.1, runtime-observed digest)
+vllm-qwen38-27b-fp8: sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967
 
 # Verified: K8s deployment imageID matches registry digest
 # kubectl get deployment aither-identity -o jsonpath='{.spec.template.spec.containers[0].image}'

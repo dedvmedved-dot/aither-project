@@ -121,10 +121,28 @@ _pending_registrations: dict = {}
 _pending_lock = threading.Lock()
 
 # Upstream model credentials (server-side, from K8s Secrets — never returned to browser)
+# UPSTREAM_14B_* is a stale variable name retained only for the RAG feature (out of cutover scope).
 UPSTREAM_14B_URL = os.environ.get("UPSTREAM_14B_URL", "http://vllm-14b-instruct.aither-inference.svc:8000")
 UPSTREAM_14B_TOKEN = os.environ.get("UPSTREAM_14B_TOKEN", "")
-UPSTREAM_32B_URL = os.environ.get("UPSTREAM_32B_URL", "http://vllm-32b-instruct-awq.aither-inference.svc:8000")
-UPSTREAM_32B_TOKEN = os.environ.get("UPSTREAM_32B_TOKEN", "")
+
+# Exact model -> upstream routing map (no substring matching, no fallback).
+# Both active Qwen3-family models share the existing model:qwen3:chat scope.
+MODEL_UPSTREAM_URLS = {
+    "qwen3-32b": os.environ.get("UPSTREAM_QWEN3_32B_URL", "http://vllm-qwen3-32b-awq.aither-inference.svc:8000"),
+    "qwen3.8-27b": os.environ.get("UPSTREAM_QWEN38_27B_URL", "http://vllm-qwen38-27b-fp8.aither-inference.svc:8000"),
+}
+MODEL_UPSTREAM_TOKENS = {
+    "qwen3-32b": os.environ.get("UPSTREAM_QWEN3_32B_TOKEN", ""),
+    "qwen3.8-27b": os.environ.get("UPSTREAM_QWEN38_27B_TOKEN", ""),
+}
+
+
+def _resolve_upstream(model: str) -> tuple[str, str]:
+    """Exact-key upstream resolution. Unknown model -> controlled 404, never routed."""
+    model_lower = model.lower().strip()
+    if model_lower not in MODEL_UPSTREAM_URLS:
+        raise HTTPException(status_code=404, detail=f"model_not_found: '{model}'")
+    return MODEL_UPSTREAM_URLS[model_lower], MODEL_UPSTREAM_TOKENS[model_lower]
 # In production, set PORTAL_CORS_ORIGIN to the Portal Frontend URL.
 # Example: PORTAL_CORS_ORIGIN=https://portal.aither.example.com
 # Multiple origins are not supported by this middleware — use a reverse proxy for complex rules.
@@ -194,14 +212,14 @@ async def _get_user_from_token(request: Request) -> dict:
 def _check_chat_entitlement(user: dict, model: str) -> None:
     """Verify user has entitlement to use the specified model.
 
-    Strict model allowlist: only qwen-14b and qwen-32b-base permitted.
+    Strict model allowlist: exactly the two active Qwen3-family models.
     Unknown models → 400 BEFORE any upstream call.
     """
-    # Strict model allowlist
-    ALLOWED_MODELS = {"qwen2.5-32b-instruct", "qwen3-32b"}
+    # Strict model allowlist (exact keys, no substring matching)
+    ALLOWED_MODELS = {"qwen3-32b", "qwen3.8-27b"}
     model_lower = model.lower().strip()
     if model_lower not in ALLOWED_MODELS:
-        raise HTTPException(status_code=400, detail=f"unknown_model: '{model}' not in allowlist. Available: qwen2.5-32b-instruct, qwen3-32b")
+        raise HTTPException(status_code=400, detail=f"model_not_found: '{model}' not in allowlist. Available: qwen3-32b, qwen3.8-27b")
 
     # Organisation must be assigned and active
     org_id = user.get("org_id")
@@ -212,18 +230,11 @@ def _check_chat_entitlement(user: dict, model: str) -> None:
     # Tier must be present
     if not user.get("tier"):
         raise HTTPException(status_code=403, detail="entitlement_missing: no tier assigned")
-    # Model-specific scope enforcement
+    # Model-specific scope enforcement — both active models require model:qwen3:chat
     scopes_str = (user.get("scopes") or "").strip()
     scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
-    if "qwen3" in model_lower:
-        if "model:qwen3:chat" not in scopes:
-            raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:qwen3:chat' required for Qwen3-32B")
-    elif "32b" in model_lower:
-        if "model:32b:chat" not in scopes:
-            raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:32b:chat' required for 32B models")
-    else:
-        if "model:14b:chat" not in scopes:
-            raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:14b:chat' required for qwen-14b")
+    if "model:qwen3:chat" not in scopes:
+        raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:qwen3:chat' required")
 
 def _require_admin(user: dict) -> None:
     """Raise 403 if user is not admin."""
@@ -785,7 +796,7 @@ async def proxy_models(request: Request):
         effective = set(ctx.get("effective_scopes", []))
         models = []
         for model_id, info in CURRENT_MODELS.items():
-            if info["scope"] in effective or info.get("legacy_scope") in effective:
+            if info["scope"] in effective:
                 models.append({"id": model_id, "object": "model", "created": 1722900000, "owned_by": "aither"})
         if not models:
             raise HTTPException(status_code=403, detail="No models available for this key")
@@ -889,8 +900,8 @@ async def proxy_revoke_api_key(key_id: int, request: Request):
 # ── External /v1/* API (OpenAI-compatible, API key auth) ─────
 
 CURRENT_MODELS = {
-    "qwen2.5-32b-instruct": {"scope": "model:qwen2.5:chat", "legacy_scope": "model:32b:chat", "display": "Qwen2.5-32B-Instruct-AWQ"},
     "qwen3-32b": {"scope": "model:qwen3:chat", "display": "Qwen3-32B-AWQ"},
+    "qwen3.8-27b": {"scope": "model:qwen3:chat", "display": "Qwen3.8-27B-FP8"},
 }
 
 
@@ -907,23 +918,16 @@ async def _chat_via_api_key(auth_header: str, body_json: dict):
     temperature = body_json.get("temperature", 0.7)
     stream = body_json.get("stream", False)
     
-    model_lower = model.lower().strip()
-    if "qwen3" in model_lower:
-        upstream_url = UPSTREAM_14B_URL
-        upstream_token = UPSTREAM_14B_TOKEN
-    else:
-        upstream_url = UPSTREAM_32B_URL
-        upstream_token = UPSTREAM_32B_TOKEN
-    
+    upstream_url, upstream_token = _resolve_upstream(model)
+
     if not upstream_token:
         raise HTTPException(status_code=503, detail="Upstream not configured")
-    
+
     req_body = {
         "model": model, "messages": messages,
         "max_tokens": max_tokens, "temperature": temperature, "stream": stream,
+        "chat_template_kwargs": {"enable_thinking": False},
     }
-    if "qwen3" in model_lower:
-        req_body["chat_template_kwargs"] = {"enable_thinking": False}
     
     try:
         async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
@@ -939,12 +943,10 @@ def _check_api_key_entitlement(ctx: dict, model: str):
     model_lower = model.lower().strip()
     if model_lower not in CURRENT_MODELS:
         raise HTTPException(status_code=404, detail=f"model_not_found: '{model}'")
-    
-    info = CURRENT_MODELS[model_lower]
-    required_scope = info["scope"]
-    legacy_scope = info.get("legacy_scope")
+
+    required_scope = CURRENT_MODELS[model_lower]["scope"]
     effective = ctx.get("effective_scopes", [])
-    if required_scope not in effective and (not legacy_scope or legacy_scope not in effective):
+    if required_scope not in effective:
         raise HTTPException(status_code=403, detail=f"insufficient_scope: '{required_scope}' required")
 
 
@@ -996,30 +998,22 @@ async def external_chat(request: Request):
     stream = body.get("stream", False)
     tools = body.get("tools")
     
-    # Determine upstream
-    model_lower = model.lower().strip()
-    if "qwen3" in model_lower:
-        upstream_url = UPSTREAM_14B_URL
-        upstream_token = UPSTREAM_14B_TOKEN
-    else:
-        upstream_url = UPSTREAM_32B_URL
-        upstream_token = UPSTREAM_32B_TOKEN
-    
+    # Determine upstream (exact-key, no substring matching)
+    upstream_url, upstream_token = _resolve_upstream(model)
+
     if not upstream_token:
         raise HTTPException(status_code=503, detail="Upstream not configured")
-    
+
     req_body = {
         "model": model,
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
         "stream": stream,
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     if tools:
         req_body["tools"] = tools
-    
-    if "qwen3" in model_lower:
-        req_body["chat_template_kwargs"] = {"enable_thinking": False}
     
     try:
         if stream:
@@ -1783,7 +1777,7 @@ async def chat_completions(request: Request):
     if auth_header.startswith("Bearer aither_"):
         return await _chat_via_api_key(auth_header, body_json)
 
-    model = body_json.get("model", "qwen-14b")
+    model = body_json.get("model", "qwen3-32b")
     messages = body_json.get("messages", [])
     max_tokens = body_json.get("max_tokens", 512)
     temperature = body_json.get("temperature", 0.7)
@@ -1794,16 +1788,8 @@ async def chat_completions(request: Request):
     # 2. Verify entitlement: org active, tier present, model scope
     _check_chat_entitlement(user, model)
 
-    # 3. Determine upstream based on model
-    if "qwen3" in model.lower():
-        upstream_url = UPSTREAM_14B_URL   # Qwen3 lives where 14B used to (n8)
-        upstream_token = UPSTREAM_14B_TOKEN
-    elif "32b" in model.lower():
-        upstream_url = UPSTREAM_32B_URL
-        upstream_token = UPSTREAM_32B_TOKEN
-    else:
-        upstream_url = UPSTREAM_14B_URL
-        upstream_token = UPSTREAM_14B_TOKEN
+    # 3. Determine upstream based on model (exact-key, no substring matching)
+    upstream_url, upstream_token = _resolve_upstream(model)
 
     if not upstream_token:
         raise HTTPException(status_code=503, detail="Upstream credentials not configured")
@@ -1811,17 +1797,14 @@ async def chat_completions(request: Request):
     # 3. Forward directly to upstream with server-side credential
     try:
         async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
-            # All models now use native chat/completions (qwen2.5-32b-instruct is Instruct, not base)
             req_body = {
                 "model": model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
                 "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
             }
-            # Qwen3: disable thinking mode for standard chat
-            if "qwen3" in model.lower():
-                req_body["chat_template_kwargs"] = {"enable_thinking": False}
             chat_resp = await ac.post(
                 "/v1/chat/completions",
                 json=req_body,

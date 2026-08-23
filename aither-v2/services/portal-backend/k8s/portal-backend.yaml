@@ -21,7 +21,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: portal-backend
-          image: 10.129.13.78:5000/aither-portal-backend:stage18a-82fe433
+          image: 10.129.13.78:5000/aither-portal-backend@sha256:b5a0c352243341abe9a602e666594525ff5f4dbd94d5a01a1f65b2243e58aa94
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -40,6 +40,20 @@ spec:
               value: "INFO"
             - name: PORTAL_CORS_ORIGIN
               value: "http://localhost:3000"
+            - name: UPSTREAM_QWEN3_32B_URL
+              value: "http://vllm-qwen3-32b-awq.aither-inference.svc:8000"
+            - name: UPSTREAM_QWEN38_27B_URL
+              value: "http://vllm-qwen38-27b-fp8.aither-inference.svc:8000"
+            - name: UPSTREAM_QWEN3_32B_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
+            - name: UPSTREAM_QWEN38_27B_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: VLLM_API_KEY
           livenessProbe:
             httpGet:
               path: /health
