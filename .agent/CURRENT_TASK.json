@@ -1,19 +1,15 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-H2-HERMES-WATCHDOG-R1",
-  "executor": "codex",
-  "mode": "CONTROL_PLANE_H2_WATCHDOG",
+  "task_id": "AITHER-ARCHITECT-HOLD-NO-CODEX-R1",
+  "executor": "hermes",
+  "mode": "ARCHITECT_HOLD",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "bcd0a789e6952481a2ec6f09b219ced4eeba44f1",
-  "allowed_paths": [
-    ".agent/hermes_observer.py",
-    ".agent/tests/test_hermes_observer.py",
-    "docs/evidence/AITHER_H2_HERMES_WATCHDOG_R1.md"
-  ],
+  "baseline_sha": "30004201a63e3272be46b99b059b01d976b2e107",
+  "allowed_paths": [],
   "capabilities": {
-    "source_write": true,
-    "agent_exec": true,
+    "source_write": false,
+    "agent_exec": false,
     "network_git": false,
     "kubernetes": false,
     "deployment": false,
@@ -27,13 +23,10 @@
     "commit": true,
     "push": true
   },
-  "validation_commands": [
-    ["python3", "-m", "py_compile", ".agent/hermes_observer.py", ".agent/tests/test_hermes_observer.py"],
-    ["python3", ".agent/tests/test_hermes_observer.py"]
-  ],
+  "validation_commands": [],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "fix: bound Hermes H2 wait and expose stall state"
+  "commit_message": "chore: enter architect hold with no executor"
 }
