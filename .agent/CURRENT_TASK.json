@@ -1,14 +1,18 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-URGENT-QWEN25-N7-RESTORE-LIMITRANGE-R1",
+  "task_id": "AITHER-URGENT-QWEN38-PERMANENT-CUTOVER-R2",
   "executor": "hermes",
-  "mode": "NARROW_SOURCE_RUNTIME_RESTORE",
+  "mode": "PERMANENT_MODEL_CUTOVER_WITH_FAIL_CLOSED_ROLLBACK",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "92d15a97a360304cb3066ac626f8b1ae149bb4fb",
+  "baseline_sha": "85e1a83539327f981c9868190c66a0bbbd48c87f",
   "allowed_paths": [
+    "aither-v2/deploy/vllm-qwen38-27b-fp8.yaml",
     "aither-v2/deploy/vllm-32b-instruct-awq.yaml",
-    "docs/evidence/QWEN25_N7_RESTORE_LIMITRANGE_R1.md"
+    "aither-v2/services/portal-backend/app/main.py",
+    "aither-v2/services/portal-backend/k8s/portal-backend.yaml",
+    "aither-v2/canonical-image-digests.txt",
+    "docs/evidence/QWEN38_PERMANENT_CUTOVER_R2.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -31,5 +35,5 @@
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "fix: align Qwen2.5 cpu limit with namespace LimitRange"
+  "commit_message": "feat: permanently cut over n7 to Qwen3.8 FP8"
 }
