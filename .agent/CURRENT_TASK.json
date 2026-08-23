@@ -1,34 +1,206 @@
 {
-  "schema_version": 1,
-  "task_id": "AITHER-QWEN38-AUTHENTICATED-E2E-R2",
-  "executor": "hermes",
-  "mode": "NARROW_AUTHENTICATED_EXTERNAL_API_E2E_WITH_EPHEMERAL_SECRET",
-  "status": "ACTIVE",
-  "branch": "aither-v2",
-  "baseline_sha": "8fc9894bdd7843dfbf5aeee2326a4bbfd3f69189",
-  "allowed_paths": [
-    "docs/evidence/QWEN38_AUTHENTICATED_E2E_R2.md"
+  "id": "AITHER-PORTAL-MODEL-UI-DOCSYNC-R1",
+  "title": "Synchronize Portal UI and current documentation with permanent Qwen3 model contract",
+  "status": "ready",
+  "execution": {
+    "backend": "hermes",
+    "entrypoint": "root",
+    "preferred_mode": "h2-direct",
+    "fallback_mode": "telegram",
+    "connector": "github"
+  },
+  "governance": {
+    "source_of_truth": "github:aither-v2",
+    "acceptance_authority": "ChatGPT",
+    "executor": "Hermes through persistent host runner",
+    "hermes_self_acceptance": false,
+    "chatgpt_connector_verification_required": true,
+    "runtime_evidence_required_for_runtime_claims": true
+  },
+  "repo": {
+    "owner": "dedvmedved-dot",
+    "name": "aither-project",
+    "branch": "aither-v2",
+    "base_head": "351ef1aafedd20bd053588501ea9fcb7587336de"
+  },
+  "accepted_runtime_contract": {
+    "active_models": [
+      {
+        "id": "qwen3-32b",
+        "display_name": "Qwen3-32B",
+        "scope": "model:qwen3:chat",
+        "upstream": "http://vllm-qwen3-32b-awq.aither-inference.svc:8000"
+      },
+      {
+        "id": "qwen3.8-27b",
+        "display_name": "Qwen3.8-27B-FP8",
+        "scope": "model:qwen3:chat",
+        "upstream": "http://vllm-qwen38-27b-fp8.aither-inference.svc:8000"
+      }
+    ],
+    "catalog_source": "/api/v1/models",
+    "routing": "exact model-id lookup only",
+    "unknown_model": "404 model_not_found",
+    "rollback_only_model": "vllm-32b-instruct-awq / Qwen2.5",
+    "rollback_model_must_not_be_user_visible": true
+  },
+  "audit_findings": [
+    "At base HEAD the Portal backend MODEL_CATALOG is already correct and exposes exactly qwen3-32b and qwen3.8-27b with model:qwen3:chat.",
+    "Portal chat model selector, chat default/model hints, API-key model choices, helper text and examples remain hardcoded to qwen-14b and qwen-32b-base in active/current frontend artifacts.",
+    "Dashboard/agent surfaces call /api/v1/models, but the chat selector is not using that authoritative catalog.",
+    "No evidence was found that browser localStorage, service worker, cached static JSON or build-time model environment variables are the primary catalog source; stale source content itself is sufficient to reproduce the drift.",
+    "Current documentation contains stale Qwen2.5/qwen-14b/qwen-32b-base/model:32b:chat claims and examples.",
+    "docs/operations/DEPLOYMENT_GUIDE.md points to a Stage-15 frontend manifest while deploy/portal-frontend-combined.html represents a later frontend generation; production/canonical frontend source must be established from runtime facts and documented consistently.",
+    "runner-live/runner-status.json is absent from GitHub at the base HEAD. Do not fabricate this file in this corrective task; its absence is a separate Source-of-Truth observability gap, not proof that the runner is down."
   ],
-  "capabilities": {
-    "source_write": true,
-    "agent_exec": true,
-    "network_git": false,
-    "kubernetes": true,
-    "deployment": false,
-    "database_write": false,
-    "runtime_write": true,
-    "secret_access": true,
-    "package_install": false
+  "objective": "Make every active Portal user-facing model surface and every current-facing project document consistent with the accepted permanent model set qwen3-32b + qwen3.8-27b, with scope model:qwen3:chat and exact model routing, while preserving historically correct evidence, dated snapshots, acceptance reports and rollback assets.",
+  "allowed_paths": [
+    "portal/static/index.html",
+    "deploy/portal-frontend-combined.html",
+    "aither-v2/services/portal-frontend/k8s/portal-frontend.yaml",
+    "README.md",
+    "aither-v2/README.md",
+    "docs/model-catalog.md",
+    "docs/api-reference.md",
+    "docs/operations/DEPLOYMENT_GUIDE.md",
+    "docs/architecture/WUI_DUAL_MODEL_AND_AGENT_FLOW.md",
+    "docs/user-guide/WEB_UI_USER_GUIDE.md",
+    "docs/user-guide/AI_AGENT_CONNECTION_GUIDE.md",
+    "docs/user-package/00_INDEX.md",
+    "docs/user-package/01_WELCOME.md",
+    "docs/user-package/02_QUICK_START.md",
+    "docs/user-package/03_USER_GUIDE.md",
+    "docs/user-package/04_API_GUIDE.md",
+    "docs/user-package/05_TEST_ASSIGNMENT.md",
+    "docs/user-package/06_BUG_REPORT_TEMPLATE.md",
+    "docs/user-package/07_USER_FEEDBACK_FORM.md",
+    "docs/user-package/08_FAQ.md",
+    "docs/user-package/09_SECURITY_RULES.md",
+    "docs/user-package/10_KNOWN_LIMITATIONS.md",
+    "docs/user-package/11_ACCEPTANCE_CHECKLIST.md",
+    "docs/user-package/12_OWNER_HANDOVER.md",
+    "docs/user-package/13_WEB_UI_GUIDE.md",
+    "docs/user-package/14_API_KEY_USER_GUIDE.md",
+    "docs/user-package/15_DUAL_ZONE_ACCESS_GUIDE.md",
+    "docs/user-package/16_AI_AGENT_CONNECTION_PRIMER.md",
+    "docs/evidence/AITHER_PORTAL_MODEL_UI_DOCSYNC_R1.md",
+    "docs/evidence/AITHER_PORTAL_MODEL_UI_DOCSYNC_R1_RUNTIME.md",
+    ".agent/EXECUTION_RESULT.json"
+  ],
+  "forbidden_paths": [
+    ".agent/CURRENT_TASK.json",
+    ".agent/CURRENT_TASK.md",
+    "/root/.hermes",
+    "docs/evidence/** except the two exact R1 evidence paths listed in allowed_paths"
+  ],
+  "historical_preservation_rule": {
+    "preserve": [
+      "historical evidence",
+      "old acceptance reports",
+      "dated configuration snapshots",
+      "historically accurate migration reports",
+      "rollback-only model manifests/files"
+    ],
+    "do_not_bulk_replace": true,
+    "rule": "Old model names may remain only where they are explicitly historical, superseded, migration-related or rollback-only. Current architecture, current operations, user guides, examples and active UI must not present them as available models."
   },
-  "host_capabilities": {
-    "sync": true,
-    "commit": true,
-    "push": true
+  "implementation_requirements": [
+    "First prove from live runtime and repository which frontend artifact/deployment is actually serving the Portal. Record deployment/workload, mounted source/config and content fingerprint without printing secrets.",
+    "Do not change the already accepted Portal backend model catalog or routing unless a concrete regression is proven. Backend verification is read-only for this task.",
+    "Make /api/v1/models the authoritative source for the chat model selector. Do not maintain a second hardcoded active model list for chat.",
+    "The rendered chat selector must contain exactly qwen3-32b and qwen3.8-27b after authenticated catalog load.",
+    "Use user-facing labels Qwen3-32B and Qwen3.8-27B-FP8 while preserving exact API IDs qwen3-32b and qwen3.8-27b.",
+    "Use model:qwen3:chat for API-key scope UI and examples. Remove active/current model:32b:chat, model:14b:chat, model:32b:chat-adapter and model:32b:completion choices.",
+    "Remove qwen-14b/qwen-32b-base/Qwen2.5 from active selector options, defaults, welcome text, hints, diagnostics, API-key model choices and current examples.",
+    "If /api/v1/models cannot be loaded, fail closed: do not silently fall back to old or invented models; disable model-dependent send/create actions and show a controlled catalog-load error.",
+    "A deterministic default may be qwen3-32b when present; otherwise select the first model returned by the accepted catalog. Never use an unknown fallback model.",
+    "Do not use substring routing or infer an upstream from model text.",
+    "Reconcile the declared canonical frontend deployment source. If the Stage-15 manifest is no longer canonical, current deployment documentation must say so unambiguously; if it is canonical, update it so applying the documented deployment cannot restore stale UI.",
+    "Update current-facing documentation and examples only. For WUI_DUAL_MODEL_AND_AGENT_FLOW.md, preserve historical facts if it is an historical design record; mark it superseded and point to the permanent model contract rather than rewriting history if appropriate.",
+    "Do not regenerate or rewrite historical evidence/PDFs/screenshots merely because they contain old model names.",
+    "Do not create runner-live/runner-status.json in this task."
+  ],
+  "runtime_rules": [
+    "No secrets in logs, commits, screenshots or evidence.",
+    "Do not read or print Kubernetes Secret values unless strictly necessary; it is not necessary for this task.",
+    "Do not use direct database access for authentication or API-key workflows.",
+    "Use normal Identity/API workflows for temporary credentials if runtime validation requires them and revoke/delete all temporary credentials afterwards.",
+    "Do not modify /root/.hermes, create another Telegram Gateway, grant generic sudo, set safe.directory=*, or change repository ownership to root.",
+    "Runtime claims require captured commands/results or equivalent machine-verifiable evidence.",
+    "Hermes must not self-commit or self-push; host runner performs finalization."
+  ],
+  "test_matrix": [
+    "T01 repository/static scan: classify old identifiers as current vs historical; no current-facing stale model claim remains in allowed current docs/UI.",
+    "T02 backend read-only contract: authenticated /api/v1/models returns HTTP 200 and exactly qwen3-32b + qwen3.8-27b; Qwen2.5/qwen-14b/qwen-32b-base absent.",
+    "T03 UI catalog source: prove the chat selector is populated from /api/v1/models rather than a hardcoded second catalog.",
+    "T04 rendered UI/DOM: authenticated fresh session shows exactly Qwen3-32B and Qwen3.8-27B-FP8 and exact IDs qwen3-32b/qwen3.8-27b.",
+    "T05 fresh-browser/cache independence: new/private session or cache-bypassed fetch shows the corrected selector; record whether any cache invalidation was required.",
+    "T06 negative catalog load: failed /api/v1/models load does not fall back to old/unknown model; model-dependent action fails closed with controlled message.",
+    "T07 API-key UI: model authorization is represented by model:qwen3:chat; no obsolete model-specific scopes are offered as active choices.",
+    "T08 authenticated non-streaming chat qwen3-32b -> success.",
+    "T09 authenticated non-streaming chat qwen3.8-27b -> success.",
+    "T10 streaming chat for both active models -> success, if Portal UI exposes streaming in this deployed generation.",
+    "T11 invalid model -> HTTP 404 with model_not_found; no fallback route.",
+    "T12 deployment reproducibility: applying/following the current documented frontend deployment source cannot reintroduce the stale Stage-15/14B/old-32B UI.",
+    "T13 documentation: README, model catalog, API reference, deployment guide, current user guides and user package agree on two active models and model:qwen3:chat.",
+    "T14 historical preservation: sampled accepted historical evidence remains byte-identical/unmodified and old names there are retained as historical facts.",
+    "T15 cleanup: temporary API key/session/secret used for validation is revoked/logged out/deleted and reuse fails where applicable."
+  ],
+  "required_evidence": {
+    "analysis_report": "docs/evidence/AITHER_PORTAL_MODEL_UI_DOCSYNC_R1.md",
+    "runtime_report": "docs/evidence/AITHER_PORTAL_MODEL_UI_DOCSYNC_R1_RUNTIME.md",
+    "execution_result": ".agent/EXECUTION_RESULT.json",
+    "must_include": [
+      "base HEAD and final worktree HEAD prepared for runner finalization",
+      "exact list of modified files",
+      "before/after model-catalog/UI source mapping",
+      "proof of live frontend deployment/source identity",
+      "static scan results with current-vs-historical classification",
+      "authenticated /api/v1/models evidence",
+      "rendered selector/DOM evidence from a fresh session or equivalent served-page verification",
+      "API-key scope UI evidence",
+      "invalid-model 404 model_not_found evidence",
+      "deployment reproducibility check",
+      "cleanup/revocation evidence",
+      "no-secret statement"
+    ]
   },
-  "validation_commands": [],
-  "max_commits": 1,
-  "require_clean_start": true,
-  "require_clean_finish": true,
-  "architect_acceptance_required": true,
-  "commit_message": "test: complete authenticated E2E for Qwen3 models"
+  "execution_result_contract": {
+    "task_id": "AITHER-PORTAL-MODEL-UI-DOCSYNC-R1",
+    "result_values": ["PASS", "FAIL", "BLOCKED"],
+    "required_fields": [
+      "task_id",
+      "result",
+      "base_head",
+      "changed_paths",
+      "tests",
+      "runtime_evidence",
+      "historical_files_preserved",
+      "secrets_exposed",
+      "cleanup_complete",
+      "notes"
+    ],
+    "machine_pass_is_not_acceptance": true
+  },
+  "acceptance_criteria": [
+    "Backend/API contract still exactly qwen3-32b + qwen3.8-27b and exact unknown-model rejection.",
+    "Portal chat selector in the actually deployed UI obtains its active list from /api/v1/models and shows exactly the two accepted models.",
+    "No old model is user-selectable or presented as currently available anywhere in the active Portal UI.",
+    "Current API-key UI and current docs use model:qwen3:chat and do not direct users to obsolete model scopes.",
+    "Current README/architecture/operations/API/user documentation no longer describe Qwen2.5, qwen-14b or qwen-32b-base as active models.",
+    "Historical evidence and rollback facts remain preserved and clearly distinguishable from current state.",
+    "Canonical frontend deployment source is unambiguous and reproducible without restoring stale UI.",
+    "Required runtime/static evidence is complete, internally consistent and contains no secrets.",
+    "Only ChatGPT may issue PASSED / CONNECTOR VERIFIED / RUNTIME ACCEPTED / ACCEPTED after independent GitHub audit."
+  ],
+  "hard_prohibitions": [
+    "No direct edits to accepted historical evidence or acceptance reports.",
+    "No backend routing redesign.",
+    "No substring routing or unknown-model fallback.",
+    "No secret disclosure.",
+    "No direct DB auth/key manipulation.",
+    "No modification of CURRENT_TASK files by Hermes.",
+    "No Hermes self-commit/self-push/self-acceptance.",
+    "No unrelated refactoring or roadmap work beyond this UI/docs synchronization."
+  ]
 }
