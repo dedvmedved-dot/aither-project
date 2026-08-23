@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-URGENT-QWEN38-VLLM-COMPAT-RECOVERY-AUDIT-R1",
+  "task_id": "AITHER-URGENT-QWEN38-VLLM-COMPAT-RECOVERY-CORRECTIVE-R1",
   "executor": "hermes",
-  "mode": "READ_ONLY_RUNTIME_RECOVERY_AUDIT",
+  "mode": "BOUNDED_RUNTIME_RESTORE_WITH_FORENSIC_CAPTURE",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "14bf1cff8224ca48a3d453aaf099a71ab6d5ee4b",
+  "baseline_sha": "228bbb6e2484f99aa8600c90724a57b79772c2a4",
   "allowed_paths": [
-    "docs/evidence/QWEN38_VLLM_COMPAT_RECOVERY_AUDIT_R1.md"
+    "docs/evidence/QWEN38_VLLM_COMPAT_RECOVERY_CORRECTIVE_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": true,
-    "deployment": false,
+    "deployment": true,
     "database_write": false,
-    "runtime_write": false,
+    "runtime_write": true,
     "secret_access": false,
     "package_install": false
   },
@@ -28,7 +28,7 @@
   "validation_commands": [],
   "max_commits": 1,
   "require_clean_start": false,
-  "require_clean_finish": false,
+  "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "audit: inspect Qwen3.8 compatibility test recovery"
+  "commit_message": "fix: restore n7 after Qwen3.8 compatibility test"
 }
