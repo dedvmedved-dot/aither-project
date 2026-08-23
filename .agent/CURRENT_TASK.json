@@ -1,17 +1,19 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-ARCHITECT-HOLD-NO-CODEX-R1",
+  "task_id": "AITHER-LIVE-PORTAL-SOURCE-DISCOVERY-R1",
   "executor": "hermes",
-  "mode": "ARCHITECT_HOLD",
+  "mode": "READ_ONLY_LIVE_PORTAL_SOURCE_DISCOVERY",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "30004201a63e3272be46b99b059b01d976b2e107",
-  "allowed_paths": [],
+  "baseline_sha": "b5deccefa30bb488803924a7f65250f57837edee",
+  "allowed_paths": [
+    "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R1.md"
+  ],
   "capabilities": {
-    "source_write": false,
-    "agent_exec": false,
+    "source_write": true,
+    "agent_exec": true,
     "network_git": false,
-    "kubernetes": false,
+    "kubernetes": true,
     "deployment": false,
     "database_write": false,
     "runtime_write": false,
@@ -23,10 +25,12 @@
     "commit": true,
     "push": true
   },
-  "validation_commands": [],
+  "validation_commands": [
+    ["test", "-s", "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R1.md"]
+  ],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "chore: enter architect hold with no executor"
+  "commit_message": "audit: identify canonical live Portal frontend source"
 }
