@@ -22,7 +22,7 @@ Qwen2.5 (ранее `qwen2.5-32b-instruct`) больше не является �
 
 ## Как выбрать модель в портале
 
-Во вкладке «Чат» есть выпадающий список моделей. Список формируется из актуального каталога моделей, который портал получает от API (`/api/v1/models`), а не хранится как статический список на странице.
+Во вкладке «Чат» есть выпадающий список моделей. Список формируется из актуального каталога моделей, который портал получает от API (`/api/api/v1/models`), а не хранится как статический список на странице.
 
 - Выберите модель перед отправкой сообщения.
 - Новые чаты используют активную модель по умолчанию (`qwen3-32b`).
@@ -43,14 +43,14 @@ Qwen2.5 (ранее `qwen2.5-32b-instruct`) больше не является �
 
 ## Примеры запросов
 
-Внешний OpenAI-совместимый endpoint: `POST /api/v1/chat/completions`.
+Внешний OpenAI-совместимый endpoint: `POST /api/api/v1/chat/completions`.
 
-Список доступных моделей: `GET /api/v1/models`.
+Список доступных моделей: `GET /api/api/v1/models`.
 
 ### Qwen3-32B
 
 ```bash
-curl -X POST https://fb1.spb.ru:10443/api/v1/chat/completions \
+curl -X POST https://fb1.spb.ru:10443/api/api/v1/chat/completions \
   -H "Authorization: Bearer aither_..." \
   -H "Content-Type: application/json" \
   -d '{"model":"qwen3-32b","messages":[{"role":"user","content":"Привет"}]}'
@@ -59,7 +59,7 @@ curl -X POST https://fb1.spb.ru:10443/api/v1/chat/completions \
 ### Qwen3.8-27B
 
 ```bash
-curl -X POST https://fb1.spb.ru:10443/api/v1/chat/completions \
+curl -X POST https://fb1.spb.ru:10443/api/api/v1/chat/completions \
   -H "Authorization: Bearer aither_..." \
   -H "Content-Type: application/json" \
   -d '{"model":"qwen3.8-27b","messages":[{"role":"user","content":"Привет"}]}'

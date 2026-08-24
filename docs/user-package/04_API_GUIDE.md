@@ -1,6 +1,6 @@
 # Aither — Руководство по API
 
-**Версия:** CB-WEBUI-01-R1 · **Дата:** 25 июля 2026
+**Версия:** CB-WEBUI-03 · **Дата:** 25 июля 2026
 
 ---
 
@@ -9,8 +9,8 @@
 1. [Общая информация](#общая-информация)
 2. [Аутентификация](#аутентификация)
 3. [Создание API-ключа](#создание-api-ключа)
-4. [GET /v1/models — Список моделей](#get-v1models--список-моделей)
-5. [POST /v1/chat/completions — Чат и completion](#post-v1chatcompletions--чат-и-completion)
+4. [GET /api/v1/models — Список моделей](#get-v1models--список-моделей)
+5. [POST /api/v1/chat/completions — Чат и completion](#post-v1chatcompletions--чат-и-completion)
 6. [Коды ответов](#коды-ответов)
 7. [Ограничения](#ограничения-rate-limiting)
 8. [Примеры на разных языках](#примеры-на-разных-языках)
@@ -21,7 +21,7 @@
 
 | Параметр | Значение |
 |---|---|
-| **Базовый URL** | `https://fb1.spb.ru:443` |
+| **Базовый URL** | `https://fb1.spb.ru:10443` |
 | **Формат данных** | JSON |
 | **Метод аутентификации** | Bearer token (API Key) |
 | **Content-Type** | `application/json` |
@@ -39,19 +39,19 @@ Authorization: Bearer ***
 
 **Формат ключа:**
 ```
-athr_<префикс>_<секретная_часть>
+aither_<префикс>_<секретная_часть>
 ```
 
 API-ключи создаются через **Web UI** (раздел 🔑 API Ключи) или выдаются администратором.
 
 **Пример заголовка в curl:**
 ```bash
--H "Authorization: Bearer athr_..."
+-H "Authorization: Bearer aither_..."
 ```
 
 **Пример в Python:**
 ```python
-headers = {"Authorization": "Bearer athr_..."}
+headers = {"Authorization": "Bearer aither_..."}
 ```
 
 > 🔐 **API-ключ чувствителен к регистру.** Не добавляйте лишних пробелов.
@@ -64,7 +64,7 @@ API-ключи создаются через **Web UI** — это основн�
 
 ### В Web UI
 
-1. Войдите в Web UI: `https://fb1.spb.ru:443/`
+1. Войдите в Web UI: `https://fb1.spb.ru:10443/`
 2. Перейдите в раздел **🔑 API Ключи**
 3. Нажмите **«+ Создать новый ключ»**
 4. Введите название ключа
@@ -76,10 +76,10 @@ API-ключи создаются через **Web UI** — это основн�
 
 ```bash
 # Создание токена через BFF
-curl https://fb1.spb.ru:443/api/v1/tokens \
+curl https://fb1.spb.ru:10443/api/v1/tokens \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Мой токен", "models": ["qwen-14b", "qwen-32b-base"]}'
+  -d '{"name": "Мой токен", "models": ["qwen3-32b", "qwen3.8-27b"]}'
 ```
 
 ### Отзыв ключа
@@ -88,7 +88,7 @@ curl https://fb1.spb.ru:443/api/v1/tokens \
 
 Через BFF API:
 ```bash
-curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
+curl -X DELETE https://fb1.spb.ru:10443/api/v1/tokens/aither_XXXX \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
@@ -96,14 +96,14 @@ curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
 
 ---
 
-## GET /v1/models — Список моделей
+## GET /api/v1/models — Список моделей
 
 Возвращает список доступных моделей.
 
 ### Запрос
 
 ```bash
-curl https://fb1.spb.ru:443/v1/models \
+curl https://fb1.spb.ru:10443/api/v1/models \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
@@ -114,13 +114,13 @@ curl https://fb1.spb.ru:443/v1/models \
   "object": "list",
   "data": [
     {
-      "id": "qwen-14b",
+      "id": "qwen3-32b",
       "object": "model",
       "created": 1784759438,
       "owned_by": "aither"
     },
     {
-      "id": "qwen-32b-base",
+      "id": "qwen3.8-27b",
       "object": "model",
       "created": 1784759438,
       "owned_by": "aither"
@@ -132,12 +132,12 @@ curl https://fb1.spb.ru:443/v1/models \
 ### Без аутентификации (HTTP 401)
 
 ```json
-{"detail": "Valid API Key required (format: athr_...)"}
+{"detail": "Valid API Key required (format: aither_...)"}
 ```
 
 ---
 
-## POST /v1/chat/completions — Чат и Completion
+## POST /api/v1/chat/completions — Чат и Completion
 
 Основной эндпоинт для взаимодействия с моделями.
 
@@ -145,7 +145,7 @@ curl https://fb1.spb.ru:443/v1/models \
 
 | Параметр | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `model` | string | ✅ Да | ID модели: `qwen-14b` или `qwen-32b-base` |
+| `model` | string | ✅ Да | ID модели: `qwen3-32b` или `qwen3.8-27b` |
 | `messages` | array | ✅ Да | Список сообщений |
 | `max_tokens` | integer | Нет | Макс. токенов в ответе (по умолчанию: 2048) |
 | `temperature` | float | Нет | Креативность: 0.0–2.0 (по умолчанию: 0.7) |
@@ -179,7 +179,7 @@ curl https://fb1.spb.ru:443/v1/models \
 | Код | Значение | Действие |
 |---|---|---|
 | **200** | Успех | Ответ получен |
-| **401** | Ошибка аутентификации | Проверить API-ключ (формат: `athr_...`) |
+| **401** | Ошибка аутентификации | Проверить API-ключ (формат: `aither_...`) |
 | **404** | Модель не найдена | Проверить `model` |
 | **422** | Неверный формат | Проверить JSON |
 | **429** | Rate limit | Подождать минуту |
@@ -206,29 +206,29 @@ curl https://fb1.spb.ru:443/v1/models \
 
 ```bash
 # Список моделей
-curl https://fb1.spb.ru:443/v1/models \
+curl https://fb1.spb.ru:10443/api/v1/models \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 
 # Чат с 14B
-curl https://fb1.spb.ru:443/v1/chat/completions \
+curl https://fb1.spb.ru:10443/api/v1/chat/completions \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen-14b","messages":[{"role":"user","content":"Привет!"}],"max_tokens":100}'
+  -d '{"model":"qwen3-32b","messages":[{"role":"user","content":"Привет!"}],"max_tokens":100}'
 
 # Completion с 32B
-curl https://fb1.spb.ru:443/v1/chat/completions \
+curl https://fb1.spb.ru:10443/api/v1/chat/completions \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen-32b-base","messages":[{"role":"user","content":"Продолжи: В начале было"}],"max_tokens":50}'
+  -d '{"model":"qwen3.8-27b","messages":[{"role":"user","content":"Продолжи: В начале было"}],"max_tokens":50}'
 
 # Создание токена через BFF
-curl https://fb1.spb.ru:443/api/v1/tokens \
+curl https://fb1.spb.ru:10443/api/v1/tokens \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Мой токен","models":["qwen-14b","qwen-32b-base"]}'
+  -d '{"name":"Мой токен","models":["qwen3-32b","qwen3.8-27b"]}'
 
 # Отзыв токена
-curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
+curl -X DELETE https://fb1.spb.ru:10443/api/v1/tokens/aither_XXXX \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
@@ -237,25 +237,25 @@ curl -X DELETE https://fb1.spb.ru:443/api/v1/tokens/athr_XXXX \
 ```python
 import requests
 
-KEY = "athr_..."
-BASE = "https://fb1.spb.ru:443"
+KEY = "aither_..."
+BASE = "https://fb1.spb.ru:10443"
 HEADERS = {"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"}
 
 # Список моделей
-r = requests.get(f"{BASE}/v1/models", headers=HEADERS)
+r = requests.get(f"{BASE}/api/v1/models", headers=HEADERS)
 print("Модели:", [m["id"] for m in r.json()["data"]])
 
 # Чат с 14B
-r = requests.post(f"{BASE}/v1/chat/completions", headers=HEADERS, json={
-    "model": "qwen-14b",
+r = requests.post(f"{BASE}/api/v1/chat/completions", headers=HEADERS, json={
+    "model": "qwen3-32b",
     "messages": [{"role": "user", "content": "Привет! Как дела?"}],
     "max_tokens": 100
 })
 print("14B:", r.json()["choices"][0]["message"]["content"])
 
 # Completion с 32B
-r = requests.post(f"{BASE}/v1/chat/completions", headers=HEADERS, json={
-    "model": "qwen-32b-base",
+r = requests.post(f"{BASE}/api/v1/chat/completions", headers=HEADERS, json={
+    "model": "qwen3.8-27b",
     "messages": [{"role": "user", "content": "Продолжи: Искусственный интеллект"}],
     "max_tokens": 50
 })
@@ -264,7 +264,7 @@ print("32B:", r.json()["choices"][0]["message"]["content"])
 # Создание токена
 r = requests.post(f"{BASE}/api/v1/tokens", headers=HEADERS, json={
     "name": "Мой токен",
-    "models": ["qwen-14b", "qwen-32b-base"]
+    "models": ["qwen3-32b", "qwen3.8-27b"]
 })
 print("Новый ключ:", r.json())
 
@@ -276,36 +276,36 @@ if r.status_code != 200:
 ### PowerShell (Windows)
 
 ```powershell
-$Key = "athr_..."
-$Base = "https://fb1.spb.ru:443"
+$Key = "aither_..."
+$Base = "https://fb1.spb.ru:10443"
 $Headers = @{
     "Authorization" = "Bearer $Key"
     "Content-Type" = "application/json"
 }
 
 # Список моделей
-$models = Invoke-RestMethod -Uri "$Base/v1/models" -Headers $Headers
+$models = Invoke-RestMethod -Uri "$Base/api/v1/models" -Headers $Headers
 Write-Host "Модели: $($models.data.id -join ', ')"
 
 # Чат с 14B
 $body = @{
-    model = "qwen-14b"
+    model = "qwen3-32b"
     messages = @(@{role="user"; content="Привет! Как дела?"})
     max_tokens = 100
 } | ConvertTo-Json -Depth 3
 
-$response = Invoke-RestMethod -Uri "$Base/v1/chat/completions" `
+$response = Invoke-RestMethod -Uri "$Base/api/v1/chat/completions" `
     -Method Post -Headers $Headers -Body $body
 Write-Host "14B: $($response.choices[0].message.content)"
 
 # Completion с 32B
 $body = @{
-    model = "qwen-32b-base"
+    model = "qwen3.8-27b"
     messages = @(@{role="user"; content="Продолжи: Искусственный интеллект"})
     max_tokens = 50
 } | ConvertTo-Json -Depth 3
 
-$response = Invoke-RestMethod -Uri "$Base/v1/chat/completions" `
+$response = Invoke-RestMethod -Uri "$Base/api/v1/chat/completions" `
     -Method Post -Headers $Headers -Body $body
 Write-Host "32B: $($response.choices[0].message.content)"
 ```

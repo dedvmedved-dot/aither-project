@@ -21,7 +21,7 @@
 
 ## Состав пакета
 
-Вы держите в руках **полный комплект пользовательской документации Aither (CB-WEBUI-01-R1)**.
+Вы держите в руках **полный комплект пользовательской документации Aither (CB-WEBUI-03)**.
 
 ### Что передать пользователям:
 
@@ -63,19 +63,19 @@
 **Web UI:**
 ```bash
 # Откройте в браузере
-https://fb1.spb.ru:443/
+https://fb1.spb.ru:10443/
 ```
 
 **API:**
 ```bash
-curl https://fb1.spb.ru:443/v1/models \
+curl https://fb1.spb.ru:10443/api/v1/models \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 Ожидается HTTP 200.
 
 **Test Zone:**
 ```bash
-curl http://10.129.13.78:30080/v1/models \
+curl http://10.129.13.78:30080/api/v1/models \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
@@ -100,7 +100,7 @@ curl http://10.129.13.78:30080/v1/models \
 1. **Назначьте ID:** `BETA-USER-01`, `BETA-USER-02`, и т.д.
 2. **Создайте учётную запись Web UI** (логин/пароль)
 3. **Передайте безопасным каналом:**
-   - URL Web UI: `https://fb1.spb.ru:443/`
+   - URL Web UI: `https://fb1.spb.ru:10443/`
    - Логин и пароль
    - Ссылку на документацию (`docs/user-package/`)
    - Особо: `05_TEST_ASSIGNMENT.md` — это их главный документ
@@ -150,8 +150,8 @@ kubectl exec -n aither-inference deploy/aither-ai-platform -- python3 -c "
 import sqlite3, hashlib, secrets
 raw_secret = secrets.token_urlsafe(48)
 hex_part = secrets.token_hex(4)
-full_key = f'athr_{hex_part}_{raw_secret}'
-key_prefix = f'athr_{hex_part}'
+full_key = f'aither_{hex_part}_{raw_secret}'
+key_prefix = f'aither_{hex_part}'
 key_hash = hashlib.sha256(full_key.encode()).hexdigest()
 db = sqlite3.connect('/data/ai-platform.db')
 db.execute('INSERT INTO api_keys (user_id, name, key_prefix, key_hash) VALUES (?,?,?,?)',
@@ -163,7 +163,7 @@ print(full_key)
 
 #### Отзыв ключа:
 ```sql
-UPDATE api_keys SET revoked_at = datetime('now') WHERE key_prefix = 'athr_XXXXXXXX';
+UPDATE api_keys SET revoked_at = datetime('now') WHERE key_prefix = 'aither_XXXXXXXX';
 ```
 
 #### Просмотр активных ключей:

@@ -1,6 +1,6 @@
 # Aither — Руководство по двухзонному доступу
 
-**Версия:** CB-WEBUI-01-R1 · **Дата:** 25 июля 2026
+**Версия:** CB-WEBUI-03 · **Дата:** 25 июля 2026
 
 ---
 
@@ -28,7 +28,7 @@ Aither предоставляет **две точки доступа** к сис
 │                                      │
 │  ┌─────────────┐  ┌──────────────┐   │
 │  │  Internet    │  │  Test Zone   │   │
-│  │  :443/HTTPS  │  │  :30080/HTTP │   │
+│  │  :10443/HTTPS  │  │  :30080/HTTP │   │
 │  └──────┬───────┘  └──────┬───────┘   │
 │         │                 │           │
 └─────────┼─────────────────┼───────────┘
@@ -46,7 +46,7 @@ Aither предоставляет **две точки доступа** к сис
 ### URL
 
 ```
-https://fb1.spb.ru:443/
+https://fb1.spb.ru:10443/
 ```
 
 ### Характеристики
@@ -70,8 +70,8 @@ https://fb1.spb.ru:443/
 
 ```bash
 # Internet (API)
-curl https://fb1.spb.ru:443/v1/models \
-  -H "Authorization: Bearer athr_..."
+curl https://fb1.spb.ru:10443/api/v1/models \
+  -H "Authorization: Bearer aither_..."
 ```
 
 ---
@@ -105,8 +105,8 @@ http://10.129.13.78:30080/
 
 ```bash
 # Test Zone (API)
-curl http://10.129.13.78:30080/v1/models \
-  -H "Authorization: Bearer athr_..."
+curl http://10.129.13.78:30080/api/v1/models \
+  -H "Authorization: Bearer aither_..."
 ```
 
 ---
@@ -115,13 +115,13 @@ curl http://10.129.13.78:30080/v1/models \
 
 | Характеристика | Internet | Test Zone |
 |---|---|---|
-| **URL** | `https://fb1.spb.ru:443/` | `http://10.129.13.78:30080/` |
+| **URL** | `https://fb1.spb.ru:10443/` | `http://10.129.13.78:30080/` |
 | **Доступ** | 🌐 Открытый (интернет) | 🔒 Внутренняя сеть / VPN |
 | **Протокол** | HTTPS | HTTP |
 | **Шифрование** | ✅ TLS (Let's Encrypt) | ❌ Нет |
 | **Сертификат** | Доверенный (автоматический) | Нет |
 | **Бейдж** | 🌐 INTERNET (зелёный) | 🧪 TEST ZONE (жёлтый) |
-| **API Base URL** | `https://fb1.spb.ru:443` | `http://10.129.13.78:30080` |
+| **API Base URL** | `https://fb1.spb.ru:10443` | `http://10.129.13.78:30080` |
 | **curl флаги** | Не требуются | Не требуются |
 | **Функционал** | Полный | Полный |
 | **Учётная запись** | Общая | Общая |
@@ -135,7 +135,7 @@ Web UI автоматически определяет зону по URL, чер
 
 | URL входа | Бейдж |
 |---|---|
-| `https://fb1.spb.ru:443/` | 🌐 **INTERNET** |
+| `https://fb1.spb.ru:10443/` | 🌐 **INTERNET** |
 | `http://10.129.13.78:30080/` | 🧪 **TEST ZONE** |
 
 Бейдж отображается:
@@ -153,10 +153,10 @@ Web UI автоматически определяет зону по URL, чер
 ```python
 import requests
 
-BASE = "https://fb1.spb.ru:443"
-KEY = "athr_..."
+BASE = "https://fb1.spb.ru:10443"
+KEY = "aither_..."
 
-r = requests.get(f"{BASE}/v1/models",
+r = requests.get(f"{BASE}/api/v1/models",
     headers={"Authorization": f"Bearer {KEY}"})
 ```
 
@@ -166,15 +166,15 @@ r = requests.get(f"{BASE}/v1/models",
 import requests
 
 BASE = "http://10.129.13.78:30080"
-KEY = "athr_..."
+KEY = "aither_..."
 
-r = requests.get(f"{BASE}/v1/models",
+r = requests.get(f"{BASE}/api/v1/models",
     headers={"Authorization": f"Bearer {KEY}"})
 ```
 
 > 💡 **Совет:** Храните базовый URL в конфигурации/переменной окружения:
 > ```bash
-> export AITHER_BASE_URL="https://fb1.spb.ru:443"  # или http://10.129.13.78:30080
+> export AITHER_BASE_URL="https://fb1.spb.ru:10443"  # или http://10.129.13.78:30080
 > ```
 
 ---
@@ -185,7 +185,7 @@ r = requests.get(f"{BASE}/v1/models",
 
 ```
 Сценарий: Вы работаете из дома или офиса, есть доступ в интернет.
-Действие: Откройте https://fb1.spb.ru:443/ — это основная точка входа.
+Действие: Откройте https://fb1.spb.ru:10443/ — это основная точка входа.
 ```
 
 ### Test Zone — для специальных случаев
@@ -250,7 +250,7 @@ Test Zone предназначена для внутреннего исполь�
 
 ### Какую зону использовать для AI-агента?
 Зависит от того, где работает агент:
-- Агент в интернете → `https://fb1.spb.ru:443`
+- Агент в интернете → `https://fb1.spb.ru:10443`
 - Агент во внутренней сети → `http://10.129.13.78:30080`
 
 API-ключ один и тот же.

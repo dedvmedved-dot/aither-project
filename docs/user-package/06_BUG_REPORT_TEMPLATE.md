@@ -10,14 +10,14 @@
 Дата:           YYYY-MM-DD
 Время (UTC):    HH:MM
 
-Версия системы: CB-WEBUI-01-R1
+Версия системы: CB-WEBUI-03
 
 Ваш ID:         BETA-USER-XX
 
 ---
 
 Где обнаружено:
-□ Web UI (https://fb1.spb.ru:443/)
+□ Web UI (https://fb1.spb.ru:10443/)
 □ Test Zone (http://10.129.13.78:30080/)
 □ API (curl / Python / PowerShell)
 
@@ -26,9 +26,9 @@
 
 ---
 
-Модель:         qwen-14b / qwen-32b-base
+Модель:         qwen3-32b / qwen3.8-27b
 
-Эндпоинт (если API):    /v1/models / /v1/chat/completions / /api/v1/tokens
+Эндпоинт (если API):    /api/v1/models / /api/v1/chat/completions / /api/v1/tokens
 
 ---
 
@@ -111,17 +111,17 @@ HTTP-код ответа (если API):    ___
 Дата:           2026-07-25
 Время (UTC):    14:30
 
-Версия системы: CB-WEBUI-01-R1
+Версия системы: CB-WEBUI-03
 Ваш ID:         BETA-USER-01
 
 Где обнаружено: ☑ Web UI
 Раздел Web UI:  ☑ Чат
 
-Модель:         qwen-32b-base
+Модель:         qwen3.8-27b
 
 Действие в интерфейсе:
 1. Открыл Чат
-2. Выбрал qwen-32b-base
+2. Выбрал qwen3.8-27b
 3. Ввёл "Привет, как дела?"
 4. Нажал Отправить
 

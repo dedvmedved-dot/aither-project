@@ -10,8 +10,8 @@
 2. [Формат ключа](#формат-ключа)
 3. [Создание ключа через Web UI](#создание-ключа-через-web-ui)
 4. [Использование ключа](#использование-ключа)
-5. [Список моделей (GET /api/v1/models)](#список-моделей-get-apiv1models)
-6. [Чат (POST /api/v1/chat/completions)](#чат-post-apiv1chatcompletions)
+5. [Список моделей (GET /api/api/v1/models)](#список-моделей-get-apiv1models)
+6. [Чат (POST /api/api/v1/chat/completions)](#чат-post-apiv1chatcompletions)
 7. [Отзыв ключа](#отзыв-ключа)
 8. [Контролируемые ошибки](#контролируемые-ошибки)
 9. [Рекомендации](#рекомендации)
@@ -89,10 +89,10 @@ Authorization: Bearer aither_...
 
 ---
 
-## Список моделей (GET /api/v1/models)
+## Список моделей (GET /api/api/v1/models)
 
 ```bash
-curl https://fb1.spb.ru:10443/api/v1/models \
+curl https://fb1.spb.ru:10443/api/api/v1/models \
   -H "Authorization: Bearer aither_..."
 ```
 
@@ -107,10 +107,10 @@ curl https://fb1.spb.ru:10443/api/v1/models \
 
 ---
 
-## Чат (POST /api/v1/chat/completions)
+## Чат (POST /api/api/v1/chat/completions)
 
 ```bash
-curl -X POST https://fb1.spb.ru:10443/api/v1/chat/completions \
+curl -X POST https://fb1.spb.ru:10443/api/api/v1/chat/completions \
   -H "Authorization: Bearer aither_..." \
   -H "Content-Type: application/json" \
   -d '{"model":"qwen3-32b","messages":[{"role":"user","content":"Привет"}],"max_tokens":2048}'

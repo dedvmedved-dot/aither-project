@@ -258,6 +258,7 @@
         });
         // Persist current page
         try { localStorage.setItem('aither_page', id); } catch(e) {}
+        if (id === 'docs') renderDocCards();
     }
 
     function showAlert(id, msg, type) {
@@ -377,6 +378,87 @@
     }
 
     // ── Markdown renderer (tables, lists, code, headers) ─────────
+    function normalizeDocPath(url) {
+        var clean = String(url).split('#')[0].split('?')[0].trim();
+        if (!clean || clean.indexOf('..') !== -1 || clean.indexOf('\\') !== -1) return null;
+        var name = clean.split('/').pop();
+        if (!name || !/\.md$/i.test(name)) return null;
+        if (!/^[\w-]+\.md$/i.test(name)) return null;
+        return name;
+    }
+
+    const DOC_CATALOG = [
+        { file: '00_INDEX.md', title: 'Все документы', icon: '📚', desc: 'Индекс документации', category: 'Основное' },
+        { file: '01_WELCOME.md', title: 'Добро пожаловать', icon: '👋', desc: 'Приветствие, цели тестирования', category: 'Основное' },
+        { file: '02_QUICK_START.md', title: 'Быстрый старт', icon: '🚀', desc: 'Первый диалог за 5 минут', category: 'Основное' },
+        { file: '03_USER_GUIDE.md', title: 'Руководство пользователя', icon: '📘', desc: 'Полное руководство (Web UI + API)', category: 'Основное' },
+        { file: '04_API_GUIDE.md', title: 'API Guide', icon: '🔌', desc: 'API с примерами curl и Python', category: 'Разработчикам' },
+        { file: '08_FAQ.md', title: 'FAQ', icon: '❓', desc: 'Часто задаваемые вопросы', category: 'Основное' },
+        { file: '09_SECURITY_RULES.md', title: 'Правила безопасности', icon: '🔒', desc: 'Безопасность ключей и агентов', category: 'Основное' },
+        { file: '10_KNOWN_LIMITATIONS.md', title: 'Известные ограничения', icon: '⚠️', desc: 'Ограничения системы', category: 'Основное' },
+        { file: '13_WEB_UI_GUIDE.md', title: 'Web UI Guide', icon: '🖥', desc: 'Полное руководство по Web UI', category: 'Основное' },
+        { file: '14_API_KEY_USER_GUIDE.md', title: 'API-ключи', icon: '🔑', desc: 'Создание и управление ключами', category: 'Основное' },
+        { file: '15_DUAL_ZONE_ACCESS_GUIDE.md', title: 'Двухзонный доступ', icon: '🌐', desc: 'Internet и Test Zone', category: 'Основное' },
+        { file: '16_AI_AGENT_CONNECTION_PRIMER.md', title: 'Подключение AI-агентов', icon: '🤖', desc: 'Настройка агентов', category: 'Разработчикам' },
+        { file: '17_MODEL_USAGE_GUIDE.md', title: 'Работа с моделями', icon: '🧠', desc: 'Выбор модели, API-ключи', category: 'Основное' },
+        { file: '05_TEST_ASSIGNMENT.md', title: 'Тестовые задания', icon: '✅', desc: 'Обязательные задания', category: 'Тестирование' },
+        { file: '06_BUG_REPORT_TEMPLATE.md', title: 'Шаблон отчёта об ошибке', icon: '🐞', desc: 'Форма баг-репорта', category: 'Тестирование' },
+        { file: '07_USER_FEEDBACK_FORM.md', title: 'Форма обратной связи', icon: '💬', desc: 'Обратная связь', category: 'Тестирование' },
+        { file: '11_ACCEPTANCE_CHECKLIST.md', title: 'Чек-лист приёмки', icon: '📋', desc: 'Чек-лист участника', category: 'Тестирование' },
+        { file: '12_OWNER_HANDOVER.md', title: 'Инструкция владельцу', icon: '👑', desc: 'Handover для владельца', category: 'Тестирование' },
+    ];
+
+    function renderDocCards() {
+        var grid = $('docs-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        var cats = ['Основное', 'Разработчикам', 'Тестирование'];
+        cats.forEach(function(cat) {
+            DOC_CATALOG.filter(function(d) { return d.category === cat; }).forEach(function(d) {
+                var card = document.createElement('div');
+                card.className = 'card';
+                card.style.cursor = 'pointer';
+                card.innerHTML = '<div style="font-size:28px;">' + d.icon + '</div>' +
+                    '<h3>' + escHtml(d.title) + '</h3>' +
+                    '<p style="font-size:12px;color:var(--muted,#888);">' + escHtml(d.desc) + '</p>';
+                card.addEventListener('click', function() { showDoc('/docs/' + d.file); });
+                grid.appendChild(card);
+            });
+        });
+    }
+
+    function renderMathInElement(el) {
+        if (!el || typeof window.renderMathInElement !== 'function') return;
+        try {
+            window.renderMathInElement(el, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\(', right: '\\)', display: false },
+                ],
+                throwOnError: false,
+                trust: false,
+                ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+                preProcess: function(math) {
+                    return math.replace(/\\_/g, '_');
+                },
+            });
+        } catch (e) {
+            // malformed math must not break the portal
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        var link = (e.target && e.target.closest) ? e.target.closest('.md-doc-link') : null;
+        if (!link) return;
+        var norm = normalizeDocPath(link.getAttribute('data-doc-path'));
+        if (norm) {
+            e.preventDefault();
+            showDoc('/docs/' + norm);
+        }
+    });
+
     function renderMarkdown(md) {
         if (!md) return '';
         var html = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -416,8 +498,20 @@
         // Inline code
         html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
 
-        // Links
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+        // Links — route local .md references through the doc viewer (no 404)
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(m, label, url) {
+            if (/^(https?:\/\/|mailto:)/i.test(url)) {
+                return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+            }
+            if (url.charAt(0) === '#') {
+                return '<a href="' + url + '">' + label + '</a>';
+            }
+            var doc = normalizeDocPath(url);
+            if (doc) {
+                return '<a href="#" class="md-doc-link" data-doc-path="' + escHtml(doc) + '">' + label + '</a>';
+            }
+            return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+        });
 
         // Horizontal rules
         html = html.replace(/^---$/gm, '<hr>');
@@ -955,6 +1049,7 @@
         msgDiv.innerHTML = meta + formatMessage(content) +
             (role === 'assistant' ? '<div class="msg-actions"><button class="btn btn-sm btn-outline" onclick="var t=this.closest(\'.chat-msg\').textContent.replace(\'📋 Копировать\',\'\').trim();navigator.clipboard.writeText(t);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.remove(),2000);">📋 Копировать</button></div>' : '');
         msgs.appendChild(msgDiv);
+        renderMathInElement(msgDiv);
         msgs.scrollTop = msgs.scrollHeight;
     }
 
@@ -1422,6 +1517,8 @@
                     '<div style="margin-top:12px;display:flex;gap:8px;">' +
                     '<button class="btn btn-sm btn-outline" onclick="window.open(\'' + path + '\',\'_blank\')">Открыть в новом окне</button></div>' +
                     '</div>');
+                var db = document.querySelector('.wiki-doc-body');
+                if (db) renderMathInElement(db);
             })
             .catch(function() {
                 setLoading(false);
@@ -1848,6 +1945,7 @@
                     '</div>' +
                     '<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">📄 ' + escHtml(docRes.data.source||source) + ' | ' + (docRes.data.size||0) + ' симв.</div>' +
                     '<div class="wiki-doc-body">' + mdHtml + '</div>';
+                renderMathInElement(el.querySelector('.wiki-doc-body'));
                 el.scrollTop = 0;
             } else {
                 el.innerHTML = '<p class="text-muted">Не удалось загрузить документ</p>';

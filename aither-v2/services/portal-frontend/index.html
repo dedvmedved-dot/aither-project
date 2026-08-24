@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aither — AI Platform Beta</title>
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
 </head>
 <body>
   <!-- Navigation -->
@@ -491,44 +492,7 @@
   <div class="page" id="page-docs">
     <div class="container">
       <h1>📖 Документация</h1>
-      <div class="cards-grid" id="docs-grid">
-        <div class="card" onclick="showDoc('/docs/02_QUICK_START.md')" style="cursor:pointer;">
-          <div class="card-title">🚀 Быстрый старт</div>
-          <div class="card-body"><p>Первые шаги: вход, создание ключа, чат с моделями.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/03_USER_GUIDE.md')" style="cursor:pointer;">
-          <div class="card-title">📘 Руководство пользователя</div>
-          <div class="card-body"><p>Полное описание платформы и всех функций.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/14_API_KEY_USER_GUIDE.md')" style="cursor:pointer;">
-          <div class="card-title">🔑 API-ключи</div>
-          <div class="card-body"><p>Создание, использование и отзыв ключей.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/15_DUAL_ZONE_ACCESS_GUIDE.md')" style="cursor:pointer;">
-          <div class="card-title">🌐 Двухзонный доступ</div>
-          <div class="card-body"><p>Internet и Test Zone — как подключиться.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/16_AI_AGENT_CONNECTION_PRIMER.md')" style="cursor:pointer;">
-          <div class="card-title">🤖 Подключение AI Agent</div>
-          <div class="card-body"><p>Инструкция для разработчиков агентов.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/04_API_GUIDE.md')" style="cursor:pointer;">
-          <div class="card-title">⚡ API Reference</div>
-          <div class="card-body"><p>Техническое описание API-эндпоинтов.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/17_MODEL_USAGE_GUIDE.md')" style="cursor:pointer;">
-          <div class="card-title">🤖 Работа с моделями</div>
-          <div class="card-body"><p>Описание моделей, параметры, примеры промптов и код.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/08_FAQ.md')" style="cursor:pointer;">
-          <div class="card-title">❓ FAQ</div>
-          <div class="card-body"><p>Часто задаваемые вопросы.</p></div>
-        </div>
-        <div class="card" onclick="showDoc('/docs/00_INDEX.md')" style="cursor:pointer;">
-          <div class="card-title">📋 Все документы</div>
-          <div class="card-body"><p>Полный индекс документации.</p></div>
-        </div>
-      </div>
+      <div class="cards-grid" id="docs-grid"></div>
 
       <h2 style="margin-top:32px;">🧠 RAG — Wiki-Graph: инструкция</h2>
       <div class="cards-grid" style="margin-top:8px;">
@@ -629,6 +593,8 @@
     <div class="spinner"></div>
   </div>
 
-  <script src="app.js?v=model-catalog"></script>
+  <script src="vendor/katex/katex.min.js"></script>
+  <script src="vendor/katex/contrib/auto-render.min.js"></script>
+  <script src="app.js?v=docs-math-r1"></script>
 </body>
 </html>

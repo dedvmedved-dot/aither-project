@@ -18,7 +18,7 @@
 
 Откройте браузер и перейдите:
 
-**Internet:** `https://fb1.spb.ru:443/`
+**Internet:** `https://fb1.spb.ru:10443/`
 **Test Zone:** `http://10.129.13.78:30080/`
 
 > Сертификат HTTPS — доверенный (Let's Encrypt). Предупреждений браузера быть не должно.
@@ -34,8 +34,8 @@
 ### Шаг 4: Выберите модель
 
 В выпадающем списке выберите:
-- **qwen-14b (Чат)** — для диалогов
-- **qwen-32b-base (Базовая)** — для продолжения текста
+- **qwen3-32b (Чат)** — для диалогов
+- **qwen3.8-27b (Базовая)** — для продолжения текста
 
 ### Шаг 5: Отправьте сообщение
 
@@ -63,13 +63,13 @@
 
 ### curl (Linux / macOS / WSL)
 ```bash
-curl https://fb1.spb.ru:443/v1/models \
+curl https://fb1.spb.ru:10443/api/v1/models \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ"
 ```
 
 ### PowerShell (Windows)
 ```powershell
-Invoke-RestMethod -Uri "https://fb1.spb.ru:443/v1/models" `
+Invoke-RestMethod -Uri "https://fb1.spb.ru:10443/api/v1/models" `
   -Headers @{"Authorization"="Bearer ВАШ_API_КЛЮЧ"}
 ```
 
@@ -77,7 +77,7 @@ Invoke-RestMethod -Uri "https://fb1.spb.ru:443/v1/models" `
 ```python
 import requests
 response = requests.get(
-    "https://fb1.spb.ru:443/v1/models",
+    "https://fb1.spb.ru:10443/api/v1/models",
     headers={"Authorization": "Bearer ВАШ_API_КЛЮЧ"}
 )
 print(response.json())
@@ -88,14 +88,14 @@ print(response.json())
 {
   "object": "list",
   "data": [
-    {"id": "qwen-14b", "object": "model", "owned_by": "aither"},
-    {"id": "qwen-32b-base", "object": "model", "owned_by": "aither"}
+    {"id": "qwen3-32b", "object": "model", "owned_by": "aither"},
+    {"id": "qwen3.8-27b", "object": "model", "owned_by": "aither"}
   ]
 }
 ```
 
 > Если получили ошибку `401` — проверьте API-ключ. Если таймаут — проверьте подключение к интернету.
-> **API-ключи имеют префикс `athr_`.** Создать ключ можно в Web UI: 🔑 API Ключи → Создать.
+> **API-ключи имеют префикс `aither_`.** Создать ключ можно в Web UI: 🔑 API Ключи → Создать.
 
 ---
 
@@ -105,8 +105,8 @@ print(response.json())
 
 | Модель | Тип | Для чего |
 |---|---|---|
-| `qwen-14b` | Чат (instruct) | Диалоги, вопросы-ответы |
-| `qwen-32b-base` | Базовая (completion) | Продолжение текста |
+| `qwen3-32b` | Чат (instruct) | Диалоги, вопросы-ответы |
+| `qwen3.8-27b` | Базовая (completion) | Продолжение текста |
 
 ---
 
@@ -114,11 +114,11 @@ print(response.json())
 
 ### curl
 ```bash
-curl https://fb1.spb.ru:443/v1/chat/completions \
+curl https://fb1.spb.ru:10443/api/v1/chat/completions \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen-14b",
+    "model": "qwen3-32b",
     "messages": [{"role": "user", "content": "Привет! Расскажи, что ты умеешь."}],
     "max_tokens": 200
   }'
@@ -128,10 +128,10 @@ curl https://fb1.spb.ru:443/v1/chat/completions \
 ```python
 import requests
 response = requests.post(
-    "https://fb1.spb.ru:443/v1/chat/completions",
+    "https://fb1.spb.ru:10443/api/v1/chat/completions",
     headers={"Authorization": "Bearer ВАШ_API_КЛЮЧ", "Content-Type": "application/json"},
     json={
-        "model": "qwen-14b",
+        "model": "qwen3-32b",
         "messages": [{"role": "user", "content": "Привет! Расскажи, что ты умеешь."}],
         "max_tokens": 200
     }
@@ -149,11 +149,11 @@ print(response.json()["choices"][0]["message"]["content"])
 
 ### curl
 ```bash
-curl https://fb1.spb.ru:443/v1/chat/completions \
+curl https://fb1.spb.ru:10443/api/v1/chat/completions \
   -H "Authorization: Bearer ВАШ_API_КЛЮЧ" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen-32b-base",
+    "model": "qwen3.8-27b",
     "messages": [{"role": "user", "content": "Продолжи: Однажды в студёную зимнюю пору"}],
     "max_tokens": 100
   }'
@@ -162,10 +162,10 @@ curl https://fb1.spb.ru:443/v1/chat/completions \
 ### Python
 ```python
 response = requests.post(
-    "https://fb1.spb.ru:443/v1/chat/completions",
+    "https://fb1.spb.ru:10443/api/v1/chat/completions",
     headers={"Authorization": "Bearer ВАШ_API_КЛЮЧ", "Content-Type": "application/json"},
     json={
-        "model": "qwen-32b-base",
+        "model": "qwen3.8-27b",
         "messages": [{"role": "user", "content": "Продолжи: Однажды в студёную зимнюю пору"}],
         "max_tokens": 100
     }
@@ -180,7 +180,7 @@ print(response.json()["choices"][0]["message"]["content"])
 ## Что дальше?
 
 - ✅ **Вы выполнили первый запрос!** Система работает.
-- 🌐 **Web UI** — основной интерфейс. Откройте `https://fb1.spb.ru:443/`.
+- 🌐 **Web UI** — основной интерфейс. Откройте `https://fb1.spb.ru:10443/`.
 - 📖 Переходите к [WEB UI GUIDE](13_WEB_UI_GUIDE.md) — полное описание Web UI.
 - 🧪 Выполните [TEST ASSIGNMENT](05_TEST_ASSIGNMENT.md) — обязательные задания.
 - 🔑 Создайте API-ключ для автоматизации: [API KEY USER GUIDE](14_API_KEY_USER_GUIDE.md).
