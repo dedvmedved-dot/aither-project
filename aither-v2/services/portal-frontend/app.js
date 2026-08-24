@@ -25,7 +25,7 @@
         if (!currentSessionId) {
             // Create a new session if none active
             currentSessionId = uid();
-            var s = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
+            var s = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: DEFAULT_MODEL_ID, history: [], tokens: 0, requests: 0 };
             chatSessions.unshift(s);
             saveChatSessions();
             return s;
@@ -35,7 +35,7 @@
             if (chatSessions[i].id === currentSessionId) { found = chatSessions[i]; break; }
         }
         if (!found) {
-            found = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
+            found = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: DEFAULT_MODEL_ID, history: [], tokens: 0, requests: 0 };
             chatSessions.unshift(found);
             saveChatSessions();
         }
@@ -71,7 +71,7 @@
                         var sid = uid();
                         chatSessions = [{
                             id: sid, title: titleFromHistory(old.history),
-                            timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct',
+                            timestamp: new Date().toISOString(), model: DEFAULT_MODEL_ID,
                             history: old.history, tokens: old.tokens || 0, requests: old.requests || 0
                         }];
                         localStorage.removeItem('aither_chat');
@@ -139,6 +139,98 @@
     }
     const ZONE = detectZone();
     const ZONE_CLASS = ZONE === 'INTERNET' ? 'zone-internet' : 'zone-test';
+
+    // ── Active Model Catalog ────────────────────────────────────
+    // Source of Truth: the accepted active backend catalog is exactly
+    // qwen3-32b and qwen3.8-27b, both covered by the model:qwen3:chat
+    // scope. The chat selector is populated from the authenticated
+    // /api/v1/models response and filtered through this allowlist, so a
+    // retired/stale model ID is never presented or used. If the catalog
+    // cannot be loaded the UI fails closed (sending disabled).
+    var ACTIVE_MODEL_IDS = ['qwen3-32b', 'qwen3.8-27b'];
+    var MODEL_LABELS = { 'qwen3-32b': 'Qwen3-32B', 'qwen3.8-27b': 'Qwen3.8-27B' };
+    var DEFAULT_MODEL_ID = 'qwen3-32b';
+    var modelCatalog = [];
+    var modelCatalogLoaded = false;
+    var modelCatalogError = null;
+
+    function isActiveModel(id) {
+        return ACTIVE_MODEL_IDS.indexOf(id) !== -1;
+    }
+
+    function modelLabel(id) {
+        return MODEL_LABELS[id] || id;
+    }
+
+    function resolveActiveModel(id) {
+        if (id && isActiveModel(id)) return id;
+        return DEFAULT_MODEL_ID;
+    }
+
+    function renderModelSelect() {
+        var sel = $('chat-model-select');
+        if (!sel) return;
+        sel.innerHTML = '';
+        if (!modelCatalog.length) {
+            sel.disabled = true;
+            var opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = modelCatalogError || 'Модели не загружены';
+            sel.appendChild(opt);
+            return;
+        }
+        for (var i = 0; i < modelCatalog.length; i++) {
+            var o = document.createElement('option');
+            o.value = modelCatalog[i];
+            o.textContent = modelLabel(modelCatalog[i]);
+            sel.appendChild(o);
+        }
+        sel.disabled = false;
+        var s = getCurrentSession();
+        if (s && s.model && isActiveModel(s.model)) {
+            sel.value = s.model;
+        } else {
+            sel.value = DEFAULT_MODEL_ID;
+        }
+        updateModelInfo();
+    }
+
+    async function loadModelCatalog() {
+        modelCatalog = [];
+        modelCatalogLoaded = false;
+        modelCatalogError = null;
+        try {
+            var res = await api('/models');
+            if (res.ok && res.data) {
+                var list = res.data.data || res.data;
+                var returned = [];
+                for (var i = 0; i < (Array.isArray(list) ? list : []).length; i++) {
+                    var name = list[i].id || list[i].name;
+                    if (name && isActiveModel(name) && returned.indexOf(name) === -1) returned.push(name);
+                }
+                for (var j = 0; j < ACTIVE_MODEL_IDS.length; j++) {
+                    if (returned.indexOf(ACTIVE_MODEL_IDS[j]) !== -1) modelCatalog.push(ACTIVE_MODEL_IDS[j]);
+                }
+            }
+            if (!modelCatalog.length) {
+                modelCatalogError = 'Не удалось загрузить каталог моделей';
+                var s1 = $('chat-model-select'); if (s1) s1.disabled = true;
+                var b1 = $('btn-send-message'); if (b1) b1.disabled = true;
+                var i1 = $('chat-model-info');
+                if (i1) { i1.innerHTML = '⚠️ Каталог моделей недоступен — отправка отключена'; i1.style.color = 'var(--danger)'; }
+                renderModelSelect();
+                return;
+            }
+            modelCatalogLoaded = true;
+            renderModelSelect();
+            var b2 = $('btn-send-message'); if (b2) b2.disabled = false;
+        } catch (e) {
+            modelCatalogError = 'Не удалось загрузить каталог моделей';
+            var s2 = $('chat-model-select'); if (s2) s2.disabled = true;
+            var b3 = $('btn-send-message'); if (b3) b3.disabled = true;
+            renderModelSelect();
+        }
+    }
 
     // ── API ────────────────────────────────────────────────────
     async function api(path, opts = {}) {
@@ -453,6 +545,7 @@
                 }
                 localStorage.setItem('aither_token', authToken);
                 updateNav();
+                loadModelCatalog();
                 showPage('dashboard');
                 $('login-username').value = '';
                 $('login-password').value = '';
@@ -820,8 +913,8 @@
                 const models = res.data.data || res.data;
                 let html = '';
                 const modelDescriptions = {
-                    'qwen2.5-32b-instruct': 'Qwen2.5-32B (32K)',
-                    'qwen3-32b': 'Qwen3-32B (64K)',
+                    'qwen3-32b': 'Qwen3-32B — AWQ 4-bit, контекст 64K',
+                    'qwen3.8-27b': 'Qwen3.8-27B — FP8, контекст 16K',
                 };
                 for (const m of (Array.isArray(models) ? models : [])) {
                     const name = m.id || m.name;
@@ -839,12 +932,14 @@
         const info = $('chat-model-info');
         if (!sel) return;
         const model = sel.value;
-        if (model === 'qwen2.5-32b-instruct') {
-            info.innerHTML = '<b>Qwen2.5-32B-Instruct-AWQ</b> — 32 млрд параметров, AWQ 4-bit<br>📏 Контекст: <b>32K токенов</b> (родной)<br>🎯 Режимы: чат, инструкции, tool calling<br>🖥 Размещение: N7, 2×RTX 6000 (TP=2)';
+        if (model === 'qwen3-32b') {
+            info.innerHTML = '<b>Qwen3-32B</b> — AWQ 4-bit<br>📏 Контекст (max-model-len): <b>64K токенов</b><br>🖥 Размещение: N8, TP=2';
+            info.style.color = 'var(--text)';
+        } else if (model === 'qwen3.8-27b') {
+            info.innerHTML = '<b>Qwen3.8-27B</b> — FP8<br>📏 Контекст (max-model-len): <b>16K токенов</b><br>🖥 Размещение: N7, TP=2';
             info.style.color = 'var(--text)';
         } else {
-            info.innerHTML = '<b>Qwen3-32B-AWQ</b> — 32 млрд параметров, AWQ 4-bit<br>📏 Контекст: <b>32K родной + YaRN до 64K</b><br>⚠️ На 64K возможна деградация внимания<br>🎯 Режимы: чат, инструкции, tool calling<br>🖥 Размещение: N8, 2×RTX 6000 (TP=2)';
-            info.style.color = 'var(--text)';
+            info.innerHTML = '';
         }
     }
 
@@ -881,8 +976,12 @@
     }
 
     async function sendChatMessage() {
+        if (!modelCatalogLoaded || !modelCatalog.length) {
+            addChatMessage('error', 'Каталог моделей недоступен — отправка отключена. Обновите страницу.');
+            return;
+        }
         var input = $('chat-input');
-        var model = $('chat-model-select')?.value || 'qwen2.5-32b-instruct';
+        var model = resolveActiveModel($('chat-model-select')?.value);
         var content = input.value.trim();
         if (!content) return;
 
@@ -986,9 +1085,12 @@
         currentSessionId = sessionId;
         localStorage.setItem('aither_current_chat', currentSessionId);
         var s = getCurrentSession();
-        // Restore model
-        if (s.model && $('chat-model-select')) {
-            $('chat-model-select').value = s.model;
+        // Restore model only if still in the active catalog; otherwise migrate.
+        if (s.model && isActiveModel(s.model)) {
+            if ($('chat-model-select')) $('chat-model-select').value = s.model;
+        } else {
+            s.model = DEFAULT_MODEL_ID;
+            if ($('chat-model-select')) $('chat-model-select').value = DEFAULT_MODEL_ID;
         }
         updateModelInfo();
         // Restore messages
@@ -1024,7 +1126,7 @@
             } else {
                 // No sessions left, create new
                 currentSessionId = uid();
-                var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
+                var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: DEFAULT_MODEL_ID, history: [], tokens: 0, requests: 0 };
                 chatSessions = [ns];
                 saveChatSessions();
                 var msgs = $('chat-messages');
@@ -1038,13 +1140,13 @@
     window._newChat = function() {
         saveChatSessions();
         currentSessionId = uid();
-        var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: $('chat-model-select')?.value || 'qwen2.5-32b-instruct', history: [], tokens: 0, requests: 0 };
+        var ns = { id: currentSessionId, title: 'Новый чат', timestamp: new Date().toISOString(), model: resolveActiveModel($('chat-model-select')?.value), history: [], tokens: 0, requests: 0 };
         chatSessions.unshift(ns);
         // Reset UI
         var msgs = $('chat-messages');
         if (msgs) msgs.innerHTML = '';
-        // Reset model select to default if needed
-        if ($('chat-model-select')) $('chat-model-select').value = 'qwen2.5-32b-instruct';
+        // Reset model select to the default active model
+        if ($('chat-model-select')) $('chat-model-select').value = DEFAULT_MODEL_ID;
         updateModelInfo();
         updateTokenCounters();
         saveChatSessions();
@@ -1092,7 +1194,7 @@
                 for (const k of tokens) {
                     const revoked = k.revoked || k.revoked_at;
                     const prefix = (k.key_prefix || k.token_id || k.id || '—');
-                    var sf = (k.scopes || []).map(function(s) { return (s === 'model:32b:chat' || s === 'model:qwen2.5:chat') ? 'Qwen2.5' : s === 'model:qwen3:chat' ? 'Qwen3' : s; });
+                    var sf = (k.scopes || []).map(function(s) { return s === 'model:qwen3:chat' ? 'Qwen3 (qwen3-32b, qwen3.8-27b)' : s; });
                     sf = Array.from(new Set(sf)).join(', ');
                     var sc = revoked ? 'badge-revoked' : (k.status === 'expired' ? 'badge-expired' : 'badge-enabled');
                     var st = revoked ? 'Отозван' : (k.status === 'expired' ? 'Истёк' : 'Активен');
@@ -1123,15 +1225,16 @@
 
 
     function showCreateTokenModal() {
-        modal('\n            <h2>Создать API-ключ</h2>\n            <div class="form-group">\n                <label>Название</label>\n                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Hermes Home">\n            </div>\n            <div class="form-group">\n                <label>Назначение</label>\n                <select id="modal-token-purpose" class="form-input">\n                    <option value="agent">🤖 AI Agent</option>\n                    <option value="api">🔌 API / Разработка</option>\n                    <option value="other">📌 Другое</option>\n                </select>\n            </div>\n            <div class="form-group">\n                <label>Модели</label>\n                <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen25" value="qwen2.5-32b-instruct" checked>\n                        <span>Qwen2.5-32B (32K)</span>\n                    </label>\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen3" value="qwen3-32b" checked>\n                        <span>Qwen3-32B (64K)</span>\n                    </label>\n                </div>\n            </div>\n            <div class="form-group">\n                <label>Срок действия</label>\n                <select id="modal-token-expiry" class="form-input">\n                    <option value="30">30 дней</option>\n                    <option value="90" selected>90 дней</option>\n                    <option value="180">180 дней</option>\n                    <option value="365">365 дней</option>\n                </select>\n            </div>\n            <div id="modal-token-result" style="display:none;">\n                <div class="alert alert-success" style="margin-top:12px;">\n                    ✅ API-ключ создан. <strong>Показан только один раз.</strong>\n                </div>\n                <div class="copy-field">\n                    <input type="text" id="modal-token-full" readonly>\n                    <button class="btn btn-sm btn-primary" onclick="var i=document.getElementById(\'modal-token-full\');i.select();navigator.clipboard?.writeText(i.value);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.textContent=\'Копировать\',2000);">Копировать</button>\n                </div>\n                <p class="text-muted" style="margin-top:4px;">Формат: aither_... (Bearer-токен)</p>\n            </div>\n            <div style="display:flex;gap:8px;margin-top:16px;">\n                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать API-ключ</button>\n                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>\n            </div>\n        ');
+        modal('\n            <h2>Создать API-ключ</h2>\n            <div class="form-group">\n                <label>Название</label>\n                <input type="text" id="modal-token-name" class="form-input" placeholder="Например: Hermes Home">\n            </div>\n            <div class="form-group">\n                <label>Назначение</label>\n                <select id="modal-token-purpose" class="form-input">\n                    <option value="agent">🤖 AI Agent</option>\n                    <option value="api">🔌 API / Разработка</option>\n                    <option value="other">📌 Другое</option>\n                </select>\n            </div>\n            <div class="form-group">\n                <label>Модели</label>\n                <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen3-32b" value="qwen3-32b" checked>\n                        <span>Qwen3-32B</span>\n                    </label>\n                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">\n                        <input type="checkbox" id="modal-model-qwen38-27b" value="qwen3.8-27b" checked>\n                        <span>Qwen3.8-27B</span><br><span style="font-size:11px;color:var(--text-muted);">Обе модели используют scope model:qwen3:chat</span>\n                    </label>\n                </div>\n            </div>\n            <div class="form-group">\n                <label>Срок действия</label>\n                <select id="modal-token-expiry" class="form-input">\n                    <option value="30">30 дней</option>\n                    <option value="90" selected>90 дней</option>\n                    <option value="180">180 дней</option>\n                    <option value="365">365 дней</option>\n                </select>\n            </div>\n            <div id="modal-token-result" style="display:none;">\n                <div class="alert alert-success" style="margin-top:12px;">\n                    ✅ API-ключ создан. <strong>Показан только один раз.</strong>\n                </div>\n                <div class="copy-field">\n                    <input type="text" id="modal-token-full" readonly>\n                    <button class="btn btn-sm btn-primary" onclick="var i=document.getElementById(\'modal-token-full\');i.select();navigator.clipboard?.writeText(i.value);this.textContent=\'✓ Скопировано\';setTimeout(()=>this.textContent=\'Копировать\',2000);">Копировать</button>\n                </div>\n                <p class="text-muted" style="margin-top:4px;">Формат: aither_... (Bearer-токен)</p>\n            </div>\n            <div style="display:flex;gap:8px;margin-top:16px;">\n                <button class="btn btn-primary" id="modal-token-create-btn" onclick="window._createToken()">Создать API-ключ</button>\n                <button class="btn btn-outline" onclick="closeModal()">Закрыть</button>\n            </div>\n        ');
     }
 
     window._createToken = async function() {
             const name = document.getElementById('modal-token-name')?.value?.trim() || 'API Key';
             const purpose = document.getElementById('modal-token-purpose')?.value || 'agent';
-            const scopes = [];
-            if (document.getElementById('modal-model-qwen25')?.checked) scopes.push('model:qwen2.5:chat');
-            if (document.getElementById('modal-model-qwen3')?.checked) scopes.push('model:qwen3:chat');
+            // Both active Qwen3 models share the single model:qwen3:chat scope.
+            const want32b = document.getElementById('modal-model-qwen3-32b')?.checked;
+            const want38b = document.getElementById('modal-model-qwen38-27b')?.checked;
+            const scopes = (want32b || want38b) ? ['model:qwen3:chat'] : [];
             if (scopes.length === 0) { alert('Выберите хотя бы одну модель.'); return; }
             const expiresInDays = Number(document.getElementById('modal-token-expiry')?.value || 90);
             document.getElementById('modal-token-create-btn').disabled = true;
@@ -1204,6 +1307,7 @@
             if (res.ok) {
                 currentUser = await res.json();
                 updateNav();
+                loadModelCatalog();
                 // Restore saved page, default to dashboard
                 var savedPage = 'dashboard';
                 try { savedPage = localStorage.getItem('aither_page') || 'dashboard'; } catch(e) {}
@@ -1518,7 +1622,9 @@
                 $('usage-today').innerHTML = '<div>Запросов (сессия): <b>' + getCurrentSession().requests + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
                 $('usage-tokens').innerHTML = '<div>Токенов (сессия): <b>' + getCurrentSession().tokens + '</b></div><p class="text-muted">Данные сервера недоступны</p>';
             }
-            $('usage-models').innerHTML = '<div class="text-muted">📊 По моделям — статистика сессии:</div>\n                <div>qwen2.5-32b-instruct ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>\n                <div>qwen3-32b ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>';
+            var curSession = getCurrentSession();
+            var usageModel = (curSession && curSession.model) ? (MODEL_LABELS[curSession.model] || curSession.model) : '—';
+            $('usage-models').innerHTML = '<div class="text-muted">📊 Модель текущей сессии:</div>\n                <div>' + escHtml(usageModel) + ' ' + (getCurrentSession().requests > 0 ? '✓' : '—') + '</div>';
         } catch(e) {
             $('usage-today').innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
         }
@@ -1598,9 +1704,10 @@
                         return s.title || s.source;
                     }).join('; ');
                 }
-                addChatMessage('assistant', '🔍 RAG-ответ:\n\n' + answer + srcInfo, 'qwen2.5-32b-instruct (RAG)');
+                var ragModel = (r.data && r.data.model) ? r.data.model : 'RAG';
+                addChatMessage('assistant', '🔍 RAG-ответ:\n\n' + answer + srcInfo, ragModel);
                 var session = getCurrentSession();
-                session.history.push({ role: 'assistant', content: '🔍 RAG-ответ:\n\n' + answer + srcInfo, model: 'qwen2.5-32b-instruct (RAG)' });
+                session.history.push({ role: 'assistant', content: '🔍 RAG-ответ:\n\n' + answer + srcInfo, model: ragModel });
                 saveChatSessions();
                 renderChatList();
             } else {

@@ -26,6 +26,7 @@
 | 14 | [API KEY USER GUIDE](14_API_KEY_USER_GUIDE.md) | Создание, использование и отзыв API-ключей через Web UI | Всем |
 | 15 | [DUAL ZONE ACCESS GUIDE](15_DUAL_ZONE_ACCESS_GUIDE.md) | Доступ через Internet и Test Zone | Всем |
 | 16 | [AI AGENT CONNECTION PRIMER](16_AI_AGENT_CONNECTION_PRIMER.md) | Подключение AI-агентов через токены | Разработчикам |
+| 17 | [MODEL USAGE GUIDE](17_MODEL_USAGE_GUIDE.md) | Работа с моделями — активный каталог, выбор модели, API-ключи | Всем |
 
 ---
 
@@ -39,7 +40,7 @@
 | **Test Zone** | `http://10.129.13.78:30080/` | Внутренняя сеть / VPN |
 
 Через Web UI вы можете:
-- 💬 Вести чат с моделями (qwen-14b и qwen-32b-base)
+- 💬 Вести чат с моделями (qwen3-32b и qwen3.8-27b)
 - 🔑 Создавать и управлять API-ключами (префикс `athr_`)
 - 🤖 Подключать AI-агентов через токены
 - 📊 Видеть статус системы и моделей
