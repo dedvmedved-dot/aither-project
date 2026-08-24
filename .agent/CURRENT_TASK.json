@@ -1,22 +1,26 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-LIVE-PORTAL-SOURCE-DISCOVERY-R2",
+  "task_id": "AITHER-PORTAL-MODEL-CATALOG-DOCSYNC-R1",
   "executor": "hermes",
-  "mode": "READ_ONLY_LIVE_PORTAL_SOURCE_DISCOVERY",
+  "mode": "PORTAL_MODEL_CATALOG_DOCSYNC_RUNTIME_SYNC",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "a29eb83833bfb004c18bfdb2c9f94aa2b719c033",
+  "baseline_sha": "f71ef8790737df3af19da323ee53cd4c456a5280",
   "allowed_paths": [
-    "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R2.md"
+    "aither-v2/services/portal-frontend/index.html",
+    "aither-v2/services/portal-frontend/app.js",
+    "docs/user-package/00_INDEX.md",
+    "docs/user-package/17_MODEL_USAGE_GUIDE.md",
+    "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R1.md"
   ],
   "capabilities": {
     "source_write": true,
     "agent_exec": true,
     "network_git": false,
     "kubernetes": true,
-    "deployment": false,
+    "deployment": true,
     "database_write": false,
-    "runtime_write": false,
+    "runtime_write": true,
     "secret_access": false,
     "package_install": false
   },
@@ -26,11 +30,13 @@
     "push": true
   },
   "validation_commands": [
-    ["test", "-s", "docs/evidence/AITHER_LIVE_PORTAL_SOURCE_DISCOVERY_R2.md"]
+    ["test", "-s", "docs/user-package/17_MODEL_USAGE_GUIDE.md"],
+    ["test", "-s", "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R1.md"],
+    ["python3", "-c", "from pathlib import Path; idx=Path('aither-v2/services/portal-frontend/index.html').read_text(); js=Path('aither-v2/services/portal-frontend/app.js').read_text(); doc=Path('docs/user-package/17_MODEL_USAGE_GUIDE.md').read_text(); toc=Path('docs/user-package/00_INDEX.md').read_text(); assert 'qwen3.8-27b' in js; assert 'qwen3-32b' in js; assert 'qwen2.5-32b-instruct' not in idx+js; assert 'model:qwen2.5:chat' not in js; assert 'qwen3.8-27b' in doc and 'qwen3-32b' in doc; assert '17_MODEL_USAGE_GUIDE.md' in toc"]
   ],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "audit: identify canonical live Portal frontend source R2"
+  "commit_message": "fix: synchronize live Portal model catalog and model usage guide"
 }
