@@ -788,9 +788,18 @@ async def portal_status():
 
 @app.get("/api/v1/models")
 async def proxy_models(request: Request):
-    """Proxy to AI Platform: GET /api/v1/models, or serve API-key-filtered list."""
+    """Return the active model catalog.
+
+    - External OpenAI-compatible API keys (`Bearer aither_...`) receive the
+      scope-filtered list (behavior unchanged).
+    - A normal authenticated Portal web session is validated against Identity
+      using the same accepted contract as `/api/v1/auth/me` and `/api/v1/chat`,
+      then receives the exact active catalog (`qwen3-32b`, `qwen3.8-27b`)
+      filtered by the `model:qwen3:chat` entitlement.
+    - A Portal session is never proxied to AI Platform as if it were a JWT.
+    """
     auth = request.headers.get("Authorization", "")
-    # API key auth: return filtered model list
+    # API key auth: return filtered model list (external OpenAI-compatible path unchanged)
     if auth.startswith("Bearer aither_"):
         ctx = await _introspect_api_key(auth[7:].strip())
         effective = set(ctx.get("effective_scopes", []))
@@ -801,13 +810,21 @@ async def proxy_models(request: Request):
         if not models:
             raise HTTPException(status_code=403, detail="No models available for this key")
         return {"object": "list", "data": models}
-    # JWT auth: proxy to AI Platform
-    try:
-        async with httpx.AsyncClient(base_url=AI_PLATFORM_URL, timeout=10.0) as ac:
-            r = await ac.get("/api/v1/models", headers={"Authorization": auth})
-            return Response(content=r.content, status_code=r.status_code, media_type="application/json")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"AI Platform unreachable: {e}")
+
+    # Portal web session: validate through Identity (fail closed).
+    # Missing/invalid session -> 401; disabled account -> 403; Identity down -> 503.
+    user = await _get_user_from_token(request)
+
+    # Entitlement gate: both active models require the single model:qwen3:chat scope.
+    scopes_str = (user.get("scopes") or "").strip()
+    scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
+    if "model:qwen3:chat" not in scopes:
+        raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:qwen3:chat' required")
+
+    models = []
+    for model_id, info in CURRENT_MODELS.items():
+        models.append({"id": model_id, "object": "model", "created": 1722900000, "owned_by": "aither"})
+    return {"object": "list", "data": models}
 
 @app.post("/api/v1/models")
 async def proxy_create_model(request: Request):
