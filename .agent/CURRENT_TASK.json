@@ -1,17 +1,14 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-PORTAL-MODEL-CATALOG-DOCSYNC-R1",
+  "task_id": "AITHER-PORTAL-MODEL-CATALOG-DOCSYNC-R2",
   "executor": "hermes",
-  "mode": "PORTAL_MODEL_CATALOG_DOCSYNC_RUNTIME_SYNC",
+  "mode": "PORTAL_STALE_MODEL_UI_CLEANUP",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "f71ef8790737df3af19da323ee53cd4c456a5280",
+  "baseline_sha": "bb7da8160ace229b9da447c1c3879317d9bb60ad",
   "allowed_paths": [
     "aither-v2/services/portal-frontend/index.html",
-    "aither-v2/services/portal-frontend/app.js",
-    "docs/user-package/00_INDEX.md",
-    "docs/user-package/17_MODEL_USAGE_GUIDE.md",
-    "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R1.md"
+    "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R2.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -30,13 +27,13 @@
     "push": true
   },
   "validation_commands": [
-    ["test", "-s", "docs/user-package/17_MODEL_USAGE_GUIDE.md"],
-    ["test", "-s", "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R1.md"],
-    ["python3", "-c", "from pathlib import Path; idx=Path('aither-v2/services/portal-frontend/index.html').read_text(); js=Path('aither-v2/services/portal-frontend/app.js').read_text(); doc=Path('docs/user-package/17_MODEL_USAGE_GUIDE.md').read_text(); toc=Path('docs/user-package/00_INDEX.md').read_text(); assert 'qwen3.8-27b' in js; assert 'qwen3-32b' in js; assert 'qwen2.5-32b-instruct' not in idx+js; assert 'model:qwen2.5:chat' not in js; assert 'qwen3.8-27b' in doc and 'qwen3-32b' in doc; assert '17_MODEL_USAGE_GUIDE.md' in toc"]
+    ["test", "-s", "aither-v2/services/portal-frontend/index.html"],
+    ["test", "-s", "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R2.md"],
+    ["python3", "-c", "from pathlib import Path; idx=Path('aither-v2/services/portal-frontend/index.html').read_text(); js=Path('aither-v2/services/portal-frontend/app.js').read_text(); combined=idx+js; assert 'qwen2.5-32b-instruct' not in combined; assert 'qwen-14b' not in combined; assert 'qwen-32b-base' not in combined; assert 'qwen3-32b' in combined; assert 'qwen3.8-27b' in combined"]
   ],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "fix: synchronize live Portal model catalog and model usage guide"
+  "commit_message": "fix: remove remaining retired model references from live Portal"
 }

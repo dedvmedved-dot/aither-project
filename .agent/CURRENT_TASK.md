@@ -1,242 +1,120 @@
-# AITHER-PORTAL-MODEL-CATALOG-DOCSYNC-R1
+# AITHER-PORTAL-MODEL-CATALOG-DOCSYNC-R2
 
-## Authority and scope
+## Role and authority
 
-GitHub repository `dedvmedved-dot/aither-project`, branch `aither-v2`, is the Source of Truth.
+Executor: **Hermes only**.
 
-Executor: **Hermes only** through the existing host runner/H2/root-executor path. Codex execution is not authorized for Aither. Hermes must not commit or push; the host runner performs finalization.
+This is a narrow corrective task issued by ChatGPT Architect after independent Connector audit of R1. R1 corrected the active chat catalog and the article `17_MODEL_USAGE_GUIDE.md`, but the canonical live Portal frontend still contains retired user-visible model identifiers in the Tariffs and Admin sections.
 
-This is the single corrective step for the already-proven live Portal model-catalog drift and the user-facing documentation article **«Работа с моделями»**. Do not expand into model benchmarking, performance tuning, observability, backend redesign, inference changes, or unrelated documentation cleanup.
+Do not use Codex. Do not expand scope.
 
-## Proven starting facts
+## Baseline
 
-Discovery task `AITHER-LIVE-PORTAL-SOURCE-DISCOVERY-R2` proved that the user-facing Portal at `https://fb1.spb.ru:10443/` is served from Kubernetes ConfigMap `aither-portal-config` in namespace `aither-inference`, and that its canonical repository source is:
+- Repository: `dedvmedved-dot/aither-project`
+- Branch: `aither-v2`
+- Baseline / parent: `bb7da8160ace229b9da447c1c3879317d9bb60ad`
+- R1 implementation is otherwise accepted as the basis for this correction.
 
-- `aither-v2/services/portal-frontend/index.html`
-- `aither-v2/services/portal-frontend/app.js`
-- `aither-v2/services/portal-frontend/styles.css`
-- `aither-v2/services/portal-frontend/nginx.conf`
+## Proven defect
 
-The current live chat selector is stale: it exposes `qwen2.5-32b-instruct` and `qwen3-32b`, while the accepted active backend catalog is exactly:
+In canonical `aither-v2/services/portal-frontend/index.html` after R1:
+
+1. Admin model action buttons still send retired IDs:
+   - `qwen-14b`
+   - `qwen-32b-base`
+2. Tariff cards still display retired model names such as:
+   - `qwen-14b`
+   - `qwen-14b + qwen-32b`
+
+These strings are user-visible or user-actionable and are incompatible with the current accepted active pair:
 
 - `qwen3-32b`
 - `qwen3.8-27b`
 
-Both active models use API-key scope `model:qwen3:chat`.
+The active chat catalog and API-key scope implemented in R1 must remain unchanged:
 
-Qwen2.5 is rollback-only and must not be presented as an active/selectable model.
-
-The live Documentation card **«🤖 Работа с моделями»** points to `/docs/17_MODEL_USAGE_GUIDE.md`. Runtime discovery proved `aither-portal-docs` contains 18 Markdown keys, but `docs/user-package/` in GitHub currently contains only `00_INDEX.md` through `16_AI_AGENT_CONNECTION_PRIMER.md`; therefore the live article has no canonical GitHub source and this must be corrected.
-
-## Objective
-
-Make the live Portal, its canonical frontend source, and the user-facing article **«Работа с моделями»** consistent with the accepted active catalog, without changing model deployments, routing, Identity, Gateway behavior, database state, credentials, or any Secret.
-
-The final state must support normal user selection of both `qwen3-32b` and `qwen3.8-27b` in the Portal and must allow creation of an API key with the correct `model:qwen3:chat` scope for these models.
-
-## Allowed source changes — exact
-
-Only these implementation/evidence paths may change:
-
-1. `aither-v2/services/portal-frontend/index.html`
-2. `aither-v2/services/portal-frontend/app.js`
-3. `docs/user-package/00_INDEX.md`
-4. `docs/user-package/17_MODEL_USAGE_GUIDE.md` — create this canonical source
-5. `docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R1.md`
-
-Do not modify superseded frontend artifacts such as `portal/static/index.html`, `portal/dist/index.html`, `deploy/portal-frontend-combined.html`, `aither-v2/services/portal-frontend/k8s/portal-frontend.yaml`, or `aither-portal-frontend-config`.
-
-## Runtime mutation allowlist — exact
-
-Runtime writes are allowed only to synchronize the corrected canonical source into:
-
-- ConfigMap `aither-portal-config`, namespace `aither-inference`;
-- ConfigMap `aither-portal-docs`, namespace `aither-inference`;
-- Deployment `aither-portal`, namespace `aither-inference`, **restart only if required** after waiting for ConfigMap projection to refresh.
-
-No other Kubernetes object may be created, patched, restarted, scaled, deleted, or applied.
-
-Do not touch either active vLLM deployment, Gateway/backend routing, Identity, API-key database contents, RAG backend behavior, reverse-proxy configuration, or the secondary non-user-facing `aither-portal-frontend` deployment/service.
-
-## Security constraints
-
-- Do not read, print, export, hash, decode, or otherwise access Kubernetes Secret values.
-- Do not use user passwords, cookies, Authorization headers, API keys, or temporary credentials in this task.
-- Do not create an API key in this task; authenticated E2E is the next acceptance step.
-- Do not modify `/root/.hermes`.
-- Do not change repository ownership or use `safe.directory=*`.
-- Do not make Git commits or push from Hermes.
+- active models exactly `qwen3-32b`, `qwen3.8-27b`
+- API-key scope `model:qwen3:chat`
+- Qwen2.5 remains retired
+- `docs/user-package/17_MODEL_USAGE_GUIDE.md` remains canonical and unchanged unless only read for verification
 
 ## Required implementation
 
-### 1. Preflight
+### 1. Tariffs: remove retired model identifiers
 
-Record sanitized evidence for:
+Edit only `aither-v2/services/portal-frontend/index.html`.
 
-- UTC timestamp;
-- branch and start HEAD;
-- clean worktree;
-- baseline is ancestor of task-control HEAD;
-- `baseline..HEAD` handoff contains only `.agent/CURRENT_TASK.json` and `.agent/CURRENT_TASK.md`;
-- current live `aither-portal` Service/Deployment/Pod Ready state;
-- current key names and SHA-256 fingerprints of `aither-portal-config` and `aither-portal-docs`, without Secret access.
+Tariff cards MUST NOT hardcode `qwen-14b`, `qwen-32b`, `qwen-32b-base`, or Qwen2.5 as currently available models.
 
-### 2. Correct the live chat model selector
+Do not invent entitlement semantics that are not proven by current backend/runtime configuration. Prefer neutral truthful wording such as access being determined by the active catalog and tariff entitlement, unless current source/runtime contract proves a more specific mapping.
 
-The chat model selector must no longer contain hardcoded stale model options.
+The visible Portal must not imply that retired models are available.
 
-Preferred implementation: populate the selector from the authenticated existing `/api/v1/models` response already used elsewhere in the Portal. The selector must represent the active catalog returned by the API and support the accepted IDs `qwen3-32b` and `qwen3.8-27b`.
+### 2. Admin model actions: no retired IDs
 
-Requirements:
+Inspect the current source/runtime contract read-only to determine whether `/api/v1/admin/gateway/models/<model>/<action>` supports the current model IDs.
 
-- no selectable/default `qwen2.5-32b-instruct`;
-- no `model:qwen2.5:chat` scope in active frontend code;
-- no silent fallback to a retired/unknown model;
-- if model-catalog retrieval fails, fail closed in the UI: disable sending or show a clear catalog-load error rather than inventing a model;
-- when a saved browser chat contains a model no longer present in the active catalog, preserve chat history but migrate the active selection to a valid returned model without requiring the retired model ID to remain hardcoded;
-- new chats must use a valid active model;
-- changing sessions must restore the session model only if it is still in the returned active catalog.
+- If current IDs are supported, replace retired buttons with controls for `qwen3-32b` and `qwen3.8-27b`, preserving only operations actually supported by the current endpoint.
+- If current IDs cannot be proven supported, remove or disable the stale model-specific controls rather than inventing functionality.
 
-Display labels must clearly distinguish:
+Under no condition may a Portal control submit `qwen-14b`, `qwen-32b-base`, Qwen2.5, or another retired ID.
 
-- `qwen3-32b` → `Qwen3-32B`
-- `qwen3.8-27b` → `Qwen3.8-27B`
+### 3. Runtime sync
 
-Do not invent unverified context-window, quantization, placement, or performance claims. If the UI shows model detail, derive only from runtime/source facts that can be verified read-only; otherwise use a neutral description.
+Synchronize only the canonical `index.html` into the active `aither-portal-config` ConfigMap in namespace `aither-inference`, preserving all other keys byte-for-byte.
 
-### 3. Correct all active model-related Portal behavior in canonical `app.js`
+Do not touch:
+- vLLM Deployments or Services
+- Gateway routing
+- Portal Backend routing
+- Identity
+- DB
+- Secrets
+- reverse proxy
+- `aither-portal-docs`
+- superseded frontend artifacts
 
-Remove the stale Qwen2.5 dependency from the active user journey, including at minimum:
+Restart `aither-portal` only if strictly required for the changed ConfigMap to become live. If projection updates live content without restart, do not restart.
 
-- new-session/default model;
-- old-single-chat migration fallback;
-- chat send fallback;
-- new-chat reset;
-- dashboard model-description mapping;
-- model-info panel;
-- API-key creation modal;
-- API-key scope generation;
-- session usage/model labels.
+### 4. Evidence
 
-The API-key creation UI must reflect that both accepted active Qwen3 models are covered by `model:qwen3:chat`. It must never emit `model:qwen2.5:chat`. Avoid duplicate identical scopes.
+Create `docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R2.md` containing at minimum:
 
-Do not change RAG routing. If a Qwen2.5 string is merely a fabricated client-side RAG response label rather than a runtime-returned model identity, replace it with a truthful neutral/API-derived label; do not claim RAG was migrated unless runtime evidence proves it.
+- task ID, executor, baseline, execution HEAD
+- exact changed paths
+- before/after stale-string findings
+- how Admin controls were resolved and why
+- tariff wording chosen and why it is truthful
+- SHA-256 of canonical `index.html`, ConfigMap key, and live `/`
+- HTTP status for live Portal root in Internet endpoint `https://fb1.spb.ru:10443/` and Test Zone `http://10.129.13.78:30080/`
+- proof the three retired identifiers are absent from live canonical frontend: `qwen2.5-32b-instruct`, `qwen-14b`, `qwen-32b-base`
+- proof `qwen3-32b` and `qwen3.8-27b` remain present
+- Portal Deployment Ready state and restart count
+- runtime mutations
+- explicit statements:
+  - `BACKEND_MODEL_DEPLOYMENTS_CHANGED: NO`
+  - `GATEWAY_ROUTING_CHANGED: NO`
+  - `DOCS_CHANGED: NO`
+  - `SECRETS_EXPOSED: NO`
+  - `RESULT: PASS|FAIL`
 
-### 4. Create and correct the canonical article «Работа с моделями»
+No secret values, cookies, bearer tokens, passwords, or credentials may appear in evidence.
 
-Create:
-
-`docs/user-package/17_MODEL_USAGE_GUIDE.md`
-
-Use the current runtime `/docs/17_MODEL_USAGE_GUIDE.md` as a read-only structural/reference source if useful, but the GitHub file becomes canonical.
-
-The article must be user-facing and must document only verified current behavior. At minimum include:
-
-- title identifying it as **«Работа с моделями»**;
-- current active model table with exactly `qwen3-32b` and `qwen3.8-27b`;
-- exact API model IDs and display names;
-- explanation of selecting a model in Portal chat;
-- explanation that available models are obtained from the current model catalog/API rather than maintained as a separate static user list;
-- API-key requirement and current scope `model:qwen3:chat`;
-- a correct request example for each active model using the externally supported API path actually proven by current nginx/backend configuration;
-- streaming/non-streaming behavior only where already supported and verified;
-- concise model-choice guidance based on verified characteristics only;
-- error behavior for unknown/unavailable model;
-- no statement that Qwen2.5 is active or selectable;
-- no old `qwen-14b`, `qwen-32b-base`, `qwen2.5-14b`, `qwen2.5-32b`, or `qwen2.5-32b-instruct` as current model examples.
-
-If a context limit or deployment detail is stated, verify it read-only from the actual current runtime before writing it. Do not copy stale values from superseded documentation.
-
-### 5. Update documentation index
-
-Update `docs/user-package/00_INDEX.md` minimally:
-
-- add document 17: `[MODEL USAGE GUIDE](17_MODEL_USAGE_GUIDE.md)` / «Работа с моделями»;
-- replace the stale Web UI model summary with the active pair `qwen3-32b` and `qwen3.8-27b`;
-- do not perform unrelated rewriting of the documentation package.
-
-### 6. Synchronize the live Portal ConfigMap
-
-Before mutation, record the `aither-portal-config` key set and SHA-256 values.
-
-Update `aither-portal-config` from the canonical repository files exactly:
-
-- `index.html`
-- `app.js`
-- existing unchanged `styles.css`
-- existing unchanged `nginx.conf`
-
-After update, prove all four ConfigMap keys are byte-identical to the canonical repository files.
-
-Do not update `aither-portal-frontend-config`.
-
-### 7. Synchronize the live documentation ConfigMap
-
-Before mutation, record the complete non-secret key set of `aither-portal-docs` and fingerprints.
-
-Synchronize `00_INDEX.md` and `17_MODEL_USAGE_GUIDE.md` from GitHub canonical source while preserving all other documentation keys byte-identical. The post-change ConfigMap must not lose any existing documentation key.
-
-Prove the live `/docs/17_MODEL_USAGE_GUIDE.md` bytes equal the new GitHub source and returns HTTP 200 through the user-facing Portal.
-
-### 8. Make projection live
-
-First wait for normal ConfigMap volume propagation and verify live hashes.
-
-Only if the user-facing Portal still serves old bytes after a reasonable bounded wait, restart **only** Deployment `aither-portal` and wait for it to become Ready. Record whether a restart was needed.
-
-The Portal must remain healthy after the sync.
-
-### 9. Runtime verification — unauthenticated/static only
-
-Without credentials, verify from `https://fb1.spb.ru:10443/` and the NodePort where useful:
-
-- HTTP 200 for entry page and static assets;
-- live entry/app.js fingerprints equal repository + `aither-portal-config`;
-- live code contains support for `qwen3-32b` and `qwen3.8-27b`;
-- live active frontend has no selectable/default Qwen2.5 path and no `model:qwen2.5:chat` scope;
-- `/docs/17_MODEL_USAGE_GUIDE.md` returns HTTP 200 and its bytes equal repository + `aither-portal-docs`;
-- the article documents the exact active pair and `model:qwen3:chat`.
-
-Do not perform login/chat/API-key authenticated testing here. That belongs to the final E2E task.
-
-## Required evidence
-
-Write exactly:
-
-`docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R1.md`
-
-Include:
-
-1. task ID, baseline, task-control/start HEAD and UTC timestamps;
-2. exact source files changed;
-3. before/after model-selector behavior;
-4. before/after active model IDs and API-key scope behavior;
-5. proof that `17_MODEL_USAGE_GUIDE.md` was absent in GitHub before and is canonical after;
-6. pre/post ConfigMap key sets and SHA-256 fingerprints;
-7. live HTTP/fingerprint verification for index, app.js, and article;
-8. `aither-portal` Ready state after sync;
-9. whether deployment restart was required;
-10. sanitized commands used;
-11. explicit `BACKEND_MODEL_DEPLOYMENTS_CHANGED: NO`;
-12. explicit `GATEWAY_ROUTING_CHANGED: NO`;
-13. explicit `SECRETS_EXPOSED: NO`;
-14. explicit list `RUNTIME_MUTATIONS:` containing only the allowed objects actually changed;
-15. final `RESULT: PASS` or `RESULT: BLOCKED/FAIL` with exact reason.
-
-## PASS criteria
+## Validation / PASS criteria
 
 PASS only if all are true:
 
-- canonical live frontend source has been corrected;
-- live Portal bytes match corrected canonical source;
-- active chat UI supports `qwen3-32b` and `qwen3.8-27b`;
-- Qwen2.5 is not selectable/default and no active frontend path creates `model:qwen2.5:chat`;
-- API-key UI generates the correct `model:qwen3:chat` scope without duplicates;
-- `docs/user-package/17_MODEL_USAGE_GUIDE.md` exists in GitHub worktree and is the canonical source for the live article;
-- live `/docs/17_MODEL_USAGE_GUIDE.md` is byte-identical to that source;
-- `00_INDEX.md` references document 17 and shows the active pair;
-- no backend model deployment, Gateway routing, Identity, database, Secret, reverse proxy, or secondary frontend was changed;
-- Portal is healthy/Ready after runtime sync;
-- no Secret or credential was exposed.
+1. `index.html + app.js` contain no `qwen2.5-32b-instruct`.
+2. `index.html + app.js` contain no `qwen-14b`.
+3. `index.html + app.js` contain no `qwen-32b-base`.
+4. Current pair `qwen3-32b` and `qwen3.8-27b` remains present in canonical active frontend.
+5. Tariff UI no longer claims retired models are available.
+6. Admin UI cannot submit retired model IDs.
+7. Live `/` is byte-identical to canonical `index.html` and active ConfigMap key.
+8. Portal remains Ready 1/1 with no new restart/error regression.
+9. No backend model, Gateway, Identity, DB, Secret, reverse-proxy or docs mutation.
+10. Only allowed repository paths changed.
 
-STOP after evidence is complete. Do not run the final authenticated E2E; ChatGPT will independently audit this task first.
+## STOP condition
+
+After evidence is written, stop. Do not run the final authenticated E2E in this task. ChatGPT Architect will independently audit R2 and only then publish the final E2E task.
