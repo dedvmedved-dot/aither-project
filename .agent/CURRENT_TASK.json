@@ -1,44 +1,32 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-PORTAL-USER-PATH-HOTFIX-R1",
+  "task_id": "AITHER-ARCHITECT-HOLD-ALL-AUTOMATION-R1",
   "executor": "hermes",
-  "mode": "PORTAL_SESSION_MODEL_CATALOG_AND_DOC_CACHE_HOTFIX",
+  "mode": "ARCHITECT_HOLD_ALL_AUTOMATION",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "0c4f59efd528a5ada9ac495baf61a393d4eecb64",
-  "allowed_paths": [
-    "aither-v2/services/portal-backend/app/main.py",
-    "aither-v2/services/portal-backend/k8s/portal-backend.yaml",
-    "aither-v2/services/portal-frontend/app.js",
-    "aither-v2/services/portal-frontend/index.html",
-    "aither-v2/services/portal-frontend/nginx.conf",
-    "docs/user-package/17_MODEL_USAGE_GUIDE.md",
-    "docs/evidence/AITHER_PORTAL_USER_PATH_HOTFIX_R1.md"
-  ],
+  "baseline_sha": "6b31910a9f62758085d198e842a6b57e9a28b12c",
+  "allowed_paths": [],
   "capabilities": {
-    "source_write": true,
-    "agent_exec": true,
+    "source_write": false,
+    "agent_exec": false,
     "network_git": false,
-    "kubernetes": true,
-    "deployment": true,
+    "kubernetes": false,
+    "deployment": false,
     "database_write": false,
-    "runtime_write": true,
+    "runtime_write": false,
     "secret_access": false,
     "package_install": false
   },
   "host_capabilities": {
-    "sync": true,
-    "commit": true,
-    "push": true
+    "sync": false,
+    "commit": false,
+    "push": false
   },
-  "validation_commands": [
-    ["python3", "-m", "py_compile", "aither-v2/services/portal-backend/app/main.py"],
-    ["node", "--check", "aither-v2/services/portal-frontend/app.js"],
-    ["python3", "-c", "from pathlib import Path; js=Path('aither-v2/services/portal-frontend/app.js').read_text(); ng=Path('aither-v2/services/portal-frontend/nginx.conf').read_text(); doc=Path('docs/user-package/17_MODEL_USAGE_GUIDE.md').read_text(); assert 'qwen3-32b' in js and 'qwen3.8-27b' in js; assert 'qwen2.5-32b-instruct' not in js; assert 'Qwen2.5-32B' not in doc; assert 'qwen3.8-27b' in doc and 'qwen3-32b' in doc; assert 'no-store' in ng.lower()"]
-  ],
-  "max_commits": 1,
+  "validation_commands": [],
+  "max_commits": 0,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "fix: restore Portal session model catalog and fresh model docs"
+  "commit_message": "hold: stop all automated Aither operations"
 }
