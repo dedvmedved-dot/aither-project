@@ -1,14 +1,19 @@
 {
   "schema_version": 1,
-  "task_id": "AITHER-PORTAL-MODEL-CATALOG-DOCSYNC-R2",
+  "task_id": "AITHER-PORTAL-USER-PATH-HOTFIX-R1",
   "executor": "hermes",
-  "mode": "PORTAL_STALE_MODEL_UI_CLEANUP",
+  "mode": "PORTAL_SESSION_MODEL_CATALOG_AND_DOC_CACHE_HOTFIX",
   "status": "ACTIVE",
   "branch": "aither-v2",
-  "baseline_sha": "bb7da8160ace229b9da447c1c3879317d9bb60ad",
+  "baseline_sha": "0c4f59efd528a5ada9ac495baf61a393d4eecb64",
   "allowed_paths": [
+    "aither-v2/services/portal-backend/app/main.py",
+    "aither-v2/services/portal-backend/k8s/portal-backend.yaml",
+    "aither-v2/services/portal-frontend/app.js",
     "aither-v2/services/portal-frontend/index.html",
-    "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R2.md"
+    "aither-v2/services/portal-frontend/nginx.conf",
+    "docs/user-package/17_MODEL_USAGE_GUIDE.md",
+    "docs/evidence/AITHER_PORTAL_USER_PATH_HOTFIX_R1.md"
   ],
   "capabilities": {
     "source_write": true,
@@ -27,13 +32,13 @@
     "push": true
   },
   "validation_commands": [
-    ["test", "-s", "aither-v2/services/portal-frontend/index.html"],
-    ["test", "-s", "docs/evidence/AITHER_PORTAL_MODEL_CATALOG_DOCSYNC_R2.md"],
-    ["python3", "-c", "from pathlib import Path; idx=Path('aither-v2/services/portal-frontend/index.html').read_text(); js=Path('aither-v2/services/portal-frontend/app.js').read_text(); combined=idx+js; assert 'qwen2.5-32b-instruct' not in combined; assert 'qwen-14b' not in combined; assert 'qwen-32b-base' not in combined; assert 'qwen3-32b' in combined; assert 'qwen3.8-27b' in combined"]
+    ["python3", "-m", "py_compile", "aither-v2/services/portal-backend/app/main.py"],
+    ["node", "--check", "aither-v2/services/portal-frontend/app.js"],
+    ["python3", "-c", "from pathlib import Path; js=Path('aither-v2/services/portal-frontend/app.js').read_text(); ng=Path('aither-v2/services/portal-frontend/nginx.conf').read_text(); doc=Path('docs/user-package/17_MODEL_USAGE_GUIDE.md').read_text(); assert 'qwen3-32b' in js and 'qwen3.8-27b' in js; assert 'qwen2.5-32b-instruct' not in js; assert 'Qwen2.5-32B' not in doc; assert 'qwen3.8-27b' in doc and 'qwen3-32b' in doc; assert 'no-store' in ng.lower()"]
   ],
   "max_commits": 1,
   "require_clean_start": true,
   "require_clean_finish": true,
   "architect_acceptance_required": true,
-  "commit_message": "fix: remove remaining retired model references from live Portal"
+  "commit_message": "fix: restore Portal session model catalog and fresh model docs"
 }
