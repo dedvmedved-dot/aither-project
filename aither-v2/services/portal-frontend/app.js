@@ -975,6 +975,9 @@
         addChatMessage('error', msg);
     }
 
+    const DEFAULT_MAX_TOKENS = 2048;
+    const HARD_MAX_TOKENS = 4096;
+
     async function sendChatMessage() {
         if (!modelCatalogLoaded || !modelCatalog.length) {
             addChatMessage('error', 'Каталог моделей недоступен — отправка отключена. Обновите страницу.');
@@ -995,7 +998,8 @@
         addChatMessage('assistant', '⏳ Генерация ответа...', model);
         $('btn-send-message').disabled = true;
 
-        var maxTokens = parseInt($('chat-max-tokens')?.value) || 512;
+        var maxTokens = parseInt($('chat-max-tokens')?.value) || DEFAULT_MAX_TOKENS;
+        if (maxTokens > HARD_MAX_TOKENS) { maxTokens = HARD_MAX_TOKENS; }
         var temperature = parseFloat($('chat-temperature')?.value) || 0.7;
         // Update session history
         var session = getCurrentSession();
@@ -1027,9 +1031,11 @@
 
             if (res.ok && res.data) {
                 let reply = '';
+                var finishReason = 'stop';
                 if (res.data.choices && res.data.choices[0]) {
                     const choice = res.data.choices[0];
                     reply = choice.message?.content || choice.text || JSON.stringify(choice);
+                    finishReason = choice.finish_reason || 'stop';
                 } else if (res.data.content) {
                     reply = res.data.content;
                 } else if (res.data.response) {
@@ -1042,6 +1048,10 @@
 
                 session.history.push({ role: 'assistant', content: reply, model: model });
                 addChatMessage('assistant', reply, model);
+                if (finishReason === 'length') {
+                    addChatMessage('system', '⚠️ Ответ достиг установленного лимита.');
+                    addContinueButton(model);
+                }
                 if (res.data.usage) {
                     session.tokens += (res.data.usage.total_tokens || 0);
                 } else {
@@ -1062,6 +1072,73 @@
         } finally {
             $('btn-send-message').disabled = false;
             input.focus();
+        }
+    }
+
+    function addContinueButton(model) {
+        const msgs = $('chat-messages');
+        if (!msgs) return;
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm btn-outline btn-continue';
+        btn.textContent = 'Продолжить';
+        btn.onclick = function () { continueAnswer(model, btn); };
+        msgs.appendChild(btn);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    async function continueAnswer(model, btn) {
+        if (btn) btn.remove();
+        const session = getCurrentSession();
+        const messages = session.history.slice(-20).concat([
+            { role: 'user', content: 'Продолжи ответ с места остановки. Не повторяй уже написанное.' }
+        ]);
+        addChatMessage('assistant', '⏳ Генерация продолжения...', model);
+        try {
+            const res = await api('/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    model: model,
+                    messages: messages,
+                    max_tokens: DEFAULT_MAX_TOKENS,
+                    temperature: 0.7,
+                }),
+            });
+            const msgs = $('chat-messages');
+            const thinking = msgs?.lastElementChild;
+            if (thinking && thinking.textContent.includes('⏳')) thinking.remove();
+            if (res.ok && res.data) {
+                let reply = '';
+                let fr = 'stop';
+                if (res.data.choices && res.data.choices[0]) {
+                    const choice = res.data.choices[0];
+                    reply = choice.message?.content || choice.text || '';
+                    fr = choice.finish_reason || 'stop';
+                }
+                if (!reply || reply.trim() === '') {
+                    reply = res.data.choices?.[0]?.text || 'Пустой ответ от модели.';
+                }
+                session.history.push({ role: 'assistant', content: reply, model: model });
+                addChatMessage('assistant', reply, model);
+                if (res.data.usage) {
+                    session.tokens += (res.data.usage.total_tokens || 0);
+                } else {
+                    session.tokens += Math.round(reply.length / 4);
+                }
+                session.requests++;
+                if (fr === 'length') {
+                    addChatMessage('system', '⚠️ Ответ достиг установленного лимита.');
+                    addContinueButton(model);
+                }
+                updateTokenCounters();
+                saveChatSessions();
+                renderChatList();
+            } else {
+                showChatError(res.status, res.data?.detail || res.data?.error || '');
+            }
+        } catch (e) {
+            const thinking = $('chat-messages')?.lastElementChild;
+            if (thinking && thinking.textContent.includes('⏳')) thinking.remove();
+            showChatError(0);
         }
     }
 

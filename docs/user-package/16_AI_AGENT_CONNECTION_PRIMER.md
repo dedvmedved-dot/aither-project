@@ -1,6 +1,6 @@
 # Aither — Подключение AI-агентов
 
-**Версия:** CB-WEBUI-01-R1 · **Дата:** 25 июля 2026
+**Версия:** CB-WEBUI-03 · **Дата:** 24 августа 2026
 
 ---
 
@@ -8,28 +8,17 @@
 
 1. [Что такое AI-агент?](#что-такое-ai-агент)
 2. [Подготовка: создание ключа](#подготовка-создание-ключа)
-3. [Базовая настройка (переменные окружения)](#базовая-настройка-переменные-окружения)
-4. [Claude Code](#claude-code)
-5. [OpenAI Codex CLI](#openai-codex-cli)
-6. [OpenCode](#opencode)
-7. [Hermes Agent](#hermes-agent)
-8. [OpenAI-совместимые клиенты](#openai-совместимые-клиенты)
-9. [Python-клиент (openai library)](#python-клиент-openai-library)
-10. [Проверка подключения](#проверка-подключения)
-11. [Устранение проблем](#устранение-проблем)
+3. [Базовая настройка (OpenAI-совместимый клиент)](#базовая-настройка-openai-совместимый-клиент)
+4. [Hermes Agent](#hermes-agent)
+5. [Python-клиент (openai library)](#python-клиент-openai-library)
+6. [Проверка подключения](#проверка-подключения)
+7. [Устранение проблем](#устранение-проблем)
 
 ---
 
 ## Что такое AI-агент?
 
-**AI-агент** — это программа, которая автономно выполняет задачи, используя языковую модель как «мозг». Агенты могут:
-
-- Писать и редактировать код
-- Анализировать файлы и проекты
-- Выполнять многошаговые задачи
-- Взаимодействовать с файловой системой и инструментами
-
-Для работы агенту нужен доступ к LLM — и Aither предоставляет этот доступ через API.
+**AI-агент** — это программа, которая автономно выполняет задачи, используя языковую модель как «мозг». Для работы агенту нужен доступ к LLM — Aither предоставляет этот доступ через OpenAI-совместимый API.
 
 ---
 
@@ -37,197 +26,94 @@
 
 Перед настройкой агента создайте **отдельный API-ключ**:
 
-1. Войдите в Web UI: `https://fb1.spb.ru:443/`
+1. Войдите в Web UI: `https://fb1.spb.ru:10443/` (или `http://10.129.13.78:30080/` в тестовой зоне)
 2. Перейдите в раздел **🔑 API Ключи**
 3. Нажмите **«+ Создать новый ключ»**
-4. Название: `AI-агент [Имя агента]` (например, `AI-агент Claude Code`)
-5. Модели: **Обе (14B и 32B)**
-6. Нажмите **«Создать»**
-7. ⚠️ **Скопируйте ключ!** Он потребуется для настройки.
+4. Укажите название (например, `AI-агент`)
+5. Нажмите **«Создать»**
+6. ⚠️ **Скопируйте ключ!** Полный ключ показывается только один раз.
 
-> 💡 **Рекомендация:** Создавайте отдельный ключ для каждого агента. При проблемах можно отозвать ключ одного агента, не затрагивая другие.
-
-Подробнее о ключах: [API KEY USER GUIDE](14_API_KEY_USER_GUIDE.md).
+> 💡 Создавайте отдельный ключ для каждого агента — при проблемах можно отозвать ключ одного агента, не затрагивая другие.
 
 ---
 
-## Базовая настройка (переменные окружения)
+## Базовая настройка (OpenAI-совместимый клиент)
 
-Большинство агентов настраиваются через переменные окружения. Добавьте в ваш `~/.bashrc`, `~/.zshrc` или эквивалент:
-
-```bash
-# Aither API
-export AITHER_API_KEY="athr_..."
-export AITHER_BASE_URL="https://fb1.spb.ru:443"
-
-# Или для внутренней сети:
-# export AITHER_BASE_URL="http://10.129.13.78:30080"
-```
-
-Примените:
-```bash
-source ~/.bashrc
-```
-
----
-
-## Claude Code
-
-**Claude Code** — AI-агент от Anthropic для разработки.
-
-### Настройка
-
-Claude Code поддерживает кастомные OpenAI-совместимые эндпоинты. Используйте Aither как провайдер:
+Aither совместим с OpenAI API. Любой **OpenAI-compatible client** может использовать Aither со следующей универсальной конфигурацией:
 
 ```bash
-# Установка Claude Code
-npm install -g @anthropic-ai/claude-code
-
-# Настройка для Aither
-export OPENAI_API_KEY="athr_..."
-export OPENAI_BASE_URL="https://fb1.spb.ru:443/v1"
-
-# Запуск
-claude
+export OPENAI_API_KEY="aither_..."
+export OPENAI_BASE_URL="https://fb1.spb.ru:10443/api/v1"
 ```
 
-Альтернативно, настройте через конфигурацию Claude Code для использования OpenAI-совместимого провайдера с моделью `qwen-14b`.
-
----
-
-## OpenAI Codex CLI
-
-**OpenAI Codex CLI** — официальный CLI-агент от OpenAI.
-
-### Настройка
+Внутренняя (тестовая) зона:
 
 ```bash
-# Установка
-npm install -g @openai/codex
-
-# Настройка для Aither
-export OPENAI_API_KEY="athr_..."
-export OPENAI_BASE_URL="https://fb1.spb.ru:443/v1"
-
-# Запуск с указанием модели
-codex --model qwen-14b
+export OPENAI_API_KEY="aither_..."
+export OPENAI_BASE_URL="http://10.129.13.78:30080/api/v1"
 ```
 
-### Использование
+Активные модели:
 
-```bash
-# Работа в текущей директории
-codex
+| Модель | Описание |
+|---|---|
+| `qwen3-32b` | Qwen3-32B (AWQ), контекст 64K |
+| `qwen3.8-27b` | Qwen3.8-27B (FP8), контекст 16K |
 
-# Конкретная задача
-codex "Напиши функцию для сортировки на Python"
-```
+Обе модели используют scope **`model:qwen3:chat`**.
 
----
-
-## OpenCode
-
-**OpenCode** — терминальный AI-агент для разработки.
-
-### Настройка
-
-```bash
-# Установка
-pip install opencode
-
-# Настройка для Aither
-export OPENAI_API_KEY="athr_..."
-export OPENAI_BASE_URL="https://fb1.spb.ru:443/v1"
-
-# Запуск
-opencode --model qwen-14b
-```
+> ⚠️ Конкретный AI-agent CLI (Claude Code, Codex и т.п.) может иметь собственный синтаксис конфигурации. В разделе выше приведён универсальный OpenAI-совместимый формат. Сверяйтесь с документацией конкретного клиента.
 
 ---
 
 ## Hermes Agent
 
-**Hermes Agent** (by Nous Research) — многофункциональный AI-ассистент.
+Hermes Agent (by Nous Research) — AI-ассистент, работающий как OpenAI-совместимый клиент.
 
-### Настройка через конфигурацию
-
-```bash
-# Добавление Aither как провайдера
-hermes config set provider.aither.api_key "athr_..."
-hermes config set provider.aither.base_url "https://fb1.spb.ru:443/v1"
-hermes config set provider.aither.models '["qwen-14b", "qwen-32b-base"]'
-
-# Использование как модель по умолчанию
-hermes config set model "aither/qwen-14b"
-```
-
-### Настройка через переменные окружения
+Для подключения Aither как OpenAI-совместимого провайдера используйте универсальную конфигурацию:
 
 ```bash
-export OPENAI_API_KEY="athr_..."
-export OPENAI_BASE_URL="https://fb1.spb.ru:443/v1"
+export OPENAI_API_KEY="aither_..."
+export OPENAI_BASE_URL="https://fb1.spb.ru:10443/api/v1"
 ```
 
----
+и укажите модель `qwen3-32b` или `qwen3.8-27b` в настройках клиента.
 
-## OpenAI-совместимые клиенты
-
-Aither совместим с OpenAI API. Любой инструмент, поддерживающий OpenAI, может использовать Aither:
-
-### Общий шаблон настройки
-
-```bash
-export OPENAI_API_KEY="athr_..."
-export OPENAI_BASE_URL="https://fb1.spb.ru:443/v1"
-```
-
-### Модели для использования
-
-| Модель Aither | Назначение |
-|---|---|
-| `qwen-14b` | Чат, диалоги, инструкции (рекомендуется для агентов) |
-| `qwen-32b-base` | Продолжение текста, генерация |
-
-> ⚠️ Для агентов рекомендуется `qwen-14b` — она лучше следует инструкциям.
+> Примечание: внутренний executor платформы Aither — Hermes. AI Codex не является внутренним executor Aither.
 
 ---
 
 ## Python-клиент (openai library)
 
-Пример прямого использования Aither из Python-агента:
-
 ```python
 from openai import OpenAI
 
-# Настройка клиента на Aither
 client = OpenAI(
-    api_key="athr_...",
-    base_url="https://fb1.spb.ru:443/v1"
+    api_key="aither_...",
+    base_url="https://fb1.spb.ru:10443/api/v1",
 )
 
-# Чат с моделью
 response = client.chat.completions.create(
-    model="qwen-14b",
+    model="qwen3-32b",
     messages=[
         {"role": "system", "content": "Ты — AI-агент для разработки."},
-        {"role": "user", "content": "Напиши функцию на Python для парсинга JSON."}
+        {"role": "user", "content": "Напиши функцию на Python для парсинга JSON."},
     ],
-    max_tokens=500
+    max_tokens=2048,
 )
 
 print(response.choices[0].message.content)
 ```
 
-### Хранение ключа безопасно
+### Безопасное хранение ключа
 
 ```python
 import os
 from openai import OpenAI
 
-# Ключ из переменной окружения (безопасно)
 client = OpenAI(
     api_key=os.environ["AITHER_API_KEY"],
-    base_url=os.environ.get("AITHER_BASE_URL", "https://fb1.spb.ru:443/v1")
+    base_url=os.environ.get("AITHER_BASE_URL", "https://fb1.spb.ru:10443/api/v1"),
 )
 ```
 
@@ -235,16 +121,21 @@ client = OpenAI(
 
 ## Проверка подключения
 
-Проверьте, что агент может достучаться до Aither:
-
 ### curl
 
 ```bash
-curl https://fb1.spb.ru:443/v1/models \
-  -H "Authorization: Bearer athr_..."
+curl https://fb1.spb.ru:10443/api/v1/models \
+  -H "Authorization: Bearer aither_..."
 ```
 
-Ожидаемый ответ: список моделей с HTTP 200.
+Ожидаемый ответ (HTTP 200):
+
+```json
+{"object":"list","data":[
+  {"id":"qwen3-32b","object":"model","owned_by":"aither"},
+  {"id":"qwen3.8-27b","object":"model","owned_by":"aither"}
+]}
+```
 
 ### Python
 
@@ -252,8 +143,8 @@ curl https://fb1.spb.ru:443/v1/models \
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="athr_...",
-    base_url="https://fb1.spb.ru:443/v1"
+    api_key="aither_...",
+    base_url="https://fb1.spb.ru:10443/api/v1",
 )
 
 models = client.models.list()
@@ -261,69 +152,32 @@ for model in models.data:
     print(f"✅ {model.id}")
 ```
 
-### Что должно получиться
+Ожидаемый вывод:
 
 ```
-✅ qwen-14b
-✅ qwen-32b-base
+✅ qwen3-32b
+✅ qwen3.8-27b
 ```
 
 ---
 
 ## Устранение проблем
 
-### Агент не подключается
-
 | Симптом | Возможная причина | Решение |
 |---|---|---|
-| `Connection refused` | Неверный URL | Проверьте `AITHER_BASE_URL` / `OPENAI_BASE_URL` |
-| `401 Unauthorized` | Неверный или отозванный ключ | Проверьте ключ, создайте новый в Web UI |
-| `404 Not Found` | Неверный путь API | URL должен заканчиваться на `/v1` |
+| `401 Unauthorized` | Неверный/отозванный ключ или неверный формат | Ключ должен начинаться с `aither_`; проверьте ключ в Web UI |
+| `403 Forbidden` | Нет scope `model:qwen3:chat` | Создайте ключ с доступом к активным моделям |
+| `404 Not Found` | Неверный путь API или неверная модель | Base URL заканчивается на `/api/v1`; модель — `qwen3-32b` или `qwen3.8-27b` |
+| `400 Bad Request` | Некорректный запрос (например, невалидный `max_tokens`) | `max_tokens` — целое, 1…4096 |
+| Ответы обрезаны | Малый `max_tokens` | Увеличьте до 2048 (макс. 4096) |
 | Таймаут | Сеть или нагрузка | Проверьте подключение, попробуйте позже |
-
-### Агент работает, но ответы плохие
-
-| Симптом | Возможная причина | Решение |
-|---|---|---|
-| Бессмысленные ответы | Используется qwen-32b-base | Переключите на `qwen-14b` |
-| Ответы обрезаны | Маленький `max_tokens` | Увеличьте лимит токенов |
-| Модель «забывает» контекст | Превышено контекстное окно (4096) | Уменьшите историю диалога |
-
-### Ключ не работает
-
-1. Проверьте статус ключа в Web UI (🔑 API Ключи)
-2. Если статус «Отозван» — создайте новый
-3. Проверьте формат: `Authorization: Bearer athr_...` (не забудьте `Bearer`!)
-
----
-
-## Рекомендации
-
-### Для продуктивной работы агентов
-
-1. **Используйте `qwen-14b`** — она лучше понимает инструкции
-2. **Ограничивайте контекст** — не передавайте больше 3000 слов за раз
-3. **Создавайте отдельные ключи** — один ключ на одного агента
-4. **Мониторьте использование** — проверяйте дату последнего использования в Web UI
-5. **Отзывайте неиспользуемые ключи** — завершили проект → отзовите ключ
-
-### Лимиты
-
-| Параметр | Значение |
-|---|---|
-| Запросов в минуту | 300 |
-| Одновременных запросов к 14B | ~4 |
-| Контекстное окно | 4096 токенов |
-
-Не запускайте нескольких агентов одновременно с интенсивной нагрузкой — они будут конкурировать за GPU.
 
 ---
 
 ## Связанные документы
 
 - [API KEY USER GUIDE](14_API_KEY_USER_GUIDE.md) — создание и управление ключами
+- [MODEL USAGE GUIDE](17_MODEL_USAGE_GUIDE.md) — как выбирать модель
 - [API GUIDE](04_API_GUIDE.md) — полное описание API
-- [WEB UI GUIDE](13_WEB_UI_GUIDE.md) — основной интерфейс
-- [DUAL ZONE ACCESS GUIDE](15_DUAL_ZONE_ACCESS_GUIDE.md) — Internet vs Test Zone
 - [SECURITY RULES](09_SECURITY_RULES.md) — безопасность агентов и ключей
 - [KNOWN LIMITATIONS](10_KNOWN_LIMITATIONS.md) — ограничения системы

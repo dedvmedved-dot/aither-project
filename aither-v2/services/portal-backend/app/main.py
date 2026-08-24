@@ -921,6 +921,26 @@ CURRENT_MODELS = {
     "qwen3.8-27b": {"scope": "model:qwen3:chat", "display": "Qwen3.8-27B-FP8"},
 }
 
+# Architect output-budget policy (P0-R1): default 2048, hard max 4096 (clamp).
+DEFAULT_MAX_TOKENS = 2048
+HARD_MAX_TOKENS = 4096
+
+
+def _resolve_max_tokens(value):
+    """Resolve max_tokens under the output-budget policy.
+
+    default=2048; >4096 clamps to 4096; bool/non-integer/<=0 -> controlled 400.
+    """
+    if value is None:
+        return DEFAULT_MAX_TOKENS
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise HTTPException(status_code=400, detail="max_tokens must be an integer")
+    if value <= 0:
+        raise HTTPException(status_code=400, detail="max_tokens must be a positive integer")
+    if value > HARD_MAX_TOKENS:
+        return HARD_MAX_TOKENS
+    return value
+
 
 async def _chat_via_api_key(auth_header: str, body_json: dict):
     """Handle chat request authenticated via API key."""
@@ -931,7 +951,7 @@ async def _chat_via_api_key(auth_header: str, body_json: dict):
     _check_api_key_entitlement(ctx, model)
     
     messages = body_json.get("messages", [])
-    max_tokens = body_json.get("max_tokens", 2048)
+    max_tokens = _resolve_max_tokens(body_json.get("max_tokens"))
     temperature = body_json.get("temperature", 0.7)
     stream = body_json.get("stream", False)
     
@@ -947,7 +967,7 @@ async def _chat_via_api_key(auth_header: str, body_json: dict):
     }
     
     try:
-        async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
+        async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
             r = await ac.post("/v1/chat/completions", json=req_body,
                 headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
@@ -1010,7 +1030,7 @@ async def external_chat(request: Request):
     _check_api_key_entitlement(ctx, model)
     
     messages = body.get("messages", [])
-    max_tokens = body.get("max_tokens", 2048)
+    max_tokens = _resolve_max_tokens(body.get("max_tokens"))
     temperature = body.get("temperature", 0.7)
     stream = body.get("stream", False)
     tools = body.get("tools")
@@ -1043,7 +1063,7 @@ async def external_chat(request: Request):
                     headers={"X-Request-ID": str(uuid.uuid4())}
                 )
         else:
-            async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
+            async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
                 r = await ac.post("/v1/chat/completions", json=req_body,
                     headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
                 return Response(content=r.content, status_code=r.status_code, media_type="application/json")
@@ -1796,7 +1816,7 @@ async def chat_completions(request: Request):
 
     model = body_json.get("model", "qwen3-32b")
     messages = body_json.get("messages", [])
-    max_tokens = body_json.get("max_tokens", 512)
+    max_tokens = _resolve_max_tokens(body_json.get("max_tokens"))
     temperature = body_json.get("temperature", 0.7)
 
     # 1. Verify user identity (session + disabled check)
@@ -1813,7 +1833,7 @@ async def chat_completions(request: Request):
 
     # 3. Forward directly to upstream with server-side credential
     try:
-        async with httpx.AsyncClient(base_url=upstream_url, timeout=120.0) as ac:
+        async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
             req_body = {
                 "model": model,
                 "messages": messages,
