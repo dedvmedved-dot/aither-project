@@ -387,6 +387,17 @@
         return name;
     }
 
+    function slugifyHeading(text) {
+        var slug = String(text || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s-]/gu, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        return slug;
+    }
+
     const DOC_CATALOG = [
         { file: '00_INDEX.md', title: 'Все документы', icon: '📚', desc: 'Индекс документации', category: 'Основное' },
         { file: '01_WELCOME.md', title: 'Добро пожаловать', icon: '👋', desc: 'Приветствие, цели тестирования', category: 'Основное' },
@@ -450,12 +461,30 @@
     }
 
     document.addEventListener('click', function(e) {
-        var link = (e.target && e.target.closest) ? e.target.closest('.md-doc-link') : null;
-        if (!link) return;
-        var norm = normalizeDocPath(link.getAttribute('data-doc-path'));
-        if (norm) {
-            e.preventDefault();
-            showDoc('/docs/' + norm);
+        var t = e.target;
+        if (!t || !t.closest) return;
+        var link = t.closest('.md-doc-link');
+        if (link) {
+            var norm = normalizeDocPath(link.getAttribute('data-doc-path'));
+            if (norm) {
+                e.preventDefault();
+                showDoc('/docs/' + norm);
+            }
+            return;
+        }
+        // Anchor links inside the doc modal: scroll within the document, no page navigation.
+        var a = t.closest('a[href^="#"]');
+        if (a) {
+            var href = a.getAttribute('href');
+            if (href && href.length > 1) {
+                var id = href.slice(1).toLowerCase().replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+                var target = document.getElementById(id);
+                if (target) {
+                    e.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                // target missing -> fail safe (no crash)
+            }
         }
     });
 
@@ -483,11 +512,17 @@
             return '<table class="md-table"><thead><tr>' + hcols + '</tr></thead><tbody>' + rhtml + '</tbody></table>';
         });
 
-        // Headers
-        html = html.replace(/^#### (.+)$/gm, '<h5>$1</h5>');
-        html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
-        html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
-        html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+        // Headers — deterministic anchor ids (duplicates get -2, -3 suffixes)
+        var usedHeadings = {};
+        html = html.replace(/^(#{1,4}) (.+)$/gm, function(m, hashes, text) {
+            var level = hashes.length + 1; // # -> h2, ## -> h3, ### -> h4, #### -> h5
+            var base = slugifyHeading(text) || 'section';
+            var slug = base;
+            var n = 2;
+            while (usedHeadings[slug]) { slug = base + '-' + n; n++; }
+            usedHeadings[slug] = true;
+            return '<h' + level + ' id="' + slug + '">' + text + '</h' + level + '>';
+        });
 
         // Bold, italic
         html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>');

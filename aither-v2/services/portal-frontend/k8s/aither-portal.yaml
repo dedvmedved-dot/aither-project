@@ -1,0 +1,83 @@
+# Authoritative manifest for the ACTIVE user-facing Portal (aither-portal).
+# KaTeX vendor is served from the immutable image; NO hostPath dependency.
+# Static app files + nginx.conf + docs are overlaid via ConfigMaps (subPath for app files).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: aither-portal
+    stage: '07.2'
+  name: aither-portal
+  namespace: aither-inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aither-portal
+  template:
+    metadata:
+      labels:
+        app: aither-portal
+        stage: '07.2'
+    spec:
+      containers:
+      - image: 10.129.13.78:5000/aither-portal@sha256:417e0fd58050ce98fe59b8c586b8d4fb8d8506c7f756f5145046be74ace075c3
+        imagePullPolicy: IfNotPresent
+        name: nginx
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d
+          name: config
+          readOnly: true
+        - mountPath: /usr/share/nginx/html/docs
+          name: docs
+        - mountPath: /usr/share/nginx/html/app.js
+          name: www
+          subPath: app.js
+        - mountPath: /usr/share/nginx/html/index.html
+          name: www
+          subPath: index.html
+        - mountPath: /usr/share/nginx/html/styles.css
+          name: www
+          subPath: styles.css
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: nginx.conf
+            path: default.conf
+          name: aither-portal-config
+        name: config
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: index.html
+            path: index.html
+          - key: styles.css
+            path: styles.css
+          - key: app.js
+            path: app.js
+          name: aither-portal-config
+        name: www
+      - configMap:
+          defaultMode: 420
+          name: aither-portal-docs
+        name: docs
+

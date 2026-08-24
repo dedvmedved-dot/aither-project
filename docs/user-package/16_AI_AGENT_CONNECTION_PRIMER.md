@@ -124,7 +124,7 @@ client = OpenAI(
 ### curl
 
 ```bash
-curl https://fb1.spb.ru:10443/api/api/v1/models \
+curl https://fb1.spb.ru:10443/api/v1/models \
   -H "Authorization: Bearer aither_..."
 ```
 
