@@ -644,8 +644,16 @@
         var inlineCodes = [];
         var mathBlocks = [];
 
+        // 0. Normalize math-intent fenced blocks (latex/tex/math/katex) to display math,
+        //    BEFORE generic fenced-code extraction, so KaTeX renders them instead of code.
+        var html = text.replace(/```(latex|tex|math|katex)\n?([\s\S]*?)```/g, function(m, lang, code) {
+            var inner = code.replace(/\s+$/, '').trim();
+            if (/(\$\$|\\\[)/.test(inner)) return inner;
+            return '$$\n' + inner + '\n$$';
+        });
+
         // 1. Protect fenced code blocks
-        var html = text.replace(/```(\w*)\n?([\s\S]*?)```/g, function(m, lang, code) {
+        html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, function(m, lang, code) {
             var idx = codeBlocks.length;
             codeBlocks.push(renderChatCodeBlock(code.replace(/\n$/, ''), (lang || 'text'), idx));
             return '\x00CB' + idx + '\x00';
@@ -1246,7 +1254,8 @@
         saveChatSessions();
         renderChatList();
         if (currentSessionId === sessionId) {
-            addChatMessage('assistant', '⏳ Генерация ответа...', model);
+            // Render user bubble + generation indicator from state (single source of truth)
+            reRenderSessionMessages(session);
         }
 
         var messages = session.history.slice(-20);
