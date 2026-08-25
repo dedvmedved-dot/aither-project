@@ -46,6 +46,28 @@
     function getChatTokens() { return getCurrentSession().tokens; }
     function getChatRequests() { return getCurrentSession().requests; }
 
+    function findSession(id) {
+        for (var i = 0; i < chatSessions.length; i++) {
+            if (chatSessions[i].id === id) return chatSessions[i];
+        }
+        return null;
+    }
+
+    function ensureGeneration(s) {
+        if (!s.generation) {
+            s.generation = { status: 'idle', request_id: null, answer_id: null, model: null, finish_reason: null };
+        }
+        return s.generation;
+    }
+
+    function findAnswerItem(s, answerId) {
+        var h = s.history || [];
+        for (var i = h.length - 1; i >= 0; i--) {
+            if (h[i].role === 'assistant' && h[i].answer_id === answerId) return h[i];
+        }
+        return null;
+    }
+
     function saveChatSessions() {
         try {
             // Keep max 30 sessions, trim oldest
@@ -76,6 +98,12 @@
                         }];
                         localStorage.removeItem('aither_chat');
                     }
+                }
+            }
+            // Migrate sessions missing generation state to idle (preserve history)
+            for (var gi = 0; gi < chatSessions.length; gi++) {
+                if (!chatSessions[gi].generation) {
+                    chatSessions[gi].generation = { status: 'idle', request_id: null, answer_id: null, model: null, finish_reason: null };
                 }
             }
             var savedId = localStorage.getItem('aither_current_chat') || '';
@@ -585,36 +613,88 @@
     }
 
 
+    function renderChatTable(html) {
+        return html.replace(/^\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/gm, function(m, header, rows) {
+            var hcols = header.split('|').map(function(c) { return '<th>' + c.trim() + '</th>'; }).join('');
+            var rhtml = '';
+            rows.split('\n').forEach(function(r) {
+                if (!r.trim()) return;
+                var cols = r.split('|').filter(function(c) { return c !== ''; }).map(function(c) { return '<td>' + c.trim() + '</td>'; }).join('');
+                rhtml += '<tr>' + cols + '</tr>';
+            });
+            return '<table class="md-table"><thead><tr>' + hcols + '</tr></thead><tbody>' + rhtml + '</tbody></table>';
+        });
+    }
+
+    function renderChatCodeBlock(rawCode, lang, blockIdx) {
+        var highlighted = highlightCode(rawCode, lang);
+        var blockId = 'cb' + blockIdx;
+        return '<div class="code-block">' +
+            '<div class="code-header">' +
+            '<span class="code-lang">' + escHtml(lang) + '</span>' +
+            '<button class="btn btn-sm btn-copy-code" onclick="var el=document.getElementById(\'' + blockId + '\');var txt=el.textContent;navigator.clipboard.writeText(txt).then(function(){var b=document.getElementById(\'' + blockId + '-btn\');b.textContent=\'✓ Скопировано\';setTimeout(function(){b.textContent=\'📋 Копировать\';},2000);});" id="' + blockId + '-btn">📋 Копировать</button>' +
+            '</div>' +
+            '<pre><code id="' + blockId + '">' + highlighted + '</code></pre>' +
+            '</div>';
+    }
+
     function formatMessage(text) {
-        // Process ```code``` blocks with syntax highlighting + copy button
-        var result = '';
-        var parts = text.split(/(```(\w*)\n?([\s\S]*?)```)/g);
-        var i = 0;
-        var blockIdx = 0;
-        while (i < parts.length) {
-            if (parts[i] && parts[i].startsWith('```')) {
-                var lang = (parts[i+1] || '').trim() || 'text';
-                var rawCode = (parts[i+2] || '').replace(/\n$/, '');
-                var highlighted = highlightCode(rawCode, lang);
-                var blockId = 'cb' + (blockIdx++);
-                // Encode code for safe data attribute
-                var encodedCode = rawCode.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                result +=
-                    '<div class="code-block">' +
-                    '<div class="code-header">' +
-                    '<span class="code-lang">' + escHtml(lang) + '</span>' +
-                    '<button class="btn btn-sm btn-copy-code" onclick="var el=document.getElementById(\'' + blockId + '\');var txt=el.textContent;navigator.clipboard.writeText(txt).then(function(){var b=document.getElementById(\'' + blockId + '-btn\');b.textContent=\'✓ Скопировано\';setTimeout(function(){b.textContent=\'📋 Копировать\';},2000);});" id="' + blockId + '-btn">📋 Копировать</button>' +
-                    '</div>' +
-                    '<pre><code id="' + blockId + '">' + highlighted + '</code></pre>' +
-                    '</div>';
-                i += 3;
-            } else {
-                result += formatMarkdown(escHtml(parts[i] || ''));
-                i++;
-            }
-        }
-        if (!result) result = escHtml(text);
-        return result;
+        if (!text) return '';
+        var codeBlocks = [];
+        var inlineCodes = [];
+        var mathBlocks = [];
+
+        // 1. Protect fenced code blocks
+        var html = text.replace(/```(\w*)\n?([\s\S]*?)```/g, function(m, lang, code) {
+            var idx = codeBlocks.length;
+            codeBlocks.push(renderChatCodeBlock(code.replace(/\n$/, ''), (lang || 'text'), idx));
+            return '\x00CB' + idx + '\x00';
+        });
+
+        // 2. Protect inline code
+        html = html.replace(/`([^`\n]+)`/g, function(m, code) {
+            var idx = inlineCodes.length;
+            inlineCodes.push(escHtml(code));
+            return '\x00IC' + idx + '\x00';
+        });
+
+        // 3. Protect math fragments (multiline-capable, before newline conversion)
+        html = html.replace(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([^\n]*?\\\)|\$[^\n$]*?\$)/g, function(m) {
+            var idx = mathBlocks.length;
+            mathBlocks.push(m);
+            return '\x00MB' + idx + '\x00';
+        });
+
+        // 4. Escape remaining text
+        html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // 5. Tables
+        html = renderChatTable(html);
+
+        // 6. Bold / italic
+        html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>');
+        html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+        html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
+
+        // 7. Newlines -> <br> (code/math placeholders unaffected)
+        html = html.replace(/\n/g, '<br>');
+
+        // 8. Restore inline code
+        html = html.replace(/\x00IC(\d+)\x00/g, function(m, idx) {
+            return '<code class="inline-code">' + inlineCodes[parseInt(idx)] + '</code>';
+        });
+
+        // 9. Restore code blocks
+        html = html.replace(/\x00CB(\d+)\x00/g, function(m, idx) {
+            return codeBlocks[parseInt(idx)];
+        });
+
+        // 10. Restore math (escaped for safe DOM; KaTeX renders after insert)
+        html = html.replace(/\x00MB(\d+)\x00/g, function(m, idx) {
+            return mathBlocks[parseInt(idx)].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        });
+
+        return html;
     }
 
     async function updateNav() {
@@ -1108,6 +1188,26 @@
     const DEFAULT_MAX_TOKENS = 2048;
     const HARD_MAX_TOKENS = 4096;
 
+    function reRenderSessionMessages(s) {
+        var msgs = $('chat-messages');
+        if (!msgs) return;
+        msgs.innerHTML = '';
+        var h = s.history || [];
+        for (var i = 0; i < h.length; i++) {
+            var msg = h[i];
+            if (msg.role === 'user') addChatMessage('user', msg.content);
+            else if (msg.role === 'assistant') addChatMessage('assistant', msg.content, msg.model || '');
+            else if (msg.role === 'error') addChatMessage('error', msg.content);
+        }
+        var gen = ensureGeneration(s);
+        if (gen.status === 'generating') {
+            addChatMessage('assistant', '⏳ Генерация ответа...', gen.model || s.model || DEFAULT_MODEL_ID);
+        } else if (gen.status === 'needs_continue') {
+            addChatMessage('system', '⚠️ Ответ достиг установленного лимита.');
+            addContinueButton(gen.model || s.model || DEFAULT_MODEL_ID);
+        }
+    }
+
     async function sendChatMessage() {
         if (!modelCatalogLoaded || !modelCatalog.length) {
             addChatMessage('error', 'Каталог моделей недоступен — отправка отключена. Обновите страницу.');
@@ -1117,53 +1217,56 @@
         var model = resolveActiveModel($('chat-model-select')?.value);
         var content = input.value.trim();
         if (!content) return;
-
-        if (authToken === null) {
-            showChatError(401);
-            return;
-        }
+        if (authToken === null) { showChatError(401); return; }
 
         input.value = '';
-        addChatMessage('user', content);
-        addChatMessage('assistant', '⏳ Генерация ответа...', model);
         $('btn-send-message').disabled = true;
 
         var maxTokens = parseInt($('chat-max-tokens')?.value) || DEFAULT_MAX_TOKENS;
         if (maxTokens > HARD_MAX_TOKENS) { maxTokens = HARD_MAX_TOKENS; }
         var temperature = parseFloat($('chat-temperature')?.value) || 0.7;
-        // Update session history
+
+        // Capture exact session + generation state
         var session = getCurrentSession();
+        var sessionId = session.id;
+        var gen = ensureGeneration(session);
+        var requestId = uid();
+        var answerId = 'a' + uid();
+        gen.status = 'generating';
+        gen.request_id = requestId;
+        gen.answer_id = answerId;
+        gen.model = model;
+        gen.finish_reason = null;
+
         session.history.push({ role: 'user', content: content });
         session.model = model;
-        // Auto-title from first user message
         if (session.title === 'Новый чат') {
             session.title = content.length > 50 ? content.substring(0, 47) + '...' : content;
         }
         saveChatSessions();
         renderChatList();
+        if (currentSessionId === sessionId) {
+            addChatMessage('assistant', '⏳ Генерация ответа...', model);
+        }
 
+        var messages = session.history.slice(-20);
         try {
             const res = await api('/chat', {
                 method: 'POST',
-                body: JSON.stringify({
-                    model: model,
-                    messages: session.history.slice(-20),
-                    max_tokens: maxTokens,
-                    temperature: temperature,
-                }),
+                body: JSON.stringify({ model: model, messages: messages, max_tokens: maxTokens, temperature: temperature }),
             });
 
-            const msgs = $('chat-messages');
-            const thinking = msgs?.lastElementChild;
-            if (thinking && thinking.textContent.includes('⏳')) {
-                thinking.remove();
-            }
+            // Session-safe response handling (captured sessionId, not current)
+            var s2 = findSession(sessionId);
+            if (!s2) return; // session deleted while awaiting
+            var g2 = ensureGeneration(s2);
+            if (g2.request_id !== requestId) return; // stale response
 
             if (res.ok && res.data) {
-                let reply = '';
+                var reply = '';
                 var finishReason = 'stop';
                 if (res.data.choices && res.data.choices[0]) {
-                    const choice = res.data.choices[0];
+                    var choice = res.data.choices[0];
                     reply = choice.message?.content || choice.text || JSON.stringify(choice);
                     finishReason = choice.finish_reason || 'stop';
                 } else if (res.data.content) {
@@ -1171,34 +1274,57 @@
                 } else if (res.data.response) {
                     reply = res.data.response;
                 }
-
                 if (!reply || reply.trim() === '') {
                     reply = res.data.choices?.[0]?.text || 'Пустой ответ от модели.';
                 }
 
-                session.history.push({ role: 'assistant', content: reply, model: model });
-                addChatMessage('assistant', reply, model);
-                if (finishReason === 'length') {
-                    addChatMessage('system', '⚠️ Ответ достиг установленного лимита.');
-                    addContinueButton(model);
-                }
-                if (res.data.usage) {
-                    session.tokens += (res.data.usage.total_tokens || 0);
+                // Append to logical assistant answer (same answer_id)
+                var ansItem = findAnswerItem(s2, answerId);
+                if (ansItem) {
+                    ansItem.content = ansItem.content + '\n' + reply;
+                    ansItem.finish_reason = finishReason;
                 } else {
-                    session.tokens += Math.round(reply.length / 4);
+                    s2.history.push({ role: 'assistant', content: reply, model: model, answer_id: answerId, finish_reason: finishReason });
                 }
-                session.requests++;
-                updateTokenCounters();
+                g2.finish_reason = finishReason;
+                g2.status = (finishReason === 'length') ? 'needs_continue' : 'idle';
+                g2.request_id = null;
+                g2.answer_id = (finishReason === 'length') ? answerId : null;
+
+                if (res.data.usage) {
+                    s2.tokens += (res.data.usage.total_tokens || 0);
+                } else {
+                    s2.tokens += Math.round(reply.length / 4);
+                }
+                s2.requests++;
                 saveChatSessions();
+                updateTokenCounters();
                 renderChatList();
+                if (currentSessionId === sessionId) {
+                    reRenderSessionMessages(s2);
+                }
             } else {
-                const detail = res.data?.detail || res.data?.error || '';
-                showChatError(res.status, detail);
+                g2.status = 'idle';
+                g2.request_id = null;
+                saveChatSessions();
+                if (currentSessionId === sessionId) {
+                    showChatError(res.status, res.data?.detail || res.data?.error || '');
+                }
             }
         } catch (e) {
-            const thinking = $('chat-messages')?.lastElementChild;
-            if (thinking && thinking.textContent.includes('⏳')) thinking.remove();
-            showChatError(0);
+            var s3 = findSession(sessionId);
+            if (s3) {
+                var g3 = ensureGeneration(s3);
+                if (g3.request_id === requestId) {
+                    g3.status = 'idle';
+                    g3.request_id = null;
+                    saveChatSessions();
+                }
+            }
+            if (currentSessionId === sessionId) {
+                if (s3) reRenderSessionMessages(s3);
+                showChatError(0);
+            }
         } finally {
             $('btn-send-message').disabled = false;
             input.focus();
@@ -1217,12 +1343,22 @@
     }
 
     async function continueAnswer(model, btn) {
+        var session = getCurrentSession();
+        var sessionId = session.id;
+        var gen = ensureGeneration(session);
+        if (gen.status !== 'needs_continue') return;
+        var answerId = gen.answer_id;
+        var requestId = uid();
+        gen.status = 'generating';
+        gen.request_id = requestId;
+        saveChatSessions();
         if (btn) btn.remove();
-        const session = getCurrentSession();
-        const messages = session.history.slice(-20).concat([
+        if (currentSessionId === sessionId) {
+            addChatMessage('assistant', '⏳ Генерация продолжения...', model);
+        }
+        var messages = session.history.slice(-20).concat([
             { role: 'user', content: 'Продолжи ответ с места остановки. Не повторяй уже написанное.' }
         ]);
-        addChatMessage('assistant', '⏳ Генерация продолжения...', model);
         try {
             const res = await api('/chat', {
                 method: 'POST',
@@ -1233,42 +1369,69 @@
                     temperature: 0.7,
                 }),
             });
-            const msgs = $('chat-messages');
-            const thinking = msgs?.lastElementChild;
-            if (thinking && thinking.textContent.includes('⏳')) thinking.remove();
+
+            var s2 = findSession(sessionId);
+            if (!s2) return;
+            var g2 = ensureGeneration(s2);
+            if (g2.request_id !== requestId) return;
+
             if (res.ok && res.data) {
-                let reply = '';
-                let fr = 'stop';
+                var reply = '';
+                var fr = 'stop';
                 if (res.data.choices && res.data.choices[0]) {
-                    const choice = res.data.choices[0];
+                    var choice = res.data.choices[0];
                     reply = choice.message?.content || choice.text || '';
                     fr = choice.finish_reason || 'stop';
                 }
                 if (!reply || reply.trim() === '') {
                     reply = res.data.choices?.[0]?.text || 'Пустой ответ от модели.';
                 }
-                session.history.push({ role: 'assistant', content: reply, model: model });
-                addChatMessage('assistant', reply, model);
+
+                // Append to the SAME logical assistant answer
+                var ansItem = findAnswerItem(s2, answerId);
+                if (ansItem) {
+                    ansItem.content = ansItem.content + '\n' + reply;
+                    ansItem.finish_reason = fr;
+                }
+                g2.finish_reason = fr;
+                g2.status = (fr === 'length') ? 'needs_continue' : 'idle';
+                g2.request_id = null;
+                g2.answer_id = (fr === 'length') ? answerId : null;
+
                 if (res.data.usage) {
-                    session.tokens += (res.data.usage.total_tokens || 0);
+                    s2.tokens += (res.data.usage.total_tokens || 0);
                 } else {
-                    session.tokens += Math.round(reply.length / 4);
+                    s2.tokens += Math.round(reply.length / 4);
                 }
-                session.requests++;
-                if (fr === 'length') {
-                    addChatMessage('system', '⚠️ Ответ достиг установленного лимита.');
-                    addContinueButton(model);
-                }
-                updateTokenCounters();
+                s2.requests++;
                 saveChatSessions();
+                updateTokenCounters();
                 renderChatList();
+                if (currentSessionId === sessionId) {
+                    reRenderSessionMessages(s2);
+                }
             } else {
-                showChatError(res.status, res.data?.detail || res.data?.error || '');
+                g2.status = 'needs_continue';
+                g2.request_id = null;
+                saveChatSessions();
+                if (currentSessionId === sessionId) {
+                    showChatError(res.status, res.data?.detail || res.data?.error || '');
+                }
             }
         } catch (e) {
-            const thinking = $('chat-messages')?.lastElementChild;
-            if (thinking && thinking.textContent.includes('⏳')) thinking.remove();
-            showChatError(0);
+            var s3 = findSession(sessionId);
+            if (s3) {
+                var g3 = ensureGeneration(s3);
+                if (g3.request_id === requestId) {
+                    g3.status = 'needs_continue';
+                    g3.request_id = null;
+                    saveChatSessions();
+                }
+            }
+            if (currentSessionId === sessionId) {
+                if (s3) reRenderSessionMessages(s3);
+                showChatError(0);
+            }
         }
     }
 
@@ -1278,6 +1441,7 @@
         s.tokens = 0;
         s.requests = 0;
         s.title = 'Новый чат';
+        s.generation = { status: 'idle', request_id: null, answer_id: null, model: null, finish_reason: null };
         updateTokenCounters();
         var msgs = $('chat-messages');
         if (msgs) { msgs.innerHTML = ''; }
@@ -1300,21 +1464,8 @@
             if ($('chat-model-select')) $('chat-model-select').value = DEFAULT_MODEL_ID;
         }
         updateModelInfo();
-        // Restore messages
-        var msgs = $('chat-messages');
-        if (!msgs) return;
-        msgs.innerHTML = '';
-        var h = s.history || [];
-        for (var i = 0; i < h.length; i++) {
-            var msg = h[i];
-            if (msg.role === 'user') {
-                addChatMessage('user', msg.content);
-            } else if (msg.role === 'assistant') {
-                addChatMessage('assistant', msg.content, msg.model || '');
-            } else if (msg.role === 'error') {
-                addChatMessage('error', msg.content);
-            }
-        }
+        // Restore messages + generation state (generating / needs_continue)
+        reRenderSessionMessages(s);
         updateTokenCounters();
         renderChatList();
     };
@@ -1368,20 +1519,7 @@
     }
     function restoreChatMessages() {
         var s = getCurrentSession();
-        var msgs = $('chat-messages');
-        if (!msgs) return;
-        msgs.innerHTML = '';
-        var h = s.history || [];
-        for (var i = 0; i < h.length; i++) {
-            var msg = h[i];
-            if (msg.role === 'user') {
-                addChatMessage('user', msg.content);
-            } else if (msg.role === 'assistant') {
-                addChatMessage('assistant', msg.content, msg.model || '');
-            } else if (msg.role === 'error') {
-                addChatMessage('error', msg.content);
-            }
-        }
+        reRenderSessionMessages(s);
         updateTokenCounters();
         renderChatList();
     }
