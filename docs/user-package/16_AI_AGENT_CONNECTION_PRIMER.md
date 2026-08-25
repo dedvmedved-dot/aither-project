@@ -58,7 +58,7 @@ export OPENAI_BASE_URL="http://10.129.13.78:30080/api/v1"
 | Модель | Описание |
 |---|---|
 | `qwen3-32b` | Qwen3-32B (AWQ), контекст 64K |
-| `qwen3.8-27b` | Qwen3.8-27B (FP8), контекст 16K |
+| `qwen3.8-27b` | Qwen3.8-27B (FP8), контекст 64K |
 
 Обе модели используют scope **`model:qwen3:chat`**.
 

@@ -83,7 +83,7 @@ Authorization: Bearer aither_...
 | Модель | Описание | Контекст |
 |---|---|---|
 | `qwen3-32b` | Qwen3-32B (AWQ) | 64K токенов |
-| `qwen3.8-27b` | Qwen3.8-27B (FP8) | 16K токенов |
+| `qwen3.8-27b` | Qwen3.8-27B (FP8) | 64K токенов |
 
 Обе активные модели используют единый scope API-ключей — **`model:qwen3:chat`**.
 

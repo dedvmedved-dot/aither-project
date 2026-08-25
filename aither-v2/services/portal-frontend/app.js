@@ -1123,7 +1123,7 @@
                 let html = '';
                 const modelDescriptions = {
                     'qwen3-32b': 'Qwen3-32B — AWQ 4-bit, контекст 64K',
-                    'qwen3.8-27b': 'Qwen3.8-27B — FP8, контекст 16K',
+                    'qwen3.8-27b': 'Qwen3.8-27B — FP8, контекст 64K',
                 };
                 for (const m of (Array.isArray(models) ? models : [])) {
                     const name = m.id || m.name;
@@ -1145,7 +1145,7 @@
             info.innerHTML = '<b>Qwen3-32B</b> — AWQ 4-bit<br>📏 Контекст (max-model-len): <b>64K токенов</b><br>🖥 Размещение: N8, TP=2';
             info.style.color = 'var(--text)';
         } else if (model === 'qwen3.8-27b') {
-            info.innerHTML = '<b>Qwen3.8-27B</b> — FP8<br>📏 Контекст (max-model-len): <b>16K токенов</b><br>🖥 Размещение: N7, TP=2';
+            info.innerHTML = '<b>Qwen3.8-27B</b> — FP8<br>📏 Контекст (max-model-len): <b>64K токенов</b><br>🖥 Размещение: N7, TP=2';
             info.style.color = 'var(--text)';
         } else {
             info.innerHTML = '';

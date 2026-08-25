@@ -967,7 +967,7 @@ async def _chat_via_api_key(auth_header: str, body_json: dict):
     }
     
     try:
-        async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
+        async with httpx.AsyncClient(base_url=upstream_url, timeout=600.0) as ac:
             r = await ac.post("/v1/chat/completions", json=req_body,
                 headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
             return Response(content=r.content, status_code=r.status_code, media_type="application/json")
@@ -1054,7 +1054,7 @@ async def external_chat(request: Request):
     
     try:
         if stream:
-            async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
+            async with httpx.AsyncClient(base_url=upstream_url, timeout=600.0) as ac:
                 r = await ac.post("/v1/chat/completions", json=req_body,
                     headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
                 return StreamingResponse(
@@ -1063,7 +1063,7 @@ async def external_chat(request: Request):
                     headers={"X-Request-ID": str(uuid.uuid4())}
                 )
         else:
-            async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
+            async with httpx.AsyncClient(base_url=upstream_url, timeout=600.0) as ac:
                 r = await ac.post("/v1/chat/completions", json=req_body,
                     headers={"Authorization": f"Bearer {upstream_token}", "Content-Type": "application/json"})
                 return Response(content=r.content, status_code=r.status_code, media_type="application/json")
@@ -1833,7 +1833,7 @@ async def chat_completions(request: Request):
 
     # 3. Forward directly to upstream with server-side credential
     try:
-        async with httpx.AsyncClient(base_url=upstream_url, timeout=300.0) as ac:
+        async with httpx.AsyncClient(base_url=upstream_url, timeout=600.0) as ac:
             req_body = {
                 "model": model,
                 "messages": messages,
