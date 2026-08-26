@@ -89,8 +89,8 @@
             legacy_client_id: session.legacy_client_id || session.id,
             messages: snapshot.messages
         };
+        var res;
         try {
-            var res;
             if (session.server_id) {
                 res = await api('/chats/' + encodeURIComponent(session.server_id), { method: 'PUT', body: JSON.stringify(payload) });
             } else {
@@ -100,9 +100,13 @@
                     session.server_id = res.data.id;
                 }
             }
-            if (!res.ok) _chatPersistWarning(true);
         } catch (e) {
             _chatPersistWarning(true);
+            throw e;
+        }
+        if (!res.ok) {
+            _chatPersistWarning(true);
+            throw new Error('persist_failed_' + res.status);
         }
     }
 
@@ -129,9 +133,14 @@
     }
 
     async function serverDeleteChat(session) {
-        if (authToken === null) return;
+        if (authToken === null) return false;
         var sid = session.server_id || session.id;
-        try { await api('/chats/' + encodeURIComponent(sid), { method: 'DELETE' }); } catch (e) {}
+        try {
+            var res = await api('/chats/' + encodeURIComponent(sid), { method: 'DELETE' });
+            return !!(res && res.ok);
+        } catch (e) {
+            return false;
+        }
     }
 
     async function loadServerChats() {
@@ -227,9 +236,9 @@
 
     function saveChatSessions() {
         try {
-            // Keep max 30 sessions, trim oldest
-            if (chatSessions.length > 30) chatSessions = chatSessions.slice(0, 30);
-            localStorage.setItem('aither_chats', JSON.stringify(chatSessions));
+            // Server is the only canonical source of truth. Do NOT persist the full
+            // chat history to localStorage (no 30-chat cap); keep only the current
+            // chat id as minimal UI/session state.
             localStorage.setItem('aither_current_chat', currentSessionId || '');
         } catch(e) {}
     }
@@ -1415,8 +1424,21 @@
             // Render user bubble + generation indicator from state (single source of truth)
             reRenderSessionMessages(session);
         }
-        // Persist the user question to the server BEFORE long inference
-        await enqueueServerPersist(session);
+        // Persist the user question to the server BEFORE long inference.
+        // Server must acknowledge BEFORE inference starts; on failure abort (do NOT send).
+        try {
+            await enqueueServerPersist(session);
+        } catch (e) {
+            gen.status = 'idle';
+            gen.request_id = null;
+            gen.answer_id = null;
+            if (currentSessionId === sessionId) {
+                reRenderSessionMessages(session);
+            }
+            $('btn-send-message').disabled = false;
+            input.focus();
+            return;
+        }
 
         var messages = session.history.slice(-20);
         try {
@@ -1469,7 +1491,7 @@
                 saveChatSessions();
                 updateTokenCounters();
                 renderChatList();
-                enqueueServerPersist(s2);
+                try { await enqueueServerPersist(s2); } catch (e) {}
                 if (currentSessionId === sessionId) {
                     reRenderSessionMessages(s2);
                 }
@@ -1577,7 +1599,7 @@
                 saveChatSessions();
                 updateTokenCounters();
                 renderChatList();
-                enqueueServerPersist(s2);
+                try { await enqueueServerPersist(s2); } catch (e) {}
                 if (currentSessionId === sessionId) {
                     reRenderSessionMessages(s2);
                 }
@@ -1641,15 +1663,21 @@
         renderChatList();
     };
 
-    window._deleteChat = function(sessionId) {
+    window._deleteChat = async function(sessionId) {
         var target = findSession(sessionId);
+        if (!target) return;
+        // Server delete first; only update UI on confirmed success (BLOCKER 8).
+        var ok = await serverDeleteChat(target);
+        if (!ok) {
+            showAlert('chat-save-warning', 'Не удалось удалить чат на сервере', 'danger');
+            return;
+        }
         var filtered = [];
         for (var i = 0; i < chatSessions.length; i++) {
             if (chatSessions[i].id !== sessionId) filtered.push(chatSessions[i]);
         }
         chatSessions = filtered;
         saveChatSessions();
-        if (target) serverDeleteChat(target);
         if (sessionId === currentSessionId) {
             currentSessionId = chatSessions.length > 0 ? chatSessions[0].id : null;
             if (currentSessionId) {

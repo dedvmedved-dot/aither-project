@@ -1965,6 +1965,15 @@ ALTER TABLE message_nodes_new RENAME TO message_nodes;
 CREATE INDEX idx_conv_user_updated ON conversations(user_id, updated_at);
 CREATE UNIQUE INDEX idx_conv_legacy_unique ON conversations(user_id, legacy_client_id) WHERE legacy_client_id IS NOT NULL;
 CREATE UNIQUE INDEX idx_msg_conv_seq ON message_nodes(conversation_id, sequence_no);
+-- Rebuild the linear parent chain for any pre-existing R1 conversations:
+-- first node NULL, each subsequent node -> previous node (by sequence_no).
+UPDATE message_nodes
+SET parent_id = (
+    SELECT prev_id FROM (
+        SELECT id, LAG(id) OVER (PARTITION BY conversation_id ORDER BY sequence_no) AS prev_id
+        FROM message_nodes
+    ) t WHERE t.id = message_nodes.id
+);
 PRAGMA user_version=2;
 COMMIT;
 """
@@ -2006,6 +2015,19 @@ def _chat_migrate():
 
         if ver >= CHAT_SCHEMA_VERSION:
             return
+
+        # Duplicate pre-check (BLOCKER 6): refuse to migrate if non-NULL
+        # (user_id, legacy_client_id) already has duplicates — building the
+        # UNIQUE index would be unsafe and must not silently pick/merge rows.
+        dups = conn.execute(
+            "SELECT COUNT(*) FROM ("
+            "  SELECT user_id, legacy_client_id FROM conversations "
+            "  WHERE legacy_client_id IS NOT NULL "
+            "  GROUP BY user_id, legacy_client_id HAVING COUNT(*) > 1"
+            ")"
+        ).fetchone()[0]
+        if dups:
+            raise RuntimeError("BLOCKED_LEGACY_DUPLICATES: %d duplicate (user_id, legacy_client_id) group(s)" % dups)
 
         # Existing (R1) schema — rebuild into v2 in one atomic transaction.
         conn.executescript(_SCHEMA_V2_MIGRATE)
