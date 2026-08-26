@@ -1,4 +1,43 @@
-# Aither Portal Backend (BFF) — Deployment and Service
+# Aither Portal Backend (BFF) — canonical manifest (Git Source of Truth).
+# Chat history persistence: static hostPath PV (bare-metal, no StorageClass) + PVC
+# mounted at /data/chat. Backend pinned to n7 so the hostPath always resolves.
+---
+# ── Chat data volume (hostPath on n7) ──────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-aither-portal-chat-data
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /data/aither/chat-data
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - bootsmam-k8s-clnt01-n7-gpu
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aither-portal-chat-data
+  namespace: aither-inference
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: pv-aither-portal-chat-data
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,27 +58,18 @@ spec:
         stage: "15"
     spec:
       automountServiceAccountToken: false
+      securityContext: {}
+      # Chat DB lives on a hostPath PV pinned to n7 — schedule the pod there too.
+      nodeSelector:
+        kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu
       containers:
         - name: portal-backend
-          image: 10.129.13.78:5000/aither-portal-backend@sha256:b5a0c352243341abe9a602e666594525ff5f4dbd94d5a01a1f65b2243e58aa94
-          imagePullPolicy: IfNotPresent
+          image: 10.129.13.78:5000/aither-portal-backend@sha256:9ac487a6fee7007a679db49c497058deed4e1c83ec2058a25582e3eec8f4e3d7
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
               name: http
           env:
-            - name: IDENTITY_INTERNAL_API_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: aither-identity-secret
-                  key: IDENTITY_INTERNAL_API_SECRET
-            - name: PORTAL_IDENTITY_URL
-              value: "http://aither-identity:8000"
-            - name: PORTAL_AI_PLATFORM_URL
-              value: "http://aither-ai-platform:8000"
-            - name: PORTAL_LOG_LEVEL
-              value: "INFO"
-            - name: PORTAL_CORS_ORIGIN
-              value: "http://localhost:3000"
             - name: UPSTREAM_QWEN3_32B_URL
               value: "http://vllm-qwen3-32b-awq.aither-inference.svc:8000"
             - name: UPSTREAM_QWEN38_27B_URL
@@ -54,6 +84,33 @@ spec:
                 secretKeyRef:
                   name: vllm-api-key
                   key: VLLM_API_KEY
+            - name: IDENTITY_INTERNAL_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: aither-identity-secret
+                  key: IDENTITY_INTERNAL_API_SECRET
+            - name: PORTAL_IDENTITY_URL
+              value: "http://aither-identity:8000"
+            - name: PORTAL_AI_PLATFORM_URL
+              value: "http://aither-ai-platform:8000"
+            - name: PORTAL_LOG_LEVEL
+              value: "INFO"
+            - name: PORTAL_CORS_ORIGIN
+              value: "http://localhost:3000"
+            - name: PORTAL_GATEWAY_URL
+              value: "http://aither-gateway.aither-inference.svc:8000"
+            - name: PORTAL_GATEWAY_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aither-gateway-admin
+                  key: ADMIN_API_KEY
+            - name: PORTAL_JWT_PRIVATE_KEY_FILE
+              value: "/app/delegation/private.pem"
+            - name: CHAT_DB_PATH
+              value: "/data/chat/chat_history.db"
+          envFrom:
+            - secretRef:
+                name: aither-portal-upstream
           livenessProbe:
             httpGet:
               path: /health
@@ -73,6 +130,19 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
+          volumeMounts:
+            - name: delegation
+              mountPath: /app/delegation
+              readOnly: true
+            - name: chat-data
+              mountPath: /data/chat
+      volumes:
+        - name: delegation
+          secret:
+            secretName: aither-portal-backend-delegation
+        - name: chat-data
+          persistentVolumeClaim:
+            claimName: aither-portal-chat-data
 ---
 apiVersion: v1
 kind: Service

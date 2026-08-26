@@ -74,28 +74,64 @@
         if (el) el.style.display = show ? 'block' : 'none';
     }
 
-    async function serverPersistSession(session) {
+    // Per-chat serialized persistence queue (BLOCKER 7).
+    // Writes for the same chat are chained FIFO so a stale older write can never
+    // overwrite a newer state, even across fire-and-forget async persistence paths.
+    var _persistQueues = {};
+
+    async function _doServerPersist(session, snapshot) {
         if (authToken === null) return;
         var payload = {
-            title: session.title || 'Новый чат',
-            model: session.model || DEFAULT_MODEL_ID,
-            tokens: session.tokens || 0,
-            requests: session.requests || 0,
-            messages: (session.history || []).map(function(m) {
-                return { role: m.role, content: m.content, model: m.model, answer_id: m.answer_id };
-            })
+            title: snapshot.title || 'Новый чат',
+            model: snapshot.model || DEFAULT_MODEL_ID,
+            tokens: snapshot.tokens || 0,
+            requests: snapshot.requests || 0,
+            legacy_client_id: session.legacy_client_id || session.id,
+            messages: snapshot.messages
         };
         try {
-            var res = await api('/chats/' + encodeURIComponent(session.id), { method: 'PUT', body: JSON.stringify(payload) });
+            var res;
+            if (session.server_id) {
+                res = await api('/chats/' + encodeURIComponent(session.server_id), { method: 'PUT', body: JSON.stringify(payload) });
+            } else {
+                // Canonical id is server-generated (BLOCKER 4); browser id is only legacy_client_id.
+                res = await api('/chats', { method: 'POST', body: JSON.stringify(payload) });
+                if (res.ok && res.data && res.data.id) {
+                    session.server_id = res.data.id;
+                }
+            }
             if (!res.ok) _chatPersistWarning(true);
         } catch (e) {
             _chatPersistWarning(true);
         }
     }
 
-    async function serverDeleteChat(sessionId) {
+    function enqueueServerPersist(session) {
+        if (authToken === null) return Promise.resolve();
+        var key = session.id || session.server_id || 'default';
+        // Immutable snapshot (deep-copied messages) taken at enqueue time.
+        var snapshot = {
+            title: session.title,
+            model: session.model,
+            tokens: session.tokens,
+            requests: session.requests,
+            messages: (session.history || []).map(function(m) {
+                return { role: m.role, content: m.content, model: m.model, answer_id: m.answer_id };
+            })
+        };
+        var prev = _persistQueues[key] || Promise.resolve();
+        var task = prev.then(function() {
+            return _doServerPersist(session, snapshot);
+        });
+        // Never-rejecting tail so one failed write cannot break the chain.
+        _persistQueues[key] = task.then(function(){}, function(){});
+        return task;
+    }
+
+    async function serverDeleteChat(session) {
         if (authToken === null) return;
-        try { await api('/chats/' + encodeURIComponent(sessionId), { method: 'DELETE' }); } catch (e) {}
+        var sid = session.server_id || session.id;
+        try { await api('/chats/' + encodeURIComponent(sid), { method: 'DELETE' }); } catch (e) {}
     }
 
     async function loadServerChats() {
@@ -114,7 +150,10 @@
                     });
                 }
                 serverChats.push({
-                    id: meta.id, title: meta.title || 'Новый чат', timestamp: meta.updated_at || meta.created_at,
+                    id: meta.legacy_client_id || meta.id,
+                    server_id: meta.id,
+                    legacy_client_id: meta.legacy_client_id || null,
+                    title: meta.title || 'Новый чат', timestamp: meta.updated_at || meta.created_at,
                     model: meta.model || DEFAULT_MODEL_ID, history: history,
                     tokens: meta.tokens || 0, requests: meta.requests || 0,
                     generation: { status: 'idle', request_id: null, answer_id: null, model: null, finish_reason: null }
@@ -1377,7 +1416,7 @@
             reRenderSessionMessages(session);
         }
         // Persist the user question to the server BEFORE long inference
-        await serverPersistSession(session);
+        await enqueueServerPersist(session);
 
         var messages = session.history.slice(-20);
         try {
@@ -1430,7 +1469,7 @@
                 saveChatSessions();
                 updateTokenCounters();
                 renderChatList();
-                serverPersistSession(s2);
+                enqueueServerPersist(s2);
                 if (currentSessionId === sessionId) {
                     reRenderSessionMessages(s2);
                 }
@@ -1538,7 +1577,7 @@
                 saveChatSessions();
                 updateTokenCounters();
                 renderChatList();
-                serverPersistSession(s2);
+                enqueueServerPersist(s2);
                 if (currentSessionId === sessionId) {
                     reRenderSessionMessages(s2);
                 }
@@ -1603,13 +1642,14 @@
     };
 
     window._deleteChat = function(sessionId) {
+        var target = findSession(sessionId);
         var filtered = [];
         for (var i = 0; i < chatSessions.length; i++) {
             if (chatSessions[i].id !== sessionId) filtered.push(chatSessions[i]);
         }
         chatSessions = filtered;
         saveChatSessions();
-        serverDeleteChat(sessionId);
+        if (target) serverDeleteChat(target);
         if (sessionId === currentSessionId) {
             currentSessionId = chatSessions.length > 0 ? chatSessions[0].id : null;
             if (currentSessionId) {

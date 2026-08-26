@@ -1882,6 +1882,93 @@ import hashlib
 CHAT_DB_PATH = os.environ.get("CHAT_DB_PATH", "/data/chat/chat_history.db")
 _chat_db_ready = False
 
+# Schema version tracked via PRAGMA user_version (DB-level, not the per-row column).
+CHAT_SCHEMA_VERSION = 2
+
+# Canonical v2 schema — foreign keys use ON DELETE CASCADE, legacy id is enforced
+# by a partial UNIQUE index (idempotency), message order by a UNIQUE (conversation, seq).
+_SCHEMA_V2_TABLES = """
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    model TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    legacy_client_id TEXT NULL,
+    tokens INTEGER NOT NULL DEFAULT 0,
+    requests INTEGER NOT NULL DEFAULT 0,
+    schema_version INTEGER NOT NULL DEFAULT 2
+);
+CREATE TABLE IF NOT EXISTS message_nodes (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    parent_id TEXT NULL,
+    sequence_no INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    model TEXT NULL,
+    answer_id TEXT NULL,
+    created_at TEXT NOT NULL,
+    metadata_json TEXT NULL,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES message_nodes(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_conv_user_updated ON conversations(user_id, updated_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conv_legacy_unique ON conversations(user_id, legacy_client_id) WHERE legacy_client_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_msg_conv_seq ON message_nodes(conversation_id, sequence_no);
+"""
+
+# v1 -> v2 migration. SQLite cannot ALTER a foreign key in place, so we rebuild both
+# tables, copy the data, drop the old ones and rename. Orphaned message_nodes (whose
+# parent conversation no longer exists) are intentionally dropped so foreign_key_check
+# ends clean. The whole migration runs inside one transaction (atomic).
+_SCHEMA_V2_MIGRATE = """
+PRAGMA foreign_keys=OFF;
+BEGIN;
+CREATE TABLE conversations_new (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    model TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    legacy_client_id TEXT NULL,
+    tokens INTEGER NOT NULL DEFAULT 0,
+    requests INTEGER NOT NULL DEFAULT 0,
+    schema_version INTEGER NOT NULL DEFAULT 2
+);
+CREATE TABLE message_nodes_new (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    parent_id TEXT NULL,
+    sequence_no INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    model TEXT NULL,
+    answer_id TEXT NULL,
+    created_at TEXT NOT NULL,
+    metadata_json TEXT NULL,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES message_nodes(id) ON DELETE CASCADE
+);
+INSERT INTO conversations_new (id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests, schema_version)
+    SELECT id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests, 2 FROM conversations;
+INSERT INTO message_nodes_new (id, conversation_id, parent_id, sequence_no, role, content, model, answer_id, created_at, metadata_json)
+    SELECT mn.id, mn.conversation_id, mn.parent_id, mn.sequence_no, mn.role, mn.content, mn.model, mn.answer_id, mn.created_at, mn.metadata_json
+    FROM message_nodes mn
+    WHERE EXISTS (SELECT 1 FROM conversations c WHERE c.id = mn.conversation_id);
+DROP TABLE message_nodes;
+DROP TABLE conversations;
+ALTER TABLE conversations_new RENAME TO conversations;
+ALTER TABLE message_nodes_new RENAME TO message_nodes;
+CREATE INDEX idx_conv_user_updated ON conversations(user_id, updated_at);
+CREATE UNIQUE INDEX idx_conv_legacy_unique ON conversations(user_id, legacy_client_id) WHERE legacy_client_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_msg_conv_seq ON message_nodes(conversation_id, sequence_no);
+PRAGMA user_version=2;
+COMMIT;
+"""
+
 
 def _chat_conn():
     conn = sqlite3.connect(CHAT_DB_PATH, timeout=10)
@@ -1892,46 +1979,56 @@ def _chat_conn():
     return conn
 
 
+def _chat_migrate():
+    """Idempotent schema migration to CHAT_SCHEMA_VERSION.
+
+    Uses a dedicated connection because rebuilding foreign-key tables requires
+    PRAGMA foreign_keys=OFF, while the normal request connection turns it ON.
+    """
+    conn = sqlite3.connect(CHAT_DB_PATH, timeout=10)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        ver = conn.execute("PRAGMA user_version").fetchone()[0]
+        has_conv = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversations'"
+        ).fetchone()
+        has_msg = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='message_nodes'"
+        ).fetchone()
+
+        if not has_conv and not has_msg:
+            # Fresh database — create v2 schema directly.
+            conn.executescript(_SCHEMA_V2_TABLES)
+            conn.execute("PRAGMA user_version=%d" % CHAT_SCHEMA_VERSION)
+            conn.commit()
+            return
+
+        if ver >= CHAT_SCHEMA_VERSION:
+            return
+
+        # Existing (R1) schema — rebuild into v2 in one atomic transaction.
+        conn.executescript(_SCHEMA_V2_MIGRATE)
+        conn.commit()
+
+        # Post-migration validation.
+        fk_issues = conn.execute("PRAGMA foreign_key_check").fetchall()
+        if fk_issues:
+            raise RuntimeError("foreign_key_check failed after migration: %r" % (fk_issues,))
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        if integrity != "ok":
+            raise RuntimeError("integrity_check failed after migration: %r" % (integrity,))
+    finally:
+        conn.close()
+
+
 def _chat_init():
     global _chat_db_ready
     try:
-        conn = _chat_conn()
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id TEXT PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                model TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                legacy_client_id TEXT NULL,
-                tokens INTEGER NOT NULL DEFAULT 0,
-                requests INTEGER NOT NULL DEFAULT 0,
-                schema_version INTEGER NOT NULL DEFAULT 1
-            );
-            CREATE TABLE IF NOT EXISTS message_nodes (
-                id TEXT PRIMARY KEY,
-                conversation_id TEXT NOT NULL,
-                parent_id TEXT NULL,
-                sequence_no INTEGER NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                model TEXT NULL,
-                answer_id TEXT NULL,
-                created_at TEXT NOT NULL,
-                metadata_json TEXT NULL,
-                FOREIGN KEY (conversation_id) REFERENCES conversations(id),
-                FOREIGN KEY (parent_id) REFERENCES message_nodes(id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_conv_user_updated ON conversations(user_id, updated_at);
-            CREATE INDEX IF NOT EXISTS idx_conv_legacy ON conversations(user_id, legacy_client_id);
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_msg_conv_seq ON message_nodes(conversation_id, sequence_no);
-        """)
-        conn.commit()
-        conn.close()
+        _chat_migrate()
         _chat_db_ready = True
     except Exception as e:
-        log.error("chat db init failed: %s", e)
+        log.error("chat db init/migrate failed: %s", e)
         _chat_db_ready = False
 
 
@@ -1991,18 +2088,84 @@ async def chat_list(request: Request):
 async def chat_create(request: Request):
     user_id = await _chat_owner(request)
     body = await request.json()
-    conv_id = body.get("id") or str(uuid.uuid4())
+    # Canonical conversation id is ALWAYS server-generated (BLOCKER 4).
+    # A client-supplied canonical id is rejected outright.
+    if body.get("id") is not None:
+        raise HTTPException(status_code=400, detail="chat id is server-generated")
+    legacy_client_id = body.get("legacy_client_id") or None
     now = datetime.now(timezone.utc).isoformat()
     conn = _chat_conn()
     try:
+        # Idempotent for the same (user_id, legacy_client_id): return the existing chat.
+        if legacy_client_id:
+            existing = conn.execute(
+                "SELECT id FROM conversations WHERE user_id=? AND legacy_client_id=?",
+                (user_id, legacy_client_id),
+            ).fetchone()
+            if existing:
+                return {"id": existing["id"], "status": "created"}
+        conv_id = str(uuid.uuid4())
         conn.execute(
-            "INSERT OR REPLACE INTO conversations (id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests) VALUES (?,?,?,?,?,?,?,?,?)",
-            (conv_id, user_id, body.get("title") or "Новый чат", body.get("model"), now, now, body.get("legacy_client_id"), body.get("tokens") or 0, body.get("requests") or 0),
+            "INSERT INTO conversations (id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests) VALUES (?,?,?,?,?,?,?,?,?)",
+            (conv_id, user_id, body.get("title") or "Новый чат", body.get("model"), now, now, legacy_client_id, body.get("tokens") or 0, body.get("requests") or 0),
         )
         conn.commit()
         return {"id": conv_id, "status": "created"}
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        if legacy_client_id:
+            existing = conn.execute(
+                "SELECT id FROM conversations WHERE user_id=? AND legacy_client_id=?",
+                (user_id, legacy_client_id),
+            ).fetchone()
+            if existing:
+                return {"id": existing["id"], "status": "created"}
+        raise HTTPException(status_code=409, detail="Chat creation conflict")
     finally:
         conn.close()
+
+
+@app.get("/api/v1/chats/export")
+async def chat_export(request: Request):
+    user_id = await _chat_owner(request)
+    conn = _chat_conn()
+    try:
+        convs = conn.execute("SELECT * FROM conversations WHERE user_id=? ORDER BY updated_at DESC", (user_id,)).fetchall()
+        rows = []
+        for c in convs:
+            msgs = conn.execute("SELECT * FROM message_nodes WHERE conversation_id=? ORDER BY sequence_no", (c["id"],)).fetchall()
+            rows.append((c, msgs))
+    finally:
+        conn.close()
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%SZ")
+    buf = io.BytesIO()
+    index_lines = [
+        "# Aither — экспорт истории чатов", '',
+        'Экспортировано: ' + datetime.now(timezone.utc).isoformat(), '',
+        'Количество чатов: ' + str(len(convs)), '',
+        '| № | Чат | Создан | Обновлён | Модель | Сообщений | Файл |', '|---:|---|---|---|---|---:|---|',
+    ]
+    filenames = {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, (c, msgs) in enumerate(rows, 1):
+            safe = _chat_safe_filename(c["title"], c["id"])
+            n = 1
+            base = safe
+            while safe in filenames:
+                safe = base + '_' + str(n)
+                n += 1
+            filenames[safe] = True
+            fname = safe + '.md'
+            zf.writestr(fname, _chat_to_md(c, msgs))
+            index_lines.append('| %d | %s | %s | %s | %s | %d | [%s](%s) |' % (i, c['title'], c['created_at'][:10], c['updated_at'][:10], c['model'] or '', len(msgs), fname, fname))
+        zf.writestr('00_INDEX.md', '\n'.join(index_lines))
+    buf.seek(0)
+    data = buf.read()
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="Aither_chat_history_%s.zip"' % ts},
+    )
 
 
 @app.get("/api/v1/chats/{chat_id}")
@@ -2034,12 +2197,16 @@ async def chat_update(chat_id: str, request: Request):
                      (body.get("title") or "Новый чат", body.get("model"), now, body.get("tokens") or 0, body.get("requests") or 0, chat_id, user_id))
         conn.execute("DELETE FROM message_nodes WHERE conversation_id=?", (chat_id,))
         seq = 0
+        prev_id = None
         for m in (body.get("messages") or []):
             seq += 1
+            node_id = str(uuid.uuid4())
+            # Deterministic linear parent chain: first node NULL, each next -> previous node.
             conn.execute(
                 "INSERT INTO message_nodes (id, conversation_id, parent_id, sequence_no, role, content, model, answer_id, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                (str(uuid.uuid4()), chat_id, None, seq, m.get("role") or "user", m.get("content") or "", m.get("model"), m.get("answer_id"), now),
+                (node_id, chat_id, prev_id, seq, m.get("role") or "user", m.get("content") or "", m.get("model"), m.get("answer_id"), now),
             )
+            prev_id = node_id
         conn.commit()
         return {"id": chat_id, "status": "updated"}
     finally:
@@ -2078,67 +2245,34 @@ async def chat_import_legacy(request: Request):
                     skipped += 1
                     continue
             conv_id = str(uuid.uuid4())
-            conn.execute(
-                "INSERT INTO conversations (id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests) VALUES (?,?,?,?,?,?,?,?,?)",
-                (conv_id, user_id, s.get("title") or "Новый чат", s.get("model"), now, now, legacy_id, s.get("tokens") or 0, s.get("requests") or 0),
-            )
+            conn.execute("SAVEPOINT import_session")
+            try:
+                conn.execute(
+                    "INSERT INTO conversations (id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (conv_id, user_id, s.get("title") or "Новый чат", s.get("model"), now, now, legacy_id, s.get("tokens") or 0, s.get("requests") or 0),
+                )
+            except sqlite3.IntegrityError:
+                conn.execute("ROLLBACK TO import_session")
+                conn.execute("RELEASE import_session")
+                skipped += 1
+                continue
             seq = 0
+            prev_id = None
             for m in (s.get("history") or []):
                 seq += 1
+                node_id = str(uuid.uuid4())
+                # Deterministic linear parent chain: first node NULL, each next -> previous node.
                 conn.execute(
                     "INSERT INTO message_nodes (id, conversation_id, parent_id, sequence_no, role, content, model, answer_id, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                    (str(uuid.uuid4()), conv_id, None, seq, m.get("role") or "user", m.get("content") or "", m.get("model"), m.get("answer_id"), now),
+                    (node_id, conv_id, prev_id, seq, m.get("role") or "user", m.get("content") or "", m.get("model"), m.get("answer_id"), now),
                 )
+                prev_id = node_id
+            conn.execute("RELEASE import_session")
             imported += 1
         conn.commit()
         return {"imported": imported, "skipped": skipped}
     finally:
         conn.close()
-
-
-@app.get("/api/v1/chats/export")
-async def chat_export(request: Request):
-    user_id = await _chat_owner(request)
-    conn = _chat_conn()
-    try:
-        convs = conn.execute("SELECT * FROM conversations WHERE user_id=? ORDER BY updated_at DESC", (user_id,)).fetchall()
-        username = "user"
-        rows = []
-        for c in convs:
-            msgs = conn.execute("SELECT * FROM message_nodes WHERE conversation_id=? ORDER BY sequence_no", (c["id"],)).fetchall()
-            rows.append((c, msgs))
-    finally:
-        conn.close()
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%SZ")
-    buf = io.BytesIO()
-    index_lines = [
-        "# Aither — экспорт истории чатов", '',
-        'Экспортировано: ' + datetime.now(timezone.utc).isoformat(), '',
-        'Количество чатов: ' + str(len(convs)), '',
-        '| № | Чат | Создан | Обновлён | Модель | Сообщений | Файл |', '|---:|---|---|---|---|---:|---|',
-    ]
-    filenames = {}
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for i, (c, msgs) in enumerate(rows, 1):
-            safe = _chat_safe_filename(c["title"], c["id"])
-            # ensure uniqueness
-            n = 1
-            base = safe
-            while safe in filenames:
-                safe = base + '_' + str(n)
-                n += 1
-            filenames[safe] = True
-            fname = safe + '.md'
-            zf.writestr(fname, _chat_to_md(c, msgs))
-            index_lines.append('| %d | %s | %s | %s | %s | %d | [%s](%s) |' % (i, c['title'], c['created_at'][:10], c['updated_at'][:10], c['model'] or '', len(msgs), fname, fname))
-        zf.writestr('00_INDEX.md', '\n'.join(index_lines))
-    buf.seek(0)
-    data = buf.read()
-    return Response(
-        content=data,
-        media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="Aither_chat_history_%s.zip"' % ts},
-    )
 
 
 # ── Feedback ────────────────────────────────────────────────────
