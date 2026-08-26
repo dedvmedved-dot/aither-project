@@ -956,7 +956,10 @@ async def _chat_via_api_key(auth_header: str, body_json: dict):
     max_tokens = _resolve_max_tokens(body_json.get("max_tokens"))
     temperature = body_json.get("temperature", 0.7)
     stream = body_json.get("stream", False)
-    
+    tools = body_json.get("tools")
+    tool_choice = body_json.get("tool_choice")
+    parallel_tool_calls = body_json.get("parallel_tool_calls")
+
     upstream_url, upstream_token = _resolve_upstream(model)
 
     if not upstream_token:
@@ -967,6 +970,12 @@ async def _chat_via_api_key(auth_header: str, body_json: dict):
         "max_tokens": max_tokens, "temperature": temperature, "stream": stream,
         "chat_template_kwargs": {"enable_thinking": False},
     }
+    if tools is not None:
+        req_body["tools"] = tools
+    if tool_choice is not None:
+        req_body["tool_choice"] = tool_choice
+    if parallel_tool_calls is not None:
+        req_body["parallel_tool_calls"] = parallel_tool_calls
     
     try:
         async with httpx.AsyncClient(base_url=upstream_url, timeout=600.0) as ac:
@@ -1036,7 +1045,9 @@ async def external_chat(request: Request):
     temperature = body.get("temperature", 0.7)
     stream = body.get("stream", False)
     tools = body.get("tools")
-    
+    tool_choice = body.get("tool_choice")
+    parallel_tool_calls = body.get("parallel_tool_calls")
+
     # Determine upstream (exact-key, no substring matching)
     upstream_url, upstream_token = _resolve_upstream(model)
 
@@ -1051,8 +1062,12 @@ async def external_chat(request: Request):
         "stream": stream,
         "chat_template_kwargs": {"enable_thinking": False},
     }
-    if tools:
+    if tools is not None:
         req_body["tools"] = tools
+    if tool_choice is not None:
+        req_body["tool_choice"] = tool_choice
+    if parallel_tool_calls is not None:
+        req_body["parallel_tool_calls"] = parallel_tool_calls
     
     try:
         if stream:

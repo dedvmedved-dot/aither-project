@@ -64,7 +64,7 @@ spec:
         kubernetes.io/hostname: bootsmam-k8s-clnt01-n7-gpu
       containers:
         - name: portal-backend
-          image: 10.129.13.78:5000/aither-portal-backend@sha256:0759874777dc5a058aadf7d7555b828fb9120f857da0db4ddf130c961cbfa18d
+          image: 10.129.13.78:5000/aither-portal-backend@sha256:fdea72be4ed76800bc758c2c0eb1fc68bbff25ca2f21d76dbfdafe3a3bf11258
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
