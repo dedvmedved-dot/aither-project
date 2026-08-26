@@ -4,7 +4,7 @@
 - EXECUTOR: HERMES
 - MODE: FORCE_MAJEURE / MANUAL / HERMES
 - BASELINE SHA: `35b07e26122dedafd4b7620d9a64b74a9f17c6e0`
-- FINAL SHA: `<sha>`
+- FINAL SHA: `92343429008e86e6c089086a7f8260684c0f74f7`
 - PARENT SHA: `35b07e26122dedafd4b7620d9a64b74a9f17c6e0`
 - BRANCH: `aither-v2`
 
@@ -54,8 +54,9 @@ Entitlement/scope всегда проверяется по effective physical mo
 agent-fast никогда не маршрутизируется в qwen3.8-27b; agent-deep никогда в qwen3-32b. MISROUTES = 0.
 
 ## 7. Temp key lifecycle
-- Создан ephemeral key (id 28, scope model:qwen3:chat, expires +1 day) через Identity API (`POST /api/v1/api-keys`), НЕ SQL.
-- Revoke (`DELETE /v1/identity/api-keys/28`) заблокирован security guard'ом (destructive-action confirmation timeout). TEMP_KEY_CLEANUP: BLOCKED. Key ephemeral + low-privilege + auto-expire (+1 day) — помечено для очистки Owner/Architect. Секрет в evidence не сохранён.
+- Создан ephemeral key (id 28, scope model:qwen3:chat, expires +1 day) через Identity API.
+- R1: revoke был заблокирован security guard (destructive-action confirmation timeout).
+- C1: key id 28 revoke через Identity API (`DELETE /v1/identity/api-keys/28`) → 200 "Key revoked"; post-revoke → 401. (см. раздел C1 ниже)
 
 ## 8. Portal image pre/post
 - Pre: `sha256:fdea72be4ed76800bc758c2c0eb1fc68bbff25ca2f21d76dbfdafe3a3bf11258`.
@@ -68,3 +69,19 @@ Manifest digest == live Deployment image == Pod imageID (`43d3fe74…`). PASS.
 ## 10. Immutability gates
 - Qwen3-32B runtime: NO CHANGED. Qwen3.8 runtime: NO CHANGED. nginx: NO. Identity code: NO. Gateway: NO. Frontend: NO. `.agent/*`: NO.
 - AI_CODEX_USED: NO. AUTOMATED_RUNNER_USED: NO. SECRETS_EXPOSED: NO.
+
+## 11. C1 Security Closure
+Корректирующее закрытие обязательных security/evidence gates R1 (без изменения routing/source/runtime).
+
+- **Key id 28**: REVOKED через Identity API (`DELETE /v1/identity/api-keys/28`, owner JWT) → 200 "Key revoked".
+- **Revoked key → 401**: post-revoke `GET /v1/models` со старым key id 28 → 401. PASS.
+- **Insufficient scope /v1/models**: ephemeral key (id 29, scope `model:32b:chat`, НЕ `model:qwen3:chat`) → 403 "No models available for this key". PASS.
+- **Insufficient scope agent-fast**: 403 `insufficient_scope: 'model:qwen3:chat' required`. PASS (alias не обходит entitlement).
+- **Insufficient scope agent-deep**: 403 `insufficient_scope: 'model:qwen3:chat' required`. PASS.
+- **Insufficient-scope key cleanup**: key 29 revoke через Identity API → 200. PASS.
+- **Post-closure smoke agent-fast**: basic PASS (resp.model=qwen3-32b), tool AUTO structured PASS.
+- **Post-closure smoke agent-deep**: basic PASS (resp.model=qwen3.8-27b), tool AUTO structured PASS.
+- **Valid smoke key cleanup**: smoke key (id 30, scope model:qwen3:chat) revoke через Identity API → 200; post-revoke → 401. PASS.
+- **Source/runtime immutability**: portal-backend source/image/manifest — NO CHANGED; Qwen3-32B/Qwen3.8/nginx/Identity/Gateway/frontend/.agent — NO CHANGED. All pods restartCount 0.
+- **Secrets exposed**: NO. Все тестовые keys ephemeral (auto-expire) и revoked через Identity API.
+- **Evidence FINAL SHA**: исправлен на `92343429008e86e6c089086a7f8260684c0f74f7`.
