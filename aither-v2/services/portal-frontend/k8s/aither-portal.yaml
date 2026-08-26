@@ -22,7 +22,7 @@ spec:
         stage: '07.2'
     spec:
       containers:
-      - image: 10.129.13.78:5000/aither-portal@sha256:ca1e71e1d4bd9cad73bdb50300c362e5978c3092c8a3b19c98e72f0fc2b4d4c2
+      - image: 10.129.13.78:5000/aither-portal@sha256:ab2f99c95cfa72f108a8e125359bf327dd4d4480bbe4eeb209fbcc847d5b2af3
         imagePullPolicy: IfNotPresent
         name: nginx
         ports:

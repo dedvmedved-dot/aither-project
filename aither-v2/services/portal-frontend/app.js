@@ -68,6 +68,124 @@
         return null;
     }
 
+    // ── Server-side chat persistence ─────────────────────────────
+    function _chatPersistWarning(show) {
+        var el = $('chat-save-warning');
+        if (el) el.style.display = show ? 'block' : 'none';
+    }
+
+    async function serverPersistSession(session) {
+        if (authToken === null) return;
+        var payload = {
+            title: session.title || 'Новый чат',
+            model: session.model || DEFAULT_MODEL_ID,
+            tokens: session.tokens || 0,
+            requests: session.requests || 0,
+            messages: (session.history || []).map(function(m) {
+                return { role: m.role, content: m.content, model: m.model, answer_id: m.answer_id };
+            })
+        };
+        try {
+            var res = await api('/chats/' + encodeURIComponent(session.id), { method: 'PUT', body: JSON.stringify(payload) });
+            if (!res.ok) _chatPersistWarning(true);
+        } catch (e) {
+            _chatPersistWarning(true);
+        }
+    }
+
+    async function serverDeleteChat(sessionId) {
+        if (authToken === null) return;
+        try { await api('/chats/' + encodeURIComponent(sessionId), { method: 'DELETE' }); } catch (e) {}
+    }
+
+    async function loadServerChats() {
+        if (authToken === null) return;
+        try {
+            var listRes = await api('/chats');
+            if (!listRes.ok || !listRes.data || !listRes.data.chats) return;
+            var serverChats = [];
+            for (var i = 0; i < listRes.data.chats.length; i++) {
+                var meta = listRes.data.chats[i];
+                var dRes = await api('/chats/' + encodeURIComponent(meta.id));
+                var history = [];
+                if (dRes.ok && dRes.data && dRes.data.messages) {
+                    history = dRes.data.messages.map(function(m) {
+                        return { role: m.role, content: m.content, model: m.model, answer_id: m.answer_id };
+                    });
+                }
+                serverChats.push({
+                    id: meta.id, title: meta.title || 'Новый чат', timestamp: meta.updated_at || meta.created_at,
+                    model: meta.model || DEFAULT_MODEL_ID, history: history,
+                    tokens: meta.tokens || 0, requests: meta.requests || 0,
+                    generation: { status: 'idle', request_id: null, answer_id: null, model: null, finish_reason: null }
+                });
+            }
+            chatSessions = serverChats;
+            currentSessionId = chatSessions.length > 0 ? chatSessions[0].id : null;
+            localStorage.setItem('aither_current_chat', currentSessionId || '');
+            renderChatList();
+            if (currentSessionId) {
+                window._switchChat(currentSessionId);
+            } else {
+                var msgs = $('chat-messages');
+                if (msgs) msgs.innerHTML = '';
+                updateTokenCounters();
+            }
+        } catch (e) {}
+    }
+
+    async function importLegacyChats(sessions) {
+        if (authToken === null) return { imported: 0, skipped: 0 };
+        try {
+            var res = await api('/chats/import-legacy', { method: 'POST', body: JSON.stringify({ sessions: sessions }) });
+            if (res.ok && res.data) return { imported: res.data.imported || 0, skipped: res.data.skipped || 0 };
+        } catch (e) {}
+        return { imported: 0, skipped: 0 };
+    }
+
+    window._exportHistory = async function() {
+        if (authToken === null) return;
+        try {
+            var res = await fetch(API_URL + '/chats/export', { headers: { 'Authorization': 'Bearer ' + authToken } });
+            if (!res.ok) { showAlert('chat-save-warning', 'Не удалось экспортировать историю', 'danger'); return; }
+            var blob = await res.blob();
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            var cd = res.headers.get('Content-Disposition') || '';
+            var m = cd.match(/filename="?([^"]+)"?/);
+            a.download = m ? m[1] : 'Aither_chat_history.zip';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            showAlert('chat-save-warning', 'Не удалось экспортировать историю', 'danger');
+        }
+    };
+
+    async function maybeMigrateLegacy() {
+        try {
+            var legacy = null;
+            var rawMulti = localStorage.getItem('aither_chats');
+            var rawSingle = localStorage.getItem('aither_chat');
+            if (rawMulti) legacy = JSON.parse(rawMulti);
+            else if (rawSingle) {
+                var old = JSON.parse(rawSingle);
+                if (old && old.history && old.history.length > 0) legacy = [old];
+            }
+            if (!legacy || !Array.isArray(legacy) || legacy.length === 0) return;
+            var confirmed = window.confirm('Найдена локальная история из предыдущей версии: ' + legacy.length + ' чат(ов). Импортировать её в ваш аккаунт?');
+            if (!confirmed) return;
+            var r = await importLegacyChats(legacy);
+            if (r.imported > 0) {
+                localStorage.removeItem('aither_chats');
+                localStorage.removeItem('aither_chat');
+                await loadServerChats();
+            }
+        } catch (e) {}
+    }
+
     function saveChatSessions() {
         try {
             // Keep max 30 sessions, trim oldest
@@ -763,6 +881,7 @@
                 localStorage.setItem('aither_token', authToken);
                 updateNav();
                 loadModelCatalog();
+                loadServerChats().then(maybeMigrateLegacy);
                 showPage('dashboard');
                 $('login-username').value = '';
                 $('login-password').value = '';
@@ -1257,6 +1376,8 @@
             // Render user bubble + generation indicator from state (single source of truth)
             reRenderSessionMessages(session);
         }
+        // Persist the user question to the server BEFORE long inference
+        await serverPersistSession(session);
 
         var messages = session.history.slice(-20);
         try {
@@ -1309,6 +1430,7 @@
                 saveChatSessions();
                 updateTokenCounters();
                 renderChatList();
+                serverPersistSession(s2);
                 if (currentSessionId === sessionId) {
                     reRenderSessionMessages(s2);
                 }
@@ -1416,6 +1538,7 @@
                 saveChatSessions();
                 updateTokenCounters();
                 renderChatList();
+                serverPersistSession(s2);
                 if (currentSessionId === sessionId) {
                     reRenderSessionMessages(s2);
                 }
@@ -1486,6 +1609,7 @@
         }
         chatSessions = filtered;
         saveChatSessions();
+        serverDeleteChat(sessionId);
         if (sessionId === currentSessionId) {
             currentSessionId = chatSessions.length > 0 ? chatSessions[0].id : null;
             if (currentSessionId) {

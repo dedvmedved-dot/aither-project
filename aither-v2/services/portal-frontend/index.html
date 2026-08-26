@@ -234,6 +234,8 @@
         <div class="chat-list-footer">
           <span class="token-counter">🪙 <b id="chat-token-count">0</b></span>
           <span class="token-counter">📝 <b id="chat-request-count">0</b></span>
+          <button class="btn btn-sm btn-outline" id="btn-export-history" onclick="window._exportHistory()" title="Экспортировать всю историю в ZIP">📦 Экспорт</button>
+          <div class="alert alert-danger" id="chat-save-warning" style="display:none;margin-top:8px;">⚠️ Не удалось сохранить историю на сервере.</div>
         </div>
       </div>
       <!-- Main chat area -->

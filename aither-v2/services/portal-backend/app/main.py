@@ -464,6 +464,8 @@ async def health():
 
 @app.get("/ready")
 async def ready():
+    if not _chat_db_ready:
+        raise HTTPException(status_code=503, detail="Chat DB unavailable")
     try:
         c = await get_client()
         r = await c.get("/ready")
@@ -1868,6 +1870,275 @@ async def chat_completions(request: Request):
             )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Upstream model unreachable: {e}")
+
+
+# ── Chat History Persistence (server-side, per-user) ──────────
+
+import sqlite3
+import zipfile
+import io
+import hashlib
+
+CHAT_DB_PATH = os.environ.get("CHAT_DB_PATH", "/data/chat/chat_history.db")
+_chat_db_ready = False
+
+
+def _chat_conn():
+    conn = sqlite3.connect(CHAT_DB_PATH, timeout=10)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _chat_init():
+    global _chat_db_ready
+    try:
+        conn = _chat_conn()
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                model TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                legacy_client_id TEXT NULL,
+                tokens INTEGER NOT NULL DEFAULT 0,
+                requests INTEGER NOT NULL DEFAULT 0,
+                schema_version INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS message_nodes (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                parent_id TEXT NULL,
+                sequence_no INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                model TEXT NULL,
+                answer_id TEXT NULL,
+                created_at TEXT NOT NULL,
+                metadata_json TEXT NULL,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+                FOREIGN KEY (parent_id) REFERENCES message_nodes(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_conv_user_updated ON conversations(user_id, updated_at);
+            CREATE INDEX IF NOT EXISTS idx_conv_legacy ON conversations(user_id, legacy_client_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_msg_conv_seq ON message_nodes(conversation_id, sequence_no);
+        """)
+        conn.commit()
+        conn.close()
+        _chat_db_ready = True
+    except Exception as e:
+        log.error("chat db init failed: %s", e)
+        _chat_db_ready = False
+
+
+async def _chat_owner(request: Request) -> int:
+    user = await _get_user_from_token(request)
+    return int(user.get("id") or user.get("uid") or 0)
+
+
+def _chat_safe_filename(title, chat_id):
+    s = re.sub(r'[/\\\x00-\x1f]', '', title or '')
+    s = re.sub(r'\.\.+', '', s)
+    s = re.sub(r'\s+', ' ', s).strip()
+    s = (s or 'chat')[:60]
+    return s + '_' + str(chat_id)[:8]
+
+
+def _chat_to_md(conv, messages):
+    lines = [
+        '# ' + (conv['title'] or 'Без названия'), '',
+        '**Chat ID:** ' + str(conv['id']), '',
+        '**Создан:** ' + str(conv['created_at']), '',
+        '**Обновлён:** ' + str(conv['updated_at']), '',
+        '**Модель:** ' + (conv['model'] or ''), '',
+        '---', '',
+    ]
+    for m in messages:
+        if m['role'] == 'user':
+            lines.append('## Пользователь')
+        else:
+            lines.append('## ' + (m['model'] or 'Ассистент'))
+        lines.append('')
+        lines.append(m['content'] or '')
+        lines.append('')
+        lines.append('---')
+        lines.append('')
+    return '\n'.join(lines)
+
+
+_chat_init()
+
+
+@app.get("/api/v1/chats")
+async def chat_list(request: Request):
+    user_id = await _chat_owner(request)
+    conn = _chat_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, title, model, created_at, updated_at, legacy_client_id, tokens, requests FROM conversations WHERE user_id=? ORDER BY updated_at DESC",
+            (user_id,),
+        ).fetchall()
+        return {"chats": [dict(r) for r in rows]}
+    finally:
+        conn.close()
+
+
+@app.post("/api/v1/chats")
+async def chat_create(request: Request):
+    user_id = await _chat_owner(request)
+    body = await request.json()
+    conv_id = body.get("id") or str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _chat_conn()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO conversations (id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests) VALUES (?,?,?,?,?,?,?,?,?)",
+            (conv_id, user_id, body.get("title") or "Новый чат", body.get("model"), now, now, body.get("legacy_client_id"), body.get("tokens") or 0, body.get("requests") or 0),
+        )
+        conn.commit()
+        return {"id": conv_id, "status": "created"}
+    finally:
+        conn.close()
+
+
+@app.get("/api/v1/chats/{chat_id}")
+async def chat_get(chat_id: str, request: Request):
+    user_id = await _chat_owner(request)
+    conn = _chat_conn()
+    try:
+        conv = conn.execute("SELECT * FROM conversations WHERE id=? AND user_id=?", (chat_id, user_id)).fetchone()
+        if not conv:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        msgs = conn.execute("SELECT * FROM message_nodes WHERE conversation_id=? ORDER BY sequence_no", (chat_id,)).fetchall()
+        return {"chat": dict(conv), "messages": [dict(m) for m in msgs]}
+    finally:
+        conn.close()
+
+
+@app.put("/api/v1/chats/{chat_id}")
+async def chat_update(chat_id: str, request: Request):
+    user_id = await _chat_owner(request)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _chat_conn()
+    try:
+        exists = conn.execute("SELECT id FROM conversations WHERE id=? AND user_id=?", (chat_id, user_id)).fetchone()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        # Update conversation metadata + messages (replace-all, linear mode)
+        conn.execute("UPDATE conversations SET title=?, model=?, updated_at=?, tokens=?, requests=? WHERE id=? AND user_id=?",
+                     (body.get("title") or "Новый чат", body.get("model"), now, body.get("tokens") or 0, body.get("requests") or 0, chat_id, user_id))
+        conn.execute("DELETE FROM message_nodes WHERE conversation_id=?", (chat_id,))
+        seq = 0
+        for m in (body.get("messages") or []):
+            seq += 1
+            conn.execute(
+                "INSERT INTO message_nodes (id, conversation_id, parent_id, sequence_no, role, content, model, answer_id, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                (str(uuid.uuid4()), chat_id, None, seq, m.get("role") or "user", m.get("content") or "", m.get("model"), m.get("answer_id"), now),
+            )
+        conn.commit()
+        return {"id": chat_id, "status": "updated"}
+    finally:
+        conn.close()
+
+
+@app.delete("/api/v1/chats/{chat_id}")
+async def chat_delete(chat_id: str, request: Request):
+    user_id = await _chat_owner(request)
+    conn = _chat_conn()
+    try:
+        cur = conn.execute("DELETE FROM conversations WHERE id=? AND user_id=?", (chat_id, user_id))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        return {"id": chat_id, "status": "deleted"}
+    finally:
+        conn.close()
+
+
+@app.post("/api/v1/chats/import-legacy")
+async def chat_import_legacy(request: Request):
+    user_id = await _chat_owner(request)
+    body = await request.json()
+    sessions = body.get("sessions") or []
+    now = datetime.now(timezone.utc).isoformat()
+    imported = 0
+    skipped = 0
+    conn = _chat_conn()
+    try:
+        for s in sessions:
+            legacy_id = s.get("id") or s.get("legacy_client_id")
+            if legacy_id:
+                existing = conn.execute("SELECT id FROM conversations WHERE user_id=? AND legacy_client_id=?", (user_id, legacy_id)).fetchone()
+                if existing:
+                    skipped += 1
+                    continue
+            conv_id = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO conversations (id, user_id, title, model, created_at, updated_at, legacy_client_id, tokens, requests) VALUES (?,?,?,?,?,?,?,?,?)",
+                (conv_id, user_id, s.get("title") or "Новый чат", s.get("model"), now, now, legacy_id, s.get("tokens") or 0, s.get("requests") or 0),
+            )
+            seq = 0
+            for m in (s.get("history") or []):
+                seq += 1
+                conn.execute(
+                    "INSERT INTO message_nodes (id, conversation_id, parent_id, sequence_no, role, content, model, answer_id, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (str(uuid.uuid4()), conv_id, None, seq, m.get("role") or "user", m.get("content") or "", m.get("model"), m.get("answer_id"), now),
+                )
+            imported += 1
+        conn.commit()
+        return {"imported": imported, "skipped": skipped}
+    finally:
+        conn.close()
+
+
+@app.get("/api/v1/chats/export")
+async def chat_export(request: Request):
+    user_id = await _chat_owner(request)
+    conn = _chat_conn()
+    try:
+        convs = conn.execute("SELECT * FROM conversations WHERE user_id=? ORDER BY updated_at DESC", (user_id,)).fetchall()
+        username = "user"
+        rows = []
+        for c in convs:
+            msgs = conn.execute("SELECT * FROM message_nodes WHERE conversation_id=? ORDER BY sequence_no", (c["id"],)).fetchall()
+            rows.append((c, msgs))
+    finally:
+        conn.close()
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%SZ")
+    buf = io.BytesIO()
+    index_lines = [
+        "# Aither — экспорт истории чатов", '',
+        'Экспортировано: ' + datetime.now(timezone.utc).isoformat(), '',
+        'Количество чатов: ' + str(len(convs)), '',
+        '| № | Чат | Создан | Обновлён | Модель | Сообщений | Файл |', '|---:|---|---|---|---|---:|---|',
+    ]
+    filenames = {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, (c, msgs) in enumerate(rows, 1):
+            safe = _chat_safe_filename(c["title"], c["id"])
+            # ensure uniqueness
+            n = 1
+            base = safe
+            while safe in filenames:
+                safe = base + '_' + str(n)
+                n += 1
+            filenames[safe] = True
+            fname = safe + '.md'
+            zf.writestr(fname, _chat_to_md(c, msgs))
+            index_lines.append('| %d | %s | %s | %s | %s | %d | [%s](%s) |' % (i, c['title'], c['created_at'][:10], c['updated_at'][:10], c['model'] or '', len(msgs), fname, fname))
+        zf.writestr('00_INDEX.md', '\n'.join(index_lines))
+    buf.seek(0)
+    data = buf.read()
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="Aither_chat_history_%s.zip"' % ts},
+    )
 
 
 # ── Feedback ────────────────────────────────────────────────────
