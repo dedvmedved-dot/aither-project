@@ -805,10 +805,7 @@ async def proxy_models(request: Request):
     if auth.startswith("Bearer aither_"):
         ctx = await _introspect_api_key(auth[7:].strip())
         effective = set(ctx.get("effective_scopes", []))
-        models = []
-        for model_id, info in CURRENT_MODELS.items():
-            if info["scope"] in effective:
-                models.append({"id": model_id, "object": "model", "created": 1722900000, "owned_by": "aither"})
+        models = _model_catalog(effective)
         if not models:
             raise HTTPException(status_code=403, detail="No models available for this key")
         return {"object": "list", "data": models}
@@ -823,9 +820,7 @@ async def proxy_models(request: Request):
     if "model:qwen3:chat" not in scopes:
         raise HTTPException(status_code=403, detail="entitlement_missing: scope 'model:qwen3:chat' required")
 
-    models = []
-    for model_id, info in CURRENT_MODELS.items():
-        models.append({"id": model_id, "object": "model", "created": 1722900000, "owned_by": "aither"})
+    models = _model_catalog()
     return {"object": "list", "data": models}
 
 @app.post("/api/v1/models")
@@ -923,6 +918,46 @@ CURRENT_MODELS = {
     "qwen3.8-27b": {"scope": "model:qwen3:chat", "display": "Qwen3.8-27B-FP8"},
 }
 
+# ── Deterministic agent role routing (no LLM router, no fallback) ──
+# Logical agent roles map 1:1 to physical models. Direct physical model IDs
+# remain fully supported. Aliases are resolved BEFORE entitlement/upstream so
+# the effective physical model governs scope checks and upstream routing.
+AGENT_MODEL_ALIASES = {
+    "agent-fast": "qwen3-32b",
+    "agent-deep": "qwen3.8-27b",
+}
+
+
+def _resolve_requested_model(requested_model: str) -> tuple[str, str, str | None]:
+    """Resolve a logical agent role to its physical model.
+
+    Returns (requested, effective_model, logical_role_or_none).
+    Physical model IDs pass through unchanged (role=None). Unknown strings pass
+    through unchanged so the downstream entitlement/upstream lookup fails closed
+    (404 model_not_found). No fuzzy matching, no substring matching, no fallback.
+    """
+    m = (requested_model or "").strip()
+    if m in AGENT_MODEL_ALIASES:
+        return m, AGENT_MODEL_ALIASES[m], m
+    return m, m, None
+
+
+def _model_catalog(scopes: set[str] | None = None) -> list[dict]:
+    """Build the OpenAI-compatible model list: physical models + agent role aliases.
+
+    When `scopes` is provided, only models whose scope is in `scopes` are listed
+    (aliases inherit the scope of their physical model). When None, all models.
+    """
+    entries = []
+    for model_id, info in CURRENT_MODELS.items():
+        if scopes is None or info["scope"] in scopes:
+            entries.append({"id": model_id, "object": "model", "created": 1722900000, "owned_by": "aither"})
+    for alias, physical in AGENT_MODEL_ALIASES.items():
+        info = CURRENT_MODELS[physical]
+        if scopes is None or info["scope"] in scopes:
+            entries.append({"id": alias, "object": "model", "created": 1722900000, "owned_by": "aither"})
+    return entries
+
 # Architect output-budget policy (P0-R1): default 2048, hard max 4096 (clamp).
 DEFAULT_MAX_TOKENS = 2048
 HARD_MAX_TOKENS = 4096
@@ -950,6 +985,7 @@ async def _chat_via_api_key(auth_header: str, body_json: dict):
     ctx = await _introspect_api_key(api_key)
     
     model = body_json.get("model", "")
+    model = _resolve_requested_model(model)[1]  # logical role -> physical model
     _check_api_key_entitlement(ctx, model)
     
     messages = body_json.get("messages", [])
@@ -1015,15 +1051,7 @@ async def external_list_models(request: Request):
     ctx = await _get_ctx_from_api_key(request)
     effective = set(ctx.get("effective_scopes", []))
     
-    models = []
-    for model_id, info in CURRENT_MODELS.items():
-        if info["scope"] in effective:
-            models.append({
-                "id": model_id,
-                "object": "model",
-                "created": 1722900000,
-                "owned_by": "aither",
-            })
+    models = _model_catalog(effective)
     
     if not models:
         raise HTTPException(status_code=403, detail="No models available for this key")
@@ -1038,6 +1066,7 @@ async def external_chat(request: Request):
     
     body = await request.json()
     model = body.get("model", "")
+    model = _resolve_requested_model(model)[1]  # logical role -> physical model
     _check_api_key_entitlement(ctx, model)
     
     messages = body.get("messages", [])
@@ -1832,6 +1861,7 @@ async def chat_completions(request: Request):
         return await _chat_via_api_key(auth_header, body_json)
 
     model = body_json.get("model", "qwen3-32b")
+    model = _resolve_requested_model(model)[1]  # logical role -> physical model
     messages = body_json.get("messages", [])
     max_tokens = _resolve_max_tokens(body_json.get("max_tokens"))
     temperature = body_json.get("temperature", 0.7)
