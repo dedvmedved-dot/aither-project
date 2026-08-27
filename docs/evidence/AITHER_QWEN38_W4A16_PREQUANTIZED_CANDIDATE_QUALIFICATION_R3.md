@@ -4,7 +4,7 @@
 - EXECUTOR: HERMES
 - MODE: FORCE_MAJEURE / MANUAL / HERMES
 - BASELINE SHA: `15ff86d2779e55e44a233eee45d6235a19baeafa`
-- FINAL SHA: `<sha>`
+- FINAL SHA: `d6a8de8a3176502c64c53cfca298ddb4cede12f4`
 - PARENT SHA: `15ff86d2779e55e44a233eee45d6235a19baeafa`
 - BRANCH: `aither-v2`
 
@@ -71,3 +71,23 @@
 
 ## 13. Conclusion
 W4A16 на Turing sm_75 для Qwen3.8-27B **работает** (Marlin 4-bit, TP=2, 64K, tool/quality/stability без регрессий), но даёт **маржинальный выигрыш**: decode ≈ +2.3% (ниже порога 10%) и VRAM-выигрыш **WEAK** (~254 MiB/GPU — экономия весов перешла в KV-cache). Кандидат проходит hard-gates (qualified), но НЕ является compelling-заменой FP8 и НЕ подходит для CUDA-graph-retry (свободной VRAM по-прежнему ~3.4 GiB). Production-замена не авторизована.
+
+## 14. C1 QUALIFICATION CLOSURE
+
+Закрытие пробелов R3 выполнено задачей `AITHER-QWEN38-W4A16-R3-C1-QUALIFICATION-CLOSURE`.
+Полный детальный evidence: `docs/evidence/AITHER_QWEN38_W4A16_R3_C1_QUALIFICATION_CLOSURE.md`.
+
+- **B D2048**: измерен, median **9.587 tok/s** (runs 9.587/9.539/9.792, temperature=0, top_p=1).
+- **Corrected aggregate**: A 9.292, B 9.502, gain **+2.26%** (MARGINAL).
+- **B TTFT**: P50 **0.1680 s**. **B ITL**: P50 **0.1029 s** (TTFT −8.9%, ITL −2.6% vs A).
+- **Streaming tool**: PASS (structured `get_current_weather` `{"city":"Moscow"}`, valid JSON,
+  корректная реконструкция chunks, без parser corruption).
+- **Multi-turn tool**: PASS (turn1 tool-call → tool result → turn2 корректно использует результат).
+- **Consistency**: PRIOR 10 + ADDITIONAL 10 = TOTAL **20**, IDENTICAL **20/20**, PASS.
+- **Full SHA256 manifest**: 14 файлов, 19,561,037,206 B — `docs/evidence/AITHER_QWEN38_W4A16_R3_SHA256.txt`.
+- **Qwen3-32B FORCED after restore**: PASS (restore scale 0→1, FORCED tool call валиден).
+- **Qwen3.8 60K after restore**: PASS (58,951 prompt tokens, корректный ответ, без OOM).
+
+Примечание (независимая находка): Qwen3-32B на 60K контексте деградирует (`!!!!…`) — native
+`max_position_embeddings=40960`, `rope_scaling=None`, при deployment-овере `max-model-len=65536`.
+Это pre-existing ограничение конфигурации Qwen3-32B, вне scope C1, манифест не менялся.
