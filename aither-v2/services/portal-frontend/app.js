@@ -1854,6 +1854,10 @@
                 currentUser = await res.json();
                 updateNav();
                 loadModelCatalog();
+                // Re-hydrate server-side chat history on every session-restore path
+                // (page load, OAuth callback, LDAP) — server is the sole source of
+                // truth and localStorage no longer holds the full history (R2).
+                loadServerChats().then(maybeMigrateLegacy);
                 // Restore saved page, default to dashboard
                 var savedPage = 'dashboard';
                 try { savedPage = localStorage.getItem('aither_page') || 'dashboard'; } catch(e) {}
