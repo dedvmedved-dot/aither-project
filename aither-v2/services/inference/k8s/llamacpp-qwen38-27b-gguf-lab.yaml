@@ -1,0 +1,123 @@
+# Aither Qwen3.8-27B GGUF + llama.cpp LAB qualification deployment (n8, isolated).
+# NOT production. Served model qwen3.8-27b-gguf-ad-q5-lab — never exposed via agent aliases.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: llamacpp
+    model: qwen38-27b-gguf-lab
+  name: llamacpp-qwen38-27b-gguf-lab
+  namespace: aither-inference
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: llamacpp
+      model: qwen38-27b-gguf-lab
+  template:
+    metadata:
+      labels:
+        app: llamacpp
+        model: qwen38-27b-gguf-lab
+    spec:
+      nodeName: bootsman-k8s-clnt01-n8-gpu
+      automountServiceAccountToken: false
+      runtimeClassName: nvidia
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: llamacpp
+        image: ghcr.io/ggml-org/llama.cpp:server-cuda
+        imagePullPolicy: IfNotPresent
+        args:
+        - --model
+        - /model/Qwen3.8-27B-AD-Q5_K_M.gguf
+        - --ctx-size
+        - "65536"
+        - --n-gpu-layers
+        - "99"
+        - --split-mode
+        - layer
+        - --tensor-split
+        - "1,1"
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8000"
+        - --alias
+        - qwen3.8-27b-gguf-ad-q5-lab
+        - --parallel
+        - "1"
+        - --jinja
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            cpu: "8"
+            memory: "48Gi"
+            nvidia.com/gpu: "2"
+          limits:
+            cpu: "8"
+            memory: "64Gi"
+            nvidia.com/gpu: "2"
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+        - name: model
+          mountPath: /model
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 240
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+      - name: model
+        hostPath:
+          path: /data/models/Qwen3.8-27B-GGUF-LAB
+          type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llamacpp-qwen38-27b-gguf-lab
+  namespace: aither-inference
+spec:
+  selector:
+    app: llamacpp
+    model: qwen38-27b-gguf-lab
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
