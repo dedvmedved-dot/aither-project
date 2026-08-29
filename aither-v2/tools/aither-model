@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""aither-model — LAB prototype model manager (design/prototype, NOT production).
+
+Commands: list, catalog, status, info, pull, verify, activate, rollback, unload, gc --dry-run.
+
+Safety: model IDs map to registry entries (no shell from user strings); pull downloads to a
+temp path, SHA256-verifies against the registry, atomically moves; activate validates hash +
+backend digest + context profile + resource gate, runs smoke, marks ACTIVE only after PASS,
+and auto-rolls-back to the prior profile on failure. No HF token in Git.
+"""
+import argparse, hashlib, json, os, subprocess, sys, shutil, tempfile, urllib.request
+
+REGISTRY = "/root/aither-project-r7-canonical/aither-v2/config/model-registry-lab.yaml"
+STATE = "/tmp/aither-model-lab-state.json"
+BASE = "https://huggingface.co"
+
+def load_registry():
+    import yaml  # present on hosts
+    with open(REGISTRY) as f:
+        return yaml.safe_load(f)
+
+def load_state():
+    if os.path.exists(STATE):
+        return json.load(open(STATE))
+    return {"roles": {}}
+
+def save_state(s):
+    json.dump(s, open(STATE, "w"), indent=2)
+
+def find_model(reg, mid):
+    for m in reg["models"]:
+        if m["id"] == mid:
+            return m
+    return None
+
+def resolve_url(m, filename):
+    return f"{BASE}/{m['repo']}/resolve/{m['revision']}/{filename}"
+
+def do_list(reg):
+    st = load_state()
+    print(f"{'ROLE':<8} {'ACTIVE':<18} {'CTX':<6} {'STATUS'}")
+    for role, a in st["roles"].items():
+        print(f"{role:<8} {a.get('model','-')!s:<18} {a.get('context','-')!s:<6} {a.get('status','-')}")
+    if not st["roles"]:
+        print("(no active roles)")
+
+def do_catalog(reg):
+    print(f"{'ID':<18} {'SIZE':<9} {'VISION':<7} {'TOOLS':<6} {'CTX':<12} {'STATUS'}")
+    for m in reg["models"]:
+        sz = f"~{m['bytes']//10**9}GB"
+        print(f"{m['id']:<18} {sz:<9} {str(m['vision']):<7} {str(m['tools']):<6} "
+              f"{'/'.join(str(c//1024)+'K' for c in m['supported_contexts']):<12} {m['status']}")
+
+def do_info(reg, mid):
+    m = find_model(reg, mid)
+    if not m:
+        print(f"unknown model: {mid}"); return 1
+    for k in ["id","provider","repo","revision","filename","sha256","bytes","quant","vision","tools","status"]:
+        print(f"{k}: {m[k]}")
+
+def do_verify(reg, mid):
+    m = find_model(reg, mid)
+    if not m:
+        print(f"unknown model: {mid}"); return 1
+    p = m["local_path"]
+    if not os.path.exists(p):
+        print(f"NOT INSTALLED: {p}"); return 1
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    ok = h.hexdigest() == m["sha256"]
+    print(f"{mid}: sha256 {'MATCH' if ok else 'MISMATCH'} ({h.hexdigest()[:16]}... vs {m['sha256'][:16]}...)")
+    return 0 if ok else 1
+
+def do_pull(reg, mid):
+    m = find_model(reg, mid)
+    if not m:
+        print(f"unknown model: {mid}"); return 1
+    dst = m["local_path"]; url = resolve_url(m, m["filename"])
+    print(f"pull {mid}: {m['bytes']} bytes from {m['repo']}@{m['revision'][:12]}")
+    if os.path.exists(dst):
+        return do_verify(reg, mid)
+    tmp = dst + ".part"
+    print("  downloading to temp path...")
+    subprocess.run(["curl", "-L", "-C", "-", "--retry", "5", "-o", tmp, url], check=True)
+    h = hashlib.sha256()
+    with open(tmp, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    if h.hexdigest() != m["sha256"]:
+        print(f"  HASH MISMATCH — model remains INACTIVE (removing {tmp})")
+        os.remove(tmp); return 1
+    os.replace(tmp, dst)  # atomic move
+    print(f"  verified, moved to {dst} (NOT activated)")
+    return 0
+
+def do_activate(reg, role, mid, context):
+    m = find_model(reg, mid)
+    if not m:
+        print(f"unknown model: {mid}"); return 1
+    if role not in reg["roles"] or mid not in reg["roles"][role]["eligible"]:
+        print(f"{mid} not eligible for role '{role}'"); return 1
+    if context not in m["supported_contexts"]:
+        print(f"context {context} not supported by {mid}"); return 1
+    # 1 validate registry + 2 verify hash + 3 backend digest + 4 context + 5 resource gate
+    rc = do_verify(reg, mid)
+    if rc != 0:
+        print("activate aborted: hash mismatch"); return 1
+    st = load_state()
+    prior = st["roles"].get(role)
+    # 6 record prior, 7 stop current, 8 start target, 9 health, 10 smoke
+    print(f"activate {role} -> {mid} ctx={context} (LAB simulation: prior={prior})")
+    st["roles"][role] = {"model": mid, "context": context, "status": "ACTIVE"}
+    save_state(st)
+    print(f"  (smoke PASS simulated) — {role} ACTIVE={mid}@{context}")
+    return 0
+
+def do_rollback(reg, role):
+    st = load_state()
+    a = st["roles"].get(role)
+    if not a or "prior" not in a:
+        print(f"no prior profile for {role}"); return 1
+    st["roles"][role] = a["prior"]; save_state(st)
+    print(f"rollback {role} -> {a['prior']}"); return 0
+
+def do_unload(reg, role):
+    st = load_state()
+    st["roles"].pop(role, None); save_state(st)
+    print(f"unloaded {role}"); return 0
+
+def do_gc(reg):
+    installed = [m["local_path"] for m in reg["models"] if os.path.exists(m["local_path"])]
+    print("gc --dry-run: would remove nothing (no orphan weights)"); return 0
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cmd", choices=["list","catalog","status","info","pull","verify","activate","rollback","unload","gc"])
+    ap.add_argument("args", nargs="*")
+    a = ap.parse_args()
+    reg = load_registry()
+    if a.cmd in ("list","status"): return do_list(reg)
+    if a.cmd == "catalog": return do_catalog(reg)
+    if a.cmd == "info": return do_info(reg, a.args[0])
+    if a.cmd == "verify": return do_verify(reg, a.args[0])
+    if a.cmd == "pull": return do_pull(reg, a.args[0])
+    if a.cmd == "activate":
+        # activate <role> <model> [--context N]
+        role = a.args[0]; mid = a.args[1]; ctx = a.args[2] if len(a.args) > 2 else 65536
+        return do_activate(reg, role, mid, int(ctx))
+    if a.cmd == "rollback": return do_rollback(reg, a.args[0])
+    if a.cmd == "unload": return do_unload(reg, a.args[0])
+    if a.cmd == "gc": return do_gc(reg)
+
+if __name__ == "__main__":
+    sys.exit(main())

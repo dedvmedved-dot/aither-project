@@ -1,0 +1,114 @@
+# Aither LAB model registry (R3) — declarative, not production routing.
+# Stable logical roles (hermes / chat) are decoupled from physical filenames.
+version: 1
+backend_image_digest: sha256:150b59966fb5b2cb1a8fa9d226267c56ebd22c520c7b3640331cde87f3c4fb01
+backend: llama.cpp 0.3.0-dev build 10666 (4e97ac86e)
+
+models:
+  - id: qwen38-ad-q5
+    display_name: Qwen3.8-27B AD-Q5_K_M (Atomic)
+    provider: AtomicChat
+    repo: AtomicChat/Qwen3.8-27B-GGUF
+    revision: ca10ebceb1887be9d33b838770a36b39d75a8a4c
+    filename: Qwen3.8-27B-AD-Q5_K_M.gguf
+    sha256: 32b2b7fcb2a1686dd2737304c86f31ed514d4a705e26b8e409d9bb9657434403
+    bytes: 20232512992
+    base_model: Qwen/Qwen3.8-27B
+    format: gguf
+    quant: AD-Q5_K_M
+    backend: llama.cpp
+    backend_image_digest: sha256:150b59966fb5b2cb1a8fa9d226267c56ebd22c520c7b3640331cde87f3c4fb01
+    mmproj_repo: AtomicChat/Qwen3.8-27B-GGUF
+    mmproj_revision: ca10ebceb1887be9d33b838770a36b39d75a8a4c
+    mmproj_filename: mmproj-Qwen3.8-27B-F16.gguf
+    mmproj_sha256: 2f0a90f140322e570130adffe50ae45355f1a79715a641ce0e11ac6b1cdc822c
+    supported_contexts: [16384, 32768, 65536]
+    vision: true
+    tools: true
+    thinking: true
+    role_eligibility: [hermes, chat]
+    local_path: /data/models/Qwen3.8-27B-GGUF-LAB/Qwen3.8-27B-AD-Q5_K_M.gguf
+    status: QUALIFIED
+
+  - id: qwen38-ad-q4
+    display_name: Qwen3.8-27B AD-Q4_K_M (Atomic)
+    provider: AtomicChat
+    repo: AtomicChat/Qwen3.8-27B-GGUF
+    revision: ca10ebceb1887be9d33b838770a36b39d75a8a4c
+    filename: Qwen3.8-27B-AD-Q4_K_M.gguf
+    sha256: 9f21564b0c962fd397509672a4a6d11a008c6b80cc6573295bb562832492abf0
+    bytes: 17120781792
+    base_model: Qwen/Qwen3.8-27B
+    format: gguf
+    quant: AD-Q4_K_M
+    backend: llama.cpp
+    backend_image_digest: sha256:150b59966fb5b2cb1a8fa9d226267c56ebd22c520c7b3640331cde87f3c4fb01
+    mmproj_repo: AtomicChat/Qwen3.8-27B-GGUF
+    mmproj_revision: ca10ebceb1887be9d33b838770a36b39d75a8a4c
+    mmproj_filename: mmproj-Qwen3.8-27B-F16.gguf
+    mmproj_sha256: 2f0a90f140322e570130adffe50ae45355f1a79715a641ce0e11ac6b1cdc822c
+    supported_contexts: [16384, 32768, 65536]
+    vision: true
+    tools: true
+    thinking: true
+    role_eligibility: [hermes, chat]
+    local_path: /data/models/Qwen3.8-27B-GGUF-LAB/Qwen3.8-27B-AD-Q4_K_M.gguf
+    status: QUALIFIED
+
+  - id: qwen38-ud-q4ks
+    display_name: Qwen3.8-27B UD-Q4_K_S (Unsloth)
+    provider: unsloth
+    repo: unsloth/Qwen3.8-27B-GGUF
+    revision: 4ca720788d1e01f1bff70c033e0d0028fd02e502
+    filename: Qwen3.8-27B-UD-Q4_K_S.gguf
+    sha256: 75bc9c8adba2842e72f0ab5201aaa07133c5010b566305c09187fcbdcd364017
+    bytes: 15358213024
+    base_model: Qwen/Qwen3.8-27B
+    format: gguf
+    quant: UD-Q4_K_S
+    backend: llama.cpp
+    backend_image_digest: sha256:150b59966fb5b2cb1a8fa9d226267c56ebd22c520c7b3640331cde87f3c4fb01
+    mmproj_repo: unsloth/Qwen3.8-27B-GGUF
+    mmproj_revision: 4ca720788d1e01f1bff70c033e0d0028fd02e502
+    mmproj_filename: mmproj-F16.gguf
+    mmproj_sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
+    supported_contexts: [16384, 32768]
+    vision: test
+    tools: test
+    thinking: true
+    role_eligibility: [chat]
+    local_path: /data/models/Qwen3.8-27B-GGUF-LAB/Qwen3.8-27B-UD-Q4_K_S.gguf
+    status: EXPERIMENTAL
+
+  - id: qwen38-ud-iq3s
+    display_name: Qwen3.8-27B UD-IQ3_S (Unsloth)
+    provider: unsloth
+    repo: unsloth/Qwen3.8-27B-GGUF
+    revision: 4ca720788d1e01f1bff70c033e0d0028fd02e502
+    filename: Qwen3.8-27B-UD-IQ3_S.gguf
+    sha256: d847e2c1e4aa276e4b7b8e9ad7628050e61e165d49ab995407bc36677a6f3864
+    bytes: 12040883104
+    base_model: Qwen/Qwen3.8-27B
+    format: gguf
+    quant: UD-IQ3_S
+    backend: llama.cpp
+    backend_image_digest: sha256:150b59966fb5b2cb1a8fa9d226267c56ebd22c520c7b3640331cde87f3c4fb01
+    mmproj_repo: unsloth/Qwen3.8-27B-GGUF
+    mmproj_revision: 4ca720788d1e01f1bff70c033e0d0028fd02e502
+    mmproj_filename: mmproj-F16.gguf
+    mmproj_sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
+    supported_contexts: [16384, 32768]
+    vision: test
+    tools: test
+    thinking: true
+    role_eligibility: [chat]
+    local_path: /data/models/Qwen3.8-27B-GGUF-LAB/Qwen3.8-27B-UD-IQ3_S.gguf
+    status: EXPERIMENTAL
+
+roles:
+  hermes:
+    description: HERMES / DevOps agent / 64K
+    eligible: [qwen38-ad-q5, qwen38-ad-q4]
+  chat:
+    description: User chat / 16K + 32K
+    eligible: [qwen38-ad-q5, qwen38-ad-q4, qwen38-ud-q4ks, qwen38-ud-iq3s]
