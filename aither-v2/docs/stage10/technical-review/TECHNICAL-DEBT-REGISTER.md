@@ -44,6 +44,12 @@ Complete register of technical debt items identified in the aither-v2 repository
 | TD-MIN-07 | **GitHub CI fails silently on manifest validation.** `ci.yml:53` uses `|| true` which hides schema validation errors. | `.github/workflows/ci.yml:53` | Minor — false sense of security | Remove `|| true` and fix validation properly. |
 | TD-MIN-08 | **Pod security context minimal.** BFF has `runAsNonRoot: true` but Portal does not. | `portal-mvp.yaml:357` (nginx:alpine) | Minor — hardening opportunity | Add securityContext to portal Deployment. |
 
+## Deferred Items
+
+| ID | Description | Status | Reference |
+|---|---|---|---|
+| TD-DEF-01 | `AITHER-QWEN38-GGUF-LLAMACPP-R1-C1-QUALIFICATION-CLOSURE` — R1 Q5 GGUF qualification closure gaps: (1) retained lab manifest uses floating image `server-cuda` instead of immutable digest; (2) R1 evidence contains only one deterministic 60K semantic run vs required >=3. | DEFERRED (by Architect) | `docs/evidence/AITHER_QWEN38_GGUF_LLAMACPP_QUALIFICATION_R1.md` |
+
 ---
 
 ## Summary
@@ -53,6 +59,7 @@ Complete register of technical debt items identified in the aither-v2 repository
 | Critical | 3 |
 | Major | 5 |
 | Minor | 8 |
-| **Total** | **16** |
+| Deferred | 1 |
+| **Total** | **17** |
 
 **Note:** This register documents objectively verifiable findings only. Each item references specific file locations. No speculative or unverifiable items are included.
