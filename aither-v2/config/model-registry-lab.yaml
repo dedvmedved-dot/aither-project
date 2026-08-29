@@ -28,7 +28,9 @@ models:
     thinking: true
     role_eligibility: [hermes, chat]
     local_path: /data/models/Qwen3.8-27B-GGUF-LAB/Qwen3.8-27B-AD-Q5_K_M.gguf
-    status: QUALIFIED
+    status: CANDIDATE
+    governance_state: PENDING_CHATGPT_ACCEPTANCE
+    evidence_state: R4_PENDING
 
   - id: qwen38-ad-q4
     display_name: Qwen3.8-27B AD-Q4_K_M (Atomic)
@@ -53,7 +55,9 @@ models:
     thinking: true
     role_eligibility: [hermes, chat]
     local_path: /data/models/Qwen3.8-27B-GGUF-LAB/Qwen3.8-27B-AD-Q4_K_M.gguf
-    status: QUALIFIED
+    status: CANDIDATE
+    governance_state: PENDING_CHATGPT_ACCEPTANCE
+    evidence_state: R4_PENDING
 
   - id: qwen38-ud-q4ks
     display_name: Qwen3.8-27B UD-Q4_K_S (Unsloth)
