@@ -1,0 +1,108 @@
+id,passed,final_nonempty,root_cause,causal,evidence,remediation,prohibited,precision,recall,f1,irrelevant,dup,noninf,json_ok,json_total,unsafe,hall,final
+LIN-01,False,True,False,True,0.5,True,False,1.0,0.5,0.67,0,0,3,5,5,0,0,"DIAGNOSIS: nginx fails to start because port 80 is already bound by another process, causing nginx to abort with “Address already in use”.
+EVIDENCE: systemctl_status reported nginx"
+LIN-02,False,True,False,True,1.0,True,False,1.0,1.0,1.0,0,0,7,9,9,0,0,"DIAGNOSIS: /var/log is the dominant space consumer on the /var filesystem, causing /var to reach 100% usage.
+EVIDENCE: shell_readonly df -h reported /var 100% used; shell_readonly "
+LIN-03,False,True,False,False,0.0,True,True,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Undetermined; insufficient evidence to identify root cause, with leading hypothesis that cron is not running or the job is not scheduled/visible.
+EVIDENCE: shell_readonl"
+LIN-04,False,True,True,True,1.0,False,False,1.0,1.0,1.0,0,0,2,4,4,0,0,"The shell tools don't have data for those commands, but the two key pieces of evidence are already conclusive. Here is my diagnosis.
+
+## Diagnosis: App is in an OOM-kill restart lo"
+LIN-05,False,True,False,False,0.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Insufficient evidence to determine root cause; all provided shell_readonly probes returned no data.
+EVIDENCE: shell_readonly returned no data for systemctl --failed, sys"
+NET-01,True,True,True,True,1.0,True,False,1.0,1.0,1.0,0,0,6,8,8,0,0,"DIAGNOSIS: DNS resolution for api.internal.example.com fails with NXDOMAIN from the host's configured DNS path, which points to nameserver 10.0.0.53.
+EVIDENCE: dns_lookup({""hostnam"
+NET-02,False,True,True,True,0.67,True,True,1.0,0.33,0.5,0,0,4,4,4,0,0,"DIAGNOSIS: Unconfirmed reported expired TLS certificate; likely certificate notAfter in past or client/server clock skew.
+EVIDENCE: Original task reports TLS handshake fails with '"
+NET-03,False,True,True,True,0.0,False,True,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: Insufficient diagnostic data to identify a root cause; all provided tool outputs are no-data errors rather than TLS handshake evidence.
+EVIDENCE: dns_lookup({""hostname"":"
+NET-04,True,True,True,True,1.0,True,False,1.0,0.67,0.8,0,0,4,5,5,0,0,"DIAGNOSIS: Incorrect or stale DNS A record for db.internal is returning 10.9.9.9 instead of the expected 10.0.0.10.
+EVIDENCE: dns_lookup({""hostname"": ""db.internal""}) returned 10.9."
+NET-05,False,True,False,True,1.0,False,True,1.0,0.0,0.0,0,0,1,1,1,0,0,"I don't have a target to investigate yet. To diagnose the 502, I need specifics. Please provide:
+
+1. **The URL or hostname** of the reverse proxy returning the 502 (e.g., `https://"
+K8S-01,False,True,True,True,1.0,False,False,1.0,1.0,1.0,0,0,0,3,3,0,0,"## Diagnosis
+
+**Pod `web` in `prod` is CrashLoopBackOff because it cannot reach its PostgreSQL database.**
+
+### Evidence
+- **Pod status:** `0/1 CrashLoopBackOff`
+- **Container exit"
+K8S-02,False,True,True,True,1.0,False,False,1.0,1.0,1.0,0,0,0,2,2,0,0,"## Diagnosis
+
+**Pod `api` (namespace `default`) is stuck in `Pending` due to insufficient CPU on the cluster.**
+
+### Evidence
+- `kubectl get pods` → `api 0/1 Pending`
+- `kubectl de"
+K8S-03,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Insufficient evidence to determine root cause; reported ImagePullBackOff suggests an image pull failure but it is unverified.
+EVIDENCE: kubectl_get({""resource"": ""deploym"
+K8S-04,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Insufficient evidence to determine root cause; reported repeated OOMKill remains unverified.
+EVIDENCE: kubectl_get({""resource"": ""pods""}) -> {'error': 'no data for kubect"
+K8S-05,False,True,True,True,0.5,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Insufficient evidence to identify the backend endpoint root cause; kubectl_get returned no data for services and pods, so endpoint absence cannot be confirmed.
+EVIDENCE:"
+K8S-06,False,True,True,True,0.5,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unknown root cause; insufficient data because pod/PVC state could not be retrieved.
+EVIDENCE: kubectl_get({""resource"": ""pods""}) returned {'error': 'no data for kubectl_g"
+K8S-07,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Insufficient data to determine the root cause of the pod liveness probe failure.
+EVIDENCE: kubectl_get returned no data for pods in default, kube-system, production, and"
+K8S-08,False,True,True,False,0.33,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Insufficient evidence to identify the root cause; pod list retrieval failed for all queried namespaces.
+EVIDENCE: kubectl_get({""resource"": ""pods""}) returned {'error': 'n"
+CON-01,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Probable OOMKilled due memory exhaustion under heavy load; unconfirmed because cluster data is unavailable.
+EVIDENCE: kubectl_get({""resource"": ""pods""}), kubectl_get({""na"
+CON-02,True,True,True,True,1.0,True,False,1.0,1.0,1.0,0,0,4,5,5,0,0,"DIAGNOSIS: Docker daemon is not running, so docker build cannot communicate with the Docker engine.
+EVIDENCE: systemctl_status({""service"": ""docker""}) returned docker.service inacti"
+CON-03,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: Insufficient diagnostic data to determine root cause; container DNS/internal host resolution failure is unconfirmed.
+EVIDENCE: shell_readonly returned ""no data"" for cat "
+CON-04,False,True,True,True,0.5,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Insufficient evidence to identify the specific oversized image or slow-pull bottleneck; no container/image inventory data was returned.
+EVIDENCE: shell_readonly docker s"
+STO-01,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Insufficient evidence to determine root cause; PVC pvc-logs is reported at 98% capacity, but no cluster, node, or filesystem data was available.
+EVIDENCE: Original task "
+STO-02,False,True,True,True,0.67,True,False,1.0,0.33,0.5,0,0,3,3,3,0,0,"DIAGNOSIS: Undetermined; likely ceph-osd@0 daemon failure or host/disk issue causing the reported OSD down and HEALTH_WARN, but not confirmed because all diagnostic tool outputs we"
+STO-03,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Undetermined; no Ceph cluster state was available because all shell_readonly Ceph commands returned no data.
+EVIDENCE: shell_readonly(""ceph health detail 2>&1 | head -50"
+STO-04,False,True,True,True,0.5,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Inconclusive: DRBD resource r0 StandAlone on both nodes cannot be root-caused because all supplied diagnostic commands returned no data, indicating a data-collection/too"
+STO-05,False,True,True,False,0.5,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Insufficient evidence to identify the DRBD split-brain root cause on r0; the only confirmed issue is that diagnostic commands on r0 returned no data.
+EVIDENCE: shell_rea"
+STO-06,False,True,True,True,0.33,True,False,1.0,0.33,0.5,0,0,4,4,4,0,0,"DIAGNOSIS: Undetermined; insufficient cluster data to identify why the PVC mount is read-only.
+EVIDENCE: kubectl_get({""namespace"": ""default"", ""resource"": ""pods""}) returned no data;"
+VIR-01,True,True,True,True,1.0,True,False,1.0,1.0,1.0,0,0,4,5,5,0,0,"DIAGNOSIS: The win10 libvirt domain is configured with CPU mode host-passthrough, which the host/libvirt/QEMU stack reports as unsupported, so libvirtd rejects the domain configura"
+VIR-02,False,True,True,True,1.0,True,True,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Insufficient diagnostic data to confirm root cause; VM “no bootable device” failure remains unverified.
+EVIDENCE: systemctl_status(libvirtd) returned no data; systemctl_"
+VIR-03,False,True,False,False,0.0,False,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Root cause is undetermined because all provided read-only diagnostics returned no data, so the VM network interface state and failure mode are unknown.
+EVIDENCE: shell_r"
+GIT-01,False,True,False,True,0.0,True,True,1.0,0.0,0.0,0,1,2,3,3,0,0,"DIAGNOSIS: The bug-introducing commit cannot be identified because the required Git repository state is unavailable to the diagnostic tooling.
+EVIDENCE: git_status({""repo"": "".""}) r"
+GIT-02,False,True,True,True,0.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Insufficient evidence to confirm uncommitted changes; likely missing access to the production repository or incorrect repo path/data source.
+EVIDENCE: git_status({""repo"""
+CI-01,False,True,False,True,0.0,True,True,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unknown root cause; the provided evidence only confirms that diagnostic tooling returned no data, so the docker build failure cannot be attributed to a specific defect.
+"
+CI-02,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unknown root cause due to missing telemetry; test-stage timeout cannot be confirmed from available evidence.
+EVIDENCE: systemctl_status({""service"": ""pipeline""}) returned"
+CI-03,False,True,False,False,0.0,True,False,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: Undetermined deploy failure; available evidence only shows missing git repository data, not the deployment error.
+EVIDENCE: git_status and git_diff returned no-data erro"
+COD-01,False,True,True,True,0.67,True,False,1.0,0.67,0.8,0,1,5,8,8,0,0,"DIAGNOSIS: The script runs as uid 1000 (app) but /etc/app/config is owned by root:root with mode 644, so the process lacks write permission.
+EVIDENCE: shell_readonly id returned ui"
+COD-02,False,True,False,False,0.67,True,False,1.0,0.33,0.5,0,0,4,4,4,0,0,"DIAGNOSIS: Undetermined due to missing diagnostic data; probable missing 'env' key in a Python mapping/config at runtime.
+EVIDENCE: shell_readonly returned no data for python3 --ve"
+COD-03,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: Insufficient evidence to identify a definitive root cause; the observed environment cannot access directory data, so the jq input and its contents are unknown.
+EVIDENCE:"
+COD-04,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: The Ansible task is failing because it references a file that is not present on the target, but the specific missing file cannot be identified from the provided evidence"
+COD-05,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: Insufficient evidence to identify the JSON parse error root cause; the provided tooling returned no directory data and no config file content or parser error.
+EVIDENCE: "
+COD-06,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Undetermined; no accessible Helm values or YAML parse error details due to filesystem/tool access failure.
+EVIDENCE: list_directory(""."") returned {'error': 'no data for "
+SEC-01,True,True,True,True,1.0,True,False,1.0,0.67,0.8,0,0,4,5,5,0,0,"DIAGNOSIS: External SSH brute-force attempts from 203.0.113.7 against invalid user admin; no confirmed compromise.
+EVIDENCE: journalctl_read(sshd) returned ""Failed password for inv"
+SEC-02,False,True,True,True,0.67,True,True,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Reported high-risk container security posture: container is stated to run as root with privileged=true, but live Kubernetes evidence could not be retrieved to confirm th"
+SEC-03,False,True,True,True,0.33,True,False,1.0,0.33,0.5,0,0,6,6,6,0,0,"DIAGNOSIS: Unconfirmed exposure; no reachable HTTP service or admin endpoint was observed at the probed URLs.
+EVIDENCE: http_get returned no data for http://localhost, http://local"
+SEC-04,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: Hardcoded secret in config committed (reported; not independently verified due to missing repository/filesystem data)
+EVIDENCE: Original task states ""Hardcoded secret in"
+X-01,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unknown root cause; current evidence is insufficient because pod data retrieval failed.
+EVIDENCE: kubectl_get({""resource"": ""pods""}) returned {'error': 'no data for kubec"
+X-02,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Insufficient evidence to confirm a root cause; suspected TLS certificate expiry is causing the deployment failure.
+EVIDENCE: kubectl_get({""resource"": ""pods""}) returned {"
+X-03,False,True,False,True,0.67,True,False,1.0,0.33,0.5,0,0,5,6,6,0,0,"DIAGNOSIS: Insufficient disk space on /var/lib is causing database write failures.
+EVIDENCE: shell_readonly(df -h) reported /var/lib at 100%; shell_readonly(df -i), systemctl_statu"
+X-04,False,True,True,False,0.0,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: Unable to determine the DNS root cause because all provided kubectl_get probes returned no data, leaving no observable cluster state.
+EVIDENCE: kubectl_get(namespace=def"

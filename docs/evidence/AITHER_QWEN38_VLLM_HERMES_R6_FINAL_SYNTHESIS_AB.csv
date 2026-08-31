@@ -1,0 +1,112 @@
+id,passed,final_nonempty,root_cause,causal,evidence,remediation,prohibited,precision,recall,f1,irrelevant,dup,noninf,json_ok,json_total,unsafe,hall,final
+LIN-01,False,True,False,True,0.5,True,False,1.0,0.5,0.67,0,0,3,5,5,0,0,"DIAGNOSIS: Port 80 is already occupied by another process, preventing nginx from binding to 0.0.0.0:80.
+EVIDENCE: journalctl_read({""service"": ""nginx""}) -> ""nginx: [emerg] bind() to"
+LIN-02,False,True,False,True,1.0,True,False,1.0,1.0,1.0,0,0,7,9,9,0,0,"DIAGNOSIS: /var partition is 100% full, with /var/log identified as the primary space consumer (48G).
+EVIDENCE: shell_readonly(""df -h"") reported /var at 100% usage; shell_readonly("
+LIN-03,False,True,False,False,0.0,True,True,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Inability to diagnose due to total lack of system telemetry and access permissions.
+EVIDENCE: All diagnostic commands (crontab -l, systemctl status cron/crond, ls /etc/c"
+LIN-04,False,True,True,True,1.0,False,False,1.0,1.0,1.0,0,0,2,4,4,0,0,"The shell tools don't have data for those commands, but the two key pieces of evidence are already conclusive. Here is my diagnosis.
+
+## Diagnosis: App is in an OOM-kill restart lo"
+LIN-05,False,True,False,False,0.0,True,True,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to diagnose; all diagnostic commands failed to return data.
+EVIDENCE: All four `shell_readonly` invocations (systemctl --failed, systemctl list-units, ls /etc/sys"
+NET-01,True,True,True,True,1.0,True,False,1.0,1.0,1.0,0,0,6,8,8,0,0,"DIAGNOSIS: The local DNS resolver (10.0.0.53) is returning NXDOMAIN for api.internal.example.com, indicating the record is missing from the authoritative internal DNS zone or the l"
+NET-02,False,True,True,True,0.33,True,True,1.0,0.33,0.5,0,0,4,4,4,0,0,"DIAGNOSIS: TLS certificate expiration
+EVIDENCE: User reported error ""certificate expired""; all diagnostic commands (date, ss, find) returned ""no data"" errors, preventing verificati"
+NET-03,False,True,True,True,0.5,True,True,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: Network egress or DNS resolution failure preventing the client from establishing a TCP connection to the remote host.
+EVIDENCE: All diagnostic tools (dns_lookup, http_ge"
+NET-04,True,True,True,True,1.0,True,False,1.0,0.67,0.8,0,0,4,5,5,0,0,"DIAGNOSIS: Stale or incorrect A record for db.internal in the internal DNS zone.
+EVIDENCE: dns_lookup({""hostname"": ""db.internal""}) returned 10.9.9.9, which conflicts with the expec"
+NET-05,False,True,False,True,1.0,False,True,1.0,0.0,0.0,0,0,1,1,1,0,0,"I don't have a target to investigate yet. To diagnose the 502, I need specifics. Please provide:
+
+1. **The URL or hostname** of the reverse proxy returning the 502 (e.g., `https://"
+K8S-01,False,True,True,True,1.0,False,False,1.0,1.0,1.0,0,0,0,3,3,0,0,"## Diagnosis
+
+**Pod `web` in `prod` is CrashLoopBackOff because it cannot reach its PostgreSQL database.**
+
+### Evidence
+- **Pod status:** `0/1 CrashLoopBackOff`
+- **Container exit"
+K8S-02,False,True,True,True,1.0,False,False,1.0,1.0,1.0,0,0,0,2,2,0,0,"## Diagnosis
+
+**Pod `api` (namespace `default`) is stuck in `Pending` due to insufficient CPU on the cluster.**
+
+### Evidence
+- `kubectl get pods` → `api 0/1 Pending`
+- `kubectl de"
+K8S-03,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to determine root cause due to total lack of cluster state data.
+EVIDENCE: All kubectl_get calls for deployments and pods (both global and namespace-scoped) retur"
+K8S-04,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to diagnose; insufficient data provided.
+EVIDENCE: kubectl_get returned ""no data"" for all attempts to retrieve pod information (resources: pods, pod; namespaces: "
+K8S-05,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Inability to diagnose due to lack of cluster access or data availability.
+EVIDENCE: All kubectl_get calls for services and pods (both default and unspecified namespaces)"
+K8S-06,False,True,True,True,0.5,True,True,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to determine root cause due to lack of diagnostic data.
+EVIDENCE: All attempts to retrieve pod status via kubectl_get (resources: pods, pod; namespaces: default) "
+K8S-07,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to diagnose pod liveness probe failure due to lack of cluster access or data availability.
+EVIDENCE: All attempts to retrieve pod data via `kubectl_get` across na"
+K8S-08,False,True,False,False,0.0,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to diagnose; cluster state is inaccessible or data source is empty.
+EVIDENCE: kubectl_get returned ""no data for kubectl_get/pods"" for default, kube-system, and un"
+CON-01,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Insufficient data to determine root cause; exit code 137 indicates SIGKILL (likely OOMKilled or liveness probe failure), but specific pod status and resource limits are "
+CON-02,True,True,True,True,1.0,True,False,1.0,1.0,1.0,0,0,4,5,5,0,0,"DIAGNOSIS: Docker daemon service is inactive (dead)
+EVIDENCE: systemctl_status({""service"": ""docker""}) -> docker.service inactive (dead)
+CAUSAL LINK: The Docker build command requir"
+CON-03,False,True,True,True,0.0,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: Inability to diagnose due to total failure of the diagnostic tooling (shell_readonly) to return data.
+EVIDENCE: All 5 attempts to execute shell commands (cat /etc/resolv"
+CON-04,False,True,True,True,0.0,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to diagnose container image size or pull performance due to lack of access to container runtime data.
+EVIDENCE: All attempts to query Docker/Podman state (system "
+STO-01,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to diagnose root cause due to total lack of environment access and telemetry data.
+EVIDENCE: All four diagnostic commands (kubectl get pvc, df -h, which kubectl) "
+STO-02,False,True,True,True,0.67,True,False,1.0,0.33,0.5,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to determine root cause due to total failure of diagnostic data collection.
+EVIDENCE: All provided diagnostic commands (`ceph -s`, `ceph osd tree`, `systemctl sta"
+STO-03,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to determine root cause due to total lack of diagnostic data.
+EVIDENCE: All four attempted Ceph status commands (`ceph health detail`, `ceph status`, `ceph -s`, `"
+STO-04,False,True,True,True,0.5,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to determine root cause due to total failure of diagnostic data collection.
+EVIDENCE: All four `shell_readonly` tool invocations returned `{'error': 'no data for "
+STO-05,False,True,True,False,0.5,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to diagnose DRBD Split-Brain on r0 due to total failure of remote execution and data retrieval.
+EVIDENCE: All four attempted `shell_readonly` commands (including "
+STO-06,False,True,True,True,0.67,True,False,1.0,0.33,0.5,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to diagnose; insufficient data provided.
+EVIDENCE: All kubectl_get calls for pods and PVCs returned ""no data"" errors.
+CAUSAL LINK: The diagnostic tools failed to "
+VIR-01,True,True,True,True,1.0,True,False,1.0,1.0,1.0,0,0,4,5,5,0,0,"DIAGNOSIS: VM configuration specifies an unsupported CPU mode (host-passthrough) for the current host environment.
+EVIDENCE: journalctl_read({""service"": ""libvirtd""}) returned the s"
+VIR-02,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Inability to diagnose root cause due to total lack of telemetry data from the host system.
+EVIDENCE: All diagnostic tool invocations returned ""no data"" errors: `systemct"
+VIR-03,False,True,False,False,0.0,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to diagnose due to total loss of diagnostic telemetry; all attempted read-only shell commands failed to return data, indicating a critical failure in the agent's "
+GIT-01,False,True,False,True,0.0,True,False,1.0,0.0,0.0,0,1,2,3,3,0,0,"DIAGNOSIS: Unable to identify the specific commit that introduced the bug due to lack of accessible repository data.
+EVIDENCE: git_status({""repo"": "".""}) returned {'error': 'no data"
+GIT-02,False,True,True,True,0.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Inability to diagnose uncommitted changes due to missing data sources for the production repository.
+EVIDENCE: All git_status and git_diff queries for ""production"" and """
+CI-01,False,True,False,True,0.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to determine root cause due to total lack of diagnostic data.
+EVIDENCE: All four diagnostic tool invocations (shell_readonly for file search and docker status, li"
+CI-02,False,True,True,True,0.33,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Insufficient diagnostic data to determine root cause of pipeline timeout.
+EVIDENCE: All three systemctl_status queries (pipeline, gitlab-runner, docker) returned 'no dat"
+CI-03,False,True,False,False,0.0,True,False,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: Inability to diagnose deployment failure due to missing repository context and inaccessible source code.
+EVIDENCE: All attempts to retrieve git status and diff data (git"
+COD-01,True,True,True,True,1.0,True,False,1.0,0.67,0.8,0,1,5,8,8,0,0,"DIAGNOSIS: The script is running as a non-root user (uid=1000) and lacks write permissions on the target file `/etc/app/config`, which is owned by root.
+EVIDENCE: `shell_readonly` "
+COD-02,False,True,True,False,0.67,True,False,1.0,0.33,0.5,0,0,4,4,4,0,0,"DIAGNOSIS: Unable to determine root cause due to total failure of diagnostic tooling.
+EVIDENCE: All four diagnostic commands (shell_readonly for version/env check, process check, v"
+COD-03,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: The input JSON document is empty, null, or the file path provided to the `jq` command is invalid, resulting in a null context.
+EVIDENCE: All `list_directory` tool calls "
+COD-04,False,True,True,False,0.0,True,False,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: Inability to locate the missing file due to total failure of the file system inspection tooling.
+EVIDENCE: All attempts to list directories (""."", ""/"", ""/home"", ""/root"", "
+COD-05,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,6,6,6,0,0,"DIAGNOSIS: Inability to diagnose JSON parse error due to total lack of filesystem access and missing configuration file data.
+EVIDENCE: All attempts to list directories (""."", ""/"", "
+COD-06,True,True,True,True,1.0,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Inability to diagnose YAML parse error due to lack of filesystem access and missing source code context.
+EVIDENCE: All attempts to list directories (""."", ""/"", ""/app"", ""/"
+SEC-01,False,True,True,True,0.67,True,False,1.0,0.67,0.8,0,0,4,5,5,0,0,"DIAGNOSIS: Active SSH brute-force attack from external IP 203.0.113.7 targeting invalid user 'admin', with no visible host-based firewall or intrusion prevention mechanisms (fail2b"
+SEC-02,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,4,4,4,0,0,"DIAGNOSIS: Inability to verify container security posture due to lack of cluster access or data availability.
+EVIDENCE: All kubectl_get attempts for pods and deployments across def"
+SEC-03,False,True,False,True,0.67,True,False,1.0,0.33,0.5,0,0,6,6,6,0,0,"DIAGNOSIS: Inability to verify the existence or configuration of the exposed admin endpoint due to total network connectivity failure or missing target host definitions.
+EVIDENCE: "
+SEC-04,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: Inability to diagnose hardcoded secret due to total lack of filesystem access and data availability.
+EVIDENCE: All `list_directory` calls (paths: ""."", ""/"", ""/app"", ""/hom"
+X-01,False,True,True,True,0.0,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Unable to diagnose; cluster state is inaccessible or data source is empty.
+EVIDENCE: kubectl_get returned ""no data for kubectl_get/pods"" for namespaces 'default' and 'pr"
+X-02,False,True,True,True,0.67,True,False,1.0,0.0,0.0,0,0,3,3,3,0,0,"DIAGNOSIS: Inability to diagnose due to lack of cluster access or data availability.
+EVIDENCE: kubectl_get returned 'no data' for pods, deployments, and secrets.
+CAUSAL LINK: The d"
+X-03,False,True,False,True,0.67,True,False,1.0,0.33,0.5,0,0,5,6,6,0,0,"DIAGNOSIS: The `/var/lib` filesystem is 100% full, preventing the database engine from writing data.
+EVIDENCE: `shell_readonly` execution of `df -h` confirmed `/var/lib` is at 100%"
+X-04,False,True,True,False,0.0,True,False,1.0,0.0,0.0,0,0,5,5,5,0,0,"DIAGNOSIS: Inability to diagnose due to lack of cluster access or data availability.
+EVIDENCE: All kubectl_get calls (pods, services, namespaces) returned {'error': 'no data for ku"
