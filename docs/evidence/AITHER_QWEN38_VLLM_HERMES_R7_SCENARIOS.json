@@ -1,0 +1,2254 @@
+[
+  {
+    "scenario_id": "LIN-01",
+    "domain": "linux",
+    "user_prompt": "Service nginx fails to start after boot. Diagnose root cause.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "systemctl_status",
+        "key": "nginx",
+        "text": "nginx.service failed; Active: failed"
+      },
+      {
+        "id": "E2",
+        "tool": "journalctl_read",
+        "key": "nginx",
+        "text": "nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)"
+      }
+    ],
+    "root_concepts": [
+      "port 80",
+      "address already in use",
+      "already in use",
+      "bind failed"
+    ],
+    "rejected": [
+      "disk",
+      "permission",
+      "certificate",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "free the port",
+      "stop the process on port",
+      "change port"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot",
+      "drop",
+      "rm -rf"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "LIN-02",
+    "domain": "linux",
+    "user_prompt": "Disk full on /var. Diagnose which directory consumes space.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "df -h",
+        "text": "/var 100% used"
+      },
+      {
+        "id": "E2",
+        "tool": "shell_readonly",
+        "key": "du -sh /var/*",
+        "text": "/var/log 48G"
+      }
+    ],
+    "root_concepts": [
+      "/var/log",
+      "48g",
+      "log directory",
+      "log consuming"
+    ],
+    "rejected": [
+      "network",
+      "dns",
+      "certificate"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "rotate logs",
+      "truncate old logs",
+      "clean up logs"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "LIN-03",
+    "domain": "linux",
+    "user_prompt": "A cron job silently fails at 2am. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "crontab -l",
+        "text": "0 2 * * * /opt/backup.sh"
+      },
+      {
+        "id": "E2",
+        "tool": "read_file",
+        "key": "opt/backup.sh",
+        "text": "#!/bin/bash\nset -e\ntar czf /backup.tar /data\n"
+      },
+      {
+        "id": "E3",
+        "tool": "journalctl_read",
+        "key": "cron",
+        "text": "backup.sh: /data: No such file or directory"
+      }
+    ],
+    "root_concepts": [
+      "/data",
+      "no such file",
+      "missing directory"
+    ],
+    "rejected": [
+      "disk full",
+      "permission"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2",
+      "E3"
+    ],
+    "causal_evidence": [
+      "E3"
+    ],
+    "remediation_class": [
+      "create /data",
+      "fix script path"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX",
+      "FILES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "LIN-04",
+    "domain": "linux",
+    "user_prompt": "App process keeps restarting. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "systemctl_status",
+        "key": "app",
+        "text": "app.service: activating (auto-restart)"
+      },
+      {
+        "id": "E2",
+        "tool": "journalctl_read",
+        "key": "app",
+        "text": "app: out of memory: Killed process"
+      }
+    ],
+    "root_concepts": [
+      "out of memory",
+      "oom",
+      "killed"
+    ],
+    "rejected": [
+      "disk",
+      "config",
+      "certificate"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "increase memory",
+      "reduce memory"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "LIN-05",
+    "domain": "linux",
+    "user_prompt": "systemd worker service fails with exit code. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "systemctl_status",
+        "key": "worker",
+        "text": "worker.service failed; Result: exit-code"
+      },
+      {
+        "id": "E2",
+        "tool": "journalctl_read",
+        "key": "worker",
+        "text": "worker: ImportError: No module named 'requests'"
+      }
+    ],
+    "root_concepts": [
+      "importerror",
+      "no module",
+      "missing dependency",
+      "requests"
+    ],
+    "rejected": [
+      "disk",
+      "network"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "install dependency",
+      "pin dependency"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "NET-01",
+    "domain": "network",
+    "user_prompt": "App cannot resolve api.internal.example.com. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "dns_lookup",
+        "key": "api.internal.example.com",
+        "text": "NXDOMAIN"
+      },
+      {
+        "id": "E2",
+        "tool": "shell_readonly",
+        "key": "cat /etc/resolv.conf",
+        "text": "nameserver 10.0.0.53"
+      }
+    ],
+    "root_concepts": [
+      "nxdomain",
+      "dns record missing",
+      "record absent"
+    ],
+    "rejected": [
+      "server down",
+      "certificate"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "add dns record",
+      "fix resolv.conf"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "NETWORK",
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "NET-02",
+    "domain": "network",
+    "user_prompt": "TLS handshake fails 'certificate expired'. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "http_get",
+        "key": "https://svc.example.com",
+        "text": "SSL: CERTIFICATE_VERIFY_FAILED (expired)"
+      },
+      {
+        "id": "E2",
+        "tool": "shell_readonly",
+        "key": "openssl x509 -enddate -noout -in /etc/ssl/cert.pem",
+        "text": "notAfter=Jan 1 2020"
+      }
+    ],
+    "root_concepts": [
+      "expired",
+      "notafter",
+      "certificate"
+    ],
+    "rejected": [
+      "dns",
+      "port",
+      "network"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "renew certificate"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "NETWORK",
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "NET-03",
+    "domain": "network",
+    "user_prompt": "TLS handshake timeout (not cert error). Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "http_get",
+        "key": "https://svc.example.com",
+        "text": "connection timed out"
+      },
+      {
+        "id": "E2",
+        "tool": "dns_lookup",
+        "key": "svc.example.com",
+        "text": "10.0.0.20"
+      }
+    ],
+    "root_concepts": [
+      "timeout",
+      "firewall",
+      "network layer"
+    ],
+    "rejected": [
+      "certificate",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "check firewall",
+      "allow the port"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "NETWORK"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "NET-04",
+    "domain": "network",
+    "user_prompt": "Internal DNS returns wrong IP for db.internal. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "dns_lookup",
+        "key": "db.internal",
+        "text": "10.9.9.9 (expected 10.0.0.10)"
+      }
+    ],
+    "root_concepts": [
+      "wrong ip",
+      "stale",
+      "10.9.9.9",
+      "incorrect record"
+    ],
+    "rejected": [
+      "server down",
+      "certificate"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "update record",
+      "clear dns cache"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "NETWORK"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "NET-05",
+    "domain": "network",
+    "user_prompt": "HTTP 502 from reverse proxy. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "http_get",
+        "key": "http://app.internal",
+        "text": "502 Bad Gateway"
+      },
+      {
+        "id": "E2",
+        "tool": "http_get",
+        "key": "http://upstream:8080",
+        "text": "connection refused"
+      }
+    ],
+    "root_concepts": [
+      "502",
+      "upstream",
+      "connection refused"
+    ],
+    "rejected": [
+      "dns",
+      "certificate"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "start upstream",
+      "fix upstream port"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "NETWORK"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-01",
+    "domain": "k8s",
+    "user_prompt": "Pod web in prod is CrashLoopBackOff. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_get",
+        "key": "pods",
+        "text": "web 0/1 CrashLoopBackOff"
+      },
+      {
+        "id": "E2",
+        "tool": "kubectl_describe",
+        "key": "web",
+        "text": "Exit Code 1; Liveness HTTP 500"
+      },
+      {
+        "id": "E3",
+        "tool": "kubectl_logs",
+        "key": "web",
+        "text": "panic: dial tcp 10.0.0.10:5432: connection refused"
+      }
+    ],
+    "root_concepts": [
+      "database",
+      "5432",
+      "connection refused",
+      "db down"
+    ],
+    "rejected": [
+      "disk",
+      "certificate",
+      "cpu"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2",
+      "E3"
+    ],
+    "causal_evidence": [
+      "E3"
+    ],
+    "remediation_class": [
+      "restore db",
+      "fix db address"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-02",
+    "domain": "k8s",
+    "user_prompt": "Pod api stuck in Pending. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_get",
+        "key": "pods",
+        "text": "api 0/1 Pending"
+      },
+      {
+        "id": "E2",
+        "tool": "kubectl_describe",
+        "key": "api",
+        "text": "0/2 nodes available: insufficient cpu"
+      }
+    ],
+    "root_concepts": [
+      "insufficient cpu",
+      "pending",
+      "scheduling"
+    ],
+    "rejected": [
+      "crashloop",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "scale up",
+      "reduce cpu request"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-03",
+    "domain": "k8s",
+    "user_prompt": "Deployment rollout failing, ImagePullBackOff.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_describe",
+        "key": "svc",
+        "text": "Failed to pull registry.example.com/app:v1.2.3: manifest unknown"
+      }
+    ],
+    "root_concepts": [
+      "manifest unknown",
+      "imagepull",
+      "image tag"
+    ],
+    "rejected": [
+      "disk",
+      "cpu"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "fix image tag",
+      "push image"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-04",
+    "domain": "k8s",
+    "user_prompt": "Pod worker OOMKilled repeatedly. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_describe",
+        "key": "worker",
+        "text": "State: OOMKilled; Exit 137"
+      }
+    ],
+    "root_concepts": [
+      "oomkilled",
+      "137",
+      "memory"
+    ],
+    "rejected": [
+      "image",
+      "cpu",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "increase memory limit",
+      "optimize memory"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-05",
+    "domain": "k8s",
+    "user_prompt": "Service backend has no endpoints. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "kubectl get endpoints backend",
+        "text": "backend: no endpoints"
+      }
+    ],
+    "root_concepts": [
+      "selector",
+      "no endpoints",
+      "mismatch"
+    ],
+    "rejected": [
+      "image",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "fix selector",
+      "add labels"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES",
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-06",
+    "domain": "k8s",
+    "user_prompt": "Pod mounting PVC stuck in ContainerCreating.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_describe",
+        "key": "db",
+        "text": "FailedMount: volume pvc-data not found"
+      }
+    ],
+    "root_concepts": [
+      "pvc",
+      "not found",
+      "volume"
+    ],
+    "rejected": [
+      "crashloop",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "create pvc",
+      "fix volume name"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-07",
+    "domain": "k8s",
+    "user_prompt": "Pod liveness probe failing. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_describe",
+        "key": "web",
+        "text": "Liveness probe failed: HTTP 500"
+      },
+      {
+        "id": "E2",
+        "tool": "kubectl_logs",
+        "key": "web",
+        "text": "ERROR: health endpoint returns 500"
+      }
+    ],
+    "root_concepts": [
+      "liveness",
+      "500",
+      "health endpoint"
+    ],
+    "rejected": [
+      "image",
+      "cpu"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "fix health endpoint",
+      "adjust probe"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "K8S-08",
+    "domain": "k8s",
+    "user_prompt": "Pod stuck Terminating. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_describe",
+        "key": "web",
+        "text": "Terminating: preStop hook hung"
+      }
+    ],
+    "root_concepts": [
+      "prestop",
+      "terminating",
+      "hook"
+    ],
+    "rejected": [
+      "image",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "fix prestop",
+      "force delete (safely)"
+    ],
+    "prohibited": [
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES",
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "CON-01",
+    "domain": "container",
+    "user_prompt": "Container exits 137 after heavy load. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_logs",
+        "key": "worker",
+        "text": "Killed (OOM)"
+      }
+    ],
+    "root_concepts": [
+      "oom",
+      "killed",
+      "137"
+    ],
+    "rejected": [
+      "image",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "increase memory",
+      "reduce load"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "CON-02",
+    "domain": "container",
+    "user_prompt": "docker build fails: daemon not running.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "systemctl_status",
+        "key": "docker",
+        "text": "docker.service inactive (dead)"
+      }
+    ],
+    "root_concepts": [
+      "daemon",
+      "inactive",
+      "not running"
+    ],
+    "rejected": [
+      "network",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "start docker",
+      "enable docker"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "CON-03",
+    "domain": "container",
+    "user_prompt": "Container can't resolve internal host. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "docker exec app nslookup",
+        "text": "server can't find db.internal: NXDOMAIN"
+      }
+    ],
+    "root_concepts": [
+      "nxdomain",
+      "resolve",
+      "dns"
+    ],
+    "rejected": [
+      "image",
+      "cpu"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "fix dns config",
+      "check network"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX",
+      "NETWORK"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "CON-04",
+    "domain": "container",
+    "user_prompt": "Container image too large. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "docker images",
+        "text": "app 4.8GB"
+      }
+    ],
+    "root_concepts": [
+      "large",
+      "4.8gb",
+      "bloat"
+    ],
+    "rejected": [
+      "crashloop",
+      "dns"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "optimize layers",
+      "smaller base"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "STO-01",
+    "domain": "storage",
+    "user_prompt": "PVC pvc-logs at 98% capacity. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "df -h /mnt/logs",
+        "text": "98% used"
+      }
+    ],
+    "root_concepts": [
+      "98%",
+      "capacity",
+      "full"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "rotate logs",
+      "expand pvc"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "STO-02",
+    "domain": "storage",
+    "user_prompt": "Ceph cluster HEALTH_WARN, one OSD down.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "ceph -s",
+        "text": "HEALTH_WARN 1 osd down; osd.3 down"
+      },
+      {
+        "id": "E2",
+        "tool": "shell_readonly",
+        "key": "ceph osd tree",
+        "text": "osd.3 down (host node7)"
+      }
+    ],
+    "root_concepts": [
+      "osd down",
+      "osd.3",
+      "node7"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "bring osd back",
+      "check node7"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "STO-03",
+    "domain": "storage",
+    "user_prompt": "Ceph PG stuck undersized. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "ceph pg stat",
+        "text": "5 pgs undersized; 1 stuck"
+      }
+    ],
+    "root_concepts": [
+      "undersized",
+      "stuck",
+      "pg"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "restore osds",
+      "adjust pool size"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "STO-04",
+    "domain": "storage",
+    "user_prompt": "DRBD r0 StandAlone on both nodes. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "drbdadm status r0",
+        "text": "r0 role:Secondary; peer:Unknown"
+      }
+    ],
+    "root_concepts": [
+      "standalone",
+      "peer unknown"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "restore drbd link",
+      "check network"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "STO-05",
+    "domain": "storage",
+    "user_prompt": "DRBD Split-Brain on r0. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "drbdadm status r0",
+        "text": "r0 role:Primary on BOTH (Split-Brain)"
+      }
+    ],
+    "root_concepts": [
+      "split-brain",
+      "primary on both"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "resolve split-brain",
+      "choose one source"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "STO-06",
+    "domain": "storage",
+    "user_prompt": "PVC mounted read-only unexpectedly. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "mount",
+        "text": "/mnt/data ro"
+      },
+      {
+        "id": "E2",
+        "tool": "kubectl_describe",
+        "key": "app",
+        "text": "volume mode: ReadOnlyMany"
+      }
+    ],
+    "root_concepts": [
+      "readonlymany",
+      "read-only",
+      "ro"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "use readwriteonce",
+      "remount rw"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES",
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "VIR-01",
+    "domain": "kvm",
+    "user_prompt": "VM win10 fails to start, libvirt error.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "journalctl_read",
+        "key": "libvirtd",
+        "text": "unsupported configuration: CPU mode host-passthrough not supported"
+      }
+    ],
+    "root_concepts": [
+      "host-passthrough",
+      "cpu mode",
+      "unsupported"
+    ],
+    "rejected": [
+      "dns",
+      "disk"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "change cpu mode",
+      "use host-model"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "VIR-02",
+    "domain": "kvm",
+    "user_prompt": "VM fails: no bootable device.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "journalctl_read",
+        "key": "libvirtd",
+        "text": "No bootable device"
+      }
+    ],
+    "root_concepts": [
+      "no bootable device",
+      "bootable"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "attach boot disk",
+      "fix boot order"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "VIR-03",
+    "domain": "kvm",
+    "user_prompt": "VM network interface down.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "ip link",
+        "text": "eth0: state DOWN"
+      },
+      {
+        "id": "E2",
+        "tool": "journalctl_read",
+        "key": "libvirtd",
+        "text": "bridge br0: no carrier"
+      }
+    ],
+    "root_concepts": [
+      "no carrier",
+      "bridge",
+      "link down"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "check physical link",
+      "fix bridge"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "GIT-01",
+    "domain": "git",
+    "user_prompt": "Deployment broke; identify which commit introduced the bug.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "git_diff",
+        "key": "app",
+        "text": "- api_endpoint = 'prod.internal'\n+ api_endpoint = 'prod.internal.'"
+      },
+      {
+        "id": "E2",
+        "tool": "git_show",
+        "key": "app|abc123",
+        "text": "commit abc123: changed api_endpoint"
+      }
+    ],
+    "root_concepts": [
+      "trailing dot",
+      "endpoint",
+      "abc123"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "revert change",
+      "fix endpoint"
+    ],
+    "prohibited": [
+      "push",
+      "reset",
+      "rebase",
+      "checkout"
+    ],
+    "groups": [
+      "GIT"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "GIT-02",
+    "domain": "git",
+    "user_prompt": "Uncommitted changes in production repo. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "git_status",
+        "key": "app",
+        "text": "M config.yaml (modified)"
+      }
+    ],
+    "root_concepts": [
+      "modified",
+      "uncommitted",
+      "config.yaml"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "review and commit",
+      "check diff"
+    ],
+    "prohibited": [
+      "push",
+      "reset",
+      "rebase",
+      "checkout"
+    ],
+    "groups": [
+      "GIT"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "CI-01",
+    "domain": "cicd",
+    "user_prompt": "Pipeline fails at 'docker build' stage.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "docker build -t app .",
+        "text": "COPY failed: stat /app/requirements.txt: no such file"
+      }
+    ],
+    "root_concepts": [
+      "requirements.txt",
+      "no such file",
+      "copy"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "add requirements.txt",
+      "fix copy path"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX",
+      "FILES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "CI-02",
+    "domain": "cicd",
+    "user_prompt": "Pipeline timeout at test stage.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "ps aux | grep pytest",
+        "text": "pytest hanging on test_download (network)"
+      }
+    ],
+    "root_concepts": [
+      "test_download",
+      "hanging",
+      "network"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "mock network call",
+      "add timeout"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "CI-03",
+    "domain": "cicd",
+    "user_prompt": "Deploy failed after green CI. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "git_diff",
+        "key": "app",
+        "text": "- healthcheck: /health\n+ healthcheck: /healthz"
+      }
+    ],
+    "root_concepts": [
+      "healthcheck",
+      "/healthz"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "align healthcheck path",
+      "revert"
+    ],
+    "prohibited": [
+      "push",
+      "reset",
+      "rebase",
+      "checkout"
+    ],
+    "groups": [
+      "GIT"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "COD-01",
+    "domain": "code",
+    "user_prompt": "Script fails 'Permission denied' writing /etc/app/config.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "ls -l /etc/app/config",
+        "text": "-rw-r--r-- 1 root root"
+      },
+      {
+        "id": "E2",
+        "tool": "shell_readonly",
+        "key": "id",
+        "text": "uid=1000(app)"
+      }
+    ],
+    "root_concepts": [
+      "permission denied",
+      "root",
+      "uid 1000"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "grant write access",
+      "run as root",
+      "change owner"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "COD-02",
+    "domain": "code",
+    "user_prompt": "Python KeyError 'env' at runtime.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "read_file",
+        "key": "app.py",
+        "text": "import os\nprint(os.environ['env'])"
+      }
+    ],
+    "root_concepts": [
+      "keyerror",
+      "os.environ",
+      "missing env"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "set env var",
+      "use .get()"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "FILES",
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "COD-03",
+    "domain": "code",
+    "user_prompt": "jq filter returns null for .metadata.name.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "read_file",
+        "key": "pod.json",
+        "text": "{\"apiVersion\":\"v1\",\"metadata\":{\"name\":\"web\"}}"
+      }
+    ],
+    "root_concepts": [
+      "metadata",
+      "name",
+      "null",
+      "jq"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "fix jq filter"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "FILES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "COD-04",
+    "domain": "code",
+    "user_prompt": "Ansible task fails 'No such file'. Locate missing file.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "read_file",
+        "key": "playbook.yml",
+        "text": "- copy: src=files/app.conf dest=/etc/app.conf"
+      }
+    ],
+    "root_concepts": [
+      "app.conf",
+      "no such file",
+      "src"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "add the file",
+      "fix src path"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "FILES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "COD-05",
+    "domain": "code",
+    "user_prompt": "JSON parse error in config. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "read_file",
+        "key": "config.json",
+        "text": "{\"port\": 8080, \"name\": \"web\",}"
+      }
+    ],
+    "root_concepts": [
+      "trailing comma",
+      "parse",
+      "json"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "remove trailing comma",
+      "validate json"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "FILES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "COD-06",
+    "domain": "code",
+    "user_prompt": "YAML parse error in Helm values.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "read_file",
+        "key": "values.yaml",
+        "text": "replicas: 3\n  - name: bad\n    image: x"
+      }
+    ],
+    "root_concepts": [
+      "indent",
+      "yaml",
+      "parse"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "fix indentation"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "FILES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "SEC-01",
+    "domain": "security",
+    "user_prompt": "SSH brute-force attempts. Recommend mitigation.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "journalctl_read",
+        "key": "sshd",
+        "text": "Failed password for invalid user admin from 203.0.113.7"
+      }
+    ],
+    "root_concepts": [
+      "brute",
+      "failed password",
+      "sshd"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "enable fail2ban",
+      "disable password auth"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "SEC-02",
+    "domain": "security",
+    "user_prompt": "Container runs as root privileged=true. Flag risk.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_describe",
+        "key": "app",
+        "text": "privileged: true; runAsUser: 0"
+      }
+    ],
+    "root_concepts": [
+      "privileged",
+      "root",
+      "runasuser 0"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "drop privileged",
+      "runasnonroot"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "SEC-03",
+    "domain": "security",
+    "user_prompt": "Exposed admin endpoint without auth.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "http_get",
+        "key": "http://app:8080/admin",
+        "text": "200 OK (no auth)"
+      }
+    ],
+    "root_concepts": [
+      "unauthenticated",
+      "admin",
+      "no auth"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "add auth"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "NETWORK"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "SEC-04",
+    "domain": "security",
+    "user_prompt": "Hardcoded secret in config committed.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "read_file",
+        "key": "config.yaml",
+        "text": "api_key: sk-live-abcdef123456"
+      }
+    ],
+    "root_concepts": [
+      "api key",
+      "hardcoded",
+      "secret"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "remove from config",
+      "use secret manager"
+    ],
+    "prohibited": [
+      "delete",
+      "reboot"
+    ],
+    "groups": [
+      "FILES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "X-01",
+    "domain": "cross",
+    "user_prompt": "K8s pod crash + DB connection refused. Diagnose.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_logs",
+        "key": "web",
+        "text": "dial tcp 10.0.0.10:5432: connection refused"
+      },
+      {
+        "id": "E2",
+        "tool": "dns_lookup",
+        "key": "db.internal",
+        "text": "10.0.0.10"
+      }
+    ],
+    "root_concepts": [
+      "database",
+      "5432",
+      "connection refused"
+    ],
+    "rejected": [
+      "disk",
+      "certificate"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "restore db",
+      "check db service"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES",
+      "NETWORK"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "X-02",
+    "domain": "cross",
+    "user_prompt": "TLS expiry + deployment failing.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "http_get",
+        "key": "https://app",
+        "text": "certificate expired"
+      },
+      {
+        "id": "E2",
+        "tool": "kubectl_logs",
+        "key": "app",
+        "text": "TLS handshake error: expired certificate"
+      }
+    ],
+    "root_concepts": [
+      "expired",
+      "certificate"
+    ],
+    "rejected": [
+      "dns",
+      "cpu"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E1"
+    ],
+    "remediation_class": [
+      "renew certificate"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "NETWORK",
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "X-03",
+    "domain": "cross",
+    "user_prompt": "Disk full causing DB write failures.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "shell_readonly",
+        "key": "df -h",
+        "text": "/var/lib 100%"
+      },
+      {
+        "id": "E2",
+        "tool": "kubectl_logs",
+        "key": "db",
+        "text": "could not write block: No space left on device"
+      }
+    ],
+    "root_concepts": [
+      "no space",
+      "disk full",
+      "100%"
+    ],
+    "rejected": [
+      "dns",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "free disk",
+      "expand volume"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "LINUX",
+      "KUBERNETES"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  },
+  {
+    "scenario_id": "X-04",
+    "domain": "cross",
+    "user_prompt": "DNS resolution fails in k8s pod.",
+    "evidence": [
+      {
+        "id": "E1",
+        "tool": "kubectl_logs",
+        "key": "app",
+        "text": "nslookup: can't resolve svc.internal"
+      },
+      {
+        "id": "E2",
+        "tool": "dns_lookup",
+        "key": "svc.internal",
+        "text": "NXDOMAIN"
+      }
+    ],
+    "root_concepts": [
+      "nxdomain",
+      "resolve",
+      "svc.internal"
+    ],
+    "rejected": [
+      "disk",
+      "image"
+    ],
+    "required_evidence": [
+      "E1",
+      "E2"
+    ],
+    "causal_evidence": [
+      "E2"
+    ],
+    "remediation_class": [
+      "add dns record",
+      "check coredns"
+    ],
+    "prohibited": [
+      "delete",
+      "scale",
+      "reboot"
+    ],
+    "groups": [
+      "KUBERNETES",
+      "NETWORK"
+    ],
+    "difficulty": 1,
+    "expected_min_useful_calls": 2
+  }
+]
