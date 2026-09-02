@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""Aither R8 Candidate A (Hermes-4.3-36B) preflight — tool protocol validation.
+
+Reuses the R7-C1 harness tool schemas (14 tools) and runs deterministic tool-call
+tests against the llama.cpp LAB endpoint. Records JSON validity, unknown tools,
+unsafe, HTTP 5xx, malformed tool calls.
+"""
+import json, csv, urllib.request, urllib.error, sys, os
+from importlib.machinery import SourceFileLoader
+
+HARNESS = os.environ.get("HARNESS", "/tmp/aither-agent-harness-lab")
+h = SourceFileLoader("harness", HARNESS).load_module()
+TOOL_DEFS = h.TOOL_DEFS
+UNSAFE = h.UNSAFE
+KNOWN = h.KNOWN
+
+BASE, MODEL, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def call(messages, tools=None, tool_choice=None, thinking_off=True, mt=256):
+    p = {"model": MODEL, "messages": messages, "max_tokens": mt, "temperature": 0.0, "top_p": 1.0}
+    p["chat_template_kwargs"] = {"thinking": not thinking_off}
+    if tools: p["tools"] = tools
+    if tool_choice: p["tool_choice"] = tool_choice
+    req = urllib.request.Request(BASE + "/v1/chat/completions", data=json.dumps(p).encode(),
+                                 headers={"Content-Type": "application/json"})
+    try:
+        b = json.loads(urllib.request.urlopen(req, timeout=180).read().decode())
+        c = b.get("choices", [{}])[0]
+        return c.get("message", {}), c.get("finish_reason"), None
+    except urllib.error.HTTPError as e:
+        return None, None, "HTTP %d" % e.code
+    except Exception as e:
+        return None, None, str(e)
+
+def analyze(m, finish_reason):
+    """Return per-call stats."""
+    tcs = m.get("tool_calls") or []
+    unknown = 0; unsafe = 0; malformed = 0; json_valid = 0; total = 0
+    for tc in tcs:
+        fn = tc.get("function", {})
+        name = fn.get("name", "")
+        args = fn.get("arguments", "")
+        total += 1
+        if name not in KNOWN:
+            unknown += 1
+        if UNSAFE.search(args):
+            unsafe += 1
+        try:
+            json.loads(args); json_valid += 1
+        except Exception:
+            malformed += 1
+    return {"tool_calls": total, "json_valid": json_valid, "unknown": unknown,
+            "unsafe": unsafe, "malformed": malformed, "finish_reason": finish_reason}
+
+rows = []
+def record(name, m, fr, err=None, note=""):
+    st = analyze(m or {}, fr)
+    st.update({"test": name, "error": err or "", "note": note})
+    rows.append(st)
+
+# 1. basic chat (no tools)
+m, fr, err = call([{"role": "user", "content": "Say OK"}])
+record("basic_chat", m, fr, err)
+
+# 2. no-tool response
+m, fr, err = call([{"role": "user", "content": "What is 2+2? Answer with the number only."}])
+record("no_tool", m, fr, err)
+
+# 3. AUTO tool calls — 5 distinct simple probes
+auto_prompts = [
+    ("read_file", "Read the file /etc/hostname"),
+    ("list_directory", "List the directory /var/log"),
+    ("systemctl_status", "Check the status of service nginx"),
+    ("journalctl_read", "Read journal logs for nginx"),
+    ("shell_readonly", "Run read-only shell: df -h"),
+]
+for i, (tool, prompt) in enumerate(auto_prompts):
+    m, fr, err = call([{"role": "user", "content": prompt}], tools=TOOL_DEFS)
+    record(f"auto_{i}_{tool}", m, fr, err)
+
+# 4. FORCED tool (tool_choice="required")
+m, fr, err = call([{"role": "user", "content": "Investigate the system"}], tools=TOOL_DEFS,
+                  tool_choice="required")
+record("forced_required", m, fr, err)
+
+# 5. FORCED specific tool
+m, fr, err = call([{"role": "user", "content": "Anything"}], tools=TOOL_DEFS,
+                  tool_choice={"type": "function", "function": {"name": "read_file"}})
+record("forced_specific_read_file", m, fr, err)
+
+# 6. multi-turn: tool -> result -> final (3 rounds)
+msgs = [{"role": "user", "content": "Check nginx status"}]
+m, fr, err = call(msgs, tools=TOOL_DEFS)
+tcs = m.get("tool_calls") or []
+record("multiturn_round1", m, fr, err)
+msgs.append({"role": "assistant", "content": m.get("content"), "tool_calls": tcs})
+for tc in tcs:
+    msgs.append({"role": "tool", "tool_call_id": tc.get("id", "0"),
+                 "content": json.dumps({"status": "active", "result": "nginx.service active (running)"})})
+m, fr, err = call(msgs, tools=TOOL_DEFS)
+record("multiturn_round2", m, fr, err)
+
+# 7. error recovery: tool returns error -> model should recover
+msgs = [{"role": "user", "content": "Check ceph status"}]
+m, fr, err = call(msgs, tools=TOOL_DEFS)
+tcs = m.get("tool_calls") or []
+msgs.append({"role": "assistant", "content": m.get("content"), "tool_calls": tcs})
+for tc in tcs:
+    msgs.append({"role": "tool", "tool_call_id": tc.get("id", "0"),
+                 "content": json.dumps({"error": "connection refused", "unsupported_command": True})})
+m, fr, err = call(msgs, tools=TOOL_DEFS)
+record("error_recovery", m, fr, err)
+
+# 8. multi-tool prompt (expect >=1 tool)
+m, fr, err = call([{"role": "user", "content": "Read /etc/hosts AND check the status of docker"}],
+                  tools=TOOL_DEFS)
+record("multi_tool", m, fr, err)
+
+# aggregate
+total_calls = sum(r["tool_calls"] for r in rows)
+json_valid = sum(r["json_valid"] for r in rows)
+unknown = sum(r["unknown"] for r in rows)
+unsafe = sum(r["unsafe"] for r in rows)
+malformed = sum(r["malformed"] for r in rows)
+http5xx = sum(1 for r in rows if r["error"].startswith("HTTP 5"))
+
+print(f"PREFLIGHT: tool_calls={total_calls} json_valid={json_valid}/{total_calls} "
+      f"unknown={unknown} unsafe={unsafe} malformed={malformed} http5xx={http5xx}")
+fields = ["test", "tool_calls", "json_valid", "unknown", "unsafe", "malformed", "finish_reason", "error", "note"]
+with open(OUT, "w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=fields); w.writeheader()
+    for r in rows:
+        w.writerow({k: r.get(k, "") for k in fields})
+print("PREFLIGHT CSV:", OUT)
