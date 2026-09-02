@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Aither R7-C1 tool-metrics computation (from raw tool ledger + scenarios).
+
+Reads the complete per-call raw tool ledger (TOOL_CALLS.csv) and the frozen
+scenario corpus, then computes and persists the evidence-based tool metrics
+required by R7-C1 section 12 and hard gates (section 18).
+
+Definitions (evidence-ID based; no substring-prefix heuristics):
+  - relevant call        = tool call whose status == "revealed" (revealed >=1
+                           required/optional evidence ID)
+  - duplicate call       = tool call whose status == "duplicate"
+  - error call           = non-duplicate call with status in
+                           {not_found, unsupported_command, empty}
+  - REQUIRED_EVIDENCE_DISCOVERY = sum(required IDs revealed) / sum(required IDs available)
+  - TOOL_PRECISION  = relevant calls / nonduplicate calls
+  - TOOL_RECALL     = evidence-source recall = discovered required IDs / available required IDs
+  - TOOL_F1         = 2 * precision * recall / (precision + recall)
+  - IRRELEVANT_CALL_RATE     = (nonduplicate non-relevant calls) / nonduplicate calls
+  - DUPLICATE_CALL_RATE      = duplicate calls / total calls
+  - NONINFORMATIVE_CALL_RATE = non-revealing calls / total calls
+  - ERROR_RECOVERY_RATE = recovered scenarios / scenarios with >=1 error call
+       (a scenario "recovers" when, after an error call, a later call reveals evidence)
+
+Output: AITHER_QWEN38_VLLM_HERMES_R7C1_TOOL_METRICS.csv
+"""
+import csv, json, sys
+
+ERROR_STATUSES = {"not_found", "unsupported_command", "empty", "error"}
+
+def load_ledger(path):
+    rows = []
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f):
+            # skip stray repeated header rows written by append-mode harness runs
+            if r.get("scenario_id") == "scenario_id":
+                continue
+            rows.append(r)
+    return rows
+
+def compute(scenarios, rows, policy=None):
+    if policy:
+        rows = [r for r in rows if r.get("policy") == policy]
+    if not rows:
+        return None
+    total = len(rows)
+    revealed = sum(1 for r in rows if r.get("status") == "revealed")
+    duplicate = sum(1 for r in rows if r.get("status") == "duplicate")
+    nondup = total - duplicate
+    error = sum(1 for r in rows if r.get("status") in ERROR_STATUSES)
+    relevant = revealed  # in this harness, "revealed" == relevant
+
+    # REQUIRED_EVIDENCE_DISCOVERY / TOOL_RECALL
+    # aggregate required IDs per scenario and discovered IDs per scenario
+    req_total = 0
+    disc_total = 0
+    sc_by_id = {s["scenario_id"]: s for s in scenarios}
+    scenarios_with_errors = set()
+    recovered_scenarios = set()
+    per_sc_events = {}
+    for r in rows:
+        sid = r.get("scenario_id")
+        per_sc_events.setdefault(sid, []).append(r.get("status"))
+    for sid in sc_by_id:
+        req = set(sc_by_id[sid].get("required_evidence", []))
+        # discovered required IDs for this scenario = union of evidence_ids_revealed across its calls
+        disc = set()
+        for r in rows:
+            if r.get("scenario_id") == sid:
+                for eid in (r.get("evidence_ids_revealed") or "").split(","):
+                    if eid:
+                        disc.add(eid)
+        req_total += len(req)
+        disc_total += len(req & disc)
+        # error recovery per scenario (ordered statuses)
+        st = per_sc_events.get(sid, [])
+        has_err = any(s in ERROR_STATUSES for s in st)
+        if has_err:
+            scenarios_with_errors.add(sid)
+            saw_err = False
+            for s in st:
+                if s in ERROR_STATUSES:
+                    saw_err = True
+                elif s == "revealed" and saw_err:
+                    recovered_scenarios.add(sid)
+                    break
+
+    precision = relevant / nondup if nondup else 0.0
+    recall = disc_total / req_total if req_total else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    irrelevant = (nondup - relevant) / nondup if nondup else 0.0
+    dup_rate = duplicate / total if total else 0.0
+    noninf = (total - revealed) / total if total else 0.0
+    err_rec = len(recovered_scenarios) / len(scenarios_with_errors) if scenarios_with_errors else 0.0
+
+    return {
+        "policy": policy or "ALL",
+        "calls": total, "revealed": revealed, "duplicate": duplicate, "error": error,
+        "REQUIRED_EVIDENCE_DISCOVERY": round(recall, 4),
+        "TOOL_PRECISION": round(precision, 4),
+        "TOOL_RECALL": round(recall, 4),
+        "TOOL_F1": round(f1, 4),
+        "IRRELEVANT_CALL_RATE": round(irrelevant, 4),
+        "DUPLICATE_CALL_RATE": round(dup_rate, 4),
+        "NONINFORMATIVE_CALL_RATE": round(noninf, 4),
+        "ERROR_RECOVERY_RATE": round(err_rec, 4),
+        "scenarios_with_errors": len(scenarios_with_errors),
+        "scenarios_recovered": len(recovered_scenarios),
+    }
+
+if __name__ == "__main__":
+    scenarios = json.load(open(sys.argv[1]))
+    rows = load_ledger(sys.argv[2])
+    out = sys.argv[3] if len(sys.argv) > 3 else "AITHER_QWEN38_VLLM_HERMES_R7C1_TOOL_METRICS.csv"
+    policies = sorted({r.get("policy") for r in rows})
+    results = [compute(scenarios, rows, None)]
+    for p in policies:
+        results.append(compute(scenarios, rows, p))
+    results = [r for r in results if r]
+    fields = ["policy","calls","revealed","duplicate","error","REQUIRED_EVIDENCE_DISCOVERY",
+              "TOOL_PRECISION","TOOL_RECALL","TOOL_F1","IRRELEVANT_CALL_RATE","DUPLICATE_CALL_RATE",
+              "NONINFORMATIVE_CALL_RATE","ERROR_RECOVERY_RATE","scenarios_with_errors","scenarios_recovered"]
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader()
+        for r in results:
+            w.writerow({k: r.get(k) for k in fields})
+    for r in results:
+        print(json.dumps(r))

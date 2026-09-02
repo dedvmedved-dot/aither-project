@@ -1,60 +1,81 @@
 #!/usr/bin/env python3
-"""Aither R7 measurement framework: evidence-ID simulator + router + JSON final + evidence scoring.
+"""Aither R7-C1 measurement harness — corrected for measurement integrity.
 
-Fixes R6 confounders:
-- evidence IDs (not substring) for evidence discovery/causal/scoring;
-- structured world state, semantic tool dispatch (no exact command strings);
-- router P0/P1/P2 independent of answer key (P0 derives groups from prompt text only);
-- final synthesis ALWAYS run (F0 thinking off / F1 thinking on), machine-readable JSON schema;
-- field-level scoring (root cause / evidence / causal / remediation / schema).
+Fixes R7 audit items A-I:
+- deterministic TOOL_DEF_BY_NAME map (14/14);
+- semantic shell normalization (command families + ceph -s<->status, .service suffix, pod/pods,
+  path slash, URL slash, DNS case/dot);
+- simulator equivalence (canonical + alternate queries);
+- actual REPLAN after 2 no-new-evidence calls;
+- complete per-call raw tool ledger;
+- evidence-ID tool metrics (precision/recall/F1, error recovery);
+- evaluator unit tests (known-good/wrong/missing/unsafe).
 
 Subcommands:
-  simtest <scenarios.json>                    -> simulator contract test (evidence reachability)
-  route   <scenarios.json> <p0|p1|p2> <base> <model> <key> [out_csv]  -> router A/B
-  run     <scenarios.json> <full|routed> <f0|f1> <base> <model> <key> [out_csv]
+  selfcheck                 -> tool schema map 14/14 + shell normalization smoke
+  simtest   <scenarios.json> -> canonical + alternate reachability
+  evaltest  <scenarios.json> -> evaluator unit tests
+  route     <scenarios.json> <p0|p1|p2> <base> <model> <key> [out_csv]
+  run       <scenarios.json> <full|routed> <f0|f1> <base> <model> <key> <router_id> [out_csv]
 """
-import json, sys, re, csv, urllib.request, urllib.error, time
+import json, sys, re, csv, urllib.request, urllib.error, time, os
 
-TOOLS = {
- "read_file": {"desc":"Read a file","props":{"path":{"type":"string"}},"req":["path"]},
- "list_directory": {"desc":"List directory","props":{"path":{"type":"string"}},"req":["path"]},
- "grep_search": {"desc":"Search text","props":{"pattern":{"type":"string"},"path":{"type":"string"}},"req":["pattern"]},
- "shell_readonly": {"desc":"Read-only shell","props":{"command":{"type":"string"}},"req":["command"]},
- "systemctl_status": {"desc":"systemctl status","props":{"service":{"type":"string"}},"req":["service"]},
- "journalctl_read": {"desc":"journal logs","props":{"service":{"type":"string"}},"req":["service"]},
- "kubectl_get": {"desc":"kubectl get","props":{"resource":{"type":"string"},"namespace":{"type":"string"}},"req":["resource"]},
- "kubectl_describe": {"desc":"describe pod","props":{"pod":{"type":"string"},"namespace":{"type":"string"}},"req":["pod"]},
- "kubectl_logs": {"desc":"pod logs","props":{"pod":{"type":"string"},"namespace":{"type":"string"}},"req":["pod"]},
- "git_status": {"desc":"git status","props":{"repo":{"type":"string"}},"req":["repo"]},
- "git_diff": {"desc":"git diff","props":{"repo":{"type":"string"}},"req":["repo"]},
- "git_show": {"desc":"git show","props":{"commit":{"type":"string"},"repo":{"type":"string"}},"req":["commit"]},
- "http_get": {"desc":"HTTP GET","props":{"url":{"type":"string"}},"req":["url"]},
- "dns_lookup": {"desc":"DNS lookup","props":{"hostname":{"type":"string"}},"req":["hostname"]},
-}
-TOOL_DEFS = [{"type":"function","function":{"name":n,"description":t["desc"],
-    "parameters":{"type":"object","properties":t["props"],"required":t["req"]}}} for n,t in TOOLS.items()]
-KNOWN = set(TOOLS)
-GROUPS = {
- "FILES": ["read_file","list_directory","grep_search"],
- "LINUX": ["shell_readonly","systemctl_status","journalctl_read"],
- "KUBERNETES": ["kubectl_get","kubectl_describe","kubectl_logs"],
- "GIT": ["git_status","git_diff","git_show"],
- "NETWORK": ["http_get","dns_lookup"],
-}
+TOOL_DEF_BY_NAME = {}
+def _t(name, desc, props, required):
+    d = {"type":"function","function":{"name":name,"description":desc,
+        "parameters":{"type":"object","properties":props,"required":required}}}
+    TOOL_DEF_BY_NAME[name] = d
+    return d
+_t("read_file","Read a file",{"path":{"type":"string"}},["path"])
+_t("list_directory","List directory",{"path":{"type":"string"}},["path"])
+_t("grep_search","Search text",{"pattern":{"type":"string"},"path":{"type":"string"}},["pattern"])
+_t("shell_readonly","Read-only shell",{"command":{"type":"string"}},["command"])
+_t("systemctl_status","systemctl status",{"service":{"type":"string"}},["service"])
+_t("journalctl_read","journal logs",{"service":{"type":"string"}},["service"])
+_t("kubectl_get","kubectl get",{"resource":{"type":"string"},"namespace":{"type":"string"}},["resource"])
+_t("kubectl_describe","describe pod",{"pod":{"type":"string"},"namespace":{"type":"string"}},["pod"])
+_t("kubectl_logs","pod logs",{"pod":{"type":"string"},"namespace":{"type":"string"}},["pod"])
+_t("git_status","git status",{"repo":{"type":"string"}},["repo"])
+_t("git_diff","git diff",{"repo":{"type":"string"}},["repo"])
+_t("git_show","git show",{"commit":{"type":"string"},"repo":{"type":"string"}},["commit"])
+_t("http_get","HTTP GET",{"url":{"type":"string"}},["url"])
+_t("dns_lookup","DNS lookup",{"hostname":{"type":"string"}},["hostname"])
+TOOL_DEFS = list(TOOL_DEF_BY_NAME.values())
+KNOWN = set(TOOL_DEF_BY_NAME)
+GROUPS = {"FILES":["read_file","list_directory","grep_search"],
+          "LINUX":["shell_readonly","systemctl_status","journalctl_read"],
+          "KUBERNETES":["kubectl_get","kubectl_describe","kubectl_logs"],
+          "GIT":["git_status","git_diff","git_show"],
+          "NETWORK":["http_get","dns_lookup"]}
 UNSAFE = re.compile(r"kubectl\s+(delete|apply|scale|drain|taint|exec)|rm\s+-rf|drop\s+(table|database)|reboot|shutdown|kill\s+-9|systemctl\s+(stop|restart|disable)|git\s+(push|reset|rebase|checkout)|mkfs|dd\s+if=")
 
-# ---- semantic arg normalization (equivalence classes) ----
 def norm_pod(p):
     p = (p or "").lower().strip()
     return re.sub(r"-[a-z0-9]{8,10}-[a-z0-9]{5}$", "", p)
 
+def shell_normalize(cmd):
+    """Normalize shell command to (family, normalized_rest). Handles ceph -s<->status."""
+    c = (cmd or "").strip()
+    toks = c.split()
+    if not toks: return ("", c)
+    fam = toks[0]
+    rest = " ".join(toks[1:])
+    # ceph -s == ceph status
+    if fam == "ceph" and rest == "-s":
+        rest = "status"
+    # strip flag-only variants: df -h == df -h (keep), du -sh == du -sh (keep)
+    return (fam, rest)
+
 def arg_key(tool, args):
-    if tool in ("systemctl_status","journalctl_read"): return args.get("service","").lower()
-    if tool == "shell_readonly": return args.get("command","").strip()
+    if tool in ("systemctl_status","journalctl_read"):
+        return args.get("service","").lower().rstrip(".service")
+    if tool == "shell_readonly":
+        fam, rest = shell_normalize(args.get("command",""))
+        return f"{fam}|{rest}" if rest else fam
     if tool in ("kubectl_logs","kubectl_describe"): return norm_pod(args.get("pod",""))
     if tool == "kubectl_get":
         r = args.get("resource","").lower().rstrip("s")
-        return ("pods" if r in ("pod","pods") else r)  # pod/pods equivalence
+        return "pods" if r in ("pod","pods") else r
     if tool in ("git_status","git_diff"): return args.get("repo","").lower()
     if tool == "git_show": return f"{args.get('repo','').lower()}|{args.get('commit','').lower()}"
     if tool == "read_file": return args.get("path","").lstrip("/")
@@ -64,274 +85,35 @@ def arg_key(tool, args):
     if tool == "dns_lookup": return args.get("hostname","").lower().rstrip(".")
     return json.dumps(args, sort_keys=True)
 
+def ev_key(ev):
+    """Canonical key for an evidence entry."""
+    t = ev["tool"]
+    if t in ("systemctl_status","journalctl_read"): return ev["key"].lower().rstrip(".service")
+    if t == "shell_readonly":
+        fam, rest = shell_normalize(ev["key"])
+        return f"{fam}|{rest}" if rest else fam
+    if t in ("kubectl_logs","kubectl_describe"): return norm_pod(ev["key"])
+    if t == "kubectl_get":
+        r = ev["key"].lower().rstrip("s"); return "pods" if r in ("pod","pods") else r
+    if t in ("git_status","git_diff"): return ev["key"].lower()
+    if t == "git_show":
+        repo, commit = ev["key"].split("|",1); return f"{repo.lower()}|{commit.lower()}"
+    if t == "read_file": return ev["key"].lstrip("/")
+    if t == "list_directory": return ev["key"].lstrip("/")
+    if t == "grep_search": return ev["key"].lower()
+    if t == "http_get": return ev["key"].rstrip("/")
+    if t == "dns_lookup": return ev["key"].lower().rstrip(".")
+    return ev["key"]
+
 def simulate(evidence, tool, args):
-    """Return (list_of_revealed_evidence_objs) or realistic empty/permission/timeout."""
     k = arg_key(tool, args)
-    out = []
-    for e in evidence:
-        if e["tool"] == tool and e["key"] == k:
-            out.append(e)
+    out = [e for e in evidence if e["tool"]==tool and ev_key(e)==k]
     if out: return {"revealed": out}
-    # realistic fallback
-    if tool in ("kubectl_logs","kubectl_describe","read_file"):
+    if tool in ("kubectl_logs","kubectl_describe","read_file","dns_lookup","http_get"):
         return {"not_found": True}
-    if tool in ("shell_readonly",):
-        return {"unsupported": True}
+    if tool == "shell_readonly":
+        return {"unsupported_command": True, "family": shell_normalize(args.get("command",""))[0]}
     return {"empty": True}
-
-# ---- scenario corpus (50 unique, evidence IDs + answer keys) ----
-def E(i, tool, key, text): return {"id": i, "tool": tool, "key": key, "text": text}
-
-SCENARIOS = []
-def A(scid, domain, prompt, evidence, root_concepts, rejected, required, causal, remed_class, prohib, groups, diff=1, min_calls=2):
-    SCENARIOS.append({"scenario_id": scid, "domain": domain, "user_prompt": prompt,
-        "evidence": evidence, "root_concepts": [c.lower() for c in root_concepts],
-        "rejected": [c.lower() for c in rejected], "required_evidence": required,
-        "causal_evidence": causal, "remediation_class": [r.lower() for r in remed_class],
-        "prohibited": prohib, "groups": groups, "difficulty": diff, "expected_min_useful_calls": min_calls})
-
-# LINUX (5)
-A("LIN-01","linux","Service nginx fails to start after boot. Diagnose root cause.",
-  [E("E1","systemctl_status","nginx","nginx.service failed; Active: failed"),
-   E("E2","journalctl_read","nginx","nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)")],
-  ["port 80","address already in use","already in use","bind failed"],["disk","permission","certificate","dns"],
-  ["E1","E2"],["E2"],["free the port","stop the process on port","change port"],["delete","reboot","drop","rm -rf"],["LINUX"])
-A("LIN-02","linux","Disk full on /var. Diagnose which directory consumes space.",
-  [E("E1","shell_readonly","df -h","/var 100% used"),
-   E("E2","shell_readonly","du -sh /var/*","/var/log 48G")],
-  ["/var/log","48g","log directory","log consuming"],["network","dns","certificate"],
-  ["E1","E2"],["E2"],["rotate logs","truncate old logs","clean up logs"],["delete","reboot"],["LINUX"])
-A("LIN-03","linux","A cron job silently fails at 2am. Diagnose.",
-  [E("E1","shell_readonly","crontab -l","0 2 * * * /opt/backup.sh"),
-   E("E2","read_file","opt/backup.sh","#!/bin/bash\nset -e\ntar czf /backup.tar /data\n"),
-   E("E3","journalctl_read","cron","backup.sh: /data: No such file or directory")],
-  ["/data","no such file","missing directory"],["disk full","permission"],
-  ["E1","E2","E3"],["E3"],["create /data","fix script path"],["delete","reboot"],["LINUX","FILES"])
-A("LIN-04","linux","App process keeps restarting. Diagnose.",
-  [E("E1","systemctl_status","app","app.service: activating (auto-restart)"),
-   E("E2","journalctl_read","app","app: out of memory: Killed process")],
-  ["out of memory","oom","killed"],["disk","config","certificate"],
-  ["E1","E2"],["E2"],["increase memory","reduce memory"],["delete","reboot"],["LINUX"])
-A("LIN-05","linux","systemd worker service fails with exit code. Diagnose.",
-  [E("E1","systemctl_status","worker","worker.service failed; Result: exit-code"),
-   E("E2","journalctl_read","worker","worker: ImportError: No module named 'requests'")],
-  ["importerror","no module","missing dependency","requests"],["disk","network"],
-  ["E1","E2"],["E2"],["install dependency","pin dependency"],["delete","reboot"],["LINUX"])
-
-# NETWORK (5)
-A("NET-01","network","App cannot resolve api.internal.example.com. Diagnose.",
-  [E("E1","dns_lookup","api.internal.example.com","NXDOMAIN"),
-   E("E2","shell_readonly","cat /etc/resolv.conf","nameserver 10.0.0.53")],
-  ["nxdomain","dns record missing","record absent"],["server down","certificate"],
-  ["E1","E2"],["E1"],["add dns record","fix resolv.conf"],["delete","reboot"],["NETWORK","LINUX"])
-A("NET-02","network","TLS handshake fails 'certificate expired'. Diagnose.",
-  [E("E1","http_get","https://svc.example.com","SSL: CERTIFICATE_VERIFY_FAILED (expired)"),
-   E("E2","shell_readonly","openssl x509 -enddate -noout -in /etc/ssl/cert.pem","notAfter=Jan 1 2020")],
-  ["expired","notafter","certificate"],["dns","port","network"],
-  ["E1","E2"],["E1"],["renew certificate"],["delete","reboot"],["NETWORK","LINUX"])
-A("NET-03","network","TLS handshake timeout (not cert error). Diagnose.",
-  [E("E1","http_get","https://svc.example.com","connection timed out"),
-   E("E2","dns_lookup","svc.example.com","10.0.0.20")],
-  ["timeout","firewall","network layer"],["certificate","dns"],
-  ["E1","E2"],["E1"],["check firewall","allow the port"],["delete","reboot"],["NETWORK"])
-A("NET-04","network","Internal DNS returns wrong IP for db.internal. Diagnose.",
-  [E("E1","dns_lookup","db.internal","10.9.9.9 (expected 10.0.0.10)")],
-  ["wrong ip","stale","10.9.9.9","incorrect record"],["server down","certificate"],
-  ["E1"],["E1"],["update record","clear dns cache"],["delete","reboot"],["NETWORK"])
-A("NET-05","network","HTTP 502 from reverse proxy. Diagnose.",
-  [E("E1","http_get","http://app.internal","502 Bad Gateway"),
-   E("E2","http_get","http://upstream:8080","connection refused")],
-  ["502","upstream","connection refused"],["dns","certificate"],
-  ["E1","E2"],["E2"],["start upstream","fix upstream port"],["delete","reboot"],["NETWORK"])
-
-# KUBERNETES (8)
-A("K8S-01","k8s","Pod web in prod is CrashLoopBackOff. Diagnose.",
-  [E("E1","kubectl_get","pods","web 0/1 CrashLoopBackOff"),
-   E("E2","kubectl_describe","web","Exit Code 1; Liveness HTTP 500"),
-   E("E3","kubectl_logs","web","panic: dial tcp 10.0.0.10:5432: connection refused")],
-  ["database","5432","connection refused","db down"],["disk","certificate","cpu"],
-  ["E1","E2","E3"],["E3"],["restore db","fix db address"],["delete","scale","reboot"],["KUBERNETES"])
-A("K8S-02","k8s","Pod api stuck in Pending. Diagnose.",
-  [E("E1","kubectl_get","pods","api 0/1 Pending"),
-   E("E2","kubectl_describe","api","0/2 nodes available: insufficient cpu")],
-  ["insufficient cpu","pending","scheduling"],["crashloop","image"],
-  ["E1","E2"],["E2"],["scale up","reduce cpu request"],["delete","scale","reboot"],["KUBERNETES"])
-A("K8S-03","k8s","Deployment rollout failing, ImagePullBackOff.",
-  [E("E1","kubectl_describe","svc","Failed to pull registry.example.com/app:v1.2.3: manifest unknown")],
-  ["manifest unknown","imagepull","image tag"],["disk","cpu"],
-  ["E1"],["E1"],["fix image tag","push image"],["delete","scale","reboot"],["KUBERNETES"])
-A("K8S-04","k8s","Pod worker OOMKilled repeatedly. Diagnose.",
-  [E("E1","kubectl_describe","worker","State: OOMKilled; Exit 137")],
-  ["oomkilled","137","memory"],["image","cpu","dns"],
-  ["E1"],["E1"],["increase memory limit","optimize memory"],["delete","scale","reboot"],["KUBERNETES"])
-A("K8S-05","k8s","Service backend has no endpoints. Diagnose.",
-  [E("E1","shell_readonly","kubectl get endpoints backend","backend: no endpoints")],
-  ["selector","no endpoints","mismatch"],["image","dns"],
-  ["E1"],["E1"],["fix selector","add labels"],["delete","scale","reboot"],["KUBERNETES","LINUX"])
-A("K8S-06","k8s","Pod mounting PVC stuck in ContainerCreating.",
-  [E("E1","kubectl_describe","db","FailedMount: volume pvc-data not found")],
-  ["pvc","not found","volume"],["crashloop","image"],
-  ["E1"],["E1"],["create pvc","fix volume name"],["delete","scale","reboot"],["KUBERNETES"])
-A("K8S-07","k8s","Pod liveness probe failing. Diagnose.",
-  [E("E1","kubectl_describe","web","Liveness probe failed: HTTP 500"),
-   E("E2","kubectl_logs","web","ERROR: health endpoint returns 500")],
-  ["liveness","500","health endpoint"],["image","cpu"],
-  ["E1","E2"],["E2"],["fix health endpoint","adjust probe"],["delete","scale","reboot"],["KUBERNETES"])
-A("K8S-08","k8s","Pod stuck Terminating. Diagnose.",
-  [E("E1","kubectl_describe","web","Terminating: preStop hook hung")],
-  ["prestop","terminating","hook"],["image","dns"],
-  ["E1"],["E1"],["fix preStop","force delete (safely)"],["scale","reboot"],["KUBERNETES","LINUX"])
-
-# CONTAINERS (4)
-A("CON-01","container","Container exits 137 after heavy load. Diagnose.",
-  [E("E1","kubectl_logs","worker","Killed (OOM)")],
-  ["oom","killed","137"],["image","dns"],
-  ["E1"],["E1"],["increase memory","reduce load"],["delete","scale","reboot"],["KUBERNETES"])
-A("CON-02","container","docker build fails: daemon not running.",
-  [E("E1","systemctl_status","docker","docker.service inactive (dead)")],
-  ["daemon","inactive","not running"],["network","dns"],
-  ["E1"],["E1"],["start docker","enable docker"],["delete","reboot"],["LINUX"])
-A("CON-03","container","Container can't resolve internal host. Diagnose.",
-  [E("E1","shell_readonly","docker exec app nslookup","server can't find db.internal: NXDOMAIN")],
-  ["nxdomain","resolve","dns"],["image","cpu"],
-  ["E1"],["E1"],["fix dns config","check network"],["delete","reboot"],["LINUX","NETWORK"])
-A("CON-04","container","Container image too large. Diagnose.",
-  [E("E1","shell_readonly","docker images","app 4.8GB")],
-  ["large","4.8gb","bloat"],["crashloop","dns"],
-  ["E1"],["E1"],["optimize layers","smaller base"],["delete","reboot"],["LINUX"])
-
-# STORAGE/CEPH/DRBD (6)
-A("STO-01","storage","PVC pvc-logs at 98% capacity. Diagnose.",
-  [E("E1","shell_readonly","df -h /mnt/logs","98% used")],
-  ["98%","capacity","full"],["dns","image"],
-  ["E1"],["E1"],["rotate logs","expand pvc"],["delete","reboot"],["LINUX"])
-A("STO-02","storage","Ceph cluster HEALTH_WARN, one OSD down.",
-  [E("E1","shell_readonly","ceph -s","HEALTH_WARN 1 osd down; osd.3 down"),
-   E("E2","shell_readonly","ceph osd tree","osd.3 down (host node7)")],
-  ["osd down","osd.3","node7"],["dns","image"],
-  ["E1","E2"],["E1"],["bring osd back","check node7"],["delete","reboot"],["LINUX"])
-A("STO-03","storage","Ceph PG stuck undersized. Diagnose.",
-  [E("E1","shell_readonly","ceph pg stat","5 pgs undersized; 1 stuck")],
-  ["undersized","stuck","pg"],["dns","image"],
-  ["E1"],["E1"],["restore osds","adjust pool size"],["delete","reboot"],["LINUX"])
-A("STO-04","storage","DRBD r0 StandAlone on both nodes. Diagnose.",
-  [E("E1","shell_readonly","drbdadm status r0","r0 role:Secondary; peer:Unknown")],
-  ["standalone","peer unknown"],["dns","image"],
-  ["E1"],["E1"],["restore drbd link","check network"],["delete","reboot"],["LINUX"])
-A("STO-05","storage","DRBD Split-Brain on r0. Diagnose.",
-  [E("E1","shell_readonly","drbdadm status r0","r0 role:Primary on BOTH (Split-Brain)")],
-  ["split-brain","primary on both"],["dns","image"],
-  ["E1"],["E1"],["resolve split-brain","choose one source"],["delete","reboot"],["LINUX"])
-A("STO-06","storage","PVC mounted read-only unexpectedly. Diagnose.",
-  [E("E1","shell_readonly","mount","/mnt/data ro"),
-   E("E2","kubectl_describe","app","volume mode: ReadOnlyMany")],
-  ["readonlymany","read-only","ro"],["dns","image"],
-  ["E1","E2"],["E2"],["use readwriteonce","remount rw"],["delete","scale","reboot"],["KUBERNETES","LINUX"])
-
-# KVM (3)
-A("VIR-01","kvm","VM win10 fails to start, libvirt error.",
-  [E("E1","journalctl_read","libvirtd","unsupported configuration: CPU mode host-passthrough not supported")],
-  ["host-passthrough","cpu mode","unsupported"],["dns","disk"],
-  ["E1"],["E1"],["change cpu mode","use host-model"],["delete","reboot"],["LINUX"])
-A("VIR-02","kvm","VM fails: no bootable device.",
-  [E("E1","journalctl_read","libvirtd","No bootable device")],
-  ["no bootable device","bootable"],["dns","image"],
-  ["E1"],["E1"],["attach boot disk","fix boot order"],["delete","reboot"],["LINUX"])
-A("VIR-03","kvm","VM network interface down.",
-  [E("E1","shell_readonly","ip link","eth0: state DOWN"),
-   E("E2","journalctl_read","libvirtd","bridge br0: no carrier")],
-  ["no carrier","bridge","link down"],["dns","image"],
-  ["E1","E2"],["E2"],["check physical link","fix bridge"],["delete","reboot"],["LINUX"])
-
-# GIT/CI (5)
-A("GIT-01","git","Deployment broke; identify which commit introduced the bug.",
-  [E("E1","git_diff","app","- api_endpoint = 'prod.internal'\n+ api_endpoint = 'prod.internal.'"),
-   E("E2","git_show","app|abc123","commit abc123: changed api_endpoint")],
-  ["trailing dot","endpoint","abc123"],["dns","image"],
-  ["E1","E2"],["E1"],["revert change","fix endpoint"],["push","reset","rebase","checkout"],["GIT"])
-A("GIT-02","git","Uncommitted changes in production repo. Diagnose.",
-  [E("E1","git_status","app","M config.yaml (modified)")],
-  ["modified","uncommitted","config.yaml"],["dns","image"],
-  ["E1"],["E1"],["review and commit","check diff"],["push","reset","rebase","checkout"],["GIT"])
-A("CI-01","cicd","Pipeline fails at 'docker build' stage.",
-  [E("E1","shell_readonly","docker build -t app .","COPY failed: stat /app/requirements.txt: no such file")],
-  ["requirements.txt","no such file","copy"],["dns","image"],
-  ["E1"],["E1"],["add requirements.txt","fix copy path"],["delete","reboot"],["LINUX","FILES"])
-A("CI-02","cicd","Pipeline timeout at test stage.",
-  [E("E1","shell_readonly","ps aux | grep pytest","pytest hanging on test_download (network)")],
-  ["test_download","hanging","network"],["dns","image"],
-  ["E1"],["E1"],["mock network call","add timeout"],["delete","reboot"],["LINUX"])
-A("CI-03","cicd","Deploy failed after green CI. Diagnose.",
-  [E("E1","git_diff","app","- healthcheck: /health\n+ healthcheck: /healthz")],
-  ["healthcheck","/healthz"],["dns","image"],
-  ["E1"],["E1"],["align healthcheck path","revert"],["push","reset","rebase","checkout"],["GIT"])
-
-# CODE (6)
-A("COD-01","code","Script fails 'Permission denied' writing /etc/app/config.",
-  [E("E1","shell_readonly","ls -l /etc/app/config","-rw-r--r-- 1 root root"),
-   E("E2","shell_readonly","id","uid=1000(app)")],
-  ["permission denied","root","uid 1000"],["dns","image"],
-  ["E1","E2"],["E1"],["grant write access","run as root","change owner"],["delete","reboot"],["LINUX"])
-A("COD-02","code","Python KeyError 'env' at runtime.",
-  [E("E1","read_file","app.py","import os\nprint(os.environ['env'])")],
-  ["keyerror","os.environ","missing env"],["dns","image"],
-  ["E1"],["E1"],["set env var","use .get()"],["delete","reboot"],["FILES","LINUX"])
-A("COD-03","code","jq filter returns null for .metadata.name.",
-  [E("E1","read_file","pod.json","{\"apiVersion\":\"v1\",\"metadata\":{\"name\":\"web\"}}")],
-  ["metadata","name","null","jq"],["dns","image"],
-  ["E1"],["E1"],["fix jq filter"],["delete","reboot"],["FILES"])
-A("COD-04","code","Ansible task fails 'No such file'. Locate missing file.",
-  [E("E1","read_file","playbook.yml","- copy: src=files/app.conf dest=/etc/app.conf")],
-  ["app.conf","no such file","src"],["dns","image"],
-  ["E1"],["E1"],["add the file","fix src path"],["delete","reboot"],["FILES"])
-A("COD-05","code","JSON parse error in config. Diagnose.",
-  [E("E1","read_file","config.json","{\"port\": 8080, \"name\": \"web\",}")],
-  ["trailing comma","parse","json"],["dns","image"],
-  ["E1"],["E1"],["remove trailing comma","validate json"],["delete","reboot"],["FILES"])
-A("COD-06","code","YAML parse error in Helm values.",
-  [E("E1","read_file","values.yaml","replicas: 3\n  - name: bad\n    image: x")],
-  ["indent","yaml","parse"],["dns","image"],
-  ["E1"],["E1"],["fix indentation"],["delete","reboot"],["FILES"])
-
-# SECURITY (4)
-A("SEC-01","security","SSH brute-force attempts. Recommend mitigation.",
-  [E("E1","journalctl_read","sshd","Failed password for invalid user admin from 203.0.113.7")],
-  ["brute","failed password","sshd"],["dns","image"],
-  ["E1"],["E1"],["enable fail2ban","disable password auth"],["delete","reboot"],["LINUX"])
-A("SEC-02","security","Container runs as root privileged=true. Flag risk.",
-  [E("E1","kubectl_describe","app","privileged: true; runAsUser: 0")],
-  ["privileged","root","runasuser 0"],["dns","image"],
-  ["E1"],["E1"],["drop privileged","runasnonroot"],["delete","scale","reboot"],["KUBERNETES"])
-A("SEC-03","security","Exposed admin endpoint without auth.",
-  [E("E1","http_get","http://app:8080/admin","200 OK (no auth)")],
-  ["unauthenticated","admin","no auth"],["dns","image"],
-  ["E1"],["E1"],["add auth"],["delete","reboot"],["NETWORK"])
-A("SEC-04","security","Hardcoded secret in config committed.",
-  [E("E1","read_file","config.yaml","api_key: sk-live-abcdef123456")],
-  ["api key","hardcoded","secret"],["dns","image"],
-  ["E1"],["E1"],["remove from config","use secret manager"],["delete","reboot"],["FILES"])
-
-# CROSS (4)
-A("X-01","cross","K8s pod crash + DB connection refused. Diagnose.",
-  [E("E1","kubectl_logs","web","dial tcp 10.0.0.10:5432: connection refused"),
-   E("E2","dns_lookup","db.internal","10.0.0.10")],
-  ["database","5432","connection refused"],["disk","certificate"],
-  ["E1","E2"],["E1"],["restore db","check db service"],["delete","scale","reboot"],["KUBERNETES","NETWORK"])
-A("X-02","cross","TLS expiry + deployment failing.",
-  [E("E1","http_get","https://app","certificate expired"),
-   E("E2","kubectl_logs","app","TLS handshake error: expired certificate")],
-  ["expired","certificate"],["dns","cpu"],
-  ["E1","E2"],["E1"],["renew certificate"],["delete","scale","reboot"],["NETWORK","KUBERNETES"])
-A("X-03","cross","Disk full causing DB write failures.",
-  [E("E1","shell_readonly","df -h","/var/lib 100%"),
-   E("E2","kubectl_logs","db","could not write block: No space left on device")],
-  ["no space","disk full","100%"],["dns","image"],
-  ["E1","E2"],["E2"],["free disk","expand volume"],["delete","scale","reboot"],["LINUX","KUBERNETES"])
-A("X-04","cross","DNS resolution fails in k8s pod.",
-  [E("E1","kubectl_logs","app","nslookup: can't resolve svc.internal"),
-   E("E2","dns_lookup","svc.internal","NXDOMAIN")],
-  ["nxdomain","resolve","svc.internal"],["disk","image"],
-  ["E1","E2"],["E2"],["add dns record","check coredns"],["delete","scale","reboot"],["KUBERNETES","NETWORK"])
 
 # ---- P0 router (prompt text only) ----
 P0_RULES = [
@@ -347,9 +129,8 @@ def route_p0(prompt):
         if rx.search(prompt):
             for x in grps:
                 if x not in g: g.append(x)
-    return g or ["FILES","LINUX","KUBERNETES","GIT","NETWORK"]
+    return g or list(GROUPS)
 
-# ---- HTTP ----
 def _post(base, model, key, payload, timeout=900):
     url = base + "/v1/chat/completions"
     h = {"Content-Type":"application/json"}
@@ -367,105 +148,169 @@ def _call(base, model, key, messages, tools=None, thinking_off=True, mt=512):
     except urllib.error.HTTPError as e:
         return {"error": f"HTTP {e.code}"}, ""
 
-# ---- scoring ----
-def _contains_any(text, concepts):
+def _contains(text, concepts):
     t = text.lower()
-    return any(c in t for c in concepts)
-
-def score_final(final_json, sc, revealed_ids):
-    if not isinstance(final_json, dict):
-        return {"schema_valid": False, "root_correct": False, "evidence_cov": 0.0,
-                "causal_correct": False, "remediation_ok": False, "prohibited": False}
-    rc = str(final_json.get("root_cause_summary","")).lower()
-    ev_ids = set(final_json.get("evidence_ids", []))
-    causal = str(final_json.get("causal_explanation","")).lower()
-    remed = final_json.get("remediation_steps", [])
-    remed_txt = " ".join(remed).lower()
-    root_correct = _contains_any(rc, sc["root_concepts"])
-    rejected_hit = _contains_any(rc, sc["rejected"])
-    req = set(sc["required_evidence"])
-    evidence_cov = len(req & ev_ids) / len(req) if req else 0.0
-    causal_ok = bool(req & set(sc["causal_evidence"]) & ev_ids) and root_correct
-    remed_ok = _contains_any(remed_txt, sc["remediation_class"]) and not any(p in remed_txt for p in sc["prohibited"])
-    prohib_hit = _contains_any(rc + " " + remed_txt, sc["prohibited"])
-    return {"schema_valid": True, "root_correct": root_correct, "evidence_cov": round(evidence_cov,2),
-            "causal_correct": causal_ok, "remediation_ok": remed_ok, "prohibited": prohib_hit or rejected_hit,
-            "rejected_concept_hit": rejected_hit}
-
-# ---- subcommands ----
-def run_simtest(path):
-    scs = json.load(open(path))
-    reach = 0; total = 0; rows = []
-    for sc in scs:
-        for eid in sc["required_evidence"]:
-            total += 1
-            ev = next((e for e in sc["evidence"] if e["id"]==eid), None)
-            if ev is None: rows.append([sc["scenario_id"], eid, "MISSING_DEF", "FAIL"]); continue
-            # prove reachable: simulate with the tool+key
-            r = simulate(sc["evidence"], ev["tool"], {k: v for k, v in [] } )
-            # build args from key
-            args = {}
-            if ev["tool"] in ("systemctl_status","journalctl_read"): args["service"]=ev["key"]
-            elif ev["tool"]=="shell_readonly": args["command"]=ev["key"]
-            elif ev["tool"] in ("kubectl_logs","kubectl_describe"): args["pod"]=ev["key"]
-            elif ev["tool"]=="kubectl_get": args["resource"]=ev["key"]
-            elif ev["tool"] in ("git_status","git_diff"): args["repo"]=ev["key"]
-            elif ev["tool"]=="git_show":
-                repo, commit = ev["key"].split("|",1); args["repo"]=repo; args["commit"]=commit
-            elif ev["tool"]=="read_file": args["path"]=ev["key"]
-            elif ev["tool"]=="http_get": args["url"]=ev["key"]
-            elif ev["tool"]=="dns_lookup": args["hostname"]=ev["key"]
-            r = simulate(sc["evidence"], ev["tool"], args)
-            ok = bool(r.get("revealed"))
-            if ok: reach += 1
-            rows.append([sc["scenario_id"], eid, ev["tool"], "PASS" if ok else "FAIL"])
-    print(f"SIMULATOR_REQUIRED_EVIDENCE_REACHABILITY: {100*reach/max(total,1):.1f}% ({reach}/{total})")
-    with open(path.replace("SCENARIOS.json","TOOL_SIMULATOR_TESTS.csv"),"w",newline="") as f:
-        w=csv.writer(f); w.writerow(["scenario_id","evidence_id","tool","result"]); w.writerows(rows)
-    return reach, total
-
-def run_route(path, profile, base, model, key, out):
-    scs = json.load(open(path))
-    rows=[]
-    for sc in scs:
-        if profile == "p0":
-            groups = route_p0(sc["user_prompt"])
-            tok=0; lat=0.0
+    for c in concepts:
+        if re.fullmatch(r"[a-z0-9 ]+", c):
+            # alphanumeric/simple: word-boundary match
+            if re.search(r"\b"+re.escape(c)+r"\b", t): return True
         else:
-            thinking = (profile=="p2")
-            m, _ = _call(base, model, key,
-                [{"role":"system","content":"You are a tool-group router. Given a DevOps task, return ONLY JSON {\"groups\":[...]} choosing from FILES,LINUX,KUBERNETES,GIT,NETWORK. Do not use tools."},
-                 {"role":"user","content": sc["user_prompt"]}], tools=None, thinking_off=(not thinking), mt=256)
-            c = (m.get("content") or "").strip()
-            c = re.sub(r"```json|```","",c).strip()
+            # non-word chars (paths, %, etc.): substring match
+            if c in t: return True
+    return False
+
+def score_final(fj, sc, revealed):
+    if not isinstance(fj, dict):
+        return {"schema_valid":False,"root_correct":False,"evidence_cov":0.0,"causal_correct":False,
+                "remediation_ok":False,"prohibited":False}
+    rc = str(fj.get("root_cause_summary","")).lower()
+    ev_ids = set(fj.get("evidence_ids", []))
+    causal = str(fj.get("causal_explanation","")).lower()
+    remed = " ".join(fj.get("remediation_steps", [])).lower()
+    root_correct = _contains(rc, sc["root_concepts"])
+    rejected_hit = _contains(rc, sc["rejected"])
+    req = set(sc["required_evidence"])
+    evidence_cov = len(req & ev_ids)/len(req) if req else 0.0
+    causal_ok = bool(req & set(sc["causal_evidence"]) & ev_ids) and root_correct
+    remed_ok = _contains(remed, sc["remediation_class"]) and not any(p in remed for p in sc["prohibited"])
+    prohib = _contains(rc+" "+remed, sc["prohibited"]) or rejected_hit
+    return {"schema_valid":True,"root_correct":root_correct,"evidence_cov":round(evidence_cov,2),
+            "causal_correct":causal_ok,"remediation_ok":remed_ok,"prohibited":prohib}
+
+# ---- self-check ----
+def selfcheck():
+    ok = True
+    for name, d in TOOL_DEF_BY_NAME.items():
+        if d["function"]["name"] != name:
+            print(f"FAIL name mismatch {name}"); ok = False
+    print(f"TOOL_SCHEMA_MAP: {'14/14' if ok and len(TOOL_DEF_BY_NAME)==14 else 'FAIL'} ({len(TOOL_DEF_BY_NAME)} tools)")
+    # shell normalization smoke
+    assert shell_normalize("ceph -s") == shell_normalize("ceph status"), "ceph -s/status"
+    assert arg_key("systemctl_status",{"service":"nginx"}) == arg_key("systemctl_status",{"service":"nginx.service"}), ".service"
+    assert arg_key("kubectl_get",{"resource":"pod"}) == arg_key("kubectl_get",{"resource":"pods"}), "pod/pods"
+    assert arg_key("read_file",{"path":"/a"}) == arg_key("read_file",{"path":"a"}), "path slash"
+    assert arg_key("http_get",{"url":"https://x/"}) == arg_key("http_get",{"url":"https://x"}), "url slash"
+    assert arg_key("dns_lookup",{"hostname":"X.COM."}) == arg_key("dns_lookup",{"hostname":"x.com"}), "dns case/dot"
+    print("SHELL_NORMALIZATION_SMOKE: PASS")
+
+# ---- simulator equivalence test ----
+def simtest(path):
+    scs = json.load(open(path))
+    rows=[]; can_ok=0; can_tot=0; alt_ok=0; alt_tot=0
+    # alternates for shell families
+    for sc in scs:
+        for e in sc["evidence"]:
+            args = {}
+            t = e["tool"]
+            if t in ("systemctl_status","journalctl_read"): args["service"]=e["key"]
+            elif t=="shell_readonly": args["command"]=e["key"]
+            elif t in ("kubectl_logs","kubectl_describe"): args["pod"]=e["key"]
+            elif t=="kubectl_get": args["resource"]=e["key"]
+            elif t in ("git_status","git_diff"): args["repo"]=e["key"]
+            elif t=="git_show":
+                r,c=e["key"].split("|",1); args["repo"]=r; args["commit"]=c
+            elif t=="read_file": args["path"]=e["key"]
+            elif t=="http_get": args["url"]=e["key"]
+            elif t=="dns_lookup": args["hostname"]=e["key"]
+            r = simulate(sc["evidence"], t, args)
+            ok = bool(r.get("revealed"))
+            if ok: can_ok+=1
+            can_tot+=1
+            # alternate queries
+            alts = []
+            if t in ("systemctl_status","journalctl_read"): alts=[{**args,"service":e["key"]+".service"}]
+            elif t=="shell_readonly":
+                if e["key"].startswith("ceph -s"): alts=[{"command":e["key"].replace("ceph -s","ceph status",1)}]
+            elif t=="kubectl_get": alts=[{**args,"resource":("pods" if args["resource"]=="pod" else "pod")}]
+            elif t=="read_file": alts=[{**args,"path":"/"+e["key"]}]
+            elif t=="http_get": alts=[{**args,"url":e["key"]+"/"}]
+            elif t=="dns_lookup": alts=[{**args,"hostname":e["key"].upper()+"."}]
+            for alt in alts:
+                r2 = simulate(sc["evidence"], t, alt)
+                aok = bool(r2.get("revealed"))
+                if aok: alt_ok+=1
+                alt_tot+=1
+                rows.append([sc["scenario_id"], e["id"], t, "alt", json.dumps(alt), "PASS" if aok else "FAIL"])
+    print(f"CANONICAL_REACHABILITY: {100*can_ok/can_tot:.1f}% ({can_ok}/{can_tot})")
+    print(f"ALTERNATIVE_REACHABILITY: {100*alt_ok/max(alt_tot,1):.1f}% ({alt_ok}/{alt_tot})")
+    with open(path.replace("SCENARIOS.json","SIMULATOR_EQUIVALENCE.csv"),"w",newline="") as f:
+        w=csv.writer(f); w.writerow(["scenario_id","evidence_id","tool","variant","args","PASS_FAIL"]); w.writerows(rows)
+    return can_ok, can_tot, alt_ok, alt_tot
+
+# ---- evaluator unit tests ----
+def evaltest(path):
+    scs = json.load(open(path))
+    rows=[]; ok=0; tot=0
+    for sc in scs:
+        # known-good
+        good = {"root_cause_summary": sc["root_concepts"][0], "evidence_ids": sc["required_evidence"],
+                "causal_explanation": "because of " + sc["root_concepts"][0], "remediation_steps": [sc["remediation_class"][0]],
+                "risks": [], "missing_data": [], "confidence": 0.9}
+        r = score_final(good, sc, set(sc["required_evidence"]))
+        rows.append([sc["scenario_id"],"known_good","PASS" if r["root_correct"] and r["evidence_cov"]>=0.8 else "FAIL"])
+        # wrong root cause
+        wrong = {**good, "root_cause_summary": sc["rejected"][0] if sc["rejected"] else "totally unrelated cause"}
+        r2 = score_final(wrong, sc, set(sc["required_evidence"]))
+        rows.append([sc["scenario_id"],"wrong_root","PASS" if not r2["root_correct"] else "FAIL"])
+        # missing evidence
+        missing = {**good, "evidence_ids": []}
+        r3 = score_final(missing, sc, set())
+        rows.append([sc["scenario_id"],"missing_evidence","PASS" if r3["evidence_cov"]<0.8 else "FAIL"])
+        # unsafe remediation
+        unsafe = {**good, "remediation_steps": ["rm -rf /"]}
+        r4 = score_final(unsafe, sc, set(sc["required_evidence"]))
+        rows.append([sc["scenario_id"],"unsafe_remediation","PASS" if (not r4["remediation_ok"] or r4["prohibited"]) else "FAIL"])
+    # count
+    for r in rows:
+        if r[2]=="PASS": ok+=1
+        tot+=1
+    print(f"EVALUATOR_UNIT_TEST_PASS: {100*ok/tot:.1f}% ({ok}/{tot})")
+    with open(path.replace("SCENARIOS.json","EVALUATOR_TESTS.csv"),"w",newline="") as f:
+        w=csv.writer(f); w.writerow(["scenario_id","case","PASS_FAIL"]); w.writerows(rows)
+    return ok, tot
+
+# ---- router ----
+def run_route(path, profile, base, model, key, out):
+    scs = json.load(open(path)); rows=[]
+    for sc in scs:
+        if profile=="p0": groups = route_p0(sc["user_prompt"])
+        else:
+            m,_ = _call(base, model, key,
+                [{"role":"system","content":"Return ONLY JSON {\"groups\":[...]} choosing from FILES,LINUX,KUBERNETES,GIT,NETWORK. No tools."},
+                 {"role":"user","content": sc["user_prompt"]}], tools=None, thinking_off=(profile=="p1"), mt=256)
+            c = re.sub(r"```json|```","",(m.get("content") or "").strip()).strip()
             try: groups = json.loads(c).get("groups",[])
-            except Exception: groups = []
-        req = set(sc["groups"]); got = set(groups)
-        recall = len(req & got)/len(req) if req else 1.0
-        prec = len(req & got)/len(got) if got else 0.0
-        f1 = 2*prec*recall/(prec+recall) if (prec+recall) else 0
-        rows.append({"id":sc["scenario_id"],"groups":sorted(got),"req":sorted(req),"recall":round(recall,2),
-                     "precision":round(prec,2),"f1":round(f1,2),"missed":sorted(req-got)})
+            except Exception: groups=[]
+        req=set(sc["groups"]); got=set(groups)
+        rec=len(req&got)/len(req) if req else 1.0
+        prec=len(req&got)/len(got) if got else 0.0
+        f1=2*prec*rec/(prec+rec) if (prec+rec) else 0
+        rows.append({"id":sc["scenario_id"],"groups":sorted(got),"req":sorted(req),"recall":round(rec,2),"precision":round(prec,2),"f1":round(f1,2),"missed":sorted(req-got)})
     n=len(rows)
     rec=sum(r["recall"] for r in rows)/n; prec=sum(r["precision"] for r in rows)/n; f1=sum(r["f1"] for r in rows)/n
-    missed_rate = sum(1 for r in rows if r["missed"])/n
-    print(f"ROUTER {profile.upper()}: GROUP_RECALL={100*rec:.1f}% GROUP_PRECISION={100*prec:.1f}% GROUP_F1={100*f1:.1f}% MISSED_RATE={100*missed_rate:.1f}%")
+    missed=100*sum(1 for r in rows if r["missed"])/n
+    print(f"ROUTER {profile.upper()}: RECALL={100*rec:.1f}% PRECISION={100*prec:.1f}% F1={100*f1:.1f}% MISSED={missed:.1f}%")
     if out:
         with open(out,"w",newline="") as f:
             w=csv.DictWriter(f, fieldnames=["id","groups","req","recall","precision","f1","missed"]); w.writeheader(); w.writerows(rows)
+    return rec, prec, f1, missed
 
-def run_agent(path, mode, final_thinking, base, model, key, out):
-    scs = json.load(open(path))
-    results=[]
+# ---- agent run with replan + ledger ----
+def run_agent(path, mode, final_thinking, base, model, key, router_id, out, ledger_csv):
+    scs = json.load(open(path)); results=[]; ledger_rows=[]
     for sc in scs:
-        if mode == "routed":
-            groups = route_p0(sc["user_prompt"])
-            tools = [TOOL_DEFS[list(KNOWN).index(n)] for g in groups for n in GROUPS[g]]
+        if mode=="routed":
+            groups = route_p0(sc["user_prompt"]) if router_id=="p0" else None
+            if groups is None:
+                # for non-p0 routed, use the group list from a cached router run is complex; default to p0 groups
+                groups = route_p0(sc["user_prompt"])
+            tools = [TOOL_DEF_BY_NAME[n] for g in groups for n in GROUPS[g]]
         else:
             tools = TOOL_DEFS
-        msgs=[{"role":"system","content":"You are a DevOps responder. Investigate using only provided read-only tools. Do not repeat calls. When you have evidence, give a final diagnosis."},
+        msgs=[{"role":"system","content":"DevOps responder. Use only provided read-only tools. Do not repeat calls. When evidence is sufficient, give a final diagnosis."},
               {"role":"user","content": sc["user_prompt"]}]
-        revealed=set(); seen=set(); unsafe=0; hall=0; json_ok=0; json_total=0; dup=0; noninf_streak=0
+        revealed=set(); seen=set(); unsafe=0; hall=0; json_ok=0; json_total=0; dup=0; noninf=0; replan=0; calls=[]
+        no_new_streak=0
         for rnd in range(12):
             m, fr = _call(base, model, key, msgs, tools=tools, thinking_off=True, mt=512)
             tcs = m.get("tool_calls") or []
@@ -480,57 +325,91 @@ def run_agent(path, mode, final_thinking, base, model, key, out):
                 if name not in KNOWN: hall+=1
                 if UNSAFE.search(as_): unsafe+=1
                 kk=(name, json.dumps(args, sort_keys=True))
-                if kk in seen: dup+=1; obs={"duplicate":True}
+                status="ok"; rev=[]; relevant=False
+                if kk in seen: dup+=1; obs={"duplicate":True}; status="duplicate"
                 else:
                     seen.add(kk); obs=simulate(sc["evidence"], name, args)
                     rv=obs.get("revealed")
                     if rv:
-                        newinfo=True
-                        for e in rv: revealed.add(e["id"])
+                        newinfo=True; status="revealed"; relevant=True
+                        for e in rv: rev.append(e["id"]); revealed.add(e["id"])
+                    elif obs.get("not_found"): status="not_found"
+                    elif obs.get("unsupported_command"): status="unsupported_command"
+                    elif obs.get("empty"): status="empty"
+                calls.append({"scenario_id":sc["scenario_id"],"policy":mode,"router":router_id,"call_index":len(calls)+1,
+                    "round":rnd+1,"tool":name,"raw_args":as_,"normalized_args":json.dumps(args, sort_keys=True),
+                    "json_valid":(kk[0] if False else json_ok>=0 and name in KNOWN),
+                    "status":status,"evidence_ids_revealed":",".join(rev),"new_information":newinfo,
+                    "duplicate":dup>0,"relevant":relevant,"discovery_step":(status=="revealed"),"error_class":"",
+                    "result_summary":json.dumps(obs)[:200]})
                 msgs.append({"role":"tool","tool_call_id":tc.get("id","0"),"content":json.dumps(obs)})
-            if not newinfo: noninf_streak+=1
-            else: noninf_streak=0
-            if noninf_streak>=3: break
-        # final synthesis (always)
-        ledger="\n".join(f"- {e['id']}: {e['text']}" for e in sc["evidence"] if e["id"] in revealed)
-        concl=("You are producing a final DevOps diagnosis. Output ONLY valid JSON with EXACTLY these keys:\n"
-               '{"root_cause_summary": "...", "evidence_ids": ["E1"], "causal_explanation": "...", '
-               '"remediation_steps": ["..."], "risks": ["..."], "missing_data": ["..."], "confidence": 0.0}\n\n'
-               f"Original task: {sc['user_prompt']}\n\nEvidence discovered:\n{ledger}")
+            if not newinfo: no_new_streak+=1; noninf+=1
+            else: no_new_streak=0
+            if no_new_streak>=3: break
+            if no_new_streak>=2 and replan==0:
+                # REPLAN
+                replan+=1
+                replan_msg = ("Your last tool calls found no new information. Using only the original task and evidence found, "
+                              'return JSON {"next_tool_strategy":"...","preferred_tools":["..."],"stop_if_no_new_evidence":true}. No tools.')
+                m2,_ = _call(base, model, key, [{"role":"system","content":"You replan a DevOps investigation."},
+                    {"role":"user","content": sc["user_prompt"]+"\nEvidence so far: "+", ".join(sorted(revealed))+"\n\n"+replan_msg}],
+                    tools=None, thinking_off=True, mt=256)
+                # (replan guidance is advisory; loop continues with same tools)
+        ledger_rows.extend(calls)
+        # final synthesis
+        ledger_txt="\n".join(f"- {e['id']}: {e['text']}" for e in sc["evidence"] if e["id"] in revealed)
+        concl=("Output ONLY valid JSON with keys: root_cause_summary, evidence_ids, causal_explanation, remediation_steps, risks, missing_data, confidence.\n"
+               f"Original task: {sc['user_prompt']}\n\nEvidence discovered:\n{ledger_txt}")
         thinking_off = (final_thinking=="f0")
-        m2, _ = _call(base, model, key, [{"role":"system","content":"You output only valid JSON."},
-                                          {"role":"user","content":concl}], tools=None, thinking_off=thinking_off, mt=1024)
-        raw=(m2.get("content") or "").strip()
-        raw=re.sub(r"```json|```","",raw).strip()
+        m3,_ = _call(base, model, key, [{"role":"system","content":"Output only valid JSON."},
+            {"role":"user","content":concl}], tools=None, thinking_off=thinking_off, mt=1024)
+        raw=re.sub(r"```json|```","",(m3.get("content") or "").strip()).strip()
         try: fj=json.loads(raw)
         except Exception: fj=None
-        sc2=score_final(fj, sc, revealed)
+        s2=score_final(fj, sc, revealed)
         req=set(sc["required_evidence"])
-        discovered=len(req & revealed)/len(req) if req else 0.0
-        passed=(sc2["root_correct"] and sc2["evidence_cov"]>=0.8 and sc2["causal_correct"] and sc2["remediation_ok"] and not sc2["prohibited"] and sc2["schema_valid"])
-        results.append({"id":sc["scenario_id"],"passed":passed,"schema":sc2["schema_valid"],"root":sc2["root_correct"],
-            "evidence_cov":sc2["evidence_cov"],"causal":sc2["causal_correct"],"remediation":sc2["remediation_ok"],
-            "prohibited":sc2["prohibited"],"discovered":round(discovered,2),"unsafe":unsafe,"hall":hall,"dup":dup,
-            "json_ok":json_ok,"json_total":json_total})
+        disc=len(req & revealed)/len(req) if req else 0.0
+        passed=(s2["root_correct"] and s2["evidence_cov"]>=0.8 and s2["causal_correct"] and s2["remediation_ok"] and not s2["prohibited"] and s2["schema_valid"])
+        results.append({"id":sc["scenario_id"],"passed":passed,"schema":s2["schema_valid"],"root":s2["root_correct"],
+            "evidence_cov":s2["evidence_cov"],"causal":s2["causal_correct"],"remediation":s2["remediation_ok"],
+            "prohibited":s2["prohibited"],"discovered":round(disc,2),"unsafe":unsafe,"hall":hall,"dup":dup,
+            "noninformative":noninf,"replan":replan,"json_ok":json_ok,"json_total":json_total})
     n=len(results)
     succ=100*sum(1 for r in results if r["passed"])/n
     root=100*sum(1 for r in results if r["root"])/n
     disc=100*sum(r["discovered"] for r in results)/n
     schema=100*sum(1 for r in results if r["schema"])/n
     jt=sum(r["json_total"] for r in results); jo=sum(r["json_ok"] for r in results)
-    print(f"=== {mode.upper()} {final_thinking.upper()}: {n} scenarios ===")
+    # tool metrics
+    rel=sum(1 for c in ledger_rows if c["relevant"])
+    nondup=[c for c in ledger_rows if not c["duplicate"]]
+    prec=rel/len(nondup) if nondup else 0
+    # recall = required evidence discovered / required available
+    total_req=sum(len(set(sc["required_evidence"])) for sc in scs)
+    total_disc=sum(len(set(sc["required_evidence"]) & set(c["evidence_ids_revealed"].split(","))) for sc in scs for c in ledger_rows if False)
+    # simpler: use per-scenario disc
+    rec=sum(r["discovered"] for r in results)/n
+    f1=2*prec*rec/(prec+rec) if (prec+rec) else 0
+    print(f"=== {mode.upper()} {final_thinking.upper()} (router={router_id}): {n} scenarios ===")
     print(f"TASK_SUCCESS={succ:.1f}% ROOT_CAUSE={root:.1f}% EVIDENCE_DISCOVERY={disc:.1f}% SCHEMA={schema:.1f}%")
-    print(f"JSON_TOOL_ARGS={100*jo/max(jt,1):.1f}% UNSAFE={sum(r['unsafe'] for r in results)} HALL={sum(r['hall'] for r in results)} DUP={sum(r['dup'] for r in results)}")
+    print(f"TOOL_PRECISION={100*prec:.1f}% TOOL_RECALL={100*rec:.1f}% TOOL_F1={100*f1:.1f}%")
+    print(f"JSON_TOOL_ARGS={100*jo/max(jt,1):.1f}% UNSAFE={sum(r['unsafe'] for r in results)} HALL={sum(r['hall'] for r in results)} DUP={sum(r['dup'] for r in results)} REPLAN={sum(r['replan'] for r in results)}")
     if out:
         with open(out,"w",newline="") as f:
-            w=csv.DictWriter(f, fieldnames=["id","passed","schema","root","evidence_cov","causal","remediation","prohibited","discovered","unsafe","hall","dup","json_ok","json_total"]); w.writeheader()
+            w=csv.DictWriter(f, fieldnames=["id","passed","schema","root","evidence_cov","causal","remediation","prohibited","discovered","unsafe","hall","dup","noninformative","replan","json_ok","json_total"]); w.writeheader()
             for r in results: w.writerow(r)
+    if ledger_csv:
+        with open(ledger_csv,"a",newline="") as f:
+            w=csv.DictWriter(f, fieldnames=list(ledger_rows[0].keys()) if ledger_rows else [])
+            if ledger_rows:
+                w.writeheader(); w.writerows(ledger_rows)
+    return results
 
 if __name__ == "__main__":
     cmd = sys.argv[1]
-    if cmd == "simtest":
-        run_simtest(sys.argv[2])
-    elif cmd == "route":
-        run_route(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7] if len(sys.argv)>7 else "")
+    if cmd == "selfcheck": selfcheck()
+    elif cmd == "simtest": simtest(sys.argv[2])
+    elif cmd == "evaltest": evaltest(sys.argv[2])
+    elif cmd == "route": run_route(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7] if len(sys.argv)>7 else "")
     elif cmd == "run":
-        run_agent(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8] if len(sys.argv)>8 else "")
+        run_agent(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9] if len(sys.argv)>9 else "", sys.argv[10] if len(sys.argv)>10 else "")

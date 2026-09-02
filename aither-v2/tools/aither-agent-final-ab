@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""Aither R7-C1 final-synthesis replay — persist full untruncated F0/F1 outputs.
+
+The R7-C1 harness scored each final synthesis but did not archive the raw JSON
+text. This replay reconstructs the per-scenario revealed-evidence set from the
+raw tool ledger (TOOL_CALLS.csv) and re-runs the final synthesis for both F0
+(thinking off) and F1 (thinking on), per tool policy (full/routed), persisting
+the full untruncated output plus the scored decomposition.
+
+Produces: AITHER_QWEN38_VLLM_HERMES_R7C1_FINAL_AB.csv
+"""
+import json, csv, re, sys, time, os
+from importlib.machinery import SourceFileLoader
+
+HARNESS = os.environ.get("HARNESS", "/tmp/aither-agent-harness-lab")
+h = SourceFileLoader("harness", HARNESS).load_module()
+
+def load_ledger(path):
+    rows = []
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f):
+            if r.get("scenario_id") == "scenario_id":
+                continue
+            rows.append(r)
+    return rows
+
+def synth(base, model, key, concl, thinking_off):
+    m, _ = h._call(base, model, key,
+        [{"role": "system", "content": "Output only valid JSON."},
+         {"role": "user", "content": concl}], tools=None, thinking_off=thinking_off, mt=1024)
+    raw = re.sub(r"```json|```", "", (m.get("content") or "").strip()).strip()
+    try:
+        fj = json.loads(raw)
+    except Exception:
+        fj = None
+    return raw, fj
+
+def main():
+    scenarios_path, ledger_path, base, model, key, out = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
+    scenarios = json.load(open(scenarios_path))
+    rows = load_ledger(ledger_path)
+    # reconstruct revealed evidence per scenario per policy
+    revealed = {"full": {}, "routed": {}}
+    for r in rows:
+        pol = r.get("policy")
+        if pol not in revealed:
+            continue
+        sid = r.get("scenario_id")
+        for eid in (r.get("evidence_ids_revealed") or "").split(","):
+            if eid:
+                revealed[pol].setdefault(sid, set()).add(eid)
+    out_rows = []
+    fields = ["scenario_id", "policy", "profile", "root_cause_summary", "evidence_ids",
+              "causal_explanation", "remediation_steps", "risks", "missing_data", "confidence",
+              "full_json", "schema_valid", "root_correct", "evidence_cov", "causal_correct",
+              "remediation_ok", "prohibited"]
+    for sc in scenarios:
+        sid = sc["scenario_id"]
+        for pol in ("full", "routed"):
+            rev = revealed[pol].get(sid, set())
+            ledger_txt = "\n".join(f"- {e['id']}: {e['text']}" for e in sc["evidence"] if e["id"] in rev)
+            concl = ("Output ONLY valid JSON with keys: root_cause_summary, evidence_ids, causal_explanation, "
+                     "remediation_steps, risks, missing_data, confidence.\n"
+                     f"Original task: {sc['user_prompt']}\n\nEvidence discovered:\n{ledger_txt}")
+            for prof in ("f0", "f1"):
+                raw, fj = synth(base, model, key, concl, thinking_off=(prof == "f0"))
+                s2 = h.score_final(fj, sc, rev)
+                out_rows.append({
+                    "scenario_id": sid, "policy": pol, "profile": prof,
+                    "root_cause_summary": (fj or {}).get("root_cause_summary", "") if fj else "",
+                    "evidence_ids": json.dumps((fj or {}).get("evidence_ids", [])) if fj else "",
+                    "causal_explanation": (fj or {}).get("causal_explanation", "") if fj else "",
+                    "remediation_steps": json.dumps((fj or {}).get("remediation_steps", [])) if fj else "",
+                    "risks": json.dumps((fj or {}).get("risks", [])) if fj else "",
+                    "missing_data": json.dumps((fj or {}).get("missing_data", [])) if fj else "",
+                    "confidence": (fj or {}).get("confidence", "") if fj else "",
+                    "full_json": raw, "schema_valid": s2["schema_valid"], "root_correct": s2["root_correct"],
+                    "evidence_cov": s2["evidence_cov"], "causal_correct": s2["causal_correct"],
+                    "remediation_ok": s2["remediation_ok"], "prohibited": s2["prohibited"],
+                })
+                print(f"[{sid}] {pol} {prof}: schema={s2['schema_valid']} root={s2['root_correct']} cov={s2['evidence_cov']}", flush=True)
+        # incremental write
+        with open(out, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(out_rows)
+    print("DONE", len(out_rows), "rows", flush=True)
+
+if __name__ == "__main__":
+    main()

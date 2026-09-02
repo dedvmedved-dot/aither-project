@@ -1,0 +1,34 @@
+scenario_id,evidence_id,tool,variant,args,PASS_FAIL
+LIN-01,E1,systemctl_status,alt,"{""service"": ""nginx.service""}",PASS
+LIN-01,E2,journalctl_read,alt,"{""service"": ""nginx.service""}",PASS
+LIN-03,E2,read_file,alt,"{""path"": ""/opt/backup.sh""}",PASS
+LIN-03,E3,journalctl_read,alt,"{""service"": ""cron.service""}",PASS
+LIN-04,E1,systemctl_status,alt,"{""service"": ""app.service""}",PASS
+LIN-04,E2,journalctl_read,alt,"{""service"": ""app.service""}",PASS
+LIN-05,E1,systemctl_status,alt,"{""service"": ""worker.service""}",PASS
+LIN-05,E2,journalctl_read,alt,"{""service"": ""worker.service""}",PASS
+NET-01,E1,dns_lookup,alt,"{""hostname"": ""API.INTERNAL.EXAMPLE.COM.""}",PASS
+NET-02,E1,http_get,alt,"{""url"": ""https://svc.example.com/""}",PASS
+NET-03,E1,http_get,alt,"{""url"": ""https://svc.example.com/""}",PASS
+NET-03,E2,dns_lookup,alt,"{""hostname"": ""SVC.EXAMPLE.COM.""}",PASS
+NET-04,E1,dns_lookup,alt,"{""hostname"": ""DB.INTERNAL.""}",PASS
+NET-05,E1,http_get,alt,"{""url"": ""http://app.internal/""}",PASS
+NET-05,E2,http_get,alt,"{""url"": ""http://upstream:8080/""}",PASS
+K8S-01,E1,kubectl_get,alt,"{""resource"": ""pod""}",PASS
+K8S-02,E1,kubectl_get,alt,"{""resource"": ""pod""}",PASS
+CON-02,E1,systemctl_status,alt,"{""service"": ""docker.service""}",PASS
+STO-02,E1,shell_readonly,alt,"{""command"": ""ceph status""}",PASS
+VIR-01,E1,journalctl_read,alt,"{""service"": ""libvirtd.service""}",PASS
+VIR-02,E1,journalctl_read,alt,"{""service"": ""libvirtd.service""}",PASS
+VIR-03,E2,journalctl_read,alt,"{""service"": ""libvirtd.service""}",PASS
+COD-02,E1,read_file,alt,"{""path"": ""/app.py""}",PASS
+COD-03,E1,read_file,alt,"{""path"": ""/pod.json""}",PASS
+COD-04,E1,read_file,alt,"{""path"": ""/playbook.yml""}",PASS
+COD-05,E1,read_file,alt,"{""path"": ""/config.json""}",PASS
+COD-06,E1,read_file,alt,"{""path"": ""/values.yaml""}",PASS
+SEC-01,E1,journalctl_read,alt,"{""service"": ""sshd.service""}",PASS
+SEC-03,E1,http_get,alt,"{""url"": ""http://app:8080/admin/""}",PASS
+SEC-04,E1,read_file,alt,"{""path"": ""/config.yaml""}",PASS
+X-01,E2,dns_lookup,alt,"{""hostname"": ""DB.INTERNAL.""}",PASS
+X-02,E1,http_get,alt,"{""url"": ""https://app/""}",PASS
+X-04,E2,dns_lookup,alt,"{""hostname"": ""SVC.INTERNAL.""}",PASS
