@@ -1,0 +1,142 @@
+# Aither R8 Candidate C-C2 — Kimi-Linear-48B-A3B-Instruct AWQ (compressed-tensors int4) vLLM isolated LAB (n7).
+# NOT production. Served model kimi-linear-48b-a3b-candidate-c-c2.
+# n7 maintenance window: Qwen3.8 scaled 1->0; restore required after Candidate C-C2.
+# Immutable image reference (pinned digest), NOT floating tag.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vllm
+    model: kimi-linear-48b-a3b-candidate-c-c2
+  name: vllm-kimi-linear-48b-a3b-candidate-c-c2-lab
+  namespace: aither-inference
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: vllm
+      model: kimi-linear-48b-a3b-candidate-c-c2
+  template:
+    metadata:
+      labels:
+        app: vllm
+        model: kimi-linear-48b-a3b-candidate-c-c2
+    spec:
+      nodeName: bootsmam-k8s-clnt01-n7-gpu
+      automountServiceAccountToken: false
+      runtimeClassName: nvidia
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967
+        imagePullPolicy: IfNotPresent
+        command:
+        - python3
+        - -m
+        - vllm.entrypoints.openai.api_server
+        args:
+        - --model
+        - /model
+        - --served-model-name
+        - kimi-linear-48b-a3b-candidate-c-c2
+        - --tensor-parallel-size
+        - '2'
+        - --host
+        - 0.0.0.0
+        - --port
+        - '8000'
+        - --gpu-memory-utilization
+        - '0.90'
+        - --max-model-len
+        - '16384'
+        - --max-num-seqs
+        - '1'
+        - --dtype
+        - half
+        - --quantization
+        - compressed-tensors
+        - --trust-remote-code
+        - --enforce-eager
+        - --enable-auto-tool-choice
+        - --tool-call-parser
+        - kimi_k3
+        - --generation-config
+        - vllm
+        env:
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: expandable_segments:True
+        - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+          value: '1'
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            cpu: '8'
+            memory: 64Gi
+            nvidia.com/gpu: '2'
+          requests:
+            cpu: '8'
+            memory: 48Gi
+            nvidia.com/gpu: '2'
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+        - name: model
+          mountPath: /model
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 300
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+      - name: model
+        hostPath:
+          path: /data/models/Kimi-Linear-48B-A3B-Instruct-AWQ-4bit
+          type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-kimi-linear-48b-a3b-candidate-c-c2-lab
+  namespace: aither-inference
+spec:
+  selector:
+    app: vllm
+    model: kimi-linear-48b-a3b-candidate-c-c2
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
