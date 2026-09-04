@@ -1,0 +1,5 @@
+case,metric,value
+benchmark_total,wall_time,~2.5h (100 scenarios + 13 long-context)
+long-context-60K,duration_s,~570s/case
+decode,tok/s,"~30-50 (estimated, MoE 3B-active)"
+TTFT,ms,"~100 (small prompt, estimated)"
