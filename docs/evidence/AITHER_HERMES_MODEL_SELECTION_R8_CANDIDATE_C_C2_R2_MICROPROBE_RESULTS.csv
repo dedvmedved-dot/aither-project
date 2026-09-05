@@ -1,0 +1,9 @@
+config_id,kernel,BK,BV,num_warps,num_stages,compile_pass,launch_pass,finite,note
+A,chunk_gated_delta_rule_fwd_kernel_h_blockdim64,,32,2,1,TRUE,TRUE,TRUE,0 cross-config error
+B,chunk_gated_delta_rule_fwd_kernel_h_blockdim64,,32,2,2,TRUE,TRUE,TRUE,0 cross-config error
+C,chunk_gated_delta_rule_fwd_kernel_h_blockdim64,,32,4,1,TRUE,TRUE,TRUE,0 cross-config error
+D,chunk_gated_delta_rule_fwd_kernel_h_blockdim64,,32,4,2,TRUE,TRUE,TRUE,0 cross-config error
+A,chunk_gla_fwd_kernel_o,32,64,2,1,TRUE,TRUE,FALSE,NaN (num_warps=2)
+B,chunk_gla_fwd_kernel_o,32,64,2,2,TRUE,TRUE,FALSE,NaN (num_warps=2)
+C,chunk_gla_fwd_kernel_o,32,64,4,1,TRUE,TRUE,TRUE,finite after warmup
+D,chunk_gla_fwd_kernel_o,32,64,4,2,TRUE,TRUE,TRUE,finite after warmup

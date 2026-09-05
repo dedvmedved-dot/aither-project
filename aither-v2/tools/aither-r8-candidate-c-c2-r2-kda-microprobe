@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""C-C2-R2 KDA low-SMEM microprobe (Phase A, no model weights).
+
+Forces the exact vendored vLLM 0.27.1 KDA Triton kernel to run with each bounded
+low-SMEM config by setting the autotune configs list, then records compile/launch/
+shared-memory/numerical per config.
+
+Candidate C dims: H=32, Hg=32, K=128, V=128, BT=64 (FLA_CHUNK_SIZE).
+"""
+import json, sys
+sys.path.insert(0, "/tmp/fla_extract/vllm/third_party")
+import torch
+import triton
+import triton.language as tl
+
+from flash_linear_attention.ops.chunk_delta_h import (
+    chunk_gated_delta_rule_fwd_kernel_h_blockdim64,
+)
+
+KERNEL = chunk_gated_delta_rule_fwd_kernel_h_blockdim64
+
+H, Hg, K, V, BT = 32, 32, 128, 128, 64
+T = 128
+B = 1
+N = 1
+
+torch.manual_seed(0)
+dev = "cuda"
+dtype = torch.float16
+
+k = torch.randn(B, T, Hg, K, device=dev, dtype=dtype)
+v = torch.randn(B, T, Hg, V, device=dev, dtype=dtype)
+w = torch.randn(B, T, Hg, K, device=dev, dtype=dtype)
+u = torch.randn(B, T, H, V, device=dev, dtype=dtype)
+g = torch.randn(B, T, H, device=dev, dtype=torch.float32)
+h = torch.empty(B, (T + BT - 1) // BT, H, V, K, device=dev, dtype=dtype)
+h0 = torch.zeros(N, H, V, K, device=dev, dtype=torch.float32)
+ht = torch.zeros(N, H, V, K, device=dev, dtype=torch.float32)
+v_new = torch.empty_like(u)
+
+CONFIGS = [
+    ("A", dict(BV=32, num_warps=2, num_stages=1)),
+    ("B", dict(BV=32, num_warps=2, num_stages=2)),
+    ("C", dict(BV=32, num_warps=4, num_stages=1)),
+    ("D", dict(BV=32, num_warps=4, num_stages=2)),
+]
+
+USE_G = True
+USE_GK = False
+USE_INITIAL_STATE = False
+STORE_FINAL_STATE = False
+SAVE_NEW_VALUE = True
+IS_VARLEN = False
+USE_EXP2 = False
+
+results = []
+for cid, cfg in CONFIGS:
+    BV = cfg["BV"]
+    num_warps = cfg["num_warps"]
+    num_stages = cfg["num_stages"]
+    grid = (triton.cdiv(V, BV), N * H)
+    # force this single config through the autotune wrapper
+    KERNEL.configs = [triton.Config({"BV": BV}, num_warps=num_warps, num_stages=num_stages)]
+    KERNEL._Config__benchmark_to_config = None  # reset cache
+    entry = {"config_id": cid, "BV": BV, "num_warps": num_warps, "num_stages": num_stages,
+             "compile_pass": False, "launch_pass": False, "shared_memory_bytes": None,
+             "numerical_pass": None, "error": ""}
+    try:
+        h.zero_(); v_new.zero_()
+        KERNEL[grid](
+            k, v, w, v_new, g, None, h, h0, ht, None, None, T,
+            H=H, Hg=Hg, K=K, V=V, BT=BT,
+            USE_G=USE_G, USE_GK=USE_GK, USE_INITIAL_STATE=USE_INITIAL_STATE,
+            STORE_FINAL_STATE=STORE_FINAL_STATE, SAVE_NEW_VALUE=SAVE_NEW_VALUE,
+            IS_VARLEN=IS_VARLEN, USE_EXP2=USE_EXP2,
+        )
+        torch.cuda.synchronize()
+        entry["compile_pass"] = True
+        entry["launch_pass"] = True
+        try:
+            ck = KERNEL.get_compiled_kernel()
+            entry["shared_memory_bytes"] = getattr(ck.metadata, "shared", None)
+        except Exception as e:
+            entry["shared_memory_bytes"] = f"n/a ({type(e).__name__})"
+        finite = bool(torch.isfinite(h).all() and torch.isfinite(v_new).all())
+        entry["numerical_pass"] = "finite" if finite else "NON_FINITE"
+    except triton.runtime.errors.OutOfResources as e:
+        entry["error"] = f"OutOfResources: {str(e)[:100]}"
+    except Exception as e:
+        entry["error"] = f"{type(e).__name__}: {str(e)[:100]}"
+    results.append(entry)
+    print(json.dumps(entry), flush=True)
+
+with open("/tmp/c2r2_microprobe_results.json", "w") as f:
+    json.dump(results, f, indent=2)
+print("DONE")
