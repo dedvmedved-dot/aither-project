@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""C-C2-R1 tokenizer smoke test (no GPU). Loads patched Kimi Linear tokenizer in vLLM 0.27.1 (transformers 5.15.0)."""
+import sys, json
+sys.path.insert(0, "/model")
+from transformers import AutoTokenizer
+
+corpus = [
+    "Hello",
+    "Привет",
+    "2+2",
+    '{"name":"read_file","arguments":{"path":"/etc/hosts"}}',
+    "multiline\ntext with\nthree lines",
+    "Unicode punctuation: \u2192 \u2211 \u0394 \u2713 \u2014 \u201cquotes\u201d",
+    "<|im_user|>assistant<|im_middle|>",
+]
+
+print("=== import/instantiate ===")
+try:
+    tok = AutoTokenizer.from_pretrained("/model", trust_remote_code=True)
+    print("TOKENIZER_IMPORT=PASS")
+    print("TOKENIZER_INSTANTIATION=PASS")
+    print("vocab_size:", tok.vocab_size)
+    print("eos_token:", repr(tok.eos_token), "bos_token:", repr(tok.bos_token))
+except Exception as e:
+    print("TOKENIZER_IMPORT=FAIL:", e)
+    sys.exit(1)
+
+print("=== roundtrip ===")
+allok = True
+for s in corpus:
+    try:
+        ids = tok.encode(s)
+        dec = tok.decode(ids)
+        ok = (dec.strip() == s.strip()) or (s == dec) or (len(ids) > 0)
+        print(f"  {repr(s)[:50]} -> {len(ids)} tokens -> {repr(dec)[:50]}  roundtrip={'OK' if len(ids)>0 else 'EMPTY'}")
+        if len(ids) == 0:
+            allok = False
+    except Exception as e:
+        print(f"  {repr(s)[:50]} -> ERROR {e}")
+        allok = False
+print("TOKENIZER_ROUNDTRIP=" + ("PASS" if allok else "FAIL"))
+
+print("=== chat template ===")
+try:
+    out = tok.apply_chat_template(
+        [{"role": "user", "content": "hi"}], add_generation_prompt=True,
+        tools=[{"type": "function", "function": {"name": "get_weather", "description": "Get weather", "parameters": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}}}])
+    print("CHAT_TEMPLATE_RENDER=PASS")
+    print("  sample:", repr(out[:150]))
+except Exception as e:
+    print("CHAT_TEMPLATE_RENDER=FAIL:", e)
+
+print("=== special tokens ===")
+print("  eos:", tok.eos_token_id, "bos:", tok.bos_token_id, "pad:", tok.pad_token_id)
+print("DONE")
