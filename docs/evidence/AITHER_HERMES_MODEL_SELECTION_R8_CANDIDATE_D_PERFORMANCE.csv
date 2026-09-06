@@ -1,0 +1,5 @@
+case,metric,value
+basic_chat,decode_tok_s,~102
+long_context_56K,duration_s,~25-36
+startup,model_load_s,~52
+64K,gpu_used_mib,~6650/6376

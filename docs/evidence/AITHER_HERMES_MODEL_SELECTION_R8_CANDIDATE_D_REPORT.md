@@ -1,0 +1,98 @@
+# Aither — R8 Candidate D Report
+
+TASK: AITHER-HERMES-AGENT-MODEL-SELECTION-R8-CANDIDATE-D-GPT-OSS-20B
+BASELINE: 798cdeafc8f881f86b77e0806c68344ab65dea87
+CANDIDATE: D
+MODEL: openai/gpt-oss-20b
+MODEL REVISION: 6cee5e81ee83917806bbde320786a8fb61efebee
+ARCHITECTURE: GptOssForCausalLM (MoE)
+TOTAL PARAMETERS: ~21B (32 experts)
+ACTIVE PARAMETERS: ~3.6B (4 experts/token)
+NATIVE CONTEXT: 131072 (YaRN)
+LICENSE: apache-2.0
+OFFICIAL QUANTIZATION: MXFP4 (MoE weights)
+
+REPRESENTATION: ggml-org/gpt-oss-20b-MXFP4.gguf (native MXFP4 GGUF)
+REPRESENTATION REVISION: main (ggml-org)
+REPRESENTATION WEIGHT BYTES: 12109566624 (~12.11 GB)
+
+PROVENANCE: PASS
+VLLM_GPT_OSS_ARCH_SUPPORT: PASS
+VLLM_MXFP4_SM75: FAIL (mxfp4 get_min_capability=80; requires sm80+)
+LLAMACPP_CURRENT_BUILD_GPT_OSS: PASS (build 10666 has gpt-oss + mxfp4 tokens)
+LLAMACPP_NATIVE_MXFP4_SM75: PASS (native MXFP4 GGUF loaded + inferred on sm75)
+SELECTED_BACKEND: llama.cpp
+SELECTED_BACKEND_VERSION: 0.3.0-dev (build 10666, commit 4e97ac86e)
+SELECTED_IMAGE_DIGEST: sha256:150b59966fb5b2cb1a8fa9d226267c56ebd22c520c7b3640331cde87f3c4fb01
+
+STATIC_64K_FEASIBILITY: PASS (~17 GB estimate)
+MODEL_DOWNLOAD_INTEGRITY: PASS (12.11 GB, rc=0)
+ACTIVE_TRAFFIC_GATE: PASS (idle)
+QWEN38_TEMP_SCALE_DOWN: 1_TO_0
+
+ARCHITECTURE_LOAD: PASS
+QUANT_KERNEL_INIT: PASS (MXFP4 GGUF loaded)
+FIRST_INFERENCE: PASS
+GPT_OSS_NATIVE_PROTOCOL: PASS (Harmony: reasoning_content separated from content)
+PREFLIGHT: 30/30
+JSON_TOOL_ARGS_VALID: 100%
+HALLUCINATED_TOOLS: 0
+UNSAFE: 0
+MALFORMED_TOOL_JSON: 0
+HTTP5XX: 0
+
+RUNTIME_16K: PASS
+RUNTIME_64K: PASS (n_ctx_slot=65536, model loaded, ~6.5 GB/GPU, ~16 GB free/GPU)
+64K_SAFE_HEADROOM: PASS
+
+## R7-C1 benchmark (native reasoning, F0 only — GPT-OSS has no thinking toggle)
+
+| Metric | FULL | ROUTED |
+|---|---|---|
+| TASK_SUCCESS | 2.0% | 2.0% |
+| ROOT_CAUSE | 70.0% | 72.0% |
+| EVIDENCE_DISCOVERY (avg) | 15.3% | 16.7% |
+| SCHEMA | 94.0% | 94.0% |
+| TOOL_PRECISION | 9.5% | 16.3% |
+| TOOL_F1 | 11.7% | 16.5% |
+
+Tool metrics (global):
+- REQUIRED_EVIDENCE_DISCOVERY: FULL 17.8% / ROUTED 20.6%
+- TOOL_PRECISION: ALL 12.2%
+- TOOL_F1: ALL 16.0%
+- ERROR_RECOVERY: ALL 25.0%
+- IRRELEVANT: 87.8%, DUPLICATE: 8.4%
+- JSON_TOOL_ARGS 100%, HALLUCINATED 0, UNSAFE 0, HTTP5xx 0
+
+LONG_56K: 0/5
+LONG_58K: 0/5
+LONG_60K: 0/3
+
+SEQUENTIAL_150: SKIPPED_CONDITIONALLY (functional hard gates FAIL)
+
+DECODE_TOK_S: ~102
+OOM: 0
+UNEXPECTED_RESTART: 0
+
+## Classification
+
+All R8 hard quality gates FAIL (TASK_SUCCESS 2% << 90%, evidence discovery ~18% << 95%, etc.).
+Benchmark measurement was valid and complete (provenance, backend, preflight, FULL, ROUTED, long-context all executed).
+
+CANDIDATE_D_QUALIFICATION = QUALITY_FAIL
+CANDIDATE_STATUS = AUTONOMOUS_HERMES_QUALIFICATION_FAILED
+
+Note: GPT-OSS-20b runs cleanly on the actual Aither hardware (llama.cpp + native MXFP4 GGUF on sm75),
+which is a meaningful engineering result, but it does not meet the autonomous-Hermes quality gates
+(like all previous candidates).
+
+## Production
+
+QWEN38_SCALED_DOWN: YES (restored)
+N8_QWEN32_CHANGED: NO
+ROUTING_CHANGED: NO
+.agent_CHANGED: NO
+SECRETS_EXPOSED: NO
+WORKTREE: CLEAN
+
+RESULT: READY_FOR_CHATGPT_CONNECTOR_VERIFICATION
