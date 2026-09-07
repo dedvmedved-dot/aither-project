@@ -1,0 +1,10 @@
+type,id,prompt_tokens,completion_tokens,status,duration_s,root_hit
+ladder,16K,16311,20,PASS,38.1,
+ladder,32K,32678,20,PASS,4.3,
+ladder,56K,57275,47,PASS,7.9,
+ladder,58K,59327,46,PASS,2.0,
+ladder,60K,61352,46,PASS,2.0,
+ladder,64K,65456,13,EMPTY,2.1,
+semantic,S1,62119,600,PASS,26.4,"connection pool,migration"
+semantic,S2,62104,600,PASS,26.4,"certificate expired,x509"
+semantic,S3,62111,407,PASS,23.0,"oom,memory"

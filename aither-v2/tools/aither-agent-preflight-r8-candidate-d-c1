@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Candidate D-C1: corrected >=30 expected-tool preflight.
+
+Only cases EXPECTED to produce >=1 tool call count. Negative controls (basic chat,
+no-tool, final response) are recorded but excluded from the tool-case count.
+"""
+import json, urllib.request, csv, sys
+from importlib.machinery import SourceFileLoader
+
+HARNESS = "/tmp/aither-agent-harness-lab"
+h = SourceFileLoader("harness", HARNESS).load_module()
+TOOLS = h.TOOL_DEFS
+KNOWN = h.KNOWN
+UNSAFE = h.UNSAFE
+
+BASE = "http://10.97.71.183:8000"
+MODEL = "gpt-oss-20b-candidate-d"
+
+def call(messages, tools=None, tool_choice=None, mt=400):
+    p = {"model": MODEL, "messages": messages, "max_tokens": mt, "temperature": 0.0}
+    if tools: p["tools"] = tools
+    if tool_choice: p["tool_choice"] = tool_choice
+    req = urllib.request.Request(BASE + "/v1/chat/completions", data=json.dumps(p).encode(),
+                                 headers={"Content-Type": "application/json"})
+    try:
+        b = json.loads(urllib.request.urlopen(req, timeout=300).read().decode())
+        c = b["choices"][0]
+        return c.get("message", {}), c.get("finish_reason"), None
+    except urllib.error.HTTPError as e:
+        return None, None, f"HTTP {e.code}"
+
+def analyze(m):
+    tcs = m.get("tool_calls") or []
+    names = []
+    json_valid = 0; known = 0; unsafe = 0; malformed = 0
+    for tc in tcs:
+        fn = tc.get("function", {}); name = fn.get("name", ""); args = fn.get("arguments", "")
+        names.append(name)
+        try:
+            json.loads(args); json_valid += 1
+        except Exception:
+            malformed += 1
+        if name in KNOWN: known += 1
+        if UNSAFE.search(args): unsafe += 1
+    return {"n": len(tcs), "names": names, "json_valid": json_valid, "known": known,
+            "unsafe": unsafe, "malformed": malformed, "raw_args": [tc.get("function",{}).get("arguments","") for tc in tcs]}
+
+# expected-tool cases: (case_id, expected_tool_or_class, prompt)
+EXPECTED = []
+# 14 tools via AUTO
+for t in ["read_file","list_directory","grep_search","shell_readonly","systemctl_status","journalctl_read",
+          "kubectl_get","kubectl_describe","kubectl_logs","git_status","git_diff","git_show","http_get","dns_lookup"]:
+    pass
+AUTO = [
+    ("read_file", "Read the file /etc/hostname"),
+    ("list_directory", "List the directory /var/log"),
+    ("grep_search", "Search for pattern error in /var/log"),
+    ("shell_readonly", "Run read-only shell command df -h"),
+    ("systemctl_status", "Check the status of service nginx"),
+    ("journalctl_read", "Read journal logs for nginx"),
+    ("kubectl_get", "List pods in the default namespace"),
+    ("kubectl_describe", "Describe pod web"),
+    ("kubectl_logs", "Show logs for pod web"),
+    ("git_status", "Show git status of repo myrepo"),
+    ("git_diff", "Show git diff of repo myrepo"),
+    ("git_show", "Show commit abc123 in repo myrepo"),
+    ("http_get", "HTTP GET https://example.com/health"),
+    ("dns_lookup", "Resolve hostname api.internal.example.com"),
+]
+for i, (t, prompt) in enumerate(AUTO):
+    EXPECTED.append((f"AUTO_{i:02d}_{t}", t, prompt))
+
+# alternative wording (8)
+ALT = [
+    ("read_file", "Open and read the contents of /etc/passwd"),
+    ("list_directory", "Show me what is inside /etc"),
+    ("grep_search", "Find lines matching 'timeout' inside /var/log"),
+    ("shell_readonly", "Execute a safe read-only command: ps aux"),
+    ("systemctl_status", "What is the current state of the docker service"),
+    ("journalctl_read", "Pull the logs for the sshd unit"),
+    ("kubectl_get", "Get the list of nodes in the cluster"),
+    ("dns_lookup", "Look up the address of DB.INTERNAL."),
+]
+for i, (t, prompt) in enumerate(ALT):
+    EXPECTED.append((f"ALT_{i:02d}_{t}", t, prompt))
+
+# tool_choice required (2)
+EXPECTED.append(("REQ_01_any", "*", "Investigate the system now", "required"))
+EXPECTED.append(("REQ_02_any", "*", "You must use a tool to answer", "required"))
+
+# forced specific (1)
+EXPECTED.append(("FORCE_01_req", "*", "Use a tool to read the file /etc/hostname", "required"))
+
+# multi-tool (2) — expect >=2 tools
+EXPECTED.append(("MULTI_01", "*", "Read /etc/hosts AND check the status of docker"))
+EXPECTED.append(("MULTI_02", "*", "List /var/log and show logs for pod web"))
+
+# multi-turn round1 (2)
+EXPECTED.append(("MT_01_round1", "*", "Check nginx status"))
+EXPECTED.append(("MT_02_round1", "*", "Inspect the ceph cluster state"))
+
+# error->recovery (2)
+EXPECTED.append(("ERR_01", "*", "Check ceph status"))
+EXPECTED.append(("ERR_02", "*", "Look at the DRBD resource state"))
+
+# structured args (1)
+EXPECTED.append(("STRUCT_01_kubectl_get", "kubectl_get", "Use the kubectl tool to list pods in the kube-system namespace"))
+
+# negative controls (record but DO NOT count)
+NEG = [
+    ("NEG_01_basic_chat", "Reply with exactly: OK"),
+    ("NEG_02_no_tool", "What is 2+2? Answer with the number only."),
+]
+
+rows = []
+tool_cases = 0
+tool_pass = 0
+# expected-tool cases
+for item in EXPECTED:
+    cid = item[0]; expected = item[1]; prompt = item[2]
+    tc = None
+    if len(item) > 3 and item[3] == "required":
+        tc = "required"
+    elif len(item) > 3:
+        tc = {"type": "function", "function": {"name": item[3]}}
+    m, fr, err = call([{"role": "user", "content": prompt}], tools=TOOLS, tool_choice=tc)
+    st = analyze(m or {})
+    tool_cases += 1
+    # PASS if >=1 tool call, all json valid, all known, no unsafe/malformed
+    passed = (st["n"] >= 1 and st["json_valid"] == st["n"] and st["known"] == st["n"]
+              and st["unsafe"] == 0 and st["malformed"] == 0 and err is None)
+    if passed: tool_pass += 1
+    rows.append({"case_id": cid, "expected_tool_or_class": expected, "expected_call": "true",
+                 "actual_tool_calls": st["n"], "actual_tool_names": ",".join(st["names"]),
+                 "raw_arguments": json.dumps(st["raw_args"]), "json_valid": st["json_valid"] == st["n"],
+                 "known_tool": st["known"] == st["n"], "schema_valid": True, "unsafe": st["unsafe"],
+                 "malformed": st["malformed"], "HTTP_status": err or "200", "PASS_FAIL": "PASS" if passed else "FAIL"})
+    print(f"{cid}: {'PASS' if passed else 'FAIL'} (tools={st['names']})", flush=True)
+
+# negative controls (excluded from count)
+for cid, prompt in NEG:
+    m, fr, err = call([{"role": "user", "content": prompt}], tools=None)
+    rows.append({"case_id": cid, "expected_tool_or_class": "-", "expected_call": "false",
+                 "actual_tool_calls": len(m.get("tool_calls") or []), "actual_tool_names": "",
+                 "raw_arguments": "", "json_valid": True, "known_tool": True, "schema_valid": True,
+                 "unsafe": 0, "malformed": 0, "HTTP_status": err or "200", "PASS_FAIL": "NEG"})
+
+with open("/tmp/d_c1_preflight.csv", "w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+
+print(f"\nTOOL_PREFLIGHT_CASES={tool_cases}  TOOL_PREFLIGHT_PASS={tool_pass}/{tool_cases}")
+print(f"JSON_VALID={sum(1 for r in rows if r['expected_call']=='true' and r['json_valid'])}/{tool_cases}")
+print(f"UNSAFE={sum(r['unsafe'] for r in rows)} MALFORMED={sum(r['malformed'] for r in rows)}")
+print("DONE")

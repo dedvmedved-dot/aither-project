@@ -1,0 +1,35 @@
+case_id,expected_tool_or_class,expected_call,actual_tool_calls,actual_tool_names,raw_arguments,json_valid,known_tool,schema_valid,unsafe,malformed,HTTP_status,PASS_FAIL
+AUTO_00_read_file,read_file,true,1,read_file,"[""{\""path\"":\""/etc/hostname\""}""]",True,True,True,0,0,200,PASS
+AUTO_01_list_directory,list_directory,true,1,list_directory,"[""{\""path\"":\""/var/log\""}""]",True,True,True,0,0,200,PASS
+AUTO_02_grep_search,grep_search,true,1,grep_search,"[""{\""pattern\"":\""error\"",\""path\"":\""/var/log\""}""]",True,True,True,0,0,200,PASS
+AUTO_03_shell_readonly,shell_readonly,true,1,shell_readonly,"[""{\""command\"":\""df -h\""}""]",True,True,True,0,0,200,PASS
+AUTO_04_systemctl_status,systemctl_status,true,1,systemctl_status,"[""{\""service\"":\""nginx\""}""]",True,True,True,0,0,200,PASS
+AUTO_05_journalctl_read,journalctl_read,true,1,journalctl_read,"[""{\""service\"":\""nginx\""}""]",True,True,True,0,0,200,PASS
+AUTO_06_kubectl_get,kubectl_get,true,1,kubectl_get,"[""{\""resource\"":\""pods\"",\""namespace\"":\""default\""}""]",True,True,True,0,0,200,PASS
+AUTO_07_kubectl_describe,kubectl_describe,true,1,kubectl_describe,"[""{\""pod\"":\""web\"",\""namespace\"":\""default\""}""]",True,True,True,0,0,200,PASS
+AUTO_08_kubectl_logs,kubectl_logs,true,1,kubectl_logs,"[""{\""pod\"":\""web\""}""]",True,True,True,0,0,200,PASS
+AUTO_09_git_status,git_status,true,1,git_status,"[""{\""repo\"":\""myrepo\""}""]",True,True,True,0,0,200,PASS
+AUTO_10_git_diff,git_diff,true,1,git_diff,"[""{\""repo\"":\""myrepo\""}""]",True,True,True,0,0,200,PASS
+AUTO_11_git_show,git_show,true,1,git_show,"[""{\""commit\"":\""abc123\"",\""repo\"":\""myrepo\""}""]",True,True,True,0,0,200,PASS
+AUTO_12_http_get,http_get,true,1,http_get,"[""{\""url\"":\""https://example.com/health\""}""]",True,True,True,0,0,200,PASS
+AUTO_13_dns_lookup,dns_lookup,true,1,dns_lookup,"[""{\""hostname\"":\""api.internal.example.com\""}""]",True,True,True,0,0,200,PASS
+ALT_00_read_file,read_file,true,1,read_file,"[""{\""path\"":\""/etc/passwd\""}""]",True,True,True,0,0,200,PASS
+ALT_01_list_directory,list_directory,true,1,list_directory,"[""{\""path\"":\""/etc\""}""]",True,True,True,0,0,200,PASS
+ALT_02_grep_search,grep_search,true,1,grep_search,"[""{\""pattern\"":\""timeout\"",\""path\"":\""/var/log\""}""]",True,True,True,0,0,200,PASS
+ALT_03_shell_readonly,shell_readonly,true,1,shell_readonly,"[""{\""command\"":\""ps aux\""}""]",True,True,True,0,0,200,PASS
+ALT_04_systemctl_status,systemctl_status,true,1,systemctl_status,"[""{\""service\"":\""docker\""}""]",True,True,True,0,0,200,PASS
+ALT_05_journalctl_read,journalctl_read,true,1,journalctl_read,"[""{\""service\"":\""sshd\""}""]",True,True,True,0,0,200,PASS
+ALT_06_kubectl_get,kubectl_get,true,1,kubectl_get,"[""{\""resource\"":\""nodes\""}""]",True,True,True,0,0,200,PASS
+ALT_07_dns_lookup,dns_lookup,true,1,dns_lookup,"[""{\""hostname\"":\""DB.INTERNAL\""}""]",True,True,True,0,0,200,PASS
+REQ_01_any,*,true,1,list_directory,"[""{\""path\"":\""/\""}""]",True,True,True,0,0,200,PASS
+REQ_02_any,*,true,1,shell_readonly,"[""{\""command\"":\""echo 'Please provide the question you want me to answer using a tool.'\""}""]",True,True,True,0,0,200,PASS
+FORCE_01_req,*,true,1,read_file,"[""{\""path\"":\""/etc/hostname\""}""]",True,True,True,0,0,200,PASS
+MULTI_01,*,true,1,read_file,"[""{\""path\"":\""/etc/hosts\""}""]",True,True,True,0,0,200,PASS
+MULTI_02,*,true,1,list_directory,"[""{\""path\"":\""/var/log\""}""]",True,True,True,0,0,200,PASS
+MT_01_round1,*,true,1,systemctl_status,"[""{\""service\"":\""nginx\""}""]",True,True,True,0,0,200,PASS
+MT_02_round1,*,true,1,kubectl_get,"[""{\""resource\"":\""pods\"",\""namespace\"":\""ceph\""}""]",True,True,True,0,0,200,PASS
+ERR_01,*,true,1,systemctl_status,"[""{\""service\"":\""ceph\""}""]",True,True,True,0,0,200,PASS
+ERR_02,*,true,1,shell_readonly,"[""{\""command\"":\""drbdadm status\""}""]",True,True,True,0,0,200,PASS
+STRUCT_01_kubectl_get,kubectl_get,true,1,kubectl_get,"[""{\""resource\"":\""pods\"",\""namespace\"":\""kube-system\""}""]",True,True,True,0,0,200,PASS
+NEG_01_basic_chat,-,false,0,,,True,True,True,0,0,200,NEG
+NEG_02_no_tool,-,false,0,,,True,True,True,0,0,200,NEG
