@@ -1,0 +1,43 @@
+{
+  "task": "AITHER-HERMES-R8-BENCHMARK-REPAIR-R7C1-V2",
+  "baseline_sha": "60453bbcc1a978a93c8e3f2bfad75b745a8493f1",
+  "r7c1_v1_frozen": "YES",
+  "generated_at_utc": "2026-09-08T17:59:06.675118Z",
+  "v1_artifacts": {
+    "scenarios": {
+      "path": "docs/evidence/AITHER_QWEN38_VLLM_HERMES_R7_SCENARIOS.json",
+      "git_blob_sha": "38058df7f217301e7aac64a695c25ca7b94e3908",
+      "sha256": "0d73e728568da726d94f0355293df8b4279d70b77bcf9fb64d9bee8628d38451",
+      "size_bytes": 42293,
+      "lines": 2254
+    },
+    "harness_lab": {
+      "path": "aither-v2/tools/aither-agent-harness-lab",
+      "git_blob_sha": "e3c4a927607e6f9a55fd2183499a5a6116e96c34",
+      "sha256": "7225f7e971223127bfdbf47857d0151f313aa64dbec171b3e381a615cafec2bd",
+      "size_bytes": 24088,
+      "lines": 415
+    },
+    "long_context_harness": {
+      "path": "aither-v2/tools/aither-agent-harness-longcontext",
+      "git_blob_sha": "ac9935b19a4aad31996029d8e19d68d602afd790",
+      "sha256": "696d09883b9a8a949df1fbc9d456ab3021861c08a47e3ec5713f88599692567f",
+      "size_bytes": 20200,
+      "lines": 282
+    },
+    "tool_metrics": {
+      "path": "aither-v2/tools/aither-agent-tool-metrics",
+      "git_blob_sha": "41e401a2a7df42b2c9ddb83ed1010cf8ba3bb953",
+      "sha256": "482157e2479bc96f7a18a5bfc9f0aa5e0af87d69be4baf2b69f41f87f36deda0",
+      "size_bytes": 5828,
+      "lines": 127
+    },
+    "final_ab": {
+      "path": "aither-v2/tools/aither-agent-final-ab",
+      "git_blob_sha": "e56a8e2ca4cbb89854e6527fb6303473b9cb613e",
+      "sha256": "7a9ffb4f97a6fee17660a7a2000e2d5049919cf8ca6aa057afc51fbe5f555222",
+      "size_bytes": 4567,
+      "lines": 88
+    }
+  }
+}

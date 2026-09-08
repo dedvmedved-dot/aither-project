@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""Convert R7-C1 v1 scenarios -> v2 (typed semantic operations). One-shot converter."""
+import json, sys
+from importlib.machinery import SourceFileLoader
+
+HARNESS = "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2"
+h = SourceFileLoader("v2", HARNESS).load_module()
+
+DEFAULT_NS = "default"
+
+def convert(tool, key, text):
+    if tool == "systemctl_status":
+        return {"type": "service_status", "service": h.norm_service(key)}
+    if tool == "journalctl_read":
+        return {"type": "journal_read", "service": h.norm_service(key)}
+    if tool == "kubectl_get":
+        return {"type": "kube_get", "resource": h.norm_resource(key), "namespace": DEFAULT_NS}
+    if tool == "kubectl_describe":
+        return {"type": "kube_describe", "pod": h.norm_pod(key), "namespace": DEFAULT_NS}
+    if tool == "kubectl_logs":
+        return {"type": "kube_logs", "pod": h.norm_pod(key), "namespace": DEFAULT_NS}
+    if tool == "git_status":
+        return {"type": "git_status", "repo": h.norm_repo(key)}
+    if tool == "git_diff":
+        return {"type": "git_diff", "repo": h.norm_repo(key)}
+    if tool == "git_show":
+        repo, commit = key.split("|", 1)
+        return {"type": "git_show", "repo": h.norm_repo(repo), "commit": commit.lower()}
+    if tool == "http_get":
+        return {"type": "http_get", "url": h.norm_url(key)}
+    if tool == "dns_lookup":
+        return {"type": "dns_lookup", "hostname": h.norm_hostname(key)}
+    if tool == "read_file":
+        return {"type": "read_file", "path": h.norm_path(key)}
+    if tool == "shell_readonly":
+        op = h._shell_parse(key)
+        if op is None or op["type"] == "unsupported_semantic_operation":
+            raise ValueError(f"cannot convert shell key {key!r}")
+        # "df -h" (all filesystems) -> derive specific target from evidence text
+        if op["type"] == "disk_usage_filesystem" and op.get("target") == "*":
+            first = (text or "").strip().split()[0] if text and text.strip() else ""
+            if first.startswith("/"):
+                op["target"] = first.rstrip(":%").strip()
+        return op
+    raise ValueError(f"unknown tool {tool}")
+
+def main():
+    v1 = json.load(open(sys.argv[1]))
+    out_scenarios = []
+    errors = []
+    for sc in v1:
+        ev = []
+        for e in sc["evidence"]:
+            try:
+                op = convert(e["tool"], e["key"], e.get("text", ""))
+            except Exception as ex:
+                errors.append((sc["scenario_id"], e["id"], str(ex)))
+                op = {"type": "unsupported_semantic_operation", "command": e["key"]}
+            ev.append({"id": e["id"], "tool": e["tool"], "operation": op,
+                       "result": {"text": e.get("text", "")}})
+        out_scenarios.append({
+            "scenario_id": sc["scenario_id"], "domain": sc.get("domain", ""),
+            "user_prompt": sc["user_prompt"], "evidence": ev,
+            "root_concepts": sc["root_concepts"], "rejected": sc.get("rejected", []),
+            "required_evidence": sc["required_evidence"],
+            "causal_evidence": sc.get("causal_evidence", []),
+            "remediation_class": sc["remediation_class"], "prohibited": sc.get("prohibited", []),
+            "groups": sc.get("groups", []), "difficulty": sc.get("difficulty", 1),
+            "expected_min_useful_calls": sc.get("expected_min_useful_calls", 2),
+        })
+    json.dump({"schema_version": "2", "scenarios": out_scenarios},
+              open(sys.argv[2], "w"), indent=1, ensure_ascii=False)
+    print(f"converted {len(out_scenarios)} scenarios")
+    print(f"errors: {len(errors)}")
+    for e in errors:
+        print("  ERR", e)
+
+if __name__ == "__main__":
+    main()

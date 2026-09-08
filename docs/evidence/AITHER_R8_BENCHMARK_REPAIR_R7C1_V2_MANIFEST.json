@@ -1,0 +1,58 @@
+{
+  "task": "AITHER-HERMES-R8-BENCHMARK-REPAIR-R7C1-V2",
+  "baseline_sha": "60453bbcc1a978a93c8e3f2bfad75b745a8493f1",
+  "schema_version": "2",
+  "simulator_version": "2",
+  "evaluator_version": "2",
+  "generated_at_utc": "2026-09-08T18:18:59.461736Z",
+  "v2_artifacts": {
+    "v2_harness": {
+      "path": "aither-v2/tools/aither-agent-harness-r7c1-v2",
+      "git_blob_sha": "6156671bbae9e5b4cedc28b8e628874d687346fe",
+      "sha256": "baf67ccf36211a6bbc7b5a1a0890b00201a3ec636706b46af26dbe48a970cdad",
+      "size_bytes": 29962,
+      "lines": 651
+    },
+    "v2_long_context_harness": {
+      "path": "aither-v2/tools/aither-r8-benchmark-repair-longcontext",
+      "git_blob_sha": "7ee4f03ae139e3c5db41560cb6ba3f6fbf834c0e",
+      "sha256": "34633728e9ac9a0290fab4c7a6cdbb99f4d94ba573ef24d193704aeb4045471b",
+      "size_bytes": 14133,
+      "lines": 209
+    },
+    "v2_scenarios": {
+      "path": "docs/evidence/AITHER_R7C1_V2_SCENARIOS.json",
+      "git_blob_sha": "ea7ee89abefc8fce14647ec1f536f37a124dec62",
+      "sha256": "2df6cc6eefc3a4a585d7411b5a936b0a5c3dfaa927c51852dea4e88429edec36",
+      "size_bytes": 45196,
+      "lines": 2637
+    }
+  },
+  "tests": {
+    "unit_tests": {
+      "count": 112,
+      "pass": 112
+    },
+    "evaluator_tests": {
+      "count": 600,
+      "pass": 600
+    },
+    "preflight_v2_tests": {
+      "count": 18,
+      "pass": 18
+    },
+    "long_context_scripted": {
+      "count": 13,
+      "pass": 13
+    },
+    "canonical_reachability": "73/73",
+    "semantic_equivalence": "9/9",
+    "false_positive_leaks": 0,
+    "scripted_positive_FULL": "50/50 (TASK_SUCCESS 100%)",
+    "scripted_positive_ROUTED": "50/50 (TASK_SUCCESS 100%)",
+    "scripted_negative_A_irrelevant": "IRRELEVANT 66.7%, TASK_SUCCESS 0%",
+    "scripted_negative_B_wrong_context": "FALSE_POSITIVE_REVEAL_RATE 0",
+    "scripted_negative_C_non_investigating": "TASK_SUCCESS 0%, EVIDENCE 0%",
+    "long_context_scripted_13": "13/13 PASS"
+  }
+}

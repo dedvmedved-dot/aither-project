@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 evaluator self-tests (Phase 10) — known-answer, independent of simulator."""
+import json, sys, csv
+from importlib.machinery import SourceFileLoader
+
+H = SourceFileLoader("v2", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2").load_module()
+
+def main():
+    d = json.load(open(sys.argv[1]))
+    scs = d["scenarios"]
+    out = sys.argv[2]
+    rows = []
+
+    def check(sc, name, fj, expected_pass):
+        s2 = H.score_final(fj, sc, set(sc["required_evidence"]))
+        passed = H.scenario_passed(s2)
+        ok = (passed == expected_pass)
+        rows.append({"scenario": sc["scenario_id"], "case": name, "expected": "PASS" if expected_pass else "FAIL",
+                     "actual": "PASS" if passed else "FAIL", "root": s2["root_correct"],
+                     "evidence_cov": s2["evidence_cov"], "causal": s2["causal_correct"],
+                     "remediation": s2["remediation_ok"], "prohibited": s2["prohibited"],
+                     "schema": s2["schema_valid"], "PASS": "PASS" if ok else "FAIL"})
+        if not ok:
+            print(f"FAIL {sc['scenario_id']}/{name}: expected {expected_pass} got {passed}", file=sys.stderr)
+
+    for sc in scs:
+        req = sc["required_evidence"]
+        root = sc["root_concepts"][0]
+        rejected = sc["rejected"][0] if sc["rejected"] else "totally unrelated cause"
+        rem = sc["remediation_class"][0] if sc["remediation_class"] else "fix it"
+
+        good = {"root_cause_summary": root, "evidence_ids": req,
+                "causal_explanation": "because of " + root, "remediation_steps": [rem],
+                "risks": [], "missing_data": [], "confidence": 0.9}
+
+        # 1 fully correct -> PASS
+        check(sc, "1_fully_correct", good, True)
+        # 2 correct root missing evidence -> FAIL
+        check(sc, "2_missing_evidence", {**good, "evidence_ids": []}, False)
+        # 3 wrong root -> FAIL
+        check(sc, "3_wrong_root", {**good, "root_cause_summary": rejected}, False)
+        # 4 fabricated evidence id -> FAIL
+        check(sc, "4_fabricated_evidence", {**good, "evidence_ids": ["FAKE_XX"]}, False)
+        # 5 correct evidence wrong causality -> FAIL (causal_evidence mismatch)
+        check(sc, "5_wrong_causality", {**good, "causal_explanation": "for no particular reason"}, False)
+        # 6 prohibited remediation -> FAIL
+        check(sc, "6_prohibited_remediation", {**good, "remediation_steps": ["rm -rf /"]}, False)
+        # 7 safe remediation -> PASS
+        check(sc, "7_safe_remediation", good, True)
+        # 8 malformed schema (not dict) -> FAIL
+        check(sc, "8_malformed_schema", None, False)
+        # 9 rejected alternative root -> FAIL
+        check(sc, "9_rejected_root", {**good, "root_cause_summary": rejected}, False)
+        # 10 duplicate evidence ids -> PASS (dedup)
+        check(sc, "10_duplicate_evidence_ids", {**good, "evidence_ids": req + req[:1]}, True)
+        # 11 empty final -> FAIL
+        check(sc, "11_empty_final", {}, False)
+        # 12 irrelevant extra evidence -> PASS (extra ignored)
+        check(sc, "12_irrelevant_extra_evidence", {**good, "evidence_ids": req + ["EXTRA_99"]}, True)
+
+    fields = ["scenario", "case", "expected", "actual", "root", "evidence_cov",
+              "causal", "remediation", "prohibited", "schema", "PASS"]
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(rows)
+
+    total = len(rows)
+    passed = sum(1 for r in rows if r["PASS"] == "PASS")
+    print(f"EVALUATOR_TEST_COUNT={total}  PASS={passed}  FAIL={total-passed}")
+    print(f"WROTE {out}")
+
+if __name__ == "__main__":
+    main()

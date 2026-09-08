@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 preflight logic validation (Phase 11) — deterministic, no model.
+
+Validates the repaired preflight v2 measurement LOGIC with scripted good/bad
+tool-call sequences. Fixes D7 (exact expected-tool) and D8 (negative controls).
+
+Checks:
+  exact_expected_tool   declared expected tool enforced (ordinary/multi-turn/error-recovery)
+  negative_controls     run WITH tools available; unnecessary call is a real failure
+  error_recovery        expected initial action + non-blind recovery + valid alt/stop
+  multi_turn            actual use of returned tool result (not merely non-empty)
+  multi_tool            every required semantic action satisfied
+
+Usage: python3 aither-r8-benchmark-repair-preflight <out_csv>
+"""
+import json, sys, csv
+
+# ---------------------------------------------------------------------------
+# Preflight v2 check functions (pure logic)
+# ---------------------------------------------------------------------------
+def check_exact_tool(expected, actual_first_tool, allowed_class=None):
+    """D7: enforce declared expected tool unless an allowed semantic class is declared."""
+    if expected == "*":
+        return actual_first_tool is not None  # any tool class
+    if isinstance(expected, (list, tuple, set)):
+        return actual_first_tool in expected  # allowed semantic class
+    if allowed_class:
+        return actual_first_tool in allowed_class
+    return actual_first_tool == expected
+
+
+def check_negative(actual_tools_called, tools_available):
+    """D8: negative control must run with tools available; no tool = PASS."""
+    if not tools_available:
+        return False  # invalid control design: model had no opportunity to call
+    return len(actual_tools_called) == 0
+
+
+def check_error_recovery(expected_initial, actual_initial, recovery_sequence):
+    """Correct expected initial action + non-blind recovery (valid alternative or stop)."""
+    if actual_initial != expected_initial:
+        return False  # D7 applies to error-recovery too
+    # recovery: a different tool/args than the initial, or an explicit stop
+    if not recovery_sequence:
+        return False  # no recovery attempt
+    first_recovery = recovery_sequence[0]
+    if first_recovery == "STOP":
+        return True
+    return first_recovery != actual_initial  # non-blind (different action)
+
+
+def check_multi_turn(first_tool, expected_first, result_used):
+    """Actual use of the returned tool result, not merely non-empty continuation."""
+    if first_tool != expected_first:
+        return False
+    return result_used  # True only if continuation concretely references the result
+
+
+def check_multi_tool(required_actions, observed_actions):
+    """Every required semantic action satisfied; a required action may be a class."""
+    for a in required_actions:
+        if isinstance(a, (tuple, list, set)):
+            if not any(x in observed_actions for x in a):
+                return False
+        else:
+            if a not in observed_actions:
+                return False
+    return True
+
+
+def main():
+    out = sys.argv[1]
+    rows = []
+    def T(name, kind, got, expected):
+        ok = (got == expected)
+        rows.append({"test": name, "kind": kind, "result": "PASS" if ok else "FAIL",
+                     "expected": str(expected), "actual": str(got)})
+
+    # --- exact expected tool ---
+    T("D7_exact_ok", "exact_expected_tool",
+      check_exact_tool("systemctl_status", "systemctl_status"), True)
+    T("D7_exact_wrong", "exact_expected_tool",
+      check_exact_tool("systemctl_status", "shell_readonly"), False)
+    T("D7_exact_allowed_class", "exact_expected_tool",
+      check_exact_tool("systemctl_status", "shell_readonly",
+                       allowed_class=["systemctl_status", "shell_readonly"]), True)
+    T("D7_any_class", "exact_expected_tool",
+      check_exact_tool("*", "read_file"), True)
+
+    # --- negative controls with tools available ---
+    T("D8_neg_no_call_with_tools", "negative_controls",
+      check_negative([], tools_available=True), True)
+    T("D8_neg_unnecessary_call", "negative_controls",
+      check_negative(["read_file"], tools_available=True), False)
+    T("D8_neg_no_tools_invalid", "negative_controls",
+      check_negative([], tools_available=False), False)
+
+    # --- error recovery ---
+    T("ERR_expected_init_ok", "error_recovery",
+      check_error_recovery("systemctl_status", "systemctl_status", ["shell_readonly"]), True)
+    T("ERR_wrong_initial", "error_recovery",
+      check_error_recovery("systemctl_status", "shell_readonly", ["journalctl_read"]), False)
+    T("ERR_blind_repeat", "error_recovery",
+      check_error_recovery("kubectl_logs", "kubectl_logs", ["kubectl_logs"]), False)
+    T("ERR_stop_ok", "error_recovery",
+      check_error_recovery("read_file", "read_file", ["STOP"]), True)
+    T("ERR_no_recovery", "error_recovery",
+      check_error_recovery("http_get", "http_get", []), False)
+
+    # --- multi-turn ---
+    T("MT_uses_result", "multi_turn",
+      check_multi_turn("systemctl_status", "systemctl_status", True), True)
+    T("MT_ignores_result", "multi_turn",
+      check_multi_turn("systemctl_status", "systemctl_status", False), False)
+    T("MT_wrong_first_tool", "multi_turn",
+      check_multi_turn("shell_readonly", "systemctl_status", True), False)
+
+    # --- multi-tool ---
+    T("MULTI_all_actions", "multi_tool",
+      check_multi_tool(["read_file", "systemctl_status"], ["read_file", "systemctl_status"]), True)
+    T("MULTI_missing_action", "multi_tool",
+      check_multi_tool(["read_file", "systemctl_status"], ["systemctl_status"]), False)
+    T("MULTI_semantic_class_ok", "multi_tool",
+      check_multi_tool([("list_directory", "shell_readonly"), "kubectl_logs"],
+                       ["shell_readonly", "kubectl_logs"]), True)
+
+    fields = ["test", "kind", "result", "expected", "actual"]
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(rows)
+
+    total = len(rows); passed = sum(1 for r in rows if r["result"] == "PASS")
+    print(f"PREFLIGHT_V2_TEST_COUNT={total}  PASS={passed}  FAIL={total-passed}")
+    for r in rows:
+        if r["result"] == "FAIL":
+            print(f"  FAIL {r['test']}: expected {r['expected']} got {r['actual']}")
+    print(f"WROTE {out}")
+
+if __name__ == "__main__":
+    main()

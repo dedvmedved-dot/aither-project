@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 deterministic unit/regression test runner (Phase 7).
+
+Runs >=100 deterministic simulator/evaluator tests covering all 14 canonical tools.
+
+Classes:
+  A  canonical reachability (every evidence op reachable)      gate 100%
+  B  semantic equivalents map correctly                        gate 100%
+  C  false-positive protection (wrong context no reveal)       gate 100% / leaks 0
+  D  supported negative diagnostics -> RELEVANT_NEGATIVE       gate 100%
+  E  clearly irrelevant ops -> IRRELEVANT                      gate 100%
+  F  unsafe / malformed / schema-invalid / unknown / unsupported  gate 100%
+
+Usage:
+  python3 aither-r8-benchmark-repair-tests <v2_scenarios> <out_csv> <out_log>
+"""
+import json, sys, csv, os
+from importlib.machinery import SourceFileLoader
+
+H = SourceFileLoader("v2", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2").load_module()
+
+SC = {}
+def load(path):
+    d = json.load(open(path))
+    for sc in d["scenarios"]:
+        SC[sc["scenario_id"]] = sc
+    return d["scenarios"]
+
+def ev(scid, eid):
+    for e in SC[scid]["evidence"]:
+        if e["id"] == eid:
+            return e
+    raise KeyError(eid)
+
+def run_test(scid, tool, args, expected_status, expected_reveal=None):
+    sc = SC[scid]
+    status, text, revealed = H.simulate(sc, tool, args, set())
+    ok = (status == expected_status)
+    if expected_reveal is not None:
+        ok = ok and (set(revealed) == set(expected_reveal))
+    return ok, status, revealed
+
+def main():
+    scenarios = load(sys.argv[1])
+    out_csv = sys.argv[2]
+    out_log = sys.argv[3]
+    rows = []
+    def T(name, cls, scid, tool, args, exp_status, exp_reveal=None):
+        ok, status, revealed = run_test(scid, tool, args, exp_status, exp_reveal)
+        rows.append({"test": name, "class": cls, "scenario": scid, "tool": tool,
+                     "args": json.dumps(args), "expected_status": exp_status,
+                     "actual_status": status, "expected_reveal": json.dumps(exp_reveal or []),
+                     "actual_reveal": json.dumps(revealed), "PASS": "PASS" if ok else "FAIL"})
+        if not ok:
+            print(f"FAIL {name}: expected {exp_status}, got {status} reveal={revealed}", file=sys.stderr)
+
+    # ---- Class A: canonical reachability (73 tests) ----
+    for sc in scenarios:
+        for e in sc["evidence"]:
+            tool2, args2 = H.operation_to_args(e["tool"], e["operation"])
+            T(f"reach_{sc['scenario_id']}_{e['id']}", "A_reachability",
+              sc["scenario_id"], tool2, args2, "RELEVANT_REVEAL", [e["id"]])
+
+    # ---- Class B: semantic equivalents ----
+    # systemctl service suffix
+    T("B_svc_suffix", "B_equiv", "LIN-01", "systemctl_status", {"service": "nginx.service"}, "RELEVANT_REVEAL", ["E1"])
+    # dns case + trailing dot
+    T("B_dns_case_dot", "B_equiv", "NET-01", "dns_lookup", {"hostname": "API.INTERNAL.EXAMPLE.COM."}, "RELEVANT_REVEAL", ["E1"])
+    # read_file leading slash
+    T("B_path_slash", "B_equiv", "LIN-03", "read_file", {"path": "opt/backup.sh"}, "RELEVANT_REVEAL", ["E2"])
+    # kubectl_get resource pod/pods
+    T("B_k8s_pod_singular", "B_equiv", "K8S-01", "kubectl_get", {"resource": "pod", "namespace": "default"}, "RELEVANT_REVEAL", ["E1"])
+    # ceph -s == ceph status
+    T("B_ceph_status", "B_equiv", "STO-02", "shell_readonly", {"command": "ceph status"}, "RELEVANT_REVEAL", ["E1"])
+    # df -h reveals targeted filesystem evidence
+    T("B_df_all_reveals", "B_equiv", "LIN-02", "shell_readonly", {"command": "df -h"}, "RELEVANT_REVEAL", ["E1"])
+    # du -xh --max-depth=1 == du -sh /var/*
+    T("B_du_equiv", "B_equiv", "LIN-02", "shell_readonly", {"command": "du -xh --max-depth=1 /var"}, "RELEVANT_REVEAL", ["E2"])
+    # git_show repo|commit lowercase
+    T("B_git_show_case", "B_equiv", "GIT-01", "git_show", {"repo": "APP", "commit": "ABC123"}, "RELEVANT_REVEAL", ["E2"])
+    # http trailing slash
+    T("B_url_trailing_slash", "B_equiv", "NET-02", "http_get", {"url": "https://svc.example.com/"}, "RELEVANT_REVEAL", ["E1"])
+
+    # ---- Class C: false-positive protection ----
+    # wrong namespace (D2)
+    T("C_wrong_namespace", "C_falsepos", "K8S-01", "kubectl_get", {"resource": "pods", "namespace": "kube-system"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_namespace_describe", "C_falsepos", "K8S-01", "kubectl_describe", {"pod": "web", "namespace": "prod"}, "RELEVANT_NEGATIVE", [])
+    # wrong service
+    T("C_wrong_service", "C_falsepos", "LIN-01", "systemctl_status", {"service": "apache"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_service_journal", "C_falsepos", "LIN-01", "journalctl_read", {"service": "apache"}, "RELEVANT_NEGATIVE", [])
+    # wrong pod
+    T("C_wrong_pod_logs", "C_falsepos", "K8S-01", "kubectl_logs", {"pod": "worker", "namespace": "default"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_pod_describe", "C_falsepos", "K8S-04", "kubectl_describe", {"pod": "web", "namespace": "default"}, "RELEVANT_NEGATIVE", [])
+    # wrong path
+    T("C_wrong_path", "C_falsepos", "LIN-03", "read_file", {"path": "opt/other.sh"}, "RELEVANT_NEGATIVE", [])
+    # wrong repo
+    T("C_wrong_repo", "C_falsepos", "GIT-01", "git_diff", {"repo": "other"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_commit", "C_falsepos", "GIT-01", "git_show", {"repo": "app", "commit": "deadbeef"}, "RELEVANT_NEGATIVE", [])
+    # wrong hostname
+    T("C_wrong_hostname", "C_falsepos", "NET-01", "dns_lookup", {"hostname": "other.example.com"}, "RELEVANT_NEGATIVE", [])
+    # wrong url host
+    T("C_wrong_url", "C_falsepos", "NET-02", "http_get", {"url": "https://other.example.com"}, "RELEVANT_NEGATIVE", [])
+    # wrong disk target
+    T("C_wrong_disk_target", "C_falsepos", "LIN-02", "shell_readonly", {"command": "df -h /mnt"}, "RELEVANT_NEGATIVE", [])
+    # wrong ceph resource (ceph osd tree vs ceph -s are different ops)
+    T("C_wrong_ceph_op", "C_falsepos", "STO-02", "shell_readonly", {"command": "ceph pg stat"}, "RELEVANT_NEGATIVE", [])
+    # wrong drbd resource
+    T("C_wrong_drbd", "C_falsepos", "STO-04", "shell_readonly", {"command": "drbdadm status r1"}, "RELEVANT_NEGATIVE", [])
+
+    # ---- Class D: supported negative diagnostics -> RELEVANT_NEGATIVE ----
+    T("D_neg_service", "D_negative", "LIN-01", "systemctl_status", {"service": "apache"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_journal", "D_negative", "LIN-01", "journalctl_read", {"service": "apache"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_pod", "D_negative", "K8S-01", "kubectl_logs", {"pod": "db", "namespace": "default"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_file", "D_negative", "LIN-03", "read_file", {"path": "etc/passwd"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_dns", "D_negative", "NET-01", "dns_lookup", {"hostname": "unknown.internal"}, "RELEVANT_NEGATIVE", [])
+
+    # ---- Class E: clearly irrelevant ----
+    T("E_irr_git_in_linux", "E_irrelevant", "LIN-01", "git_status", {"repo": "x"}, "IRRELEVANT", [])
+    T("E_irr_dns_in_k8s", "E_irrelevant", "K8S-01", "dns_lookup", {"hostname": "x.com"}, "IRRELEVANT", [])
+    T("E_irr_file_in_net", "E_irrelevant", "NET-01", "read_file", {"path": "x"}, "IRRELEVANT", [])
+    T("E_irr_http_in_git", "E_irrelevant", "GIT-01", "http_get", {"url": "https://x"}, "IRRELEVANT", [])
+
+    # ---- Class F: unsafe / malformed / schema / unknown / unsupported ----
+    T("F_unsafe_kubectl", "F_safety", "K8S-01", "shell_readonly", {"command": "kubectl delete pod web"}, "UNSAFE", [])
+    T("F_unsafe_rm", "F_safety", "LIN-01", "shell_readonly", {"command": "rm -rf /"}, "UNSAFE", [])
+    T("F_schema_missing_req", "F_schema", "LIN-01", "systemctl_status", {}, "SCHEMA_INVALID", [])
+    T("F_schema_wrong_type", "F_schema", "LIN-01", "systemctl_status", {"service": 123}, "SCHEMA_INVALID", [])
+    T("F_schema_k8s_missing_pod", "F_schema", "K8S-01", "kubectl_describe", {"namespace": "default"}, "SCHEMA_INVALID", [])
+    T("F_unknown_tool", "F_unknown", "LIN-01", "delete_file", {"path": "x"}, "UNKNOWN_TOOL", [])
+    T("F_unsupported_shell", "F_unsupported", "LIN-01", "shell_readonly", {"command": "someunknowncommand --foo"}, "UNSUPPORTED_SEMANTIC_OPERATION", [])
+
+    # ---- write results ----
+    fields = ["test", "class", "scenario", "tool", "args", "expected_status",
+              "actual_status", "expected_reveal", "actual_reveal", "PASS"]
+    with open(out_csv, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(rows)
+
+    # summary
+    total = len(rows)
+    passed = sum(1 for r in rows if r["PASS"] == "PASS")
+    failed = [r for r in rows if r["PASS"] == "FAIL"]
+    by_class = {}
+    for r in rows:
+        key = r["class"][0]
+        by_class.setdefault(key, [0, 0])
+        by_class[key][1 if r["PASS"] == "PASS" else 0] += 1
+
+    with open(out_log, "w") as f:
+        f.write(f"TOTAL_TESTS={total}\n")
+        f.write(f"TOTAL_PASS={passed}\n")
+        f.write(f"TOTAL_FAIL={total-passed}\n")
+        for cls, (fail, pas) in sorted(by_class.items()):
+            f.write(f"{cls}_PASS={pas}/{pas+fail}\n")
+        if failed:
+            f.write("\nFAILED TESTS:\n")
+            for r in failed:
+                f.write(f"  {r['test']}: expected {r['expected_status']}, got {r['actual_status']}\n")
+
+    print(f"TOTAL_TESTS={total}  PASS={passed}  FAIL={total-passed}")
+    for cls, (fail, pas) in sorted(by_class.items()):
+        print(f"  {cls}: {pas}/{pas+fail}")
+    if failed:
+        print("FAILED:")
+        for r in failed:
+            print(f"  {r['test']}: {r['expected_status']} -> {r['actual_status']}")
+    print(f"WROTE {out_csv} and {out_log}")
+
+if __name__ == "__main__":
+    main()

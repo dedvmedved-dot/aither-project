@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 scripted control runner (Phase 8 positive + Phase 9 negative).
+
+Deterministic scripted policies (NOT LLMs) run through the exact v2 simulator/evaluator.
+
+Policies:
+  positive   -> follows the intended diagnostic path (all evidence ops + correct final)
+  negA       -> valid but unrelated tools/targets (irrelevant agent)
+  negB       -> wrong context: same tools, wrong object (no false reveal)
+  negC       -> non-investigating: plausible conclusion, no evidence
+
+Usage:
+  python3 aither-r8-benchmark-repair-scripted <v2_scenarios> <policy> <out_csv>
+"""
+import json, sys, csv
+from importlib.machinery import SourceFileLoader
+
+H = SourceFileLoader("v2", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2").load_module()
+
+def load(path):
+    d = json.load(open(path))
+    return d["scenarios"]
+
+def final_json(sc, revealed):
+    return {"root_cause_summary": sc["root_concepts"][0],
+            "evidence_ids": sorted(revealed),
+            "causal_explanation": "because of " + sc["root_concepts"][0],
+            "remediation_steps": [sc["remediation_class"][0]],
+            "risks": [], "missing_data": [], "confidence": 0.9}
+
+def run_policy(sc, policy):
+    """Return (calls, final, revealed, unsafe, hall)."""
+    seen = set()
+    calls = []
+    revealed = set()
+    unsafe = 0
+    hall = 0
+
+    if policy == "positive":
+        for e in sc["evidence"]:
+            tool, args = H.operation_to_args(e["tool"], e["operation"])
+            status, text, rev = H.simulate(sc, tool, args, seen)
+            key = H.op_identity(H.parse_operation(tool, args)[0])
+            seen.add(key)
+            calls.append({"tool": tool, "args": args, "status": status})
+            revealed.update(rev)
+        fj = final_json(sc, revealed)
+
+    elif policy == "negA":  # irrelevant: valid but unrelated tools
+        # use tools NOT in this scenario's evidence
+        ev_tools = {e["tool"] for e in sc["evidence"]}
+        unrelated = [t for t in H.KNOWN if t not in ev_tools]
+        for t in unrelated[:3]:
+            if t == "read_file": args = {"path": "unrelated.txt"}
+            elif t == "systemctl_status": args = {"service": "unrelated"}
+            elif t == "kubectl_get": args = {"resource": "pods", "namespace": "unrelated"}
+            elif t == "git_status": args = {"repo": "unrelated"}
+            elif t == "dns_lookup": args = {"hostname": "unrelated.example.com"}
+            elif t == "http_get": args = {"url": "https://unrelated.example.com"}
+            elif t == "shell_readonly": args = {"command": "id"}
+            else: args = {"path": "x"}
+            status, text, rev = H.simulate(sc, t, args, seen)
+            op, err = H.parse_operation(t, args)
+            if op: seen.add(H.op_identity(op))
+            calls.append({"tool": t, "args": args, "status": status})
+            revealed.update(rev)
+        fj = final_json(sc, set())  # no evidence
+
+    elif policy == "negB":  # wrong context: same tools, wrong object
+        for e in sc["evidence"]:
+            tool = e["tool"]
+            op = e["operation"]
+            t = op["type"]
+            # perturb the context dimension
+            if t in ("service_status", "journal_read"):
+                args = {"service": "wrongservice"}
+            elif t in ("kube_get",):
+                args = {"resource": op.get("resource", "pods"), "namespace": "wrong-ns"}
+            elif t in ("kube_describe", "kube_logs"):
+                args = {"pod": "wrongpod", "namespace": op.get("namespace", "default")}
+            elif t in ("read_file", "list_directory"):
+                args = {"path": "wrong/path"}
+            elif t == "dns_lookup":
+                args = {"hostname": "wrong.example.com"}
+            elif t == "http_get":
+                args = {"url": "https://wrong.example.com"}
+            elif t in ("git_status", "git_diff"):
+                args = {"repo": "wrongrepo"}
+            elif t == "git_show":
+                args = {"repo": "wrongrepo", "commit": "0000000"}
+            elif t == "shell_readonly":
+                args = {"command": "df -h /wrong"}
+            else:
+                args = {"path": "wrong"}
+            status, text, rev = H.simulate(sc, tool, args, seen)
+            op2, err = H.parse_operation(tool, args)
+            if op2: seen.add(H.op_identity(op2))
+            calls.append({"tool": tool, "args": args, "status": status})
+            revealed.update(rev)
+        fj = final_json(sc, set())
+
+    elif policy == "negC":  # non-investigating: plausible conclusion, no evidence
+        fj = final_json(sc, set())
+        fj["evidence_ids"] = []
+
+    else:
+        raise ValueError(policy)
+
+    return calls, fj, revealed, unsafe, hall
+
+def metrics(sc, calls, fj, revealed):
+    s2 = H.score_final(fj, sc, revealed)
+    passed = H.scenario_passed(s2)
+    req = set(sc["required_evidence"])
+    disc = len(req & revealed) / len(req) if req else 0.0
+
+    total = len(calls)
+    statuses = [c["status"] for c in calls]
+    rev = sum(1 for s in statuses if s == "RELEVANT_REVEAL")
+    dup = sum(1 for s in statuses if s == "DUPLICATE")
+    nondup = total - dup
+    irr = sum(1 for s in statuses if s == "IRRELEVANT")
+    prec = rev / nondup if nondup else 0.0
+    rec = disc
+    f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+    return {
+        "scenario_id": sc["scenario_id"], "passed": passed, "schema": s2["schema_valid"],
+        "root": s2["root_correct"], "evidence_cov": s2["evidence_cov"],
+        "causal": s2["causal_correct"], "remediation": s2["remediation_ok"],
+        "prohibited": s2["prohibited"], "discovered": round(disc, 2),
+        "calls": total, "relevant_reveal": rev, "irrelevant": irr, "duplicate": dup,
+        "precision": round(prec, 4), "recall": round(rec, 4), "f1": round(f1, 4),
+        "unsafe": 0, "hall": 0, "json_args_valid": total,
+    }
+
+def main():
+    scs = load(sys.argv[1])
+    policy = sys.argv[2]
+    out = sys.argv[3]
+    rows = []
+    for sc in scs:
+        calls, fj, revealed, unsafe, hall = run_policy(sc, policy)
+        rows.append(metrics(sc, calls, fj, revealed))
+
+    n = len(rows)
+    succ = 100 * sum(1 for r in rows if r["passed"]) / n
+    root = 100 * sum(1 for r in rows if r["root"]) / n
+    disc = 100 * sum(r["discovered"] for r in rows) / n
+    prec = 100 * sum(r["precision"] for r in rows) / n
+    rec = 100 * sum(r["recall"] for r in rows) / n
+    f1 = 100 * sum(r["f1"] for r in rows) / n
+    irr = 100 * sum(r["irrelevant"] for r in rows) / max(1, sum(r["calls"] - r["duplicate"] for r in rows))
+    dup = 100 * sum(r["duplicate"] for r in rows) / max(1, sum(r["calls"] for r in rows))
+    schema = 100 * sum(1 for r in rows if r["schema"]) / n
+    jsona = 100 * sum(r["json_args_valid"] for r in rows) / max(1, sum(r["calls"] for r in rows))
+    # false positive reveal rate (evidence revealed by negB wrong-context should be 0)
+    fp = sum(1 for r in rows if r["relevant_reveal"] > 0)
+
+    fields = list(rows[0].keys())
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(rows)
+
+    print(f"=== {policy} ===")
+    print(f"TASK_SUCCESS={succ:.1f}% ROOT={root:.1f}% EVIDENCE_DISCOVERY={disc:.1f}% SCHEMA={schema:.1f}%")
+    print(f"TOOL_PRECISION={prec:.1f}% TOOL_RECALL={rec:.1f}% TOOL_F1={f1:.1f}%")
+    print(f"IRRELEVANT={irr:.1f}% DUPLICATE={dup:.1f}% JSON_ARGS={jsona:.1f}%")
+    print(f"FALSE_POSITIVE_REVEALS={fp}")
+    print(f"WROTE {out}")
+
+if __name__ == "__main__":
+    main()

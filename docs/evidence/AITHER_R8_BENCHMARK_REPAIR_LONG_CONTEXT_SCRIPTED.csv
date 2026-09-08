@@ -1,0 +1,14 @@
+case_id,target_tokens,begin_found,mid_found,end_found,begin_frac,mid_frac,end_frac,root_correct,evidence_cov,all_revealed,PASS
+LC-56K-01,56000,True,True,True,0.002,0.006,0.996,True,1.0,True,PASS
+LC-56K-02,56000,True,True,True,0.002,0.005,0.997,True,1.0,True,PASS
+LC-56K-03,56000,True,True,True,0.002,0.006,0.997,True,1.0,True,PASS
+LC-56K-04,56000,True,True,True,0.002,0.006,0.997,True,1.0,True,PASS
+LC-56K-05,56000,True,True,True,0.002,0.005,0.996,True,1.0,True,PASS
+LC-58K-01,58000,True,True,True,0.002,0.005,0.997,True,1.0,True,PASS
+LC-58K-02,58000,True,True,True,0.002,0.004,0.997,True,1.0,True,PASS
+LC-58K-03,58000,True,True,True,0.002,0.005,0.997,True,1.0,True,PASS
+LC-58K-04,58000,True,True,True,0.002,0.005,0.997,True,1.0,True,PASS
+LC-58K-05,58000,True,True,True,0.002,0.005,0.997,True,1.0,True,PASS
+LC-60K-01,60000,True,True,True,0.002,0.005,0.997,True,1.0,True,PASS
+LC-60K-02,60000,True,True,True,0.002,0.004,0.997,True,1.0,True,PASS
+LC-60K-03,60000,True,True,True,0.002,0.005,0.997,True,1.0,True,PASS
