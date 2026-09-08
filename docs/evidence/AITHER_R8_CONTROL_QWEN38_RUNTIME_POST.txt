@@ -1,0 +1,36 @@
+===== AITHER R8-CONTROL QWEN38 RUNTIME POST =====
+generated_utc: 2026-09-08T16:35:05Z
+
+### .agent task-control hashes (SHA256) ###
+2bb5649a04a18e6ab8ac00e4e122145bd79bd33b1bbf0d637431f71325f569f5  .agent/CURRENT_TASK.json
+4e8ca86d563eade6f023c9374936800259523822e7502f5f9777f6555d7313b8  .agent/CURRENT_TASK.md
+
+### qwen38 deployment ###
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                     SELECTOR
+vllm-qwen38-27b-fp8   1/1     1            1           16d   vllm         vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967   app=vllm,model=qwen38-27b-fp8
+replicas: 1
+image: vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967
+
+### qwen38 pod ###
+NAME                                   READY   STATUS    RESTARTS   AGE   IP             NODE                         NOMINATED NODE   READINESS GATES
+vllm-qwen38-27b-fp8-57b74959dd-4nx9j   1/1     Running   0          40h   10.244.1.156   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+restartCount: 0
+
+### n8 qwen3-32b-awq pod ###
+NAME                                  READY   STATUS    RESTARTS   AGE   IP            NODE                         NOMINATED NODE   READINESS GATES
+vllm-qwen3-32b-awq-59bd8f7d75-zzj9g   1/1     Running   0          9d    10.244.0.83   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+
+### nvidia-smi (n7) ###
+name, memory.total [MiB], memory.used [MiB]
+Quadro RTX 6000, 23040 MiB, 19309 MiB
+Quadro RTX 6000, 23040 MiB, 19309 MiB
+
+### health ###
+health HTTP 200
+### /v1/models ###
+{"object":"list","data":[{"id":"qwen3.8-27b","object":"model","created":1788885307,"owned_by":"vllm","root":"/model","parent":null,"max_model_len":65536,"permission":[{"id":"modelperm-a3945062760d3cb3","object":"model_permission","created":1788885307,"allow_create_engine":false,"allow_sampling":true
+### basic chat smoke ###
+{"id":"chatcmpl-ab05093cdcde20e8","object":"chat.completion","created":1788885307,"model":"qwen3.8-27b","choices":[{"index":0,"message":{"role":"assistant","content":"\n\n4","refusal":null,"annotations":null,"audio":null,"function_call":null,"reasoning":"We need to answer user: \"What is 2+2? number only\". Need final number only. Answer 4.\n"},"logprobs":null,"finish_reason":"stop","stop_reason":
+
+### tool smoke ###
+{"id":"chatcmpl-806193c9e9037e7f","object":"chat.completion","created":1788885310,"model":"qwen3.8-27b","choices":[{"index":0,"message":{"role":"assistant","content":null,"refusal":null,"annotations":null,"audio":null,"function_call":null,"tool_calls":[{"id":"chatcmpl-tool-9e09b00d780ce81e","type":"function","function":{"name":"read_file","arguments":"{\"path\": \"/etc/hostname\"}"}}],"reasoning":

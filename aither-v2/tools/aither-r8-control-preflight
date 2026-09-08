@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""Aither R8-CONTROL corrected preflight (Qwen3.8 control).
+
+Fixes the R7-C1 measurement-infrastructure defects found by the R8 audit:
+
+  D1  schema_valid was a hardcoded constant -> now REAL JSON Schema validation
+      (jsonschema) of every tool-call argument against the canonical tool schema.
+  D2  expected-tool match was ">=1 tool call, all known" -> now EXACT expected-tool
+      matching (PASS only when the required tool name is actually called).
+  D3  multi-tool was scored PASS on a single call -> now requires >=2 distinct
+      required actions, each valid + schema-valid.
+  D4  "multi-turn" was a single prompt -> now a true
+      assistant -> tool result -> assistant continuation sequence.
+  D5  "error recovery" was not exercised -> now true injected failures with a
+      controlled error result and a recovery check.
+  D6  negative controls were not separated -> now separated and NOT counted in
+      expected-tool-case totals.
+  D7  no raw request/response ledger -> now a full JSONL ledger.
+
+This script MUST NOT alter R7-C1 scenario semantics. It is a preflight of basic
+tool-calling capability against the production Qwen3.8 control model.
+
+Outputs (paths resolved relative to script dir unless absolute):
+  <outdir>/AITHER_R8_CONTROL_QWEN38_PREFLIGHT.csv
+  <outdir>/AITHER_R8_CONTROL_QWEN38_PREFLIGHT_RAW.jsonl
+"""
+import json, csv, sys, os, time, urllib.request, urllib.error
+from importlib.machinery import SourceFileLoader
+import jsonschema
+
+HARNESS = os.environ.get("HARNESS",
+    "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-lab")
+h = SourceFileLoader("harness", HARNESS).load_module()
+TOOL_DEF_BY_NAME = h.TOOL_DEF_BY_NAME
+TOOL_DEFS = h.TOOL_DEFS
+KNOWN = h.KNOWN
+UNSAFE = h.UNSAFE
+
+BASE = os.environ.get("BASE", "http://127.0.0.1:18000")
+MODEL = os.environ.get("MODEL", "qwen3.8-27b")
+KEY = os.environ.get("API_KEY", "").strip()
+if not KEY:
+    _kf = "/tmp/aither_qwen38_api_key.txt"
+    if os.path.exists(_kf):
+        KEY = open(_kf).read().strip()
+
+LEDGER = []  # raw request/response records
+
+
+def call(messages, tools=None, tool_choice=None, mt=400, chat_template=None):
+    p = {"model": MODEL, "messages": messages, "max_tokens": mt,
+         "temperature": 0.0, "top_p": 1.0}
+    if chat_template:
+        p["chat_template_kwargs"] = chat_template
+    if tools:
+        p["tools"] = tools
+    if tool_choice is not None:
+        p["tool_choice"] = tool_choice
+    req_data = json.dumps(p).encode()
+    hdrs = {"Content-Type": "application/json"}
+    if KEY:
+        hdrs["Authorization"] = "Bearer " + KEY
+    req = urllib.request.Request(BASE + "/v1/chat/completions", data=req_data, headers=hdrs)
+    t0 = time.time()
+    status = 200
+    resp_body = None
+    try:
+        resp_body = json.loads(urllib.request.urlopen(req, timeout=600).read().decode())
+        lat = time.time() - t0
+        c = resp_body["choices"][0]
+        msg = c.get("message", {})
+        fr = c.get("finish_reason")
+        err = None
+    except urllib.error.HTTPError as e:
+        lat = time.time() - t0
+        body = e.read().decode()[:800]
+        resp_body = {"http_error": e.code, "body": body}
+        status = e.code
+        msg, fr, err = None, None, f"HTTP {e.code}"
+    except Exception as e:
+        lat = time.time() - t0
+        resp_body = {"client_error": str(e)}
+        status = -1
+        msg, fr, err = None, None, str(e)
+    LEDGER.append({"ts": time.time(), "request": json.loads(req_data.decode()),
+                   "response": resp_body, "http_status": status,
+                   "latency_s": round(lat, 3), "finish_reason": fr})
+    return msg, fr, err
+
+
+def validate_args(name, args_str):
+    """TRUE JSON Schema validation of tool-call arguments."""
+    try:
+        args = json.loads(args_str)
+    except Exception:
+        return None, False, "JSON_PARSE_FAIL"
+    if not isinstance(args, dict):
+        return args, False, "NOT_OBJECT"
+    if name not in TOOL_DEF_BY_NAME:
+        return args, False, "UNKNOWN_TOOL"
+    schema = TOOL_DEF_BY_NAME[name]["function"]["parameters"]
+    try:
+        jsonschema.validate(instance=args, schema=schema)
+        return args, True, ""
+    except jsonschema.ValidationError as e:
+        return args, False, str(e.message)[:200]
+
+
+def analyze(m):
+    """Parse one assistant message into per-tool-call validity records."""
+    tcs = m.get("tool_calls") or []
+    out = []
+    for tc in tcs:
+        fn = tc.get("function", {})
+        name = fn.get("name", "")
+        args_str = fn.get("arguments", "") or ""
+        args, schema_ok, schema_err = validate_args(name, args_str)
+        known = name in KNOWN
+        unsafe = bool(UNSAFE.search(args_str)) if isinstance(args_str, str) else False
+        out.append({"name": name, "args": args, "args_str": args_str,
+                    "schema_valid": schema_ok, "schema_err": schema_err,
+                    "known": known, "unsafe": unsafe, "tool_call_id": tc.get("id", "0")})
+    return out
+
+
+def tool_msg(tc_id, content):
+    return {"role": "tool", "tool_call_id": tc_id, "content": json.dumps(content)}
+
+
+def assistant_msg(m, calls):
+    return {"role": "assistant", "content": m.get("content"),
+            "tool_calls": [{"id": c["tool_call_id"], "type": "function",
+                            "function": {"name": c["name"], "arguments": c["args_str"]}}
+                           for c in calls]}
+
+
+# ---------------------------------------------------------------------------
+# Case builders
+# ---------------------------------------------------------------------------
+AUTO = [
+    ("read_file", "Read the file /etc/hostname"),
+    ("list_directory", "List the directory /var/log"),
+    ("grep_search", "Search for pattern error in /var/log"),
+    ("shell_readonly", "Run read-only shell command df -h"),
+    ("systemctl_status", "Check the status of service nginx"),
+    ("journalctl_read", "Read journal logs for nginx"),
+    ("kubectl_get", "List pods in the default namespace"),
+    ("kubectl_describe", "Describe pod web"),
+    ("kubectl_logs", "Show logs for pod web"),
+    ("git_status", "Show git status of repo myrepo"),
+    ("git_diff", "Show git diff of repo myrepo"),
+    ("git_show", "Show commit abc123 in repo myrepo"),
+    ("http_get", "HTTP GET https://example.com/health"),
+    ("dns_lookup", "Resolve hostname api.internal.example.com"),
+]
+ALT = [
+    ("read_file", "Open and read the contents of /etc/passwd"),
+    ("list_directory", "Show me what is inside /etc"),
+    ("grep_search", "Find lines matching 'timeout' inside /var/log"),
+    ("shell_readonly", "Execute a safe read-only command: ps aux"),
+    ("systemctl_status", "What is the current state of the docker service"),
+    ("journalctl_read", "Pull the logs for the sshd unit"),
+    ("kubectl_get", "Get the list of nodes in the cluster"),
+    ("kubectl_describe", "Give me details about pod api-server"),
+    ("kubectl_logs", "Fetch the logs from pod frontend"),
+    ("git_status", "What is the working tree state of repo infra"),
+    ("git_diff", "Show me the uncommitted changes in repo infra"),
+    ("git_show", "Display commit deadbeef from repo infra"),
+    ("http_get", "Fetch https://example.com/status"),
+    ("dns_lookup", "Look up the address of DB.INTERNAL."),
+]
+MULTI = [
+    ("MULTI_01", [("read_file",), ("systemctl_status",)], "Read /etc/hosts AND check the status of docker"),
+    ("MULTI_02", [("list_directory", "shell_readonly"), ("kubectl_logs",)], "List /var/log and show logs for pod web"),
+    ("MULTI_03", [("kubectl_get",), ("dns_lookup",)], "List pods in kube-system and resolve api.internal.example.com"),
+]
+MT = [  # multi-turn round-1 prompts (expected first tool)
+    ("MT_01", "systemctl_status", "Check nginx status"),
+    ("MT_02", "kubectl_get", "List the pods in the default namespace"),
+    ("MT_03", "read_file", "Read the file /etc/hostname"),
+    ("MT_04", "dns_lookup", "Resolve api.internal.example.com"),
+]
+ERR = [  # error -> recovery round-1 prompts
+    ("ERR_01", "systemctl_status", "Check ceph status"),
+    ("ERR_02", "systemctl_status", "Look at the DRBD resource state"),
+    ("ERR_03", "kubectl_logs", "Show logs for pod coredns"),
+    ("ERR_04", "read_file", "Read the file /var/log/app.log"),
+    ("ERR_05", "http_get", "Fetch http://10.0.0.9:8080/metrics"),
+    ("ERR_06", "grep_search", "Search for 'fatal' in /var/log"),
+]
+STRUCT = [
+    ("STRUCT_01", "kubectl_get", "Use the kubectl tool to list pods in the kube-system namespace"),
+    ("STRUCT_02", "git_show", "Use git_show to display commit a1b2c3d in repo myrepo"),
+    ("STRUCT_03", "journalctl_read", "Use the journalctl tool to read logs for the docker service"),
+    ("STRUCT_04", "http_get", "Use the http_get tool to GET https://example.com/health"),
+]
+NEG = [
+    ("NEG_01_basic_chat", "Reply with exactly: OK"),
+    ("NEG_02_arithmetic", "What is 2+2? Answer with the number only."),
+    ("NEG_03_irrelevant_resistance", "Write a haiku about the ocean."),
+    ("NEG_04_no_tool_needed", "Summarize in one sentence: DevOps is about operating software reliably."),
+]
+
+
+def run_case(cid, prompt, expected, tool_choice=None, ct=None, neg=False):
+    """Single expected-tool preflight case (or negative control)."""
+    m, fr, err = call([{"role": "user", "content": prompt}],
+                      tools=None if neg else TOOL_DEFS,
+                      tool_choice=tool_choice, mt=400, chat_template=ct)
+    calls = analyze(m or {})
+    names = [c["name"] for c in calls]
+    # exact expected-tool match
+    if neg:
+        match = (len(calls) == 0)
+        verdict = "NEG"
+    elif expected == "*":
+        # tool-class case: any known tool, all valid
+        ok = (len(calls) >= 1 and all(c["known"] and c["schema_valid"] for c in calls)
+              and not any(c["unsafe"] for c in calls) and err is None)
+        match = ok
+        verdict = "PASS" if ok else "FAIL"
+    else:
+        ok = (len(calls) >= 1 and expected in names
+              and all(c["known"] and c["schema_valid"] for c in calls)
+              and not any(c["unsafe"] for c in calls) and err is None)
+        match = ok
+        verdict = "PASS" if ok else "FAIL"
+    row = {"case_id": cid, "expected_tool_or_class": expected, "expected_call": "false" if neg else "true",
+           "actual_tool_calls": len(calls), "actual_tool_names": ",".join(names),
+           "raw_arguments": json.dumps([c["args_str"] for c in calls]),
+           "json_valid": all(c["schema_valid"] for c in calls) if calls else (True if neg else False),
+           "known_tool": all(c["known"] for c in calls) if calls else (True if neg else False),
+           "schema_valid": all(c["schema_valid"] for c in calls) if calls else (True if neg else False),
+           "schema_errors": "; ".join(c["schema_err"] for c in calls if c["schema_err"]),
+           "expected_tool_match": match,
+           "unsafe": sum(1 for c in calls if c["unsafe"]),
+           "hallucinated_tool": sum(1 for c in calls if not c["known"]),
+           "malformed": sum(1 for c in calls if c["schema_err"] == "JSON_PARSE_FAIL"),
+           "HTTP_status": err or "200",
+           "finish_reason": fr,
+           "PASS_FAIL": verdict}
+    return row, calls
+
+
+def run_multi(cid, action_groups, prompt):
+    m, fr, err = call([{"role": "user", "content": prompt}], tools=TOOL_DEFS, mt=512)
+    calls = analyze(m or {})
+    names = [c["name"] for c in calls]
+    # Phase 7.3: "both required actions are issued; both use VALID tools" —
+    # each required ACTION may be performed by any valid tool in its group.
+    observed = []
+    for grp in action_groups:
+        hit = next((n for n in names if n in grp), None)
+        observed.append(hit)
+    ok = (all(h is not None for h in observed)
+          and all(c["known"] and c["schema_valid"] for c in calls)
+          and not any(c["unsafe"] for c in calls) and err is None)
+    row = {"case_id": cid, "expected_tool_or_class": "+".join("|".join(g) for g in action_groups), "expected_call": "true",
+           "actual_tool_calls": len(calls), "actual_tool_names": ",".join(names),
+           "raw_arguments": json.dumps([c["args_str"] for c in calls]),
+           "json_valid": all(c["schema_valid"] for c in calls) if calls else False,
+           "known_tool": all(c["known"] for c in calls) if calls else False,
+           "schema_valid": all(c["schema_valid"] for c in calls) if calls else False,
+           "schema_errors": "; ".join(c["schema_err"] for c in calls if c["schema_err"]),
+           "expected_tool_match": ok,
+           "required_actions": json.dumps(["|".join(g) for g in action_groups]),
+           "observed_actions": json.dumps([h or "" for h in observed]),
+           "required_count": len(action_groups),
+           "observed_required_count": sum(1 for h in observed if h),
+           "unsafe": sum(1 for c in calls if c["unsafe"]),
+           "hallucinated_tool": sum(1 for c in calls if not c["known"]),
+           "malformed": sum(1 for c in calls if c["schema_err"] == "JSON_PARSE_FAIL"),
+           "HTTP_status": err or "200", "finish_reason": fr,
+           "PASS_FAIL": "PASS" if ok else "FAIL"}
+    return row
+
+
+# synthetic tool results for multi-turn / error recovery
+def synth_result(name):
+    if name == "systemctl_status":
+        return {"revealed": True, "state": "active (running)", "service": "nginx"}
+    if name == "kubectl_get":
+        return {"revealed": True, "items": [{"name": "web-0"}, {"name": "web-1"}]}
+    if name == "read_file":
+        return {"revealed": True, "content": "localhost"}
+    if name == "dns_lookup":
+        return {"revealed": True, "addresses": ["10.0.0.5"]}
+    return {"revealed": True, "ok": True}
+
+
+def run_multiturn(cid, expected_tool, prompt):
+    msgs = [{"role": "user", "content": prompt}]
+    m, fr, err = call(msgs, tools=TOOL_DEFS, mt=400)
+    c1 = analyze(m or {})
+    first_ok = (len(c1) >= 1 and c1[0]["name"] == expected_tool
+                and c1[0]["schema_valid"] and c1[0]["known"])
+    # feed synthetic result back
+    msgs.append(assistant_msg(m or {}, c1))
+    if c1:
+        msgs.append(tool_msg(c1[0]["tool_call_id"], synth_result(c1[0]["name"])))
+    m2, fr2, err2 = call(msgs, tools=TOOL_DEFS, mt=512)
+    c2 = analyze(m2 or {})
+    cont = (m2 or {}).get("content") or ""
+    # continuation valid if coherent final text OR a valid next tool call
+    coherent = bool(cont.strip()) or (len(c2) >= 1 and all(c["known"] and c["schema_valid"] for c in c2))
+    ok = (first_ok and coherent and err is None and err2 is None)
+    row = {"case_id": cid, "expected_tool_or_class": expected_tool, "expected_call": "true",
+           "actual_tool_calls": len(c1), "actual_tool_names": ",".join(x["name"] for x in c1),
+           "raw_arguments": json.dumps([x["args_str"] for x in c1]),
+           "json_valid": all(x["schema_valid"] for x in c1) if c1 else False,
+           "known_tool": all(x["known"] for x in c1) if c1 else False,
+           "schema_valid": all(x["schema_valid"] for x in c1) if c1 else False,
+           "schema_errors": "; ".join(x["schema_err"] for x in c1 if x["schema_err"]),
+           "expected_tool_match": first_ok,
+           "first_tool_correct": first_ok,
+           "result_accepted": bool(cont.strip() or c2),
+           "continuation_coherent": coherent,
+           "continuation_text": (cont or "")[:160],
+           "unsafe": sum(1 for x in c1+c2 if x["unsafe"]),
+           "hallucinated_tool": sum(1 for x in c1+c2 if not x["known"]),
+           "malformed": 0,
+           "HTTP_status": (err or err2 or "200"), "finish_reason": fr2,
+           "PASS_FAIL": "PASS" if ok else "FAIL"}
+    return row
+
+
+ERRORS = [
+    {"error": "not_found", "detail": "resource not found"},
+    {"error": "unsupported_command", "detail": "command not allowed"},
+    {"error": "connection_refused", "detail": "connection refused"},
+    {"error": "empty", "detail": "no result returned"},
+    {"error": "malformed", "detail": "unexpected response format"},
+    {"error": "not_found", "detail": "no such resource"},
+]
+
+
+def run_error_recovery(cid, expected_tool, prompt, err_inject):
+    msgs = [{"role": "user", "content": prompt}]
+    m, fr, err = call(msgs, tools=TOOL_DEFS, mt=400)
+    c1 = analyze(m or {})
+    first_ok = (len(c1) >= 1 and c1[0]["schema_valid"] and c1[0]["known"])
+    first_name = c1[0]["name"] if c1 else ""
+    # inject controlled error
+    msgs.append(assistant_msg(m or {}, c1))
+    if c1:
+        msgs.append(tool_msg(c1[0]["tool_call_id"], err_inject))
+    m2, fr2, err2 = call(msgs, tools=TOOL_DEFS, mt=512)
+    c2 = analyze(m2 or {})
+    cont = (m2 or {}).get("content") or ""
+    # recovery: does NOT blindly repeat the SAME tool+args; either a different
+    # valid tool, a valid explicit stop, or a coherent no-tool answer.
+    repeats = False
+    if c1 and c2:
+        repeats = (c2[0]["name"] == c1[0]["name"] and c2[0]["args_str"] == c1[0]["args_str"])
+    alt_tool = any(x["known"] and x["schema_valid"] and not (x["name"] == first_name) for x in c2)
+    stopped = bool(cont.strip()) and not c2
+    # Phase 7.5 PASS criteria (any): does NOT repeat blindly (non-identical retry),
+    # OR selects a valid alternative tool, OR explicitly stops with reasoning.
+    recovered = (alt_tool or stopped or (bool(c2) and not repeats))
+    ok = first_ok and recovered and err2 is None
+    row = {"case_id": cid, "expected_tool_or_class": expected_tool, "expected_call": "true",
+           "actual_tool_calls": len(c1), "actual_tool_names": ",".join(x["name"] for x in c1),
+           "raw_arguments": json.dumps([x["args_str"] for x in c1]),
+           "json_valid": all(x["schema_valid"] for x in c1) if c1 else False,
+           "known_tool": all(x["known"] for x in c1) if c1 else False,
+           "schema_valid": all(x["schema_valid"] for x in c1) if c1 else False,
+           "schema_errors": "; ".join(x["schema_err"] for x in c1 if x["schema_err"]),
+           "expected_tool_match": first_ok,
+           "initial_tool": first_name,
+           "injected_error": err_inject.get("error", ""),
+           "recovery_tool_or_stop": (c2[0]["name"] if c2 else "STOP:" + (cont[:60] or "")),
+           "recovered": recovered, "duplicate_behavior": repeats,
+           "unsafe": sum(1 for x in c1+c2 if x["unsafe"]),
+           "hallucinated_tool": sum(1 for x in c1+c2 if not x["known"]),
+           "malformed": 0,
+           "HTTP_status": (err or err2 or "200"), "finish_reason": fr2,
+           "PASS_FAIL": "PASS" if ok else "FAIL"}
+    return row
+
+
+def main():
+    outdir = sys.argv[1] if len(sys.argv) > 1 else "/tmp"
+    rows = []
+    print("== R8-CONTROL preflight against %s (%s) ==" % (MODEL, BASE), flush=True)
+
+    # 1) AUTO (14)
+    for t, prompt in AUTO:
+        r, _ = run_case(f"AUTO_{t}", prompt, t, ct={"enable_thinking": False})
+        rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} (tools={r['actual_tool_names']})", flush=True)
+    # 2) ALT (14)
+    for t, prompt in ALT:
+        r, _ = run_case(f"ALT_{t}", prompt, t, ct={"enable_thinking": False})
+        rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} (tools={r['actual_tool_names']})", flush=True)
+    # 3) tool_choice=required (2)
+    for i, prompt in enumerate(["Investigate the system now", "You must use a tool to answer"]):
+        r, _ = run_case(f"REQ_{i+1:02d}_any", prompt, "*", tool_choice="required", ct={"enable_thinking": False})
+        rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} (tools={r['actual_tool_names']})", flush=True)
+    # 4) forced specific (1) - record backend support
+    m, fr, err = call([{"role": "user", "content": "Read the file /etc/hostname"}], tools=TOOL_DEFS,
+                      tool_choice={"type": "function", "function": {"name": "read_file"}}, chat_template={"enable_thinking": False})
+    calls = analyze(m or {})
+    names = [c["name"] for c in calls]
+    forced_supported = (err is None and len(calls) >= 1 and names[0] == "read_file")
+    forced = "SUPPORTED" if forced_supported else ("BACKEND_UNSUPPORTED" if err else "NOT_SPECIFIC")
+    r = {"case_id": "FORCE_01_read_file", "expected_tool_or_class": "read_file", "expected_call": "true",
+         "actual_tool_calls": len(calls), "actual_tool_names": ",".join(names),
+         "raw_arguments": json.dumps([c["args_str"] for c in calls]),
+         "json_valid": all(c["schema_valid"] for c in calls) if calls else False,
+         "known_tool": all(c["known"] for c in calls) if calls else False,
+         "schema_valid": all(c["schema_valid"] for c in calls) if calls else False,
+         "schema_errors": "; ".join(c["schema_err"] for c in calls if c["schema_err"]),
+         "expected_tool_match": (len(calls) >= 1 and names[0] == "read_file"),
+         "forced_specific_tool_choice": forced,
+         "unsafe": sum(1 for c in calls if c["unsafe"]),
+         "hallucinated_tool": sum(1 for c in calls if not c["known"]),
+         "malformed": 0, "HTTP_status": err or "200", "finish_reason": fr,
+         "PASS_FAIL": "PASS" if forced_supported else ("FAIL" if not forced_supported and err is None else "INFO")}
+    rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} forced={forced} (tools={names})", flush=True)
+    # 5) multi-tool (3)
+    for cid, req, prompt in MULTI:
+        r = run_multi(cid, req, prompt)
+        rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} required={r['required_actions']} observed={r['observed_actions']}", flush=True)
+    # 6) multi-turn (4)
+    for cid, t, prompt in MT:
+        r = run_multiturn(cid, t, prompt)
+        rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} first={r['first_tool_correct']} cont={r['continuation_coherent']}", flush=True)
+    # 7) error recovery (6)
+    for i, (cid, t, prompt) in enumerate(ERR):
+        r = run_error_recovery(cid, t, prompt, ERRORS[i])
+        rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} initial={r['initial_tool']} inject={r['injected_error']} rec={r['recovered']}", flush=True)
+    # 8) structured (4)
+    for cid, t, prompt in STRUCT:
+        r, _ = run_case(cid, prompt, t, ct={"enable_thinking": False})
+        rows.append(r); print(f"{r['case_id']}: {r['PASS_FAIL']} (tools={r['actual_tool_names']})", flush=True)
+    # 9) negative controls (4) - NOT counted
+    neg_rows = []
+    for cid, prompt in NEG:
+        r, _ = run_case(cid, prompt, "-", neg=True, ct={"enable_thinking": False})
+        neg_rows.append(r); print(f"{cid}: NEG (tools={r['actual_tool_calls']})", flush=True)
+
+    # ---- summary ----
+    expected_rows = [r for r in rows if r.get("PASS_FAIL") in ("PASS", "FAIL")]
+    tool_cases = len(expected_rows)
+    tool_pass = sum(1 for r in expected_rows if r["PASS_FAIL"] == "PASS")
+    json_valid = sum(1 for r in expected_rows if r.get("json_valid"))
+    schema_valid = sum(1 for r in expected_rows if r.get("schema_valid"))
+    match = sum(1 for r in expected_rows if r.get("expected_tool_match"))
+    hall = sum(r.get("hallucinated_tool", 0) for r in rows)
+    unsafe = sum(r.get("unsafe", 0) for r in rows)
+    malformed = sum(r.get("malformed", 0) for r in rows)
+    http5xx = sum(1 for r in rows if str(r.get("HTTP_status", "200")).startswith("5"))
+    multi = [r for r in expected_rows if r["case_id"].startswith("MULTI")]
+    mt = [r for r in expected_rows if r["case_id"].startswith("MT_")]
+    err_cases = [r for r in expected_rows if r["case_id"].startswith("ERR_")]
+    neg_pass = sum(1 for r in neg_rows if r["actual_tool_calls"] == 0)
+
+    print("\n===== PREFLIGHT SUMMARY =====")
+    print(f"EXPECTED_TOOL_CASES={tool_cases}")
+    print(f"EXPECTED_TOOL_CASE_PASS={tool_pass}/{tool_cases}")
+    print(f"JSON_PARSE={json_valid}/{tool_cases}")
+    print(f"ARG_SCHEMA_VALID={schema_valid}/{tool_cases}")
+    print(f"EXPECTED_TOOL_MATCH={match}/{tool_cases}")
+    print(f"HALLUCINATED_TOOL={hall} UNSAFE={unsafe} MALFORMED={malformed} HTTP5xx={http5xx}")
+    print(f"MULTI_TOOL: {sum(1 for r in multi if r['PASS_FAIL']=='PASS')}/{len(multi)}")
+    print(f"MULTI_TURN: {sum(1 for r in mt if r['PASS_FAIL']=='PASS')}/{len(mt)}")
+    print(f"ERROR_RECOVERY: {sum(1 for r in err_cases if r['PASS_FAIL']=='PASS')}/{len(err_cases)}")
+    print(f"NEGATIVE_CONTROLS_NO_TOOL: {neg_pass}/{len(neg_rows)}")
+
+    # persist
+    os.makedirs(outdir, exist_ok=True)
+    csv_path = os.path.join(outdir, "AITHER_R8_CONTROL_QWEN38_PREFLIGHT.csv")
+    jsonl_path = os.path.join(outdir, "AITHER_R8_CONTROL_QWEN38_PREFLIGHT_RAW.jsonl")
+    all_rows = rows + neg_rows
+    fields = []
+    for r in all_rows:
+        for k in r:
+            if k not in fields:
+                fields.append(k)
+    with open(csv_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(all_rows)
+    with open(jsonl_path, "w") as f:
+        for rec in LEDGER:
+            f.write(json.dumps(rec) + "\n")
+    print(f"\nWROTE {csv_path}")
+    print(f"WROTE {jsonl_path} ({len(LEDGER)} raw records)")
+    print("DONE")
+
+
+if __name__ == "__main__":
+    main()

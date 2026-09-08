@@ -1,0 +1,14 @@
+case_id,target_tokens,actual_tokens,duration_s,begin_found,mid_found,end_found,begin_frac,mid_frac,end_frac,root_correct,evidence_cov,hall,unsafe,json_ok,json_total,PASS_FAIL
+LC-56K-01,56000,56066,2155.7,True,True,True,0.0,0.471,0.999,False,0.0,0,0,12,12,FAIL
+LC-56K-02,56000,56065,1723.8,True,True,True,0.0,0.471,0.999,False,1.0,0,0,8,8,FAIL
+LC-56K-03,56000,56062,2139.0,True,True,True,0.0,0.471,0.999,False,0.0,0,0,10,10,FAIL
+LC-56K-04,56000,56046,2140.7,True,True,True,0.0,0.471,0.999,False,0.33,0,0,10,10,FAIL
+LC-56K-05,56000,56058,2141.9,True,True,True,0.0,0.471,0.999,False,0.0,0,0,11,11,FAIL
+LC-58K-01,58000,58052,2272.2,True,True,True,0.0,0.471,1.0,False,0.0,0,0,11,11,FAIL
+LC-58K-02,58000,58057,2286.0,True,True,True,0.0,0.471,0.999,False,0.0,0,0,14,14,FAIL
+LC-58K-03,58000,58084,2295.5,True,True,True,0.0,0.471,0.999,False,0.33,0,0,10,10,FAIL
+LC-58K-04,58000,58043,2290.8,True,True,True,0.0,0.471,0.999,False,0.0,0,0,13,13,FAIL
+LC-58K-05,58000,58050,2307.5,True,True,True,0.0,0.471,0.999,False,0.0,0,0,16,16,FAIL
+LC-60K-01,60000,60062,2427.0,True,True,True,0.0,0.471,0.999,False,0.33,0,0,11,11,FAIL
+LC-60K-02,60000,60052,2424.0,True,True,True,0.0,0.471,0.999,False,0.33,0,0,11,11,FAIL
+LC-60K-03,60000,60044,2423.3,True,True,True,0.0,0.471,1.0,False,0.0,0,0,12,12,FAIL

@@ -1,0 +1,95 @@
+===== AITHER R8-CONTROL QWEN38 RUNTIME PRE =====
+generated_utc: 2026-09-07T13:22:00Z
+
+### .agent task-control hashes (SHA256) ###
+2bb5649a04a18e6ab8ac00e4e122145bd79bd33b1bbf0d637431f71325f569f5  .agent/CURRENT_TASK.json
+4e8ca86d563eade6f023c9374936800259523822e7502f5f9777f6555d7313b8  .agent/CURRENT_TASK.md
+
+===== n8 (qwen3-32b-awq) state =====
+NAME                 READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                     SELECTOR
+vllm-qwen3-32b-awq   1/1     1            1           28d   vllm         vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33   app=vllm,model=qwen3-32b-awq
+NAME                                  READY   STATUS    RESTARTS   AGE   IP            NODE                         NOMINATED NODE   READINESS GATES
+vllm-qwen3-32b-awq-59bd8f7d75-zzj9g   1/1     Running   0          8d    10.244.0.83   bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+
+===== all vllm pods =====
+NAME                                   READY   STATUS    RESTARTS   AGE   IP             NODE                         NOMINATED NODE   READINESS GATES
+vllm-qwen3-32b-awq-59bd8f7d75-zzj9g    1/1     Running   0          8d    10.244.0.83    bootsman-k8s-clnt01-n8-gpu   <none>           <none>
+vllm-qwen38-27b-fp8-57b74959dd-4nx9j   1/1     Running   0          12h   10.244.1.156   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+
+===== BFF routing (configmap) =====
+aither-bff-config                  1      41d
+aither-bff-gateway-canary-config   1      41d
+aither-gateway-catalog             1      41d
+nginx-gateway-32b                  1      50d
+--- bff configmap data keys ---
+Error from server (NotFound): configmaps "aither-bff" not found
+
+
+===== R8-CONTROL RUNTIME PRE SNAPSHOT =====
+generated_utc: 2026-09-07T13:20:36Z
+
+===== kubectl get deploy =====
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                     SELECTOR
+vllm-qwen38-27b-fp8   1/1     1            1           15d   vllm         vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967   app=vllm,model=qwen38-27b-fp8
+
+===== kubectl get pod =====
+NAME                                   READY   STATUS    RESTARTS   AGE   IP             NODE                         NOMINATED NODE   READINESS GATES
+vllm-qwen38-27b-fp8-57b74959dd-4nx9j   1/1     Running   0          12h   10.244.1.156   bootsmam-k8s-clnt01-n7-gpu   <none>           <none>
+
+===== replicas =====
+1
+===== restart count =====
+0
+===== image =====
+vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967
+===== args =====
+["--model","/model","--served-model-name","qwen3.8-27b","--tensor-parallel-size","2","--host","0.0.0.0","--port","8000","--gpu-memory-utilization","0.90","--max-model-len","65536","--max-num-seqs","1","--dtype","half","--enforce-eager","--reasoning-parser","qwen3","--enable-auto-tool-choice","--tool-call-parser","qwen3_xml","--generation-config","vllm"]
+
+===== env (names only) =====
+PYTORCH_CUDA_ALLOC_CONF VLLM_API_KEY VLLM_ALLOW_LONG_MAX_MODEL_LEN
+===== nvidia-smi via exec =====
+name, memory.total [MiB], memory.used [MiB], driver_version
+Quadro RTX 6000, 23040 MiB, 19309 MiB, 590.48.01
+Quadro RTX 6000, 23040 MiB, 19309 MiB, 590.48.01
+
+===== nvidia-smi full =====
+Mon Sep  7 13:20:38 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 590.48.01              Driver Version: 590.48.01      CUDA Version: 13.1     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Quadro RTX 6000                On  |   00000000:5E:00.0 Off |                    0 |
+| N/A   38C    P0             81W /  250W |   19309MiB /  23040MiB |     37%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  Quadro RTX 6000                On  |   00000000:AF:00.0 Off |                    0 |
+| N/A   44C    P0            116W /  250W |   19309MiB /  23040MiB |    100%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+===== BFF routing config (aither-bff-config) =====
+{"app.py":"# Aither Portal Backend (BFF)\n#\n# Environment variables:\n#   PORTAL_IDENTITY_URL    — Identity service URL (default: http://aither-identity:8000)\n#   PORTAL_LOG_LEVEL       — logging level (default: INFO)\n#   PORTAL_CORS_ORIGIN     — Allowed CORS origin (default: *)\n#   PORTAL_BFF_TOKEN       — Token for BFF→Identity internal communication (optional)\n\nimport os\nimport json\nimport logging\nimport time\nfrom datetime import datetime, timezone\n\nimport httpx\nfrom fastapi import FastAPI, HTTPException, Depends, Request, Response\nfrom fastapi.responses import JSONResponse\nfrom fastapi.middleware.cors import CORSMiddleware\nfrom pydantic import BaseModel\n\nimport prometheus_client\nfrom prometheus_client import Counter, Histogram, Gauge\n\n# ── Configuration ──────────────────────────────────────────────\n\nIDENTITY_URL = os.environ.get(\"PORTAL_IDENTITY_URL\", \"http://aither-identity:8000\")\nAI_PLATFORM_URL = os.environ.get(\"PORTAL_AI_PLATFORM_URL\", \"http://aither-ai-platform:8000\")\nLOG_LEVEL = os.environ.get(\"PORTAL_LOG_LEVEL\", \"INFO\").upper()\nCORS_ORIGIN = os.environ.get(\"PORTAL_CORS_ORIGIN\", \"http://localhost:3000\")\n# In production, set PORTAL_CORS_ORIGIN to the Portal Frontend URL.\n# Example: PORTAL_CORS_ORIGIN=https://portal.aither.example.com\n# Multiple origins are not supported by this middleware — use a reverse proxy for complex rules.\n\nclass JSONFormatter(logging.Formatter):\n    \"\"\"Structured JSON log formatter.\"\"\"\n    def format(self, record: logging.LogRecord) -\u003e str:\n        log_entry = {\n            \"timestamp\": datetime.now(timezone.utc).isoformat(),\n            \"level\": record.levelname,\n            \"service\": \"aither-portal-bff\",\n            \"message\": record.getMessage(),\n        }\n        if hasattr(record, \"request_id\"):\n            log_entry[\"request_id\"] = record.request_id\n        if hasattr(record, \"user_id\"):\n            log_entry[\"user_id\"] = record.user_id\n        if hasattr(record, \"endpoint\"):\n            log_entry[\"endpoint\"] = record.endpoint\n        if hasattr(record, \"duration_ms\"):\n            log_entry[\"duration_ms\"] = record.duration_ms\n        if hasattr(record, \"status_code\"):\n            log_entry[\"status_code\"] = record.status_code\n        return json.dumps(log_entry, default=str)\n\nlogging.basicConfig(level=ge
+
+===== gateway catalog (models) =====
+{"catalog.yaml":"# Aither Model Catalog — актуальный для текущего кластера\n# Gateway использует этот файл для роутинга запросов к vLLM-подам\n#\n# Field mapping for catalog.py:\n#   name        → model identifier (used for routing + API)\n#   backend     → upstream vLLM base URL\n#   model_path  → served model name passed to vLLM\n#   display_name, description, tags, max_tokens, tokens_per_ruble, tier_access, status, endpoint_type\n\nmodels:\n  - name: qwen-14b\n    display_name: \"Qwen 2.5 14B Instruct\"\n    description: \"Быстрая универсальная модель — чаты, summarization, код\"\n    backend: \"http://vllm-14b-instruct.aither-inference.svc:8000\"\n    model_path: \"qwen-14b\"\n    endpoint_type: chat_completions\n    status: active\n    max_tokens: 4096\n    tokens_per_ruble: 100\n    tier_access: [free, standard, vip, enterprise]\n    rag_support: false\n    stream_support: true\n    timeout_seconds: 300\n    health_endpoint: \"/health\"\n\n  - name: qwen-32b-base\n    display_name: \"Qwen 2.5 32B GPTQ\"\n    description: \"Мощная базовая модель — аналитика, длинные тексты, сложный код\"\n    backend: \"http://vllm-32b-gptq.aither-inference.svc:8000\"\n    model_path: \"qwen-32b-base\"\n    endpoint_type: completions\n    status: active\n    max_tokens: 4096\n    tokens_per_ruble: 30\n    tier_access: [standard, vip, enterprise]\n    rag_support: false\n    stream_support: true\n    timeout_seconds: 300\n    health_endpoint: \"/health\"\n    note: \"Базовая модель — требует chat-адаптер для диалогов\"\n"}
+
+===== /health =====
+HTTP 200
+===== /v1/models =====
+{"object":"list","data":[{"id":"qwen3.8-27b","object":"model","created":1788787267,"owned_by":"vllm","root":"/model","parent":null,"max_model_len":65536,"permission":[{"id":"modelperm-a6e8a503e7be81d5","object":"model_permission","created":1788787267,"allow_create_engine":false,"allow_sampling":true,"allow_logprobs":true,"allow_search_indices":false,"allow_view":true,"allow_fine_tuning":false,"organization":"*","group":null,"is_blocking":false}]}]}
+
+===== basic chat smoke =====
+{"id":"chatcmpl-8eeacad451634cd0","object":"chat.completion","created":1788787268,"model":"qwen3.8-27b","choices":[{"index":0,"message":{"role":"assistant","content":null,"refusal":null,"annotations":null,"audio":null,"function_call":null,"reasoning":"We need to respond to user: \"Reply with exactly: OK\". Need final exactly OK. No"},"logprobs":null,"finish_reason":"length","stop_reason":null,"tok
+
+===== tool smoke =====
+{"id":"chatcmpl-940b2332a0b0b8c5","object":"chat.completion","created":1788787277,"model":"qwen3.8-27b","choices":[{"index":0,"message":{"role":"assistant","content":null,"refusal":null,"annotations":null,"audio":null,"function_call":null,"tool_calls":[{"id":"chatcmpl-tool-a5fa512c7ec86c80","type":"function","function":{"name":"read_file","arguments":"{\"path\": \"/etc/hostname\"}"}}],"reasoning":"The user is asking me to read /etc/hostname. This is a simple file read request. Let me use the rea

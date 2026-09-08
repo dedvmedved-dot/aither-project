@@ -1,0 +1,76 @@
+case_id,expected_tool_or_class,expected_call,actual_tool_calls,actual_tool_names,raw_arguments,json_valid,known_tool,schema_valid,schema_errors,expected_tool_match,unsafe,hallucinated_tool,malformed,HTTP_status,finish_reason,PASS_FAIL,forced_specific_tool_choice,required_actions,observed_actions,required_count,observed_required_count,first_tool_correct,result_accepted,continuation_coherent,continuation_text,initial_tool,injected_error,recovery_tool_or_stop,recovered,duplicate_behavior
+AUTO_read_file,read_file,true,1,read_file,"[""{\""path\"": \""/etc/hostname\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_list_directory,list_directory,true,1,list_directory,"[""{\""path\"": \""/var/log\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_grep_search,grep_search,true,1,grep_search,"[""{\""pattern\"": \""error\"", \""path\"": \""/var/log\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_shell_readonly,shell_readonly,true,1,shell_readonly,"[""{\""command\"": \""df -h\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_systemctl_status,systemctl_status,true,1,systemctl_status,"[""{\""service\"": \""nginx\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_journalctl_read,journalctl_read,true,1,journalctl_read,"[""{\""service\"": \""nginx\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_kubectl_get,kubectl_get,true,1,kubectl_get,"[""{\""resource\"": \""pods\"", \""namespace\"": \""default\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_kubectl_describe,kubectl_describe,true,1,kubectl_describe,"[""{\""pod\"": \""web\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_kubectl_logs,kubectl_logs,true,1,kubectl_logs,"[""{\""pod\"": \""web\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_git_status,git_status,true,1,git_status,"[""{\""repo\"": \""myrepo\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_git_diff,git_diff,true,1,git_diff,"[""{\""repo\"": \""myrepo\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_git_show,git_show,true,1,git_show,"[""{\""commit\"": \""abc123\"", \""repo\"": \""myrepo\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_http_get,http_get,true,1,http_get,"[""{\""url\"": \""https://example.com/health\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+AUTO_dns_lookup,dns_lookup,true,1,dns_lookup,"[""{\""hostname\"": \""api.internal.example.com\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_read_file,read_file,true,1,read_file,"[""{\""path\"": \""/etc/passwd\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_list_directory,list_directory,true,1,list_directory,"[""{\""path\"": \""/etc\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_grep_search,grep_search,true,1,grep_search,"[""{\""pattern\"": \""timeout\"", \""path\"": \""/var/log\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_shell_readonly,shell_readonly,true,1,shell_readonly,"[""{\""command\"": \""ps aux\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_systemctl_status,systemctl_status,true,1,systemctl_status,"[""{\""service\"": \""docker\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_journalctl_read,journalctl_read,true,1,journalctl_read,"[""{\""service\"": \""sshd\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_kubectl_get,kubectl_get,true,1,kubectl_get,"[""{\""resource\"": \""nodes\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_kubectl_describe,kubectl_describe,true,1,kubectl_describe,"[""{\""pod\"": \""api-server\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_kubectl_logs,kubectl_logs,true,1,kubectl_logs,"[""{\""pod\"": \""frontend\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_git_status,git_status,true,1,git_status,"[""{\""repo\"": \""infra\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_git_diff,git_diff,true,2,"git_status,git_diff","[""{\""repo\"": \""infra\""}"", ""{\""repo\"": \""infra\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_git_show,git_show,true,1,git_show,"[""{\""commit\"": \""deadbeef\"", \""repo\"": \""infra\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_http_get,http_get,true,1,http_get,"[""{\""url\"": \""https://example.com/status\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+ALT_dns_lookup,dns_lookup,true,1,dns_lookup,"[""{\""hostname\"": \""DB.INTERNAL\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+REQ_01_any,*,true,2,"shell_readonly,shell_readonly","[""{\""command\"": \""uptime && echo --- && df -h / && echo --- && free -h && echo --- && date\""}"", ""{\""command\"": \""ps aux --sort=-%cpu | head -15\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+REQ_02_any,*,true,1,list_directory,"[""{\""path\"": \"".\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+FORCE_01_read_file,read_file,true,1,read_file,"[""{\""path\"": \""/etc/hostname\""}""]",True,True,True,,True,0,0,0,200,stop,PASS,SUPPORTED,,,,,,,,,,,,,
+MULTI_01,read_file+systemctl_status,true,2,"read_file,systemctl_status","[""{\""path\"": \""/etc/hosts\""}"", ""{\""service\"": \""docker\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,"[""read_file"", ""systemctl_status""]","[""read_file"", ""systemctl_status""]",2,2,,,,,,,,,
+MULTI_02,list_directory|shell_readonly+kubectl_logs,true,2,"shell_readonly,kubectl_logs","[""{\""command\"": \""ls -la /var/log\""}"", ""{\""pod\"": \""web\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,"[""list_directory|shell_readonly"", ""kubectl_logs""]","[""shell_readonly"", ""kubectl_logs""]",2,2,,,,,,,,,
+MULTI_03,kubectl_get+dns_lookup,true,2,"kubectl_get,dns_lookup","[""{\""resource\"": \""pods\"", \""namespace\"": \""kube-system\""}"", ""{\""hostname\"": \""api.internal.example.com\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,"[""kubectl_get"", ""dns_lookup""]","[""kubectl_get"", ""dns_lookup""]",2,2,,,,,,,,,
+MT_01,systemctl_status,true,1,systemctl_status,"[""{\""service\"": \""nginx\""}""]",True,True,True,,True,0,0,0,200,stop,PASS,,,,,,True,True,True,"
+
+nginx is **active (running)** — the service is up and running normally.",,,,,
+MT_02,kubectl_get,true,1,kubectl_get,"[""{\""resource\"": \""pods\"", \""namespace\"": \""default\""}""]",True,True,True,,True,0,0,0,200,stop,PASS,,,,,,True,True,True,"
+
+There are 2 pods running in the **default** namespace:
+
+| Name |
+|------|
+| web-0 |
+| web-1 |
+
+These appear to be part of a StatefulSet (based on the numbered",,,,,
+MT_03,read_file,true,1,read_file,"[""{\""path\"": \""/etc/hostname\""}""]",True,True,True,,True,0,0,0,200,stop,PASS,,,,,,True,True,True,"
+
+The file `/etc/hostname` contains:
+
+```
+localhost
+```",,,,,
+MT_04,dns_lookup,true,1,dns_lookup,"[""{\""hostname\"": \""api.internal.example.com\""}""]",True,True,True,,True,0,0,0,200,stop,PASS,,,,,,True,True,True,"
+
+**api.internal.example.com** resolves to:
+
+- **10.0.0.5** (IPv4, private/internal range)
+
+This is a private IP address (10.0.0.0/8 range), indicating it's an ",,,,,
+ERR_01,systemctl_status,true,2,"systemctl_status,shell_readonly","[""{\""service\"": \""ceph\""}"", ""{\""command\"": \""ceph -s 2>&1 || ceph status 2>&1\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,systemctl_status,not_found,shell_readonly,True,False
+ERR_02,systemctl_status,true,1,shell_readonly,"[""{\""command\"": \""drbdadm status 2>/dev/null || cat /proc/drbd\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,shell_readonly,unsupported_command,read_file,True,False
+ERR_03,kubectl_logs,true,1,kubectl_logs,"[""{\""pod\"": \""coredns\"", \""namespace\"": \""kube-system\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,kubectl_logs,connection_refused,kubectl_logs,True,False
+ERR_04,read_file,true,1,read_file,"[""{\""path\"": \""/var/log/app.log\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,read_file,empty,shell_readonly,True,False
+ERR_05,http_get,true,1,http_get,"[""{\""url\"": \""http://10.0.0.9:8080/metrics\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,http_get,malformed,shell_readonly,True,False
+ERR_06,grep_search,true,1,grep_search,"[""{\""pattern\"": \""fatal\"", \""path\"": \""/var/log\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,grep_search,not_found,list_directory,True,False
+STRUCT_01,kubectl_get,true,1,kubectl_get,"[""{\""resource\"": \""pods\"", \""namespace\"": \""kube-system\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+STRUCT_02,git_show,true,1,git_show,"[""{\""commit\"": \""a1b2c3d\"", \""repo\"": \""myrepo\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+STRUCT_03,journalctl_read,true,1,journalctl_read,"[""{\""service\"": \""docker\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+STRUCT_04,http_get,true,1,http_get,"[""{\""url\"": \""https://example.com/health\""}""]",True,True,True,,True,0,0,0,200,tool_calls,PASS,,,,,,,,,,,,,,
+NEG_01_basic_chat,-,false,0,,[],True,True,True,,True,0,0,0,200,stop,NEG,,,,,,,,,,,,,,
+NEG_02_arithmetic,-,false,0,,[],True,True,True,,True,0,0,0,200,stop,NEG,,,,,,,,,,,,,,
+NEG_03_irrelevant_resistance,-,false,0,,[],True,True,True,,True,0,0,0,200,stop,NEG,,,,,,,,,,,,,,
+NEG_04_no_tool_needed,-,false,0,,[],True,True,True,,True,0,0,0,200,stop,NEG,,,,,,,,,,,,,,
