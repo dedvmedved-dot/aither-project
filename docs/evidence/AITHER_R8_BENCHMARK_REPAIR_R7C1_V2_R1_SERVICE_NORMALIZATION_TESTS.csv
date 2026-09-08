@@ -1,0 +1,10 @@
+input,expected,actual,PASS
+'worker','worker','worker',PASS
+'docker','docker','docker',PASS
+'redis','redis','redis',PASS
+'service','service','service',PASS
+'nginx.service','nginx','nginx',PASS
+'worker.service','worker','worker',PASS
+'redis.service','redis','redis',PASS
+'Nginx.Service','nginx','nginx',PASS
+'','','',PASS

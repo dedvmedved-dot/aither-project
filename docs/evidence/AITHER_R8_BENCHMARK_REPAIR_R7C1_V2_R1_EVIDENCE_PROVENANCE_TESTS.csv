@@ -1,0 +1,10 @@
+test,claimed,revealed,credited,evidence_cov,unrevealed_claimed,fabricated_claimed,note,PASS
+P7_partial_claimed,['E1'],"['E1', 'E2']",['E1'],0.33,[],[],"fab=0,unrev=0",PASS
+P8_claim_revealed_plus_fake,"['E1', 'FAKE']",['E1'],['E1'],0.33,[],['FAKE'],"fab=1,unrev=0",PASS
+P9_claim_unrevealed_valid,['E2'],['E1'],[],0.0,['E2'],[],"fab=0,unrev=1",PASS
+P1_claim_all_revealed_empty,"['E1', 'E2']",[],[],0.0,"['E1', 'E2']",[],cov=0,PASS
+P2_claim_unrevealed,['E1'],[],[],0.0,['E1'],[],cov=0,PASS
+P3_fabricated,['FAKE'],[],[],0.0,[],['FAKE'],fabricated=1,PASS
+P4_partial,"['E1', 'E2']",['E1'],['E1'],0.5,['E2'],[],cov=0.5,PASS
+P5_all_revealed,"['E1', 'E2']","['E1', 'E2']","['E1', 'E2']",1.0,[],[],cov=1.0,PASS
+P6_reveal_no_claim,[],"['E1', 'E2']",[],0.0,[],[],cov=0,PASS

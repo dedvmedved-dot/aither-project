@@ -1,0 +1,21 @@
+test,scenario,tool,args,expected_status,actual_status,PASS
+G_same_tool_irrelevant,LIN-01,systemctl_status,"{""service"": ""postgresql""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+G_git_in_nginx_still_irrelevant,LIN-01,git_status,"{""repo"": ""app""}",IRRELEVANT,IRRELEVANT,PASS
+D_xtool_socket_nginx,LIN-01,shell_readonly,"{""command"": ""ss -ltnp | grep ':80'""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_resolv,NET-01,read_file,"{""path"": ""etc/resolv.conf""}",RELEVANT_REVEAL,RELEVANT_REVEAL,PASS
+D_xtool_disk_list,LIN-02,list_directory,"{""path"": ""var/log""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_k8s_nodes,K8S-02,kubectl_get,"{""resource"": ""nodes"", ""namespace"": ""default""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_dig_dns,NET-01,shell_readonly,"{""command"": ""dig api.internal.example.com""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_ss_noport,LIN-01,shell_readonly,"{""command"": ""ss -ltnp""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_process_nginx,LIN-01,shell_readonly,"{""command"": ""ps aux | grep nginx""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_read_nginx_conf,LIN-01,read_file,"{""path"": ""etc/nginx/nginx.conf""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_ceph_osd_df,STO-03,shell_readonly,"{""command"": ""ceph osd df""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_kube_describe_other_pod,K8S-02,kubectl_describe,"{""pod"": ""api"", ""namespace"": ""default""}",RELEVANT_REVEAL,RELEVANT_REVEAL,PASS
+G_journal_other_svc,LIN-01,journalctl_read,"{""service"": ""postgresql""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+G_kubectl_other_pod,K8S-07,kubectl_logs,"{""pod"": ""worker"", ""namespace"": ""default""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+G_docker_other_container,CON-03,shell_readonly,"{""command"": ""docker exec other nslookup""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_drbd_ceph_unrelated,STO-04,shell_readonly,"{""command"": ""ceph -s""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_grep_secret,SEC-04,grep_search,"{""pattern"": ""api_key"", ""path"": ""config.yaml""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+D_xtool_journal_kernel,LIN-04,journalctl_read,"{""service"": ""kernel""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+G_same_tool_wrong_repo,GIT-02,git_status,"{""repo"": ""other""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS
+G_same_tool_wrong_svc_2,CON-02,systemctl_status,"{""service"": ""nginx""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,PASS

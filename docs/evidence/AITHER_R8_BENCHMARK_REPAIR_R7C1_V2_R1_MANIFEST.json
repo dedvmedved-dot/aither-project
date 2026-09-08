@@ -1,0 +1,97 @@
+{
+  "task": "AITHER-HERMES-R8-BENCHMARK-REPAIR-R7C1-V2-R1",
+  "baseline_sha": "bd534bc6994c2616b3fc549f6f4597153df4078b",
+  "scenario_schema_version": "2-r1",
+  "simulator_version": "2-r1",
+  "evaluator_version": "2-r1",
+  "relevance_model_version": "2-r1",
+  "generated_at_utc": "2026-09-08T19:39:36.997539Z",
+  "r1_artifacts": {
+    "r1_harness": {
+      "path": "aither-v2/tools/aither-agent-harness-r7c1-v2-r1",
+      "git_blob_sha": "e07720d1d0e6cd0dbf2b8f26a34a54dfa462c641",
+      "sha256": "6b89622a1a10746ec43020fbb822fbabf4a9d04ad65cfd3e33146d55765bbc4b",
+      "size_bytes": 35299,
+      "lines": 733
+    },
+    "r1_converter": {
+      "path": "aither-v2/tools/aither-r7c1-v2-r1-scenario-converter",
+      "git_blob_sha": "45d18d51d89b99dcf88f68a7702447457d09cd97",
+      "sha256": "daccdb336c933d045e04497346f016fa6272b1bd7adde41a1b7032e5a288aea3",
+      "size_bytes": 4691,
+      "lines": 99
+    },
+    "r1_scenarios": {
+      "path": "docs/evidence/AITHER_R7C1_V2_R1_SCENARIOS.json",
+      "git_blob_sha": "0fb37b9039878dd755c1bba0f2f889ed89c060ab",
+      "sha256": "e94b697425d77f9cba0741e4240201eaed41cd38d9070a080da8a75497d20b03",
+      "size_bytes": 58164,
+      "lines": 3284
+    },
+    "r1_tests": {
+      "path": "aither-v2/tools/aither-r8-benchmark-repair-r1-tests",
+      "git_blob_sha": "09506bfed11888dbf6161bb1f341783c43883ebd",
+      "sha256": "4119895bafb149a00d26cd3e10f45cb38d088d27cdf8bc2978d2988603dc636b",
+      "size_bytes": 19727,
+      "lines": 257
+    },
+    "r1_evaltests": {
+      "path": "aither-v2/tools/aither-r8-benchmark-repair-r1-evaltests",
+      "git_blob_sha": "57bc0e91b5b45a6e8fbbedb96420fb120b355a56",
+      "sha256": "089be8222f432c5653184f1893cf93eed8800e320d0679d5a6267e2a419140b3",
+      "size_bytes": 3690,
+      "lines": 64
+    },
+    "r1_scripted": {
+      "path": "aither-v2/tools/aither-r8-benchmark-repair-r1-scripted",
+      "git_blob_sha": "4efc4745818a7e759fd91d49a780902abdaa74d6",
+      "sha256": "fbd766089e9df4b84203deacccfb1d3919505ef90d2ef1b35ef4d37c36bb5b68",
+      "size_bytes": 8345,
+      "lines": 164
+    },
+    "r1_longcontext": {
+      "path": "aither-v2/tools/aither-r8-benchmark-repair-r1-longcontext",
+      "git_blob_sha": "776786861ffb2d638f12db39058357cd370e5380",
+      "sha256": "d45c33a91c4a64891ede43d463dd0c301e78fc44dfece5cad287268ff86a9ed3",
+      "size_bytes": 15752,
+      "lines": 231
+    },
+    "r1_preflight": {
+      "path": "aither-v2/tools/aither-r8-benchmark-repair-r1-preflight",
+      "git_blob_sha": "da55b753a9e9c53d98be7b965a11c60a7fbbb739",
+      "sha256": "2cdf87366047cb7b4d129c9b530a2447f1dc4e51e2308cc7a1e3645d2390a190",
+      "size_bytes": 7178,
+      "lines": 152
+    },
+    "r1_preservation": {
+      "path": "aither-v2/tools/aither-r8-benchmark-repair-r1-preservation",
+      "git_blob_sha": "4de388d385f128979fc6ed825849870bd8e3aa68",
+      "sha256": "88a1b96ef6037ff6c8d3ff909e639a92d06cbe2600b0702a1cbac6ee53aea93f",
+      "size_bytes": 7207,
+      "lines": 134
+    }
+  },
+  "gates": {
+    "total_deterministic_tests": 163,
+    "total_deterministic_pass": 163,
+    "evidence_provenance_tests": 9,
+    "service_normalization_pass": "9/9",
+    "semantic_preservation": "11/11",
+    "source_preservation": "50/50",
+    "cross_tool_relevance_pass": "20/20",
+    "evaluator_r1_pass": "700/700",
+    "preflight_r1_pass": "23/23",
+    "long_context_scripted": "13/13",
+    "false_evidence_leaks": 0,
+    "unrevealed_valid_id_credit": 0,
+    "fabricated_id_credit": 0,
+    "scripted_positive_FULL": "50/50 (TASK_SUCCESS 100%, CREDITED 100%)",
+    "scripted_positive_ROUTED": "50/50 (TASK_SUCCESS 100%)",
+    "negative_A": "IRRELEVANT 100%, TASK_SUCCESS 0%",
+    "negative_B": "FALSE_POSITIVE_REVEALS 0",
+    "negative_C": "TASK_SUCCESS 0%, CREDITED 0%",
+    "negative_D": "TASK_SUCCESS 0%, UNREVEALED 73",
+    "negative_E": "FALSE_POSITIVE_REVEALS 0",
+    "long_context_fabricated_adversarial": "FAILS AS EXPECTED"
+  }
+}

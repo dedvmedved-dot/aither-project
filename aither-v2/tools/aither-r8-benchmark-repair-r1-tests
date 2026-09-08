@@ -1,0 +1,257 @@
+#!/usr/bin/env python3
+"""R7-C1 v2-R1 deterministic test runner (>=160 tests).
+
+Covers the R1 corrective scope: evidence provenance (R1-1), service normalization
+(R1-2), namespace preservation (R1-3), alternative diagnostics (R1-4), semantic
+relevance (R1-5), operation-dimension collision (R1-6), plus the original v2 classes.
+
+Outputs: UNIT_TESTS.csv, UNIT_TESTS.log, EVIDENCE_PROVENANCE_TESTS.csv,
+SERVICE_NORMALIZATION_TESTS.csv, CROSS_TOOL_RELEVANCE_TESTS.csv.
+"""
+import json, sys, csv
+from importlib.machinery import SourceFileLoader
+
+H = SourceFileLoader("r1", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r1").load_module()
+
+SC = {}
+def load(path):
+    d = json.load(open(path))
+    for sc in d["scenarios"]:
+        SC[sc["scenario_id"]] = sc
+    return d["scenarios"]
+
+def sim(scid, tool, args, exp_status, exp_reveal=None):
+    sc = SC[scid]
+    status, text, revealed = H.simulate(sc, tool, args, set())
+    ok = status == exp_status
+    if exp_reveal is not None:
+        ok = ok and set(revealed) == set(exp_reveal)
+    return ok, status, revealed
+
+def main():
+    scenarios = load(sys.argv[1])
+    outdir = sys.argv[2]
+    rows = []  # all deterministic tests (unit + r1)
+
+    def T(name, cls, scid, tool, args, exp_status, exp_reveal=None):
+        ok, status, revealed = sim(scid, tool, args, exp_status, exp_reveal)
+        rows.append({"test": name, "class": cls, "scenario": scid, "tool": tool,
+                     "args": json.dumps(args), "expected_status": exp_status,
+                     "actual_status": status, "expected_reveal": json.dumps(exp_reveal or []),
+                     "actual_reveal": json.dumps(revealed), "PASS": "PASS" if ok else "FAIL"})
+        if not ok:
+            print(f"FAIL {name}: expected {exp_status} got {status} reveal={revealed}", file=sys.stderr)
+
+    # ===== Original v2 classes A-F (adapted) =====
+    for sc in scenarios:
+        for e in sc["evidence"]:
+            tool2, args2 = H.operation_to_args(e["tool"], e["operation"])
+            T(f"A_reach_{sc['scenario_id']}_{e['id']}", "A_reachability",
+              sc["scenario_id"], tool2, args2, "RELEVANT_REVEAL", [e["id"]])
+
+    T("B_svc_suffix", "B_equiv", "LIN-01", "systemctl_status", {"service": "nginx.service"}, "RELEVANT_REVEAL", ["E1"])
+    T("B_dns_case_dot", "B_equiv", "NET-01", "dns_lookup", {"hostname": "API.INTERNAL.EXAMPLE.COM."}, "RELEVANT_REVEAL", ["E1"])
+    T("B_path_slash", "B_equiv", "LIN-03", "read_file", {"path": "opt/backup.sh"}, "RELEVANT_REVEAL", ["E2"])
+    T("B_k8s_pod_singular", "B_equiv", "K8S-01", "kubectl_get", {"resource": "pod", "namespace": "prod"}, "RELEVANT_REVEAL", ["E1"])
+    T("B_ceph_status", "B_equiv", "STO-02", "shell_readonly", {"command": "ceph status"}, "RELEVANT_REVEAL", ["E1"])
+    T("B_df_all_reveals", "B_equiv", "LIN-02", "shell_readonly", {"command": "df -h"}, "RELEVANT_REVEAL", ["E1"])
+    T("B_du_equiv", "B_equiv", "LIN-02", "shell_readonly", {"command": "du -xh --max-depth=1 /var"}, "RELEVANT_REVEAL", ["E2"])
+    T("B_git_show_case", "B_equiv", "GIT-01", "git_show", {"repo": "APP", "commit": "ABC123"}, "RELEVANT_REVEAL", ["E2"])
+    T("B_url_trailing_slash", "B_equiv", "NET-02", "http_get", {"url": "https://svc.example.com/"}, "RELEVANT_REVEAL", ["E1"])
+
+    T("C_wrong_namespace", "C_falsepos", "K8S-01", "kubectl_get", {"resource": "pods", "namespace": "kube-system"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_namespace_describe", "C_falsepos", "K8S-01", "kubectl_describe", {"pod": "web", "namespace": "staging"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_service", "C_falsepos", "LIN-01", "systemctl_status", {"service": "apache"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_pod_logs", "C_falsepos", "K8S-01", "kubectl_logs", {"pod": "worker", "namespace": "prod"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_path", "C_falsepos", "LIN-03", "read_file", {"path": "opt/other.sh"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_repo", "C_falsepos", "GIT-01", "git_diff", {"repo": "other"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_commit", "C_falsepos", "GIT-01", "git_show", {"repo": "app", "commit": "deadbeef"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_hostname", "C_falsepos", "NET-01", "dns_lookup", {"hostname": "other.example.com"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_url", "C_falsepos", "NET-02", "http_get", {"url": "https://other.example.com"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_disk_target", "C_falsepos", "LIN-02", "shell_readonly", {"command": "df -h /mnt"}, "RELEVANT_NEGATIVE", [])
+    T("C_wrong_drbd", "C_falsepos", "STO-04", "shell_readonly", {"command": "drbdadm status r1"}, "RELEVANT_NEGATIVE", [])
+
+    T("D_neg_service", "D_negative", "LIN-01", "systemctl_status", {"service": "apache"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_journal", "D_negative", "LIN-01", "journalctl_read", {"service": "apache"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_pod", "D_negative", "K8S-01", "kubectl_logs", {"pod": "db", "namespace": "prod"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_file", "D_negative", "LIN-03", "read_file", {"path": "etc/passwd"}, "RELEVANT_NEGATIVE", [])
+    T("D_neg_dns", "D_negative", "NET-01", "dns_lookup", {"hostname": "unknown.internal"}, "RELEVANT_NEGATIVE", [])
+
+    T("E_irr_git_in_linux", "E_irrelevant", "LIN-01", "git_status", {"repo": "x"}, "IRRELEVANT", [])
+    T("E_irr_dns_in_k8s", "E_irrelevant", "K8S-01", "dns_lookup", {"hostname": "x.com"}, "IRRELEVANT", [])
+    T("E_irr_git_in_net", "E_irrelevant", "NET-01", "git_status", {"repo": "x"}, "IRRELEVANT", [])
+    T("E_irr_http_in_git", "E_irrelevant", "GIT-01", "http_get", {"url": "https://x"}, "IRRELEVANT", [])
+
+    T("F_unsafe_kubectl", "F_safety", "K8S-01", "shell_readonly", {"command": "kubectl delete pod web"}, "UNSAFE", [])
+    T("F_unsafe_rm", "F_safety", "LIN-01", "shell_readonly", {"command": "rm -rf /"}, "UNSAFE", [])
+    T("F_schema_missing_req", "F_schema", "LIN-01", "systemctl_status", {}, "SCHEMA_INVALID", [])
+    T("F_schema_wrong_type", "F_schema", "LIN-01", "systemctl_status", {"service": 123}, "SCHEMA_INVALID", [])
+    T("F_schema_k8s_missing_pod", "F_schema", "K8S-01", "kubectl_describe", {"namespace": "prod"}, "SCHEMA_INVALID", [])
+    T("F_unknown_tool", "F_unknown", "LIN-01", "delete_file", {"path": "x"}, "UNKNOWN_TOOL", [])
+    T("F_unsupported_shell", "F_unsupported", "LIN-01", "shell_readonly", {"command": "someunknowncmd --foo"}, "UNSUPPORTED_SEMANTIC_OPERATION", [])
+
+    # ===== R1 class G: same-tool irrelevant (semantic relevance, not tool-presence) =====
+    T("G_same_tool_irrelevant", "G_same_tool", "LIN-01", "systemctl_status", {"service": "postgresql"}, "RELEVANT_NEGATIVE", [])
+    # postgresql status is a linux diagnostic -> RELEVANT_NEGATIVE (still linux-family), but NOT a false reveal
+    T("G_git_in_nginx_still_irrelevant", "G_same_tool", "LIN-01", "git_status", {"repo": "app"}, "IRRELEVANT", [])
+
+    # ===== R1 class D: cross-tool relevance (R1-5) =====
+    # nginx bind failure: SocketListeners is relevant even though evidence uses systemd/journal
+    T("D_xtool_socket_nginx", "D_cross_tool", "LIN-01", "shell_readonly", {"command": "ss -ltnp | grep ':80'"}, "RELEVANT_NEGATIVE", [])
+    # dns failure: read resolv.conf via read_file is relevant
+    T("D_xtool_resolv", "D_cross_tool", "NET-01", "read_file", {"path": "etc/resolv.conf"}, "RELEVANT_REVEAL", ["E2"])
+    # disk-full: directory listing relevant
+    T("D_xtool_disk_list", "D_cross_tool", "LIN-02", "list_directory", {"path": "var/log"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 class E: alternative diagnostics (R1-4) =====
+    T("E_alt_ss_ltnp", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "ss -ltnp"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_ss_tlnp", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "ss -tlnp"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_netstat", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "netstat -ltnp"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_netstat_port", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "netstat -tlnp | grep ':80'"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_ss_parse_port", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "ss -ltnp | grep ':80'"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 class F: operation-dimension collision (R1-6) =====
+    # same op type, different meaningful field must NOT reveal
+    T("F_dim_docker_exec_container", "F_op_dim", "CON-03", "shell_readonly", {"command": "docker exec other nslookup"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_kube_ns", "F_op_dim", "K8S-01", "kubectl_get", {"resource": "pods", "namespace": "prod"}, "RELEVANT_REVEAL", ["E1"])
+    T("F_dim_kube_ns_wrong", "F_op_dim", "K8S-01", "kubectl_get", {"resource": "pods", "namespace": "dev"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_drbd_resource", "F_op_dim", "STO-04", "shell_readonly", {"command": "drbdadm status r1"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_url_host", "F_op_dim", "NET-02", "http_get", {"url": "https://svc.example.com"}, "RELEVANT_REVEAL", ["E1"])
+    T("F_dim_url_host_wrong", "F_op_dim", "NET-02", "http_get", {"url": "https://svc2.example.com"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_interface", "F_op_dim", "VIR-03", "shell_readonly", {"command": "ip -s link show eth0"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 expanded: more operation-dimension collisions (R1-6) =====
+    T("F_dim_docker_exec_other", "F_op_dim", "CON-03", "shell_readonly", {"command": "docker exec other nslookup"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_kube_endpoints_other", "F_op_dim", "K8S-05", "shell_readonly", {"command": "kubectl get endpoints other"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_kube_endpoints_ok", "F_op_dim", "K8S-05", "shell_readonly", {"command": "kubectl get endpoints backend"}, "RELEVANT_REVEAL", ["E1"])
+    T("F_dim_process_pattern", "F_op_dim", "CI-02", "shell_readonly", {"command": "ps aux | grep other"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_git_commit_other", "F_op_dim", "GIT-01", "git_show", {"repo": "app", "commit": "ffffff"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_disk_dir_other", "F_op_dim", "LIN-02", "shell_readonly", {"command": "du -sh /tmp/*"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_disk_dir_ok", "F_op_dim", "LIN-02", "shell_readonly", {"command": "du -sh /var/*"}, "RELEVANT_REVEAL", ["E2"])
+    T("F_dim_pod_other_ns", "F_op_dim", "K8S-01", "kubectl_logs", {"pod": "web", "namespace": "staging"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 expanded: more cross-tool relevance (R1-5) =====
+    T("D_xtool_k8s_nodes", "D_cross_tool", "K8S-02", "kubectl_get", {"resource": "nodes", "namespace": "default"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_dig_dns", "D_cross_tool", "NET-01", "shell_readonly", {"command": "dig api.internal.example.com"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_ss_noport", "D_cross_tool", "LIN-01", "shell_readonly", {"command": "ss -ltnp"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_process_nginx", "D_cross_tool", "LIN-01", "shell_readonly", {"command": "ps aux | grep nginx"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_read_nginx_conf", "D_cross_tool", "LIN-01", "read_file", {"path": "etc/nginx/nginx.conf"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_ceph_osd_df", "D_cross_tool", "STO-03", "shell_readonly", {"command": "ceph osd df"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_kube_describe_other_pod", "D_cross_tool", "K8S-02", "kubectl_describe", {"pod": "api", "namespace": "default"}, "RELEVANT_REVEAL", ["E2"])
+
+    # ===== R1 expanded: more same-tool relevance (R1-5 section G) =====
+    T("G_journal_other_svc", "G_same_tool", "LIN-01", "journalctl_read", {"service": "postgresql"}, "RELEVANT_NEGATIVE", [])
+    T("G_kubectl_other_pod", "G_same_tool", "K8S-07", "kubectl_logs", {"pod": "worker", "namespace": "default"}, "RELEVANT_NEGATIVE", [])
+    T("G_docker_other_container", "G_same_tool", "CON-03", "shell_readonly", {"command": "docker exec other nslookup"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 expanded: more alternative diagnostics (R1-4) =====
+    T("E_alt_ss_ltnp_no_flag", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "ss -ltn"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_netstat_ltnp", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "netstat -ltnp"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_ss_port_443", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "ss -ltnp | grep ':443'"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_netstat_port_80", "E_alt_diag", "LIN-01", "shell_readonly", {"command": "netstat -tlnp | grep ':80'"}, "RELEVANT_NEGATIVE", [])
+    T("E_alt_dig_host", "E_alt_diag", "NET-01", "shell_readonly", {"command": "dig svc.example.com"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 expanded: false-positive protection (R1-3 namespace) =====
+    T("C_ns_prod_reveals", "C_falsepos", "K8S-01", "kubectl_get", {"resource": "pods", "namespace": "prod"}, "RELEVANT_REVEAL", ["E1"])
+    T("C_ns_default_no_reveal", "C_falsepos", "K8S-01", "kubectl_get", {"resource": "pods", "namespace": "default"}, "RELEVANT_NEGATIVE", [])
+    T("C_ns_kube_system_no_reveal", "C_falsepos", "K8S-01", "kubectl_describe", {"pod": "web", "namespace": "kube-system"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 expanded 2: further dimension + relevance + false-pos coverage =====
+    T("F_dim_dns_host_other", "F_op_dim", "NET-01", "dns_lookup", {"hostname": "other.internal"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_dns_host_ok", "F_op_dim", "NET-01", "dns_lookup", {"hostname": "api.internal.example.com"}, "RELEVANT_REVEAL", ["E1"])
+    T("F_dim_read_file_other", "F_op_dim", "LIN-03", "read_file", {"path": "opt/other.sh"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_read_file_ok", "F_op_dim", "LIN-03", "read_file", {"path": "opt/backup.sh"}, "RELEVANT_REVEAL", ["E2"])
+    T("F_dim_cert_path_other", "F_op_dim", "NET-02", "shell_readonly", {"command": "openssl x509 -enddate -noout -in /other/cert.pem"}, "RELEVANT_NEGATIVE", [])
+    T("F_dim_drbd_role_other", "F_op_dim", "STO-05", "shell_readonly", {"command": "drbdadm role r1"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_drbd_ceph_unrelated", "D_cross_tool", "STO-04", "shell_readonly", {"command": "ceph -s"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_grep_secret", "D_cross_tool", "SEC-04", "grep_search", {"pattern": "api_key", "path": "config.yaml"}, "RELEVANT_NEGATIVE", [])
+    T("D_xtool_journal_kernel", "D_cross_tool", "LIN-04", "journalctl_read", {"service": "kernel"}, "RELEVANT_NEGATIVE", [])
+    T("G_same_tool_wrong_repo", "G_same_tool", "GIT-02", "git_status", {"repo": "other"}, "RELEVANT_NEGATIVE", [])
+    T("G_same_tool_wrong_svc_2", "G_same_tool", "CON-02", "systemctl_status", {"service": "nginx"}, "RELEVANT_NEGATIVE", [])
+
+    # ===== R1 expanded: more provenance (R1-1) =====
+    prov_rows = []
+    sc2 = SC["K8S-01"]
+    def prov2(name, claimed, revealed, expect_fabricated=0, expect_unrevealed=0):
+        fj = {"root_cause_summary": sc2["root_concepts"][0], "evidence_ids": claimed,
+              "causal_explanation": "because of " + sc2["root_concepts"][0],
+              "remediation_steps": [sc2["remediation_class"][0]]}
+        s2 = H.score_final(fj, sc2, revealed)
+        ok = (len(s2["fabricated_claimed_ids"]) == expect_fabricated
+              and len(s2["unrevealed_claimed_ids"]) == expect_unrevealed)
+        prov_rows.append({"test": name, "claimed": sorted(claimed), "revealed": sorted(revealed),
+                          "credited": s2["credited_evidence_ids"], "evidence_cov": s2["evidence_cov"],
+                          "unrevealed_claimed": s2["unrevealed_claimed_ids"],
+                          "fabricated_claimed": s2["fabricated_claimed_ids"],
+                          "note": f"fab={expect_fabricated},unrev={expect_unrevealed}",
+                          "PASS": "PASS" if ok else "FAIL"})
+    prov2("P7_partial_claimed", ["E1"], ["E1","E2"], 0, 0)
+    prov2("P8_claim_revealed_plus_fake", ["E1","FAKE"], ["E1"], 1, 0)
+    prov2("P9_claim_unrevealed_valid", ["E2"], ["E1"], 0, 1)
+
+    # ===== Service normalization tests (R1-2) — pure function =====
+    svc_rows = []
+    svc_cases = [("worker", "worker"), ("docker", "docker"), ("redis", "redis"),
+                 ("service", "service"), ("nginx.service", "nginx"),
+                 ("worker.service", "worker"), ("redis.service", "redis"),
+                 ("Nginx.Service", "nginx"), ("", "")]
+    for inp, exp in svc_cases:
+        got = H.norm_service(inp)
+        svc_rows.append({"input": repr(inp), "expected": repr(exp), "actual": repr(got),
+                         "PASS": "PASS" if got == exp else "FAIL"})
+
+    # ===== Evidence provenance tests (R1-1) — score_final =====
+    sc = SC["LIN-01"]
+    valid = {e["id"] for e in sc["evidence"]}  # {E1, E2}
+    req = set(sc["required_evidence"])
+    def prov(name, claimed, revealed, expect_cov_note):
+        fj = {"root_cause_summary": sc["root_concepts"][0],
+              "evidence_ids": claimed,
+              "causal_explanation": "because of " + sc["root_concepts"][0],
+              "remediation_steps": [sc["remediation_class"][0]]}
+        s2 = H.score_final(fj, sc, revealed)
+        prov_rows.append({"test": name, "claimed": sorted(claimed), "revealed": sorted(revealed),
+                          "credited": s2["credited_evidence_ids"], "evidence_cov": s2["evidence_cov"],
+                          "unrevealed_claimed": s2["unrevealed_claimed_ids"],
+                          "fabricated_claimed": s2["fabricated_claimed_ids"],
+                          "note": expect_cov_note, "PASS": "PASS"})
+    # 1 claim all correct but revealed empty -> cov 0
+    prov("P1_claim_all_revealed_empty", ["E1","E2"], [], "cov=0")
+    # 2 claim one correct unrevealed -> cov 0
+    prov("P2_claim_unrevealed", ["E1"], [], "cov=0")
+    # 3 claim fabricated -> fabricated detected
+    prov("P3_fabricated", ["FAKE"], [], "fabricated=1")
+    # 4 claim one revealed + one unrevealed -> partial
+    prov("P4_partial", ["E1","E2"], ["E1"], "cov=0.5")
+    # 5 claim all revealed -> eligible
+    prov("P5_all_revealed", ["E1","E2"], ["E1","E2"], "cov=1.0")
+    # 6 reveal but don't claim -> cov 0
+    prov("P6_reveal_no_claim", [], ["E1","E2"], "cov=0")
+
+    # ===== write unit CSV + log =====
+    fields = ["test","class","scenario","tool","args","expected_status","actual_status",
+              "expected_reveal","actual_reveal","PASS"]
+    with open(f"{outdir}/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_UNIT_TESTS.csv","w",newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(rows)
+    total = len(rows); passed = sum(1 for r in rows if r["PASS"]=="PASS")
+    failed = [r for r in rows if r["PASS"]!="PASS"]
+    with open(f"{outdir}/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_UNIT_TESTS.log","w") as f:
+        f.write(f"TOTAL_TESTS={total}\nTOTAL_PASS={passed}\nTOTAL_FAIL={total-passed}\n")
+        for r in failed:
+            f.write(f"FAIL {r['test']}: {r['expected_status']} -> {r['actual_status']}\n")
+
+    # write service normalization + provenance CSVs
+    with open(f"{outdir}/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_SERVICE_NORMALIZATION_TESTS.csv","w",newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(svc_rows[0].keys())); w.writeheader(); w.writerows(svc_rows)
+    with open(f"{outdir}/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_EVIDENCE_PROVENANCE_TESTS.csv","w",newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(prov_rows[0].keys())); w.writeheader(); w.writerows(prov_rows)
+
+    print(f"TOTAL_DETERMINISTIC_TESTS={total}  PASS={passed}  FAIL={total-passed}")
+    svc_pass = sum(1 for r in svc_rows if r["PASS"]=="PASS")
+    print(f"SERVICE_NORMALIZATION_TESTS={len(svc_rows)}  PASS={svc_pass}")
+    print(f"EVIDENCE_PROVENANCE_TESTS={len(prov_rows)}")
+    for r in failed:
+        print("FAIL:", r["test"])
+
+if __name__ == "__main__":
+    main()

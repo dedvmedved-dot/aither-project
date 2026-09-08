@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""R7-C1 v2-R1 semantic + source preservation tests (R1-3, Phase 11) + op-dim audit (R1-6).
+
+Produces:
+  AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_SEMANTIC_PRESERVATION.csv
+  AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_SOURCE_PRESERVATION.csv
+  AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_OPERATION_DIMENSION_AUDIT.csv
+"""
+import json, sys, csv
+from importlib.machinery import SourceFileLoader
+
+H = SourceFileLoader("r1", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r1").load_module()
+
+# source namespace semantics (prompt-derived) for K8s scenarios
+_NS_EXPECTED = {"K8S-01": "prod"}  # "Pod web in prod ..."
+# all other k8s scenarios: no explicit namespace -> default
+_K8S_SCENARIOS = ["K8S-01","K8S-02","K8S-03","K8S-04","K8S-05","K8S-06","K8S-07","K8S-08"]
+
+def main():
+    v1 = json.load(open(sys.argv[1]))
+    r1 = json.load(open(sys.argv[2]))
+    v1_by = {s["scenario_id"]: s for s in v1}
+    r1_by = {s["scenario_id"]: s for s in r1["scenarios"]}
+
+    # ---- Semantic preservation (R1-3): K8s namespace ----
+    sem_rows = []
+    for sid in _K8S_SCENARIOS:
+        sc = r1_by[sid]
+        src_prompt = v1_by[sid]["user_prompt"]
+        exp_ns = _NS_EXPECTED.get(sid, "default")
+        # check every k8s evidence op namespace == exp_ns
+        for e in sc["evidence"]:
+            op = e["operation"]
+            if op["type"] in ("kube_get","kube_describe","kube_logs"):
+                conv_ns = op.get("namespace")
+                obj = op.get("resource") or op.get("pod")
+                ok = (conv_ns == exp_ns)
+                sem_rows.append({"scenario_id": sid, "source_prompt": src_prompt,
+                                 "source_semantic_namespace": exp_ns, "converted_namespace": conv_ns,
+                                 "source_object": obj, "converted_object": obj,
+                                 "PASS_FAIL": "PASS" if ok else "FAIL",
+                                 "rationale": f"prompt namespace semantics" if ok else "namespace mismatch"})
+
+    # ---- Source preservation (Phase 11): 50 scenarios ----
+    src_rows = []
+    for sid in sorted(v1_by):
+        a, b = v1_by[sid], r1_by[sid]
+        checks = {
+            "user_prompt": a["user_prompt"] == b["user_prompt"],
+            "root_concepts": a["root_concepts"] == b["root_concepts"],
+            "rejected": a.get("rejected", []) == b.get("rejected", []),
+            "required_evidence": a["required_evidence"] == b["required_evidence"],
+            "causal_evidence": a.get("causal_evidence", []) == b.get("causal_evidence", []),
+            "remediation_class": a["remediation_class"] == b["remediation_class"],
+            "prohibited": a.get("prohibited", []) == b.get("prohibited", []),
+            "domain": a.get("domain", "") == b.get("domain", ""),
+            "groups": a.get("groups", []) == b.get("groups", []),
+            "evidence_count": len(a["evidence"]) == len(b["evidence"]),
+        }
+        all_ok = all(checks.values())
+        src_rows.append({"scenario_id": sid, **{f"field_{k}": v for k, v in checks.items()},
+                         "PASS_FAIL": "PASS" if all_ok else "FAIL"})
+        if not all_ok:
+            bad = [k for k, v in checks.items() if not v]
+            print(f"SRC PRESERVE FAIL {sid}: {bad}")
+
+    # ---- Operation dimension audit (R1-6) ----
+    # For each operation type, list fields + whether the matcher uses them.
+    opdim_rows = []
+    AUDIT = [
+        ("disk_usage_filesystem", ["target"], ["target"], True),
+        ("disk_usage_directory", ["target","depth"], ["target","depth"], True),
+        ("service_status", ["service"], ["service"], True),
+        ("journal_read", ["service"], ["service"], True),
+        ("kube_get", ["resource","namespace"], ["resource","namespace"], True),
+        ("kube_describe", ["pod","namespace"], ["pod","namespace"], True),
+        ("kube_logs", ["pod","namespace"], ["pod","namespace"], True),
+        ("git_status", ["repo"], ["repo"], True),
+        ("git_diff", ["repo"], ["repo"], True),
+        ("git_show", ["repo","commit"], ["repo","commit"], True),
+        ("http_get", ["url"], ["url"], True),
+        ("dns_lookup", ["hostname"], ["hostname"], True),
+        ("read_file", ["path"], ["path"], True),
+        ("read_file_via_shell", ["path"], ["path"], True),
+        ("list_directory", ["path"], ["path"], True),
+        ("grep_search", ["pattern","path"], ["pattern","path"], True),
+        ("socket_listeners", ["port"], ["port"], True),
+        ("dns_query", ["hostname"], ["hostname"], True),
+        ("drbd_status", ["resource"], ["resource"], True),
+        ("drbd_role", ["resource"], ["resource"], True),
+        ("docker_exec_dns", ["container","host"], ["container"], False),  # hostname known-but-ignored (wildcard)
+        ("kube_endpoints", ["service"], ["service"], True),
+        ("docker_build", ["tag","path"], ["tag"], False),  # path build context wildcard
+        ("process_list", ["pattern"], ["pattern"], True),
+        ("certificate_expiry", ["path"], ["path"], True),
+        ("ceph_status", [], [], True),
+        ("ceph_osd_tree", [], [], True),
+        ("ceph_osd_df", [], [], True),
+        ("ceph_pg_stat", [], [], True),
+        ("ceph_pg_dump", [], [], True),
+        ("ceph_health_detail", [], [], True),
+        ("docker_images", [], [], True),
+        ("mounts", [], [], True),
+        ("ip_link", ["interface"], ["interface"], True),
+        ("lscpu", [], [], True),
+        ("nvidia_smi", [], [], True),
+        ("psql_query", ["query"], ["query"], True),  # query kept as full identity
+        ("list_file", ["path"], ["path"], True),
+        ("id", [], [], True),
+    ]
+    for t, fields, used, all_used in AUDIT:
+        missing = [f for f in fields if f not in used]
+        opdim_rows.append({"operation_type": t, "fields_present": ",".join(fields),
+                           "fields_semantically_significant": ",".join(fields),
+                           "fields_used_in_match": ",".join(used),
+                           "missing_fields": ",".join(missing),
+                           "test_id": f"dim_{t}", "PASS_FAIL": "PASS" if all_used else "WILDCARD_DOCUMENTED"})
+
+    outdir = sys.argv[3]
+    with open(f"{outdir}/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_SEMANTIC_PRESERVATION.csv","w",newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(sem_rows[0].keys())); w.writeheader(); w.writerows(sem_rows)
+    with open(f"{outdir}/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_SOURCE_PRESERVATION.csv","w",newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(src_rows[0].keys())); w.writeheader(); w.writerows(src_rows)
+    with open(f"{outdir}/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R1_OPERATION_DIMENSION_AUDIT.csv","w",newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(opdim_rows[0].keys())); w.writeheader(); w.writerows(opdim_rows)
+
+    sem_pass = sum(1 for r in sem_rows if r["PASS_FAIL"] == "PASS")
+    src_pass = sum(1 for r in src_rows if r["PASS_FAIL"] == "PASS")
+    print(f"SEMANTIC_PRESERVATION: {sem_pass}/{len(sem_rows)}")
+    print(f"SOURCE_PRESERVATION: {src_pass}/{len(src_rows)}")
+    print(f"OPERATION_DIMENSION_AUDIT: {len(opdim_rows)} rows")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,56 @@
+{
+  "task": "AITHER-HERMES-R8-BENCHMARK-REPAIR-R7C1-V2-R1",
+  "baseline_sha": "bd534bc6994c2616b3fc549f6f4597153df4078b",
+  "r7c1_v2_pre_r1_frozen": "YES",
+  "generated_at_utc": "2026-09-08T19:14:39.880021Z",
+  "v2_artifacts": {
+    "aither-v2/tools/aither-agent-harness-r7c1-v2": {
+      "git_blob_sha": "6156671bbae9e5b4cedc28b8e628874d687346fe",
+      "sha256": "baf67ccf36211a6bbc7b5a1a0890b00201a3ec636706b46af26dbe48a970cdad",
+      "size_bytes": 29962,
+      "lines": 651
+    },
+    "aither-v2/tools/aither-r7c1-v2-scenario-converter": {
+      "git_blob_sha": "1b45dc199697e54717fb13835b9789a3f927ce6a",
+      "sha256": "747a4c1f1f529a69cc3320f3f117949d609e71fcf0784c0afbebe9c355253177",
+      "size_bytes": 3714,
+      "lines": 79
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-tests": {
+      "git_blob_sha": "528f73f39ce5831f6e0d0c8739f50cb91356cc44",
+      "sha256": "e7d44252491d48242769d17fda7cdc2d809caa5969cbd02ae2806bf05fd03ad4",
+      "size_bytes": 9601,
+      "lines": 169
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-evaltests": {
+      "git_blob_sha": "226069e013650f3fa6a73a3337aa711a806e0842",
+      "sha256": "72bd4446251860ad0c5f97777d24ec51236976784a7e6e797dc399fd3e28b03e",
+      "size_bytes": 3692,
+      "lines": 72
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-scripted": {
+      "git_blob_sha": "a9154afdbb1007be8364a8a36f8f1ee5f99f87aa",
+      "sha256": "3039d78004cea98c157e2b6e1ee1be29c15152e0dd9e76bf7ab7756848d61c07",
+      "size_bytes": 7539,
+      "lines": 171
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-longcontext": {
+      "git_blob_sha": "7ee4f03ae139e3c5db41560cb6ba3f6fbf834c0e",
+      "sha256": "34633728e9ac9a0290fab4c7a6cdbb99f4d94ba573ef24d193704aeb4045471b",
+      "size_bytes": 14133,
+      "lines": 209
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-preflight": {
+      "git_blob_sha": "f1bc4efc6fb2b74e9a36fb9daf80653e4b9e5466",
+      "sha256": "7dd6bb74c50d720e0047b50eaed91c9d7b29af7a7fa0caf293ee871a6a375a93",
+      "size_bytes": 6340,
+      "lines": 139
+    },
+    "docs/evidence/AITHER_R7C1_V2_SCENARIOS.json": {
+      "git_blob_sha": "ea7ee89abefc8fce14647ec1f536f37a124dec62",
+      "sha256": "2df6cc6eefc3a4a585d7411b5a936b0a5c3dfaa927c51852dea4e88429edec36",
+      "size_bytes": 45196,
+      "lines": 2637
+    }
+  }
+}
