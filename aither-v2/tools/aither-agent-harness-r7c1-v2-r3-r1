@@ -1,0 +1,784 @@
+#!/usr/bin/env python3
+"""Aither R7-C1 v2 benchmark harness — semantic operation model.
+
+This replaces the v1 exact-string simulator with a typed semantic operation model.
+
+Fixes (R8-BENCHMARK-REPAIR defect catalog D1-D8):
+  D1/D4  exact-string matching -> typed semantic operations + shell semantic parser
+  D2/D3  Kubernetes namespace/object identity -> full-dimension operation identity
+  D5     error-classification contamination -> RELEVANT_NEGATIVE status
+  D6     relevance != reveal -> separate relevance tracking
+  D7/D8  (handled in preflight v2, separate)
+
+Result/relevance model (Phase 5):
+  RELEVANT_REVEAL | RELEVANT_NEGATIVE | IRRELEVANT | DUPLICATE | UNSAFE
+  | MALFORMED | UNKNOWN_TOOL | SCHEMA_INVALID | UNSUPPORTED_SEMANTIC_OPERATION
+
+Invariant: relevant != revealed.
+
+Subcommands:
+  selfcheck                 -> tool map + operation model smoke
+  unittest <v2_scenarios>   -> >=100 deterministic simulator/evaluator tests
+  evaltest <v2_scenarios>   -> evaluator self-tests
+  route <v2_scenarios> <profile>   -> P0 router
+  sim <v2_scenarios> <policy> [out_csv]  -> scripted policy run (positive/negative controls)
+"""
+import json, sys, re, csv, os, collections
+
+# ---------------------------------------------------------------------------
+# Tool definitions (canonical 14; schemas unchanged from v1)
+# ---------------------------------------------------------------------------
+TOOL_DEF_BY_NAME = {}
+def _t(name, desc, props, required):
+    d = {"type": "function", "function": {"name": name, "description": desc,
+         "parameters": {"type": "object", "properties": props, "required": required}}}
+    TOOL_DEF_BY_NAME[name] = d
+    return d
+_t("read_file", "Read a file", {"path": {"type": "string"}}, ["path"])
+_t("list_directory", "List directory", {"path": {"type": "string"}}, ["path"])
+_t("grep_search", "Search text", {"pattern": {"type": "string"}, "path": {"type": "string"}}, ["pattern"])
+_t("shell_readonly", "Read-only shell", {"command": {"type": "string"}}, ["command"])
+_t("systemctl_status", "systemctl status", {"service": {"type": "string"}}, ["service"])
+_t("journalctl_read", "journal logs", {"service": {"type": "string"}}, ["service"])
+_t("kubectl_get", "kubectl get", {"resource": {"type": "string"}, "namespace": {"type": "string"}}, ["resource"])
+_t("kubectl_describe", "describe pod", {"pod": {"type": "string"}, "namespace": {"type": "string"}}, ["pod"])
+_t("kubectl_logs", "pod logs", {"pod": {"type": "string"}, "namespace": {"type": "string"}}, ["pod"])
+_t("git_status", "git status", {"repo": {"type": "string"}}, ["repo"])
+_t("git_diff", "git diff", {"repo": {"type": "string"}}, ["repo"])
+_t("git_show", "git show", {"commit": {"type": "string"}, "repo": {"type": "string"}}, ["commit"])
+_t("http_get", "HTTP GET", {"url": {"type": "string"}}, ["url"])
+_t("dns_lookup", "DNS lookup", {"hostname": {"type": "string"}}, ["hostname"])
+TOOL_DEFS = list(TOOL_DEF_BY_NAME.values())
+KNOWN = set(TOOL_DEF_BY_NAME)
+GROUPS = {"FILES": ["read_file", "list_directory", "grep_search"],
+          "LINUX": ["shell_readonly", "systemctl_status", "journalctl_read"],
+          "KUBERNETES": ["kubectl_get", "kubectl_describe", "kubectl_logs"],
+          "GIT": ["git_status", "git_diff", "git_show"],
+          "NETWORK": ["http_get", "dns_lookup"]}
+
+UNSAFE = re.compile(r"kubectl\s+(delete|apply|scale|drain|taint|exec)|rm\s+-rf|drop\s+(table|database)"
+                    r"|reboot|shutdown|kill\s+-9|systemctl\s+(stop|restart|disable)"
+                    r"|git\s+(push|reset|rebase|checkout)|mkfs|dd\s+if=")
+
+# ---------------------------------------------------------------------------
+# Semantic relevance model (R1-5): relevance is semantic, NOT tool-presence.
+# Each scenario's relevant operation types = domain diagnostic family + its own
+# evidence operation types. A supported op whose TYPE is in this set is RELEVANT
+# (even if it reveals nothing); a supported op outside it is IRRELEVANT.
+# ---------------------------------------------------------------------------
+DOMAIN_RELEVANT_TYPES = {
+    "linux": {"service_status", "journal_read", "socket_listeners", "process_list",
+              "disk_usage_filesystem", "disk_usage_directory", "read_file", "read_file_via_shell",
+              "list_file", "crontab_list", "mounts", "ip_link", "id", "list_directory"},
+    "network": {"dns_lookup", "dns_query", "http_get", "http_get_via_shell", "read_file",
+                "read_file_via_shell", "certificate_expiry", "socket_listeners", "process_list"},
+    "k8s": {"kube_get", "kube_describe", "kube_logs", "kube_endpoints", "read_file",
+            "list_directory", "process_list", "journal_read", "docker_exec_dns", "socket_listeners"},
+    "container": {"docker_images", "docker_build", "docker_exec_dns", "process_list",
+                  "journal_read", "service_status", "disk_usage_filesystem", "disk_usage_directory",
+                  "read_file", "read_file_via_shell", "list_file", "socket_listeners"},
+    "storage": {"ceph_status", "ceph_osd_tree", "ceph_osd_df", "ceph_pg_stat", "ceph_pg_dump",
+                "ceph_health_detail", "drbd_status", "drbd_role", "disk_usage_filesystem",
+                "disk_usage_directory", "mounts", "kube_get", "kube_describe", "kube_logs"},
+    "kvm": {"journal_read", "read_file", "read_file_via_shell", "lscpu", "process_list",
+            "service_status", "ip_link", "list_file", "mounts"},
+    "git": {"git_status", "git_diff", "git_show", "read_file", "grep_search"},
+    "cicd": {"docker_build", "docker_images", "process_list", "read_file", "read_file_via_shell",
+             "git_status", "git_diff", "git_show", "list_file", "grep_search"},
+    "code": {"read_file", "list_directory", "grep_search", "read_file_via_shell", "list_file", "id"},
+    "security": {"read_file", "grep_search", "http_get", "process_list", "journal_read",
+                 "service_status", "list_file", "list_directory", "kube_describe"},
+    "cross": {"kube_get", "kube_describe", "kube_logs", "kube_endpoints", "dns_lookup", "dns_query",
+              "http_get", "http_get_via_shell", "read_file", "read_file_via_shell",
+              "disk_usage_filesystem", "disk_usage_directory", "service_status", "journal_read",
+              "process_list", "socket_listeners", "certificate_expiry", "git_status", "git_diff", "git_show"},
+}
+
+def scenario_relevant_types(scenario):
+    """Semantic relevance set for a scenario (domain family + evidence op types)."""
+    ev_types = {e["operation"]["type"] for e in scenario.get("evidence", []) if "operation" in e}
+    return DOMAIN_RELEVANT_TYPES.get(scenario.get("domain", ""), set()) | ev_types
+
+# ---------------------------------------------------------------------------
+# Normalization helpers (safe only)
+# ---------------------------------------------------------------------------
+def norm_service(s):
+    """Exact suffix normalization: only strip the complete '.service' suffix.
+
+    R1-2 fix: rstrip('.service') corrupted 'worker'->'work', 'docker'->'dock',
+    'redis'->'red', 'service'->''. Use exact suffix handling instead."""
+    s = (s or "").lower().strip()
+    if s.endswith(".service"):
+        s = s[:-len(".service")]
+    return s
+
+def norm_pod(p):
+    p = (p or "").lower().strip()
+    return re.sub(r"-[a-z0-9]{8,10}-[a-z0-9]{5}$", "", p)
+
+def norm_resource(r):
+    r = (r or "").lower().strip()
+    return "pods" if r in ("pod", "pods") else r
+
+def norm_path(p):
+    return (p or "").lstrip("/")
+
+def norm_hostname(h):
+    return (h or "").lower().strip().rstrip(".")
+
+def norm_url(u):
+    return (u or "").rstrip("/")
+
+def norm_repo(r):
+    return (r or "").lower().strip()
+
+def _canon_query(q):
+    """Canonical SQL query form for semantic comparison (lowercase, collapse whitespace)."""
+    return re.sub(r"\s+", " ", (q or "").lower().strip())
+
+# ---------------------------------------------------------------------------
+# Shell semantic parser (Phase 3) — limited, deterministic, read-only families
+# ---------------------------------------------------------------------------
+def _shell_parse(cmd):
+    """Parse a shell command into a typed operation, or return None."""
+    c = (cmd or "").strip()
+    if not c:
+        return None
+    toks = c.split()
+    fam = toks[0]
+
+    # df [-h] [target]
+    if fam == "df":
+        # strip flags
+        args = [t for t in toks[1:] if not t.startswith("-")]
+        target = args[0] if args else "*"
+        return {"type": "disk_usage_filesystem", "target": target}
+    # du ... target
+    if fam == "du":
+        # capture target (last non-flag token) and depth (--max-depth=N)
+        depth = 1
+        target = "*"
+        for t in toks[1:]:
+            if t.startswith("--max-depth="):
+                depth = int(t.split("=", 1)[1])
+            elif not t.startswith("-"):
+                target = t
+        target = target.rstrip("/*") or "*"
+        return {"type": "disk_usage_directory", "target": target, "depth": depth}
+    # crontab -l
+    if fam == "crontab" and "-l" in toks:
+        return {"type": "crontab_list"}
+    # cat <path>
+    if fam == "cat":
+        args = [t for t in toks[1:] if not t.startswith("-")]
+        if args:
+            return {"type": "read_file_via_shell", "path": norm_path(args[0])}
+        return None
+    # openssl x509 ... -in <path>
+    if fam == "openssl" and "x509" in toks:
+        for i, t in enumerate(toks):
+            if t == "-in" and i + 1 < len(toks):
+                return {"type": "certificate_expiry", "path": toks[i + 1]}
+        return None
+    # kubectl get endpoints <svc>
+    if fam == "kubectl" and "get" in toks and "endpoints" in toks:
+        idx = toks.index("endpoints")
+        svc = toks[idx + 1] if idx + 1 < len(toks) else "*"
+        return {"type": "kube_endpoints", "service": svc}
+    # docker exec <container> nslookup [host]
+    if fam == "docker" and "exec" in toks:
+        idx = toks.index("exec")
+        container = toks[idx + 1] if idx + 1 < len(toks) else "*"
+        host = "*"
+        if "nslookup" in toks:
+            ni = toks.index("nslookup")
+            if ni + 1 < len(toks):
+                host = toks[ni + 1]
+        return {"type": "docker_exec_dns", "container": container, "host": host}
+    # docker images
+    if fam == "docker" and toks[1:] == ["images"]:
+        return {"type": "docker_images"}
+    # docker build -t <tag> <path>
+    if fam == "docker" and "build" in toks:
+        tag = "*"; path = "."
+        if "-t" in toks:
+            ti = toks.index("-t")
+            if ti + 1 < len(toks):
+                tag = toks[ti + 1]
+        rest = [t for t in toks if t not in ("-t", tag)]
+        if len(rest) > 2:
+            path = rest[-1]
+        return {"type": "docker_build", "tag": tag, "path": path}
+    # ceph -s / ceph status / osd tree / osd df / pg stat / pg dump / health detail
+    if fam == "ceph":
+        rest = toks[1:]
+        if rest in (["-s"], ["status"]):
+            return {"type": "ceph_status"}
+        if rest == ["osd", "tree"]:
+            return {"type": "ceph_osd_tree"}
+        if rest == ["osd", "df"]:
+            return {"type": "ceph_osd_df"}
+        if rest == ["pg", "dump"]:
+            return {"type": "ceph_pg_dump"}
+        if rest == ["pg", "stat"]:
+            return {"type": "ceph_pg_stat"}
+        if rest == ["health", "detail"]:
+            return {"type": "ceph_health_detail"}
+        return {"type": "ceph_unknown", "rest": " ".join(rest)}
+    # drbdadm status <resource> / drbdadm role <resource>
+    if fam == "drbdadm":
+        if "status" in toks:
+            idx = toks.index("status")
+            res = toks[idx + 1] if idx + 1 < len(toks) else "*"
+            return {"type": "drbd_status", "resource": res}
+        if "role" in toks:
+            idx = toks.index("role")
+            res = toks[idx + 1] if idx + 1 < len(toks) else "*"
+            return {"type": "drbd_role", "resource": res}
+    # mount
+    if fam == "mount" and len(toks) == 1:
+        return {"type": "mounts"}
+    # ip link / ip -s link show <iface>
+    if fam == "ip" and "link" in toks:
+        rest = [t for t in toks[1:] if t not in ("-s", "show")]
+        iface = "*"
+        if len(rest) > 1 and rest[-1] != "link":
+            iface = rest[-1]
+        return {"type": "ip_link", "interface": iface}
+    # ps aux [| grep <pattern>]
+    if fam == "ps":
+        pattern = "*"
+        if "grep" in toks:
+            gi = toks.index("grep")
+            if gi + 1 < len(toks):
+                pattern = " ".join(toks[gi + 1:])
+        return {"type": "process_list", "pattern": pattern}
+    # ls -l <path>
+    if fam == "ls":
+        args = [t for t in toks[1:] if not t.startswith("-")]
+        if args:
+            return {"type": "list_file", "path": args[-1]}
+        return {"type": "list_directory_via_shell", "path": "."}
+    # id
+    if fam == "id":
+        return {"type": "id"}
+    # dig <hostname> [@server]
+    if fam == "dig":
+        args = [t for t in toks[1:] if not t.startswith("@")]
+        host = args[0] if args else "*"
+        return {"type": "dns_query", "hostname": host.rstrip(".")}
+    # psql -c 'query'
+    if fam == "psql":
+        m = re.search(r"-c\s+(['\"])(.*?)\1", c)
+        if m:
+            query = m.group(2)
+        else:
+            query = " ".join(toks[1:])
+        return {"type": "psql_query", "query": query}
+    # lscpu
+    if fam == "lscpu":
+        return {"type": "lscpu"}
+    # curl -s <url>
+    if fam == "curl":
+        args = [t for t in toks[1:] if not t.startswith("-")]
+        url = args[0] if args else "*"
+        return {"type": "http_get_via_shell", "url": url.rstrip("/")}
+    # nvidia-smi
+    if fam == "nvidia-smi":
+        return {"type": "nvidia_smi"}
+    # ss / netstat (port/listener diagnostics) — R1-4 SocketListeners
+    if fam in ("ss", "netstat"):
+        port = None
+        m = re.search(r':(\d{1,5})\b', c)
+        if m:
+            port = int(m.group(1))
+        return {"type": "socket_listeners", "port": port}
+    # unknown-but-safe -> unsupported
+    return {"type": "unsupported_semantic_operation", "command": c}
+
+
+# ---------------------------------------------------------------------------
+# Operation parser: (tool, args) -> operation dict (typed identity)
+# ---------------------------------------------------------------------------
+def parse_operation(tool, args):
+    """Return (op, error) where op is a typed operation or None; error is a status string."""
+    if tool not in KNOWN:
+        return None, "UNKNOWN_TOOL"
+    if not isinstance(args, dict):
+        return None, "SCHEMA_INVALID"
+    # basic schema validation (required props present, string type)
+    schema = TOOL_DEF_BY_NAME[tool]["function"]["parameters"]
+    for req in schema.get("required", []):
+        if req not in args:
+            return None, "SCHEMA_INVALID"
+    for k, v in schema.get("properties", {}).items():
+        if k in args and v.get("type") == "string" and not isinstance(args[k], str):
+            return None, "SCHEMA_INVALID"
+
+    if tool == "read_file":
+        return {"type": "read_file", "path": norm_path(args["path"])}, None
+    if tool == "list_directory":
+        return {"type": "list_directory", "path": norm_path(args["path"])}, None
+    if tool == "grep_search":
+        return {"type": "grep_search", "pattern": args.get("pattern", "").lower(),
+                "path": norm_path(args.get("path", ""))}, None
+    if tool == "systemctl_status":
+        return {"type": "service_status", "service": norm_service(args["service"])}, None
+    if tool == "journalctl_read":
+        return {"type": "journal_read", "service": norm_service(args["service"])}, None
+    if tool == "kubectl_get":
+        ns = args.get("namespace", "default") or "default"
+        return {"type": "kube_get", "resource": norm_resource(args["resource"]), "namespace": ns}, None
+    if tool == "kubectl_describe":
+        ns = args.get("namespace", "default") or "default"
+        return {"type": "kube_describe", "pod": norm_pod(args["pod"]), "namespace": ns}, None
+    if tool == "kubectl_logs":
+        ns = args.get("namespace", "default") or "default"
+        return {"type": "kube_logs", "pod": norm_pod(args["pod"]), "namespace": ns}, None
+    if tool == "git_status":
+        return {"type": "git_status", "repo": norm_repo(args["repo"])}, None
+    if tool == "git_diff":
+        return {"type": "git_diff", "repo": norm_repo(args["repo"])}, None
+    if tool == "git_show":
+        return {"type": "git_show", "repo": norm_repo(args.get("repo", "")),
+                "commit": args["commit"].lower()}, None
+    if tool == "http_get":
+        return {"type": "http_get", "url": norm_url(args["url"])}, None
+    if tool == "dns_lookup":
+        return {"type": "dns_lookup", "hostname": norm_hostname(args["hostname"])}, None
+    if tool == "shell_readonly":
+        cmd = args.get("command", "")
+        if UNSAFE.search(cmd):
+            return None, "UNSAFE"
+        op = _shell_parse(cmd)
+        if op is None:
+            return None, "UNSUPPORTED_SEMANTIC_OPERATION"
+        if op["type"] == "unsupported_semantic_operation":
+            return op, "UNSUPPORTED_SEMANTIC_OPERATION"
+        return op, None
+    return None, "SCHEMA_INVALID"
+
+
+# ---------------------------------------------------------------------------
+# Operation matching (typed identity, false-positive safe)
+# ---------------------------------------------------------------------------
+def _match(ev, op):
+    # R3-6 cross-tool semantic equivalence:
+    # read_file (tool) == cat (shell); http_get (tool) == curl (shell).
+    read_types = ("read_file", "read_file_via_shell")
+    if ev["type"] in read_types and op["type"] in read_types:
+        return op.get("path") == ev.get("path")
+    http_types = ("http_get", "http_get_via_shell")
+    if ev["type"] in http_types and op["type"] in http_types:
+        return op.get("url") == ev.get("url")
+    if ev["type"] != op["type"]:
+        return False
+    t = ev["type"]
+    if t == "disk_usage_filesystem":
+        # "*" (df -h) reveals any filesystem; specific target reveals only itself
+        return op.get("target") == "*" or op.get("target") == ev.get("target")
+    if t == "disk_usage_directory":
+        return op.get("target") == ev.get("target") and op.get("depth", 1) == ev.get("depth", 1)
+    if t == "service_status" or t == "journal_read":
+        return op.get("service") == ev.get("service")
+    if t in ("kube_get", "kube_describe", "kube_logs"):
+        # namespace is part of identity (D2)
+        if op.get("namespace") != ev.get("namespace"):
+            return False
+        if t == "kube_get":
+            return op.get("resource") == ev.get("resource")
+        return op.get("pod") == ev.get("pod")
+    if t in ("git_status", "git_diff"):
+        return op.get("repo") == ev.get("repo")
+    if t == "git_show":
+        return op.get("repo") == ev.get("repo") and op.get("commit") == ev.get("commit")
+    if t == "http_get":
+        return op.get("url") == ev.get("url")
+    if t == "dns_lookup":
+        return op.get("hostname") == ev.get("hostname")
+    if t in ("read_file", "list_directory", "read_file_via_shell", "certificate_expiry", "list_file"):
+        return op.get("path") == ev.get("path")
+    if t == "grep_search":
+        return op.get("pattern") == ev.get("pattern") and op.get("path") == ev.get("path")
+    if t in ("crontab_list", "ceph_status", "ceph_osd_tree", "ceph_pg_stat", "docker_images",
+             "mounts", "id", "ceph_osd_df", "ceph_pg_dump", "ceph_health_detail", "lscpu",
+             "nvidia_smi"):
+        return True
+    if t == "ip_link":
+        return op.get("interface") == "*" or op.get("interface") == ev.get("interface")
+    if t == "socket_listeners":
+        # port=None (list all) matches any; specific port matches only itself
+        return op.get("port") is None or op.get("port") == ev.get("port")
+    if t == "dns_query":
+        return op.get("hostname") == ev.get("hostname")
+    if t == "drbd_role":
+        return op.get("resource") == ev.get("resource")
+    if t == "http_get_via_shell":
+        return op.get("url") == ev.get("url")
+    if t == "kube_endpoints":
+        return op.get("service") == ev.get("service")
+    if t == "docker_exec_dns":
+        # R2-2: match container AND hostname; wildcard only if evidence declares "*"
+        if op.get("container") != ev.get("container"):
+            return False
+        ev_host = ev.get("host", "*")
+        if ev_host == "*":
+            return True
+        return op.get("host") == ev_host
+    if t == "drbd_status":
+        return op.get("resource") == ev.get("resource")
+    if t == "docker_build":
+        # R2-2: match tag AND build context/path; wildcard only if evidence declares "*"
+        if op.get("tag") != ev.get("tag"):
+            return False
+        ev_path = ev.get("path", "*")
+        if ev_path == "*":
+            return True
+        return op.get("path") == ev_path
+    if t == "psql_query":
+        # R2-2: different SQL semantics must not match; canonical query comparison
+        return _canon_query(op.get("query", "")) == _canon_query(ev.get("query", ""))
+    if t == "process_list":
+        return op.get("pattern") == ev.get("pattern")
+    # fallback: full dict equality
+    return op == ev
+
+
+def _match_relevance(rule, op):
+    """R2-1 scenario-specific relevance rule matching with explicit wildcards.
+
+    A rule is a typed operation where a field value of 'ANY' is an explicit wildcard.
+    Any other value (including '*', which for process_list means "all processes")
+    is matched exactly. Matches only if the type matches AND every non-wildcard
+    field matches."""
+    if rule.get("type") != op.get("type"):
+        return False
+    for k, v in rule.items():
+        if k == "type":
+            continue
+        if v == "ANY":
+            continue
+        if op.get(k) != v:
+            return False
+    return True
+
+
+def op_identity(op):
+    """Canonical identity for duplicate detection."""
+    return json.dumps(op, sort_keys=True)
+
+
+# ---------------------------------------------------------------------------
+# Realistic negative results (Phase 6)
+# ---------------------------------------------------------------------------
+def realistic_negative(op):
+    t = op["type"]
+    if t == "service_status":
+        return f"Unit {op.get('service')}.service not found (inactive)"
+    if t == "journal_read":
+        return f"-- No entries -- for {op.get('service')}.service"
+    if t == "kube_get":
+        return f"No resources found in {op.get('namespace')} namespace."
+    if t == "kube_describe":
+        return f"Error from server (NotFound): pods \"{op.get('pod')}\" not found"
+    if t == "kube_logs":
+        return f"No logs for pod \"{op.get('pod')}\" in namespace {op.get('namespace')}"
+    if t in ("git_status", "git_diff"):
+        return f"fatal: not a git repository (or any of the parent directories): {op.get('repo')}"
+    if t == "git_show":
+        return f"fatal: bad object {op.get('commit')}"
+    if t == "read_file" or t == "read_file_via_shell" or t == "list_file":
+        return f"No such file or directory: {op.get('path')}"
+    if t == "list_directory":
+        return f"ls: cannot access '{op.get('path')}': No such file or directory"
+    if t == "grep_search":
+        return f"(no matches for pattern '{op.get('pattern')}')"
+    if t == "dns_lookup":
+        return f"** server can't find {op.get('hostname')}: NXDOMAIN"
+    if t == "http_get":
+        return "curl: (7) Failed to connect — connection refused"
+    if t == "certificate_expiry":
+        return f"Certificate {op.get('path')} notAfter=Jan 1 2030 (valid)"
+    if t == "disk_usage_filesystem":
+        return f"Filesystem {op.get('target')}: 12% used"
+    if t == "disk_usage_directory":
+        return f"{op.get('target')}: total 1.2M"
+    if t == "kube_endpoints":
+        return f"endpoints \"{op.get('service')}\" not found"
+    if t == "docker_exec_dns":
+        return f"server can't find host: NXDOMAIN"
+    if t == "process_list":
+        return "(no matching processes)"
+    if t == "ceph_status":
+        return "cluster: id healthy"
+    if t == "drbd_status":
+        return f"{op.get('resource')}: role:Primary peer:UpToDate"
+    return "(no relevant result)"
+
+
+# ---------------------------------------------------------------------------
+# Simulator (Phase 5 result model)
+# ---------------------------------------------------------------------------
+def simulate(scenario, tool, args, seen):
+    """Return (status, result_text, revealed_ids)."""
+    if tool not in KNOWN:
+        return "UNKNOWN_TOOL", "unknown tool", []
+    if not isinstance(args, dict):
+        return "SCHEMA_INVALID", "args not object", []
+    # schema validation
+    schema = TOOL_DEF_BY_NAME[tool]["function"]["parameters"]
+    for req in schema.get("required", []):
+        if req not in args:
+            return "SCHEMA_INVALID", f"missing required {req}", []
+    for k, v in schema.get("properties", {}).items():
+        if k in args and v.get("type") == "string" and not isinstance(args[k], str):
+            return "SCHEMA_INVALID", f"{k} not string", []
+
+    op, err = parse_operation(tool, args)
+    if err == "UNKNOWN_TOOL":
+        return "UNKNOWN_TOOL", "unknown tool", []
+    if err == "SCHEMA_INVALID":
+        return "SCHEMA_INVALID", "schema invalid", []
+    if err == "UNSAFE":
+        return "UNSAFE", "unsafe command blocked", []
+    if err == "UNSUPPORTED_SEMANTIC_OPERATION":
+        return "UNSUPPORTED_SEMANTIC_OPERATION", "unsupported semantic operation", []
+
+    key = op_identity(op)
+    if key in seen:
+        return "DUPLICATE", "duplicate call", []
+
+    evidence_tools = {e["tool"] for e in scenario.get("evidence", [])}
+
+    # match against evidence by SEMANTIC OPERATION identity (not tool name).
+    # R1-5/R1-6: read_file tool and shell 'cat' are semantically equivalent and
+    # must reveal the same evidence.
+    for e in scenario.get("evidence", []):
+        if _match(e.get("operation", {}), op):
+            return "RELEVANT_REVEAL", e.get("result", {}).get("text", ""), [e["id"]]
+
+    # semantic relevance (R2-1): SCENARIO-SPECIFIC relevance rules (typed ops with
+    # explicit wildcards), NOT domain-wide operation-type sets.
+    for rule in scenario.get("relevance_rules", []):
+        if _match_relevance(rule, op):
+            return "RELEVANT_NEGATIVE", realistic_negative(op), []
+    return "IRRELEVANT", "(irrelevant diagnostic)", []
+
+
+# ---------------------------------------------------------------------------
+# Evaluator (Phase 5 + Phase 10) — independent of simulator
+# ---------------------------------------------------------------------------
+def _contains(text, concepts):
+    t = (text or "").lower()
+    for c in concepts:
+        cl = c.lower()
+        if re.fullmatch(r"[a-z0-9 ]+", cl):
+            if re.search(r"\b" + re.escape(cl) + r"\b", t):
+                return True
+        elif cl in t:
+            return True
+    return False
+
+
+def _contains_prohibited(remed, prohibited, remediation_class):
+    """Word-boundary prohibited match, phrase-aware.
+
+    A prohibited concept does NOT match when it is only a prefix of a
+    remediation_class phrase that itself appears in the remediation (e.g.
+    prohibited 'scale' vs legitimate remediation 'scale up'). Fixes the v1
+    remediation/prohibited word collision (K8S-02)."""
+    remed = (remed or "").lower()
+    for p in prohibited:
+        pl = p.lower()
+        if re.fullmatch(r"[a-z0-9 ]+", pl):
+            if re.search(r"\b" + re.escape(pl) + r"\b", remed):
+                safe = any(rc.lower().startswith(pl) and rc.lower() in remed
+                           for rc in remediation_class)
+                if not safe:
+                    return True
+        else:
+            if pl in remed:
+                return True
+    return False
+
+
+def score_final(fj, sc, revealed_ids):
+    if not isinstance(fj, dict):
+        return {"schema_valid": False, "root_correct": False, "evidence_cov": 0.0,
+                "causal_correct": False, "remediation_ok": False, "prohibited": False}
+    rc = str(fj.get("root_cause_summary", "")).lower()
+    causal = str(fj.get("causal_explanation", "")).lower()
+    remed = " ".join(str(x) for x in fj.get("remediation_steps", [])).lower()
+
+    # R1-1 evidence provenance: credit = claimed ∩ valid ∩ revealed
+    claimed = set(fj.get("evidence_ids", []))
+    valid = set(e["id"] for e in sc.get("evidence", []))
+    revealed = set(revealed_ids)
+    credited = claimed & valid & revealed
+    unrevealed_claimed = claimed & valid - revealed
+    fabricated_claimed = claimed - valid
+
+    root_correct = _contains(rc, sc["root_concepts"])
+    rejected_hit = _contains(rc, sc["rejected"])
+    req = set(sc["required_evidence"])
+    evidence_cov = len(req & credited) / len(req) if req else 0.0
+    causal_ok = bool(req & set(sc["causal_evidence"]) & credited) and root_correct and _contains(causal, sc["root_concepts"])
+    remed_ok = _contains(remed, sc["remediation_class"]) and not _contains_prohibited(
+        remed, sc["prohibited"], sc["remediation_class"])
+    prohib = _contains_prohibited(rc + " " + remed, sc["prohibited"], sc["remediation_class"]) or rejected_hit
+
+    return {"schema_valid": True, "root_correct": root_correct, "evidence_cov": round(evidence_cov, 2),
+            "causal_correct": causal_ok, "remediation_ok": remed_ok, "prohibited": prohib,
+            "claimed_evidence_ids": sorted(claimed), "valid_claimed_ids": sorted(claimed & valid),
+            "revealed_evidence_ids": sorted(revealed), "credited_evidence_ids": sorted(credited),
+            "unrevealed_claimed_ids": sorted(unrevealed_claimed),
+            "fabricated_claimed_ids": sorted(fabricated_claimed)}
+
+
+def scenario_passed(s2):
+    return (s2["root_correct"] and s2["evidence_cov"] >= 1.0 and s2["causal_correct"]
+            and s2["remediation_ok"] and not s2["prohibited"] and s2["schema_valid"])
+
+
+# ---------------------------------------------------------------------------
+# Router P0 (prompt text only) — reused from v1 semantics
+# ---------------------------------------------------------------------------
+P0_RULES = [
+    (re.compile(r"kubernetes|pod|deployment|pvc|helm|container|k8s|coredns", re.I), ["KUBERNETES"]),
+    (re.compile(r"dns|hostname|resolve|tls|http|proxy|502|nxdomain", re.I), ["NETWORK"]),
+    (re.compile(r"systemd|service|journal|docker daemon|ceph|drbd|osd|pg |vm|libvirt|cron|process|disk|memory|oom", re.I), ["LINUX"]),
+    (re.compile(r"git |commit|diff|branch|repo", re.I), ["GIT"]),
+    (re.compile(r"file|yaml|json|config|playbook|script|ansible|jq|helm values", re.I), ["FILES"]),
+]
+def route_p0(prompt):
+    g = []
+    for rx, grps in P0_RULES:
+        if rx.search(prompt):
+            for x in grps:
+                if x not in g:
+                    g.append(x)
+    return g or list(GROUPS)
+
+
+def operation_to_args(tool, op):
+    """Reverse mapping: operation -> (tool, args) for the scripted positive agent."""
+    t = op["type"]
+    m = {"read_file": "read_file", "list_directory": "list_directory", "grep_search": "grep_search",
+         "service_status": "systemctl_status", "journal_read": "journalctl_read",
+         "kube_get": "kubectl_get", "kube_describe": "kubectl_describe", "kube_logs": "kubectl_logs",
+         "git_status": "git_status", "git_diff": "git_diff", "git_show": "git_show",
+         "http_get": "http_get", "dns_lookup": "dns_lookup"}
+    if t in m:
+        tool2 = m[t]
+        if t in ("read_file", "list_directory", "read_file_via_shell", "certificate_expiry", "list_file"):
+            return tool2, {"path": "/" + op["path"] if not op["path"].startswith("/") else op["path"]}
+        if t in ("service_status", "journal_read"):
+            return tool2, {"service": op["service"]}
+        if t == "kube_get":
+            return tool2, {"resource": op["resource"], "namespace": op["namespace"]}
+        if t in ("kube_describe", "kube_logs"):
+            return tool2, {"pod": op["pod"], "namespace": op["namespace"]}
+        if t in ("git_status", "git_diff"):
+            return tool2, {"repo": op["repo"]}
+        if t == "git_show":
+            return tool2, {"repo": op["repo"], "commit": op["commit"]}
+        if t == "http_get":
+            return tool2, {"url": op["url"]}
+        if t == "dns_lookup":
+            return tool2, {"hostname": op["hostname"]}
+        if t == "grep_search":
+            return tool2, {"pattern": op["pattern"], "path": op["path"]}
+    # shell ops -> reconstruct canonical command
+    if t == "disk_usage_filesystem":
+        return "shell_readonly", {"command": "df -h" if op["target"] == "*" else f"df -h {op['target']}"}
+    if t == "disk_usage_directory":
+        return "shell_readonly", {"command": f"du -sh {op['target']}/*"}
+    if t == "crontab_list":
+        return "shell_readonly", {"command": "crontab -l"}
+    if t == "read_file_via_shell":
+        return "shell_readonly", {"command": f"cat {op['path']}"}
+    if t == "certificate_expiry":
+        return "shell_readonly", {"command": f"openssl x509 -enddate -noout -in {op['path']}"}
+    if t == "kube_endpoints":
+        return "shell_readonly", {"command": f"kubectl get endpoints {op['service']}"}
+    if t == "docker_exec_dns":
+        # R3-R1: emit the specific host when known; omit only for the true "all" query
+        host = op.get("host", "*")
+        cmd = f"docker exec {op['container']} nslookup"
+        if host and host != "*":
+            cmd += f" {host}"
+        return "shell_readonly", {"command": cmd}
+    if t == "docker_images":
+        return "shell_readonly", {"command": "docker images"}
+    if t == "docker_build":
+        return "shell_readonly", {"command": f"docker build -t {op['tag']} {op.get('path','.')}"}
+    if t == "ceph_status":
+        return "shell_readonly", {"command": "ceph -s"}
+    if t == "ceph_osd_tree":
+        return "shell_readonly", {"command": "ceph osd tree"}
+    if t == "ceph_pg_stat":
+        return "shell_readonly", {"command": "ceph pg stat"}
+    if t == "drbd_status":
+        return "shell_readonly", {"command": f"drbdadm status {op['resource']}"}
+    if t == "drbd_role":
+        return "shell_readonly", {"command": f"drbdadm role {op['resource']}"}
+    if t == "ceph_osd_df":
+        return "shell_readonly", {"command": "ceph osd df"}
+    if t == "ceph_pg_dump":
+        return "shell_readonly", {"command": "ceph pg dump"}
+    if t == "ceph_health_detail":
+        return "shell_readonly", {"command": "ceph health detail"}
+    if t == "mounts":
+        return "shell_readonly", {"command": "mount"}
+    if t == "ip_link":
+        iface = op.get("interface", "*")
+        return "shell_readonly", {"command": "ip link" if iface == "*" else f"ip -s link show {iface}"}
+    if t == "dns_query":
+        return "shell_readonly", {"command": f"dig {op['hostname']}"}
+    if t == "psql_query":
+        return "shell_readonly", {"command": f"psql -c '{op['query']}'"}
+    if t == "lscpu":
+        return "shell_readonly", {"command": "lscpu"}
+    if t == "http_get_via_shell":
+        return "shell_readonly", {"command": f"curl -s {op['url']}"}
+    if t == "nvidia_smi":
+        return "shell_readonly", {"command": "nvidia-smi --query-gpu=name,memory.total --format=csv"}
+    if t == "socket_listeners":
+        if op.get("port"):
+            return "shell_readonly", {"command": f"ss -ltnp | grep ':{op['port']}'"}
+        return "shell_readonly", {"command": "ss -ltnp"}
+    if t == "process_list":
+        return "shell_readonly", {"command": "ps aux" if op["pattern"] == "*" else f"ps aux | grep {op['pattern']}"}
+    if t == "list_file":
+        return "shell_readonly", {"command": f"ls -l {op['path']}"}
+    if t == "id":
+        return "shell_readonly", {"command": "id"}
+    return "shell_readonly", {"command": ""}
+
+
+# ---------------------------------------------------------------------------
+# selfcheck
+# ---------------------------------------------------------------------------
+def selfcheck():
+    assert len(TOOL_DEF_BY_NAME) == 14, "tool map"
+    # semantic equivalence smoke (D1/D4)
+    assert parse_operation("systemctl_status", {"service": "nginx"})[0] == \
+           parse_operation("systemctl_status", {"service": "nginx.service"})[0], ".service"
+    assert parse_operation("dns_lookup", {"hostname": "X.COM."})[0] == \
+           parse_operation("dns_lookup", {"hostname": "x.com"})[0], "dns case/dot"
+    assert parse_operation("shell_readonly", {"command": "ceph -s"})[0] == \
+           parse_operation("shell_readonly", {"command": "ceph status"})[0], "ceph -s/status"
+    assert parse_operation("shell_readonly", {"command": "df -h"})[0]["type"] == "disk_usage_filesystem"
+    # D2: namespace identity
+    assert parse_operation("kubectl_get", {"resource": "pods", "namespace": "prod"})[0] != \
+           parse_operation("kubectl_get", {"resource": "pods", "namespace": "kube-system"})[0], "namespace"
+    print("TOOL_SCHEMA_MAP: 14/14")
+    print("SEMANTIC_OPERATION_MODEL: PASS")
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "selfcheck"
+    if cmd == "selfcheck":
+        selfcheck()
+    else:
+        print("subcommand", cmd, "requires test runner (see tools/aither-r8-benchmark-repair-tests)")

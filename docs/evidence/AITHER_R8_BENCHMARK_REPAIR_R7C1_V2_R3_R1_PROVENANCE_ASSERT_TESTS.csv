@@ -1,0 +1,11 @@
+test,claimed,revealed,credited,evidence_cov,unrevealed,fabricated,scenario_passed,PASS
+P1_all_claimed_none_revealed,"['E1', 'E2']",[],[],0.0,"['E1', 'E2']",[],False,PASS
+P2_one_unrevealed,['E1'],[],[],0.0,['E1'],[],False,PASS
+P3_fabricated,['FAKE'],[],[],0.0,[],['FAKE'],False,PASS
+P4_partial_reveal,"['E1', 'E2']",['E1'],['E1'],0.5,['E2'],[],False,PASS
+P5_full,"['E1', 'E2']","['E1', 'E2']","['E1', 'E2']",1.0,[],[],True,PASS
+P6_reveal_no_claim,[],"['E1', 'E2']",[],0.0,[],[],False,PASS
+P7_valid_plus_fake,"['E1', 'FAKE']",['E1'],['E1'],0.5,[],['FAKE'],False,PASS
+P8_duplicate_ids,"['E1', 'E1', 'E2']","['E1', 'E2']","['E1', 'E2']",1.0,[],[],True,PASS
+P9_non_required_revealed,"['E1', 'E2']","['E1', 'E2', 'EXTRA']","['E1', 'E2']",1.0,[],[],True,PASS
+P10_cross_scenario_id,"['E1', 'E2', 'E3']","['E1', 'E2']","['E1', 'E2']",1.0,[],['E3'],True,PASS

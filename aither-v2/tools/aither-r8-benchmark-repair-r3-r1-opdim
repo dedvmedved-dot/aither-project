@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""R7-C1 v2-R2 deterministic test runner.
+
+Produces:
+  SAME_DOMAIN_IRRELEVANCE_TESTS.csv (>=40)
+  RELEVANT_NEGATIVE_TESTS.csv (>=40)
+  OPERATION_DIMENSION_EXECUTABLE_TESTS.csv (>=80)
+  WILDCARD_TESTS.csv
+  PROVENANCE_ASSERT_TESTS.csv (>=10)
+"""
+import json, sys, csv
+from importlib.machinery import SourceFileLoader
+
+H = SourceFileLoader("r2", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1").load_module()
+
+def load(path):
+    d = json.load(open(path))
+    return {s["scenario_id"]: s for s in d["scenarios"]}
+
+# universal "wrong object" noise calls: always IRRELEVANT (no scenario uses these objects)
+NOISE_UNIVERSAL = [
+    ("git_status", {"repo": "unrelatedrepo"}),
+    ("systemctl_status", {"service": "postgresql"}),
+    ("dns_lookup", {"hostname": "unrelated.example.com"}),
+    ("journalctl_read", {"service": "redis"}),
+]
+
+def main():
+    scs = load(sys.argv[1])
+    outdir = sys.argv[2]
+
+    # ---- Same-domain irrelevance (>=40) ----
+    irr_rows = []
+    for sid, sc in scs.items():
+        for tool, args in NOISE_UNIVERSAL:
+            status, _, _ = H.simulate(sc, tool, args, set())
+            irr_rows.append({"scenario_id": sid, "domain": sc["domain"], "tool": tool,
+                             "args": json.dumps(args), "expected": "IRRELEVANT", "actual": status,
+                             "PASS": "PASS" if status == "IRRELEVANT" else "FAIL"})
+
+    # ---- Relevant-negative (>=40): each scenario's relevance rules must be RELEVANT_NEGATIVE ----
+    rn_rows = []
+    for sid, sc in scs.items():
+        for rule in sc.get("relevance_rules", []):
+            # convert rule (typed op) to (tool, args) via operation_to_args
+            op_type = rule["type"]
+            tool, args = H.operation_to_args(None, rule)
+            status, _, _ = H.simulate(sc, tool, args, set())
+            ok = status in ("RELEVANT_NEGATIVE", "RELEVANT_REVEAL")
+            rn_rows.append({"scenario_id": sid, "rule": json.dumps(rule), "tool": tool,
+                            "args": json.dumps(args), "expected": "RELEVANT", "actual": status,
+                            "PASS": "PASS" if ok else "FAIL"})
+
+    # ---- Operation-dimension executable tests (>=80) ----
+    opdim_rows = []
+    # (type, canonical_op, significant_fields, sample args builder)
+    OP_DIMS = [
+        ("read_file", {"type":"read_file","path":"app.py"}, {"path": "other.py"}, None),
+        ("service_status", {"type":"service_status","service":"nginx"}, {"service": "apache"}, None),
+        ("journal_read", {"type":"journal_read","service":"nginx"}, {"service": "apache"}, None),
+        ("kube_get", {"type":"kube_get","resource":"pods","namespace":"default"}, {"resource":"nodes","namespace":"kube-system"}, None),
+        ("kube_describe", {"type":"kube_describe","pod":"web","namespace":"default"}, {"pod":"db","namespace":"kube-system"}, None),
+        ("kube_logs", {"type":"kube_logs","pod":"web","namespace":"default"}, {"pod":"db","namespace":"kube-system"}, None),
+        ("git_status", {"type":"git_status","repo":"app"}, {"repo":"other"}, None),
+        ("git_diff", {"type":"git_diff","repo":"app"}, {"repo":"other"}, None),
+        ("git_show", {"type":"git_show","repo":"app","commit":"abc"}, {"repo":"other","commit":"xyz"}, None),
+        ("http_get", {"type":"http_get","url":"https://x.example.com"}, {"url":"https://y.example.com"}, None),
+        ("dns_lookup", {"type":"dns_lookup","hostname":"x.com"}, {"hostname":"y.com"}, None),
+        ("dns_query", {"type":"dns_query","hostname":"x.com"}, {"hostname":"y.com"}, None),
+        ("drbd_status", {"type":"drbd_status","resource":"r0"}, {"resource":"r1"}, None),
+        ("drbd_role", {"type":"drbd_role","resource":"r0"}, {"resource":"r1"}, None),
+        ("docker_exec_dns", {"type":"docker_exec_dns","container":"app","host":"db.internal"}, {"container":"other","host":"other.internal"}, None),
+        ("docker_build", {"type":"docker_build","tag":"app","path":"."}, {"tag":"other","path":"/elsewhere"}, None),
+        ("kube_endpoints", {"type":"kube_endpoints","service":"backend"}, {"service":"other"}, None),
+        ("process_list", {"type":"process_list","pattern":"nginx"}, {"pattern":"postgresql"}, None),
+        ("psql_query", {"type":"psql_query","query":"select state,count(*) from pg_stat_activity group by state"}, {"query":"select * from users"}, None),
+        ("certificate_expiry", {"type":"certificate_expiry","path":"etc/ssl/cert.pem"}, {"path":"other/cert.pem"}, None),
+        ("disk_usage_filesystem", {"type":"disk_usage_filesystem","target":"/var"}, {"target":"/mnt"}, None),
+        ("disk_usage_directory", {"type":"disk_usage_directory","target":"/var","depth":1}, {"target":"/tmp","depth":2}, None),
+        ("socket_listeners", {"type":"socket_listeners","port":80}, {"port":443}, None),
+        ("ip_link", {"type":"ip_link","interface":"eth1"}, {"interface":"eth2"}, None),
+        ("list_directory", {"type":"list_directory","path":"var/log"}, {"path":"var/tmp"}, None),
+        ("grep_search", {"type":"grep_search","pattern":"error","path":"var/log"}, {"pattern":"warn","path":"var/tmp"}, None),
+        ("read_file_via_shell", {"type":"read_file_via_shell","path":"etc/hosts"}, {"path":"etc/other"}, None),
+        ("list_file", {"type":"list_file","path":"etc/app/config"}, {"path":"etc/other"}, None),
+        ("http_get_via_shell", {"type":"http_get_via_shell","url":"https://x.example.com"}, {"url":"https://y.example.com"}, None),
+        ("crontab_list", {"type":"crontab_list"}, {}, None),
+        ("ceph_status", {"type":"ceph_status"}, {}, None),
+        ("ceph_osd_tree", {"type":"ceph_osd_tree"}, {}, None),
+        ("ceph_osd_df", {"type":"ceph_osd_df"}, {}, None),
+        ("ceph_pg_stat", {"type":"ceph_pg_stat"}, {}, None),
+        ("ceph_pg_dump", {"type":"ceph_pg_dump"}, {}, None),
+        ("ceph_health_detail", {"type":"ceph_health_detail"}, {}, None),
+        ("docker_images", {"type":"docker_images"}, {}, None),
+        ("mounts", {"type":"mounts"}, {}, None),
+        ("id", {"type":"id"}, {}, None),
+        ("lscpu", {"type":"lscpu"}, {}, None),
+        ("nvidia_smi", {"type":"nvidia_smi"}, {}, None),
+        ("kube_get_alt_ns", {"type":"kube_get","resource":"pods","namespace":"prod"}, {"namespace":"staging"}, None),
+        ("disk_usage_depth", {"type":"disk_usage_directory","target":"/var","depth":1}, {"depth":2}, None),
+    ]
+    for typ, canon, mut, _ in OP_DIMS:
+        # exact match
+        m = H._match(canon, canon)
+        opdim_rows.append({"operation_type": typ, "test_case": "exact_match", "mutated_field": "",
+                           "evidence_value": json.dumps(canon), "caller_value": json.dumps(canon),
+                           "wildcard_mode": "no", "expected_match": True, "actual_match": m,
+                           "PASS": "PASS" if m else "FAIL"})
+        # mutate each significant field
+        for field, val in mut.items():
+            caller = dict(canon); caller[field] = val
+            m = H._match(canon, caller)
+            opdim_rows.append({"operation_type": typ, "test_case": f"mutate_{field}", "mutated_field": field,
+                               "evidence_value": json.dumps(canon), "caller_value": json.dumps(caller),
+                               "wildcard_mode": "no", "expected_match": False, "actual_match": m,
+                               "PASS": "PASS" if not m else "FAIL"})
+
+    # ---- Wildcard tests ----
+    wild_rows = []
+    # socket_listeners wildcard: caller "list all" (port=None) reveals any specific port evidence
+    m = H._match({"type":"socket_listeners","port":80}, {"type":"socket_listeners","port":None})
+    wild_rows.append({"operation_type":"socket_listeners","evidence":"port=80","caller":"port=None",
+                      "expected_match":True,"actual_match":m,"PASS":"PASS" if m else "FAIL"})
+    m = H._match({"type":"socket_listeners","port":80}, {"type":"socket_listeners","port":443})
+    wild_rows.append({"operation_type":"socket_listeners","evidence":"port=80","caller":"port=443",
+                      "expected_match":False,"actual_match":m,"PASS":"PASS" if not m else "FAIL"})
+    # docker_exec_dns host wildcard
+    m = H._match({"type":"docker_exec_dns","container":"app","host":"*"}, {"type":"docker_exec_dns","container":"app","host":"db.internal"})
+    wild_rows.append({"operation_type":"docker_exec_dns","evidence":"host=*","caller":"host=db.internal",
+                      "expected_match":True,"actual_match":m,"PASS":"PASS" if m else "FAIL"})
+    m = H._match({"type":"docker_exec_dns","container":"app","host":"db.internal"}, {"type":"docker_exec_dns","container":"app","host":"other.internal"})
+    wild_rows.append({"operation_type":"docker_exec_dns","evidence":"host=db.internal","caller":"host=other.internal",
+                      "expected_match":False,"actual_match":m,"PASS":"PASS" if not m else "FAIL"})
+    # docker_build path wildcard
+    m = H._match({"type":"docker_build","tag":"app","path":"*"}, {"type":"docker_build","tag":"app","path":"/x"})
+    wild_rows.append({"operation_type":"docker_build","evidence":"path=*","caller":"path=/x",
+                      "expected_match":True,"actual_match":m,"PASS":"PASS" if m else "FAIL"})
+    # disk_usage_filesystem target wildcard ("*" reveals any)
+    m = H._match({"type":"disk_usage_filesystem","target":"/var"}, {"type":"disk_usage_filesystem","target":"*"})
+    wild_rows.append({"operation_type":"disk_usage_filesystem","evidence":"target=/var","caller":"target=*",
+                      "expected_match":True,"actual_match":m,"PASS":"PASS" if m else "FAIL"})
+
+    # ---- Assert-based provenance tests (>=10) ----
+    prov_rows = []
+    sc = scs["LIN-01"]
+    valid = {e["id"] for e in sc["evidence"]}
+    req = set(sc["required_evidence"])
+    def assert_prov(name, claimed, revealed, exp_credited, exp_cov, exp_unrev, exp_fab, exp_passed):
+        fj = {"root_cause_summary": sc["root_concepts"][0], "evidence_ids": list(claimed),
+              "causal_explanation": "because of " + sc["root_concepts"][0],
+              "remediation_steps": [sc["remediation_class"][0]]}
+        s2 = H.score_final(fj, sc, revealed)
+        cred = set(s2["credited_evidence_ids"])
+        ok = (cred == set(exp_credited) and abs(s2["evidence_cov"] - exp_cov) < 1e-9
+              and len(s2["unrevealed_claimed_ids"]) == exp_unrev
+              and len(s2["fabricated_claimed_ids"]) == exp_fab
+              and H.scenario_passed(s2) == exp_passed)
+        prov_rows.append({"test": name, "claimed": sorted(claimed), "revealed": sorted(revealed),
+                          "credited": s2["credited_evidence_ids"], "evidence_cov": s2["evidence_cov"],
+                          "unrevealed": s2["unrevealed_claimed_ids"], "fabricated": s2["fabricated_claimed_ids"],
+                          "scenario_passed": H.scenario_passed(s2), "PASS": "PASS" if ok else "FAIL"})
+    assert_prov("P1_all_claimed_none_revealed", ["E1","E2"], [], [], 0.0, 2, 0, False)
+    assert_prov("P2_one_unrevealed", ["E1"], [], [], 0.0, 1, 0, False)
+    assert_prov("P3_fabricated", ["FAKE"], [], [], 0.0, 0, 1, False)
+    assert_prov("P4_partial_reveal", ["E1","E2"], ["E1"], ["E1"], 0.5, 1, 0, False)
+    assert_prov("P5_full", ["E1","E2"], ["E1","E2"], ["E1","E2"], 1.0, 0, 0, True)
+    assert_prov("P6_reveal_no_claim", [], ["E1","E2"], [], 0.0, 0, 0, False)
+    assert_prov("P7_valid_plus_fake", ["E1","FAKE"], ["E1"], ["E1"], 0.5, 0, 1, False)
+    assert_prov("P8_duplicate_ids", ["E1","E1","E2"], ["E1","E2"], ["E1","E2"], 1.0, 0, 0, True)
+    assert_prov("P9_non_required_revealed", ["E1","E2"], ["E1","E2","EXTRA"], ["E1","E2"], 1.0, 0, 0, True)
+    # required-looking ID from another scenario (K8S-01 has E1/E2/E3)
+    assert_prov("P10_cross_scenario_id", ["E1","E2","E3"], ["E1","E2"], ["E1","E2"], 1.0, 0, 1, True)
+
+    # ---- write CSVs ----
+    def wr(fn, rows):
+        if not rows: return
+        with open(f"{outdir}/{fn}", "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+    wr("AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R3_R1_SAME_DOMAIN_IRRELEVANCE_TESTS.csv", irr_rows)
+    wr("AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R3_R1_RELEVANT_NEGATIVE_TESTS.csv", rn_rows)
+    wr("AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R3_R1_OPERATION_DIMENSION_EXECUTABLE_TESTS.csv", opdim_rows)
+    wr("AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R3_R1_WILDCARD_TESTS.csv", wild_rows)
+    wr("AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R3_R1_PROVENANCE_ASSERT_TESTS.csv", prov_rows)
+
+    def pass_cnt(rows): return sum(1 for r in rows if r.get("PASS") == "PASS")
+    print(f"SAME_DOMAIN_IRRELEVANCE={len(irr_rows)} pass={pass_cnt(irr_rows)}")
+    print(f"RELEVANT_NEGATIVE={len(rn_rows)} pass={pass_cnt(rn_rows)}")
+    print(f"OP_DIM_EXECUTABLE={len(opdim_rows)} pass={pass_cnt(opdim_rows)}")
+    print(f"WILDCARD={len(wild_rows)} pass={pass_cnt(wild_rows)}")
+    print(f"PROVENANCE_ASSERT={len(prov_rows)} pass={pass_cnt(prov_rows)}")
+    # report failures
+    for rows in (irr_rows, rn_rows, opdim_rows, wild_rows, prov_rows):
+        for r in rows:
+            if r.get("PASS") != "PASS":
+                print("  FAIL:", r.get("test") or r.get("scenario_id") or r.get("operation_type"), r)
+
+if __name__ == "__main__":
+    main()

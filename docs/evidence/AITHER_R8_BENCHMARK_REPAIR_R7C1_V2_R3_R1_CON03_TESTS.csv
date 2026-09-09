@@ -1,0 +1,7 @@
+test,tool,args,expected_status,actual_status,expected_reveal,actual_reveal,PASS
+C03_01_exact_positive,shell_readonly,"{""command"": ""docker exec app nslookup db.internal""}",RELEVANT_REVEAL,RELEVANT_REVEAL,E1,E1,PASS
+C03_02_wrong_host,shell_readonly,"{""command"": ""docker exec app nslookup unrelated.internal""}",IRRELEVANT,IRRELEVANT,,,PASS
+C03_03_wrong_container,shell_readonly,"{""command"": ""docker exec other-container nslookup db.internal""}",IRRELEVANT,IRRELEVANT,,,PASS
+C03_04_host_omitted,shell_readonly,"{""command"": ""docker exec app nslookup""}",IRRELEVANT,IRRELEVANT,,,PASS
+C03_05_direct_dns,shell_readonly,"{""command"": ""dig db.internal""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,,PASS
+C03_06_unrelated_dns,shell_readonly,"{""command"": ""dig unrelated.internal""}",IRRELEVANT,IRRELEVANT,,,PASS

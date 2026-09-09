@@ -1,0 +1,35 @@
+test,scenario,tool,args,expected,actual,note,PASS
+dns_lookup_NET-01,NET-01,dns_lookup,"{""hostname"": ""api.internal.example.com""}",RELEVANT_REVEAL,RELEVANT_REVEAL,tool lookup,PASS
+dig_NET-01,NET-01,shell_readonly,"{""command"": ""dig api.internal.example.com""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,shell dig,PASS
+dns_lookup_unrelated_NET-01,NET-01,dns_lookup,"{""hostname"": ""unrelated.example.com""}",IRRELEVANT,IRRELEVANT,,PASS
+dig_unrelated_NET-01,NET-01,shell_readonly,"{""command"": ""dig unrelated.example.com""}",IRRELEVANT,IRRELEVANT,,PASS
+dns_lookup_NET-03,NET-03,dns_lookup,"{""hostname"": ""svc.example.com""}",RELEVANT_REVEAL,RELEVANT_REVEAL,tool lookup,PASS
+dig_NET-03,NET-03,shell_readonly,"{""command"": ""dig svc.example.com""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,shell dig,PASS
+dns_lookup_unrelated_NET-03,NET-03,dns_lookup,"{""hostname"": ""unrelated.example.com""}",IRRELEVANT,IRRELEVANT,,PASS
+dig_unrelated_NET-03,NET-03,shell_readonly,"{""command"": ""dig unrelated.example.com""}",IRRELEVANT,IRRELEVANT,,PASS
+dns_lookup_NET-04,NET-04,dns_lookup,"{""hostname"": ""db.internal""}",RELEVANT_REVEAL,RELEVANT_REVEAL,tool lookup,PASS
+dig_NET-04,NET-04,shell_readonly,"{""command"": ""dig db.internal""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,shell dig,PASS
+dns_lookup_unrelated_NET-04,NET-04,dns_lookup,"{""hostname"": ""unrelated.example.com""}",IRRELEVANT,IRRELEVANT,,PASS
+dig_unrelated_NET-04,NET-04,shell_readonly,"{""command"": ""dig unrelated.example.com""}",IRRELEVANT,IRRELEVANT,,PASS
+read_file_resolv,NET-01,read_file,"{""path"": ""etc/resolv.conf""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+cat_resolv,NET-01,shell_readonly,"{""command"": ""cat /etc/resolv.conf""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+read_file_unrelated,NET-01,read_file,"{""path"": ""etc/unrelated""}",IRRELEVANT,IRRELEVANT,,PASS
+cat_unrelated,NET-01,shell_readonly,"{""command"": ""cat /etc/unrelated""}",IRRELEVANT,IRRELEVANT,,PASS
+http_get_svc,NET-02,http_get,"{""url"": ""https://svc.example.com""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+curl_svc,NET-02,shell_readonly,"{""command"": ""curl -s https://svc.example.com""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+ss_nginx,LIN-01,shell_readonly,"{""command"": ""ss -ltnp""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,PASS
+netstat_nginx,LIN-01,shell_readonly,"{""command"": ""netstat -ltnp""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,PASS
+ss_nginx_port80,LIN-01,shell_readonly,"{""command"": ""ss -ltnp | grep ':80'""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,PASS
+df_all,LIN-02,shell_readonly,"{""command"": ""df -h""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+df_var,LIN-02,shell_readonly,"{""command"": ""df -h /var""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+df_unrelated,LIN-02,shell_readonly,"{""command"": ""df -h /mnt""}",IRRELEVANT,IRRELEVANT,,PASS
+svc_nginx,LIN-01,systemctl_status,"{""service"": ""nginx""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+svc_unrelated,LIN-01,systemctl_status,"{""service"": ""postgresql""}",IRRELEVANT,IRRELEVANT,,PASS
+git_status_app,GIT-01,git_status,"{""repo"": ""app""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,PASS
+git_status_unrelated,GIT-01,git_status,"{""repo"": ""unrelatedrepo""}",IRRELEVANT,IRRELEVANT,,PASS
+ss_port80_equiv,LIN-01,shell_readonly,"{""command"": ""ss -ltnp | grep ':80'""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,PASS
+netstat_port80_equiv,LIN-01,shell_readonly,"{""command"": ""netstat -tlnp | grep ':80'""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,PASS
+dns_lookup_x04,X-04,dns_lookup,"{""hostname"": ""svc.internal""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+dig_x04,X-04,shell_readonly,"{""command"": ""dig svc.internal""}",RELEVANT_NEGATIVE,RELEVANT_NEGATIVE,,PASS
+read_file_backup,LIN-03,read_file,"{""path"": ""opt/backup.sh""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS
+cat_backup,LIN-03,shell_readonly,"{""command"": ""cat /opt/backup.sh""}",RELEVANT_REVEAL,RELEVANT_REVEAL,,PASS

@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""R7-C1 v2-R3-R1 CON-03 test suite (6 mandatory cases + reverse-mapping check)."""
+import json, sys, csv, os
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("r3r1", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
+
+def main():
+    sc = [s for s in json.load(open(sys.argv[1]))["scenarios"] if s["scenario_id"] == "CON-03"][0]
+    out = sys.argv[2]
+    rows = []
+    def T(name, tool, args, exp_status, exp_reveal):
+        status, _, rev = H.simulate(sc, tool, args, set())
+        ok = (status == exp_status) and (set(rev) == set(exp_reveal))
+        rows.append({"test": name, "tool": tool, "args": json.dumps(args),
+                     "expected_status": exp_status, "actual_status": status,
+                     "expected_reveal": ",".join(exp_reveal), "actual_reveal": ",".join(rev),
+                     "PASS": "PASS" if ok else "FAIL"})
+
+    # 1 exact positive
+    T("C03_01_exact_positive", "shell_readonly", {"command": "docker exec app nslookup db.internal"},
+      "RELEVANT_REVEAL", ["E1"])
+    # 2 wrong host
+    T("C03_02_wrong_host", "shell_readonly", {"command": "docker exec app nslookup unrelated.internal"},
+      "IRRELEVANT", [])
+    # 3 wrong container
+    T("C03_03_wrong_container", "shell_readonly", {"command": "docker exec other-container nslookup db.internal"},
+      "IRRELEVANT", [])
+    # 4 host omitted
+    T("C03_04_host_omitted", "shell_readonly", {"command": "docker exec app nslookup"},
+      "IRRELEVANT", [])
+    # 5 direct DNS (dig db.internal)
+    T("C03_05_direct_dns", "shell_readonly", {"command": "dig db.internal"},
+      "RELEVANT_NEGATIVE", [])
+    # 6 unrelated DNS
+    T("C03_06_unrelated_dns", "shell_readonly", {"command": "dig unrelated.internal"},
+      "IRRELEVANT", [])
+
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+
+    # reverse mapping check
+    e1 = sc["evidence"][0]
+    tool, args = H.operation_to_args(e1["tool"], e1["operation"])
+    rev_cmd = args.get("command", "")
+
+    n = len(rows); p = sum(1 for r in rows if r["PASS"] == "PASS")
+    false_reveals = sum(1 for r in rows if r["expected_reveal"] == "" and r["actual_reveal"] != "")
+    print(f"CON03_TESTS={p}/{n}")
+    print(f"CON03_FALSE_EVIDENCE_REVEALS={false_reveals}")
+    print(f"CON03_REVERSE_MAPPING_COMMAND={rev_cmd}")
+    for r in rows:
+        if r["PASS"] != "PASS":
+            print("  FAIL:", r["test"], r["actual_status"], r["actual_reveal"])
+
+if __name__ == "__main__":
+    main()

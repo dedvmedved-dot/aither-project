@@ -1,0 +1,9 @@
+test,scenario_id,tool,args,expected,actual,PASS
+adv_NET-01_shell_readonly,NET-01,shell_readonly,"{""command"": ""dig unrelated.example.com""}",IRRELEVANT,IRRELEVANT,PASS
+adv_LIN-02_shell_readonly,LIN-02,shell_readonly,"{""command"": ""df -h /mnt""}",IRRELEVANT,IRRELEVANT,PASS
+adv_LIN-02_shell_readonly,LIN-02,shell_readonly,"{""command"": ""du -sh /tmp/*""}",IRRELEVANT,IRRELEVANT,PASS
+adv_NET-02_shell_readonly,NET-02,shell_readonly,"{""command"": ""openssl x509 -enddate -noout -in /other/cert.pem""}",IRRELEVANT,IRRELEVANT,PASS
+adv_LIN-01_shell_readonly,LIN-01,shell_readonly,"{""command"": ""ss -ltnp | grep ':443'""}",IRRELEVANT,IRRELEVANT,PASS
+adv_CON-01_shell_readonly,CON-01,shell_readonly,"{""command"": ""ps aux | grep postgresql""}",IRRELEVANT,IRRELEVANT,PASS
+adv_GIT-01_git_show,GIT-01,git_show,"{""repo"": ""app"", ""commit"": ""deadbeef""}",IRRELEVANT,IRRELEVANT,PASS
+adv_K8S-01_kubectl_describe,K8S-01,kubectl_describe,"{""pod"": ""unrelated"", ""namespace"": ""prod""}",IRRELEVANT,IRRELEVANT,PASS

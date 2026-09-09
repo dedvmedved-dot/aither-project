@@ -1,0 +1,6 @@
+scenario_id,operation_type,field,wildcard_value,rationale,scope,adversarial_test_id,justified,PASS_FAIL
+LIN-01,socket_listeners,port,None,"list-all query (specific), not an any-value wildcard",scenario,adv_LIN-01_socket_listeners_port,YES,PASS
+NET-05,socket_listeners,port,None,"list-all query (specific), not an any-value wildcard",scenario,adv_NET-05_socket_listeners_port,YES,PASS
+NET-05,process_list,pattern,*,"list-all query (specific), not an any-value wildcard",scenario,adv_NET-05_process_list_pattern,YES,PASS
+K8S-07,socket_listeners,port,None,"list-all query (specific), not an any-value wildcard",scenario,adv_K8S-07_socket_listeners_port,YES,PASS
+CON-01,process_list,pattern,*,"list-all query (specific), not an any-value wildcard",scenario,adv_CON-01_process_list_pattern,YES,PASS
