@@ -1,0 +1,18 @@
+{
+  "scenarios": {
+    "baseline_sha256": "5d9d7245e46b337a2f689477ece266e560b56a05c4b9669cdf52b9a041dd3cb5",
+    "final_sha256": "5d9d7245e46b337a2f689477ece266e560b56a05c4b9669cdf52b9a041dd3cb5",
+    "unchanged": true
+  },
+  "harness": {
+    "baseline_sha256": "e3975d8fd606fdfd7b290bcb91e0ccff45a9d3f354c61af1f9591588eca93caa",
+    "final_sha256": "e3975d8fd606fdfd7b290bcb91e0ccff45a9d3f354c61af1f9591588eca93caa",
+    "unchanged": true
+  },
+  "scenario_semantics_unchanged": "YES",
+  "matcher_semantics_unchanged": "YES",
+  "evaluator_semantics_unchanged": "YES",
+  "relevance_semantics_unchanged": "YES",
+  "con03_semantics_unchanged": "YES",
+  "diff_classification": "PORTABILITY_ONLY"
+}

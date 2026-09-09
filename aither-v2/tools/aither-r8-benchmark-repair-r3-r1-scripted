@@ -6,10 +6,11 @@ evidence-provenance enforcement. Adds negative D (valid-ID fabrication) and E (c
 
 Usage: python3 aither-r8-benchmark-repair-r1-scripted <r1_scenarios> <policy> <out_csv>
 """
-import json, sys, csv
+import json, sys, csv, os
 from importlib.machinery import SourceFileLoader
 
-H = SourceFileLoader("r1", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1").load_module()
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("r1", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
 
 def load(path):
     return json.load(open(path))["scenarios"]

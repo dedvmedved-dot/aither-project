@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""R7-C1 v2-R3-R1 portability checker — scans the benchmark package for forbidden
+absolute runtime path references.
+
+Forbidden: /root/aither-project-r7-canonical, /root/, hard-coded checkout paths.
+Historical pre-fix freeze evidence (docs/evidence/*_PRE_FIX_FREEZE.json) is excluded.
+
+Usage: python3 aither-r8-benchmark-repair-r3-r1-portability-check <out_txt>
+"""
+import os, sys, glob, re
+
+FORBIDDEN = ["/root/aither-project-r7-canonical", "/root/"]
+
+def main():
+    tools_dir = os.path.dirname(os.path.abspath(__file__))
+    # scan only the R3-R1 benchmark tools (not evidence freeze artifacts)
+    files = sorted(glob.glob(os.path.join(tools_dir, "aither-*r3-r1*")))
+    self_name = os.path.basename(__file__)
+    # exclude the checker itself (it defines the FORBIDDEN list, not a runtime harness path)
+    files = [f for f in files if os.path.basename(f) != self_name]
+    # exclude the checker itself and the preflight (no harness import) — but scan all for completeness
+    scanned = 0
+    matches = []
+    for f in files:
+        if f.endswith(".pyc"):
+            continue
+        scanned += 1
+        with open(f) as fh:
+            for i, line in enumerate(fh, 1):
+                for pat in FORBIDDEN:
+                    if pat in line:
+                        matches.append((os.path.basename(f), i, line.strip()))
+    total_matches = len(matches)
+    out = sys.argv[1] if len(sys.argv) > 1 else "/tmp/portability_scan.txt"
+    with open(out, "w") as f:
+        f.write(f"SCANNED_FILES={scanned}\n")
+        f.write(f"FORBIDDEN_MATCHES={total_matches}\n")
+        for m in matches:
+            f.write(f"{m[0]}:{m[1]}: {m[2]}\n")
+        f.write(f"PASS_FAIL={'PASS' if total_matches == 0 else 'FAIL'}\n")
+    print(f"SCANNED_FILES={scanned}  FORBIDDEN_MATCHES={total_matches}  "
+          f"{'PASS' if total_matches == 0 else 'FAIL'}")
+    for m in matches:
+        print(f"  {m[0]}:{m[1]}: {m[2]}")
+
+if __name__ == "__main__":
+    main()

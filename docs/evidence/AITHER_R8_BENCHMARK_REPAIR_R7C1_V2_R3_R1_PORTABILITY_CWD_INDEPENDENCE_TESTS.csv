@@ -1,0 +1,9 @@
+runner,cwd,exit_code,expected_exit_code,output_artifact_created,PASS_FAIL
+scenario-converter,/tmp,0,0,True,PASS
+con03,/tmp,0,0,True,PASS
+tests,/tmp,0,0,True,PASS
+opdim,/tmp,0,0,True,PASS
+scripted,/tmp,0,0,True,PASS
+evaltests,/tmp,0,0,True,PASS
+longcontext,/tmp,0,0,True,PASS
+preflight,/tmp,0,0,True,PASS

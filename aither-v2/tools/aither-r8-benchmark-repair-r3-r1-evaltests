@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """R7-C1 v2-R1 evaluator tests (Phase 10) — explicit revealed/claimed, provenance-enforced."""
-import json, sys, csv
+import json, sys, csv, os
 from importlib.machinery import SourceFileLoader
 
-H = SourceFileLoader("r1", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1").load_module()
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("r1", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
 
 def main():
     r1 = json.load(open(sys.argv[1]))

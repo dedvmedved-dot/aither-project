@@ -4,10 +4,11 @@
 Produces: NAMESPACE_AUDIT.csv, SOURCE_SEMANTIC_ASSERTS.csv, WILDCARD_INVENTORY.csv,
 CROSS_TOOL_EQUIVALENCE_TESTS.csv, WILDCARD_ADVERSARIAL_TESTS.csv, RELEVANCE_RULE_AUDIT.csv.
 """
-import json, sys, csv
+import json, sys, csv, os
 from importlib.machinery import SourceFileLoader
 
-H = SourceFileLoader("r3", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1").load_module()
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("r3", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
 
 def load_v1(path):
     return json.load(open(path))

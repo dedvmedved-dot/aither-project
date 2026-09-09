@@ -10,10 +10,11 @@ scoring via semantic ops (no hidden exact strings), root evaluator, and
 
 Usage: python3 aither-r8-benchmark-repair-longcontext <out_csv>
 """
-import json, sys, csv, re
+import json, sys, csv, re, os
 from importlib.machinery import SourceFileLoader
 
-H = SourceFileLoader("v2r1", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1").load_module()
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("v2r1", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
 
 # 13 long-context cases: facts = (id, position, marker, fact_text, tool, operation)
 CASES = [

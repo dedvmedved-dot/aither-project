@@ -8,10 +8,11 @@ Produces:
   WILDCARD_TESTS.csv
   PROVENANCE_ASSERT_TESTS.csv (>=10)
 """
-import json, sys, csv
+import json, sys, csv, os
 from importlib.machinery import SourceFileLoader
 
-H = SourceFileLoader("r2", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1").load_module()
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("r2", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
 
 def load(path):
     d = json.load(open(path))
