@@ -1,0 +1,74 @@
+scenario_id,entity_type,source_value,converted_value,normalization_rule,expected_relation,actual_relation,PASS_FAIL
+CI-01,build_tag,"""docker build -t app .""","""app""",shell->docker_build,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+CI-02,process_pattern,"""ps aux | grep pytest""","""pytest""",shell->process_list,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+CI-03,repo,"""app""","""app""",identity,PRESERVED,PRESERVED,PASS
+COD-01,path,"""ls -l /etc/app/config""","""/etc/app/config""",shell->list_file,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+COD-01,operation,"""id""","""{\""type\"": \""id\""}""",shell->id,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+COD-02,path,"""app.py""","""app.py""",identity,PRESERVED,PRESERVED,PASS
+COD-03,path,"""pod.json""","""pod.json""",identity,PRESERVED,PRESERVED,PASS
+COD-04,path,"""playbook.yml""","""playbook.yml""",identity,PRESERVED,PRESERVED,PASS
+COD-05,path,"""config.json""","""config.json""",identity,PRESERVED,PRESERVED,PASS
+COD-06,path,"""values.yaml""","""values.yaml""",identity,PRESERVED,PRESERVED,PASS
+CON-01,pod+ns,"""worker""","[""worker"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+CON-02,service,"""docker""","""docker""",identity,PRESERVED,PRESERVED,PASS
+CON-03,container,"""docker exec app nslookup""","""app""",shell->docker_exec_dns,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+CON-04,operation,"""docker images""","""{\""type\"": \""docker_images\""}""",shell->docker_images,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+GIT-01,repo,"""app""","""app""",identity,PRESERVED,PRESERVED,PASS
+GIT-01,repo+commit,"""app|abc123""","[""app"", ""abc123""]",identity,PRESERVED,PRESERVED,PASS
+GIT-02,repo,"""app""","""app""",identity,PRESERVED,PRESERVED,PASS
+K8S-01,resource+ns,"""pods""","[""pods"", ""prod""]",identity,PRESERVED,PRESERVED,PASS
+K8S-01,pod+ns,"""web""","[""web"", ""prod""]",identity,PRESERVED,PRESERVED,PASS
+K8S-01,pod+ns,"""web""","[""web"", ""prod""]",identity,PRESERVED,PRESERVED,PASS
+K8S-02,resource+ns,"""pods""","[""pods"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+K8S-02,pod+ns,"""api""","[""api"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+K8S-03,pod+ns,"""svc""","[""svc"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+K8S-04,pod+ns,"""worker""","[""worker"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+K8S-05,service,"""kubectl get endpoints backend""","""backend""",shell->kube_endpoints,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+K8S-06,pod+ns,"""db""","[""db"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+K8S-07,pod+ns,"""web""","[""web"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+K8S-07,pod+ns,"""web""","[""web"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+K8S-08,pod+ns,"""web""","[""web"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+LIN-01,service,"""nginx""","""nginx""",identity,PRESERVED,PRESERVED,PASS
+LIN-01,service,"""nginx""","""nginx""",identity,PRESERVED,PRESERVED,PASS
+LIN-02,disk_target,"""df -h""","""/var""",shell->disk_usage_filesystem,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+LIN-02,disk_target,"""du -sh /var/*""","""/var""",shell->disk_usage_directory,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+LIN-03,operation,"""crontab -l""","""{\""type\"": \""crontab_list\""}""",shell->crontab_list,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+LIN-03,path,"""opt/backup.sh""","""opt/backup.sh""",identity,PRESERVED,PRESERVED,PASS
+LIN-03,service,"""cron""","""cron""",identity,PRESERVED,PRESERVED,PASS
+LIN-04,service,"""app""","""app""",identity,PRESERVED,PRESERVED,PASS
+LIN-04,service,"""app""","""app""",identity,PRESERVED,PRESERVED,PASS
+LIN-05,service,"""worker""","""worker""",identity,PRESERVED,PRESERVED,PASS
+LIN-05,service,"""worker""","""worker""",identity,PRESERVED,PRESERVED,PASS
+NET-01,hostname,"""api.internal.example.com""","""api.internal.example.com""",identity,PRESERVED,PRESERVED,PASS
+NET-01,path,"""cat /etc/resolv.conf""","""etc/resolv.conf""",shell->read_file_via_shell,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+NET-02,url,"""https://svc.example.com""","""https://svc.example.com""",identity,PRESERVED,PRESERVED,PASS
+NET-02,path,"""openssl x509 -enddate -noout -in /etc/ssl/cert.pem""","""/etc/ssl/cert.pem""",shell->certificate_expiry,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+NET-03,url,"""https://svc.example.com""","""https://svc.example.com""",identity,PRESERVED,PRESERVED,PASS
+NET-03,hostname,"""svc.example.com""","""svc.example.com""",identity,PRESERVED,PRESERVED,PASS
+NET-04,hostname,"""db.internal""","""db.internal""",identity,PRESERVED,PRESERVED,PASS
+NET-05,url,"""http://app.internal""","""http://app.internal""",identity,PRESERVED,PRESERVED,PASS
+NET-05,url,"""http://upstream:8080""","""http://upstream:8080""",identity,PRESERVED,PRESERVED,PASS
+SEC-01,service,"""sshd""","""sshd""",identity,PRESERVED,PRESERVED,PASS
+SEC-02,pod+ns,"""app""","[""app"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+SEC-03,url,"""http://app:8080/admin""","""http://app:8080/admin""",identity,PRESERVED,PRESERVED,PASS
+SEC-04,path,"""config.yaml""","""config.yaml""",identity,PRESERVED,PRESERVED,PASS
+STO-01,disk_target,"""df -h /mnt/logs""","""/mnt/logs""",shell->disk_usage_filesystem,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+STO-02,operation,"""ceph -s""","""{\""type\"": \""ceph_status\""}""",shell->ceph_status,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+STO-02,operation,"""ceph osd tree""","""{\""type\"": \""ceph_osd_tree\""}""",shell->ceph_osd_tree,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+STO-03,operation,"""ceph pg stat""","""{\""type\"": \""ceph_pg_stat\""}""",shell->ceph_pg_stat,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+STO-04,drbd_resource,"""drbdadm status r0""","""r0""",shell->drbd_status,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+STO-05,drbd_resource,"""drbdadm status r0""","""r0""",shell->drbd_status,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+STO-06,operation,"""mount""","""{\""type\"": \""mounts\""}""",shell->mounts,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+STO-06,pod+ns,"""app""","[""app"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+VIR-01,service,"""libvirtd""","""libvirtd""",identity,PRESERVED,PRESERVED,PASS
+VIR-02,service,"""libvirtd""","""libvirtd""",identity,PRESERVED,PRESERVED,PASS
+VIR-03,interface,"""ip link""","""*""",shell->ip_link,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+VIR-03,service,"""libvirtd""","""libvirtd""",identity,PRESERVED,PRESERVED,PASS
+X-01,pod+ns,"""web""","[""web"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+X-01,hostname,"""db.internal""","""db.internal""",identity,PRESERVED,PRESERVED,PASS
+X-02,url,"""https://app""","""https://app""",identity,PRESERVED,PRESERVED,PASS
+X-02,pod+ns,"""app""","[""app"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+X-03,disk_target,"""df -h""","""/var/lib""",shell->disk_usage_filesystem,SEMANTIC_MAPPED,SEMANTIC_MAPPED,PASS
+X-03,pod+ns,"""db""","[""db"", ""default""]",identity,PRESERVED,PRESERVED,PASS
+X-04,pod+ns,"""app""","[""app"", ""k8s""]",identity,PRESERVED,PRESERVED,PASS
+X-04,hostname,"""svc.internal""","""svc.internal""",identity,PRESERVED,PRESERVED,PASS

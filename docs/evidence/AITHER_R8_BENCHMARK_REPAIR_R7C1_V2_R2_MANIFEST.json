@@ -1,0 +1,101 @@
+{
+  "task": "AITHER-HERMES-R8-BENCHMARK-REPAIR-R7C1-V2-R2",
+  "baseline_sha": "b02e2046233f7b9ea8ebb65364705b10f6667309",
+  "scenario_schema_version": "2-r2",
+  "simulator_version": "2-r2",
+  "evaluator_version": "2-r2",
+  "relevance_model_version": "2-r2",
+  "generated_at_utc": "2026-09-09T11:35:45.929445Z",
+  "r2_artifacts": {
+    "aither-v2/tools/aither-agent-harness-r7c1-v2-r2": {
+      "git_blob_sha": "da1c413212dd58446a229951cff99162aab7aad1",
+      "sha256": "de4a14306998031343d1ffae6a77ae27338ad0b7d61d7dc77d12a31fd21b19c8",
+      "size_bytes": 36847,
+      "lines": 776
+    },
+    "aither-v2/tools/aither-r7c1-v2-r2-scenario-converter": {
+      "git_blob_sha": "7b212cdc64c6ad0c9076852329a68dfca0060f07",
+      "sha256": "767ea8a04ffc2fd2ba3463f6bf9105cfb2fa7d253b9edd2d83661b6a3cdcfd1a",
+      "size_bytes": 11675,
+      "lines": 181
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r2-tests": {
+      "git_blob_sha": "46bebe0c59d204728a49f206793c2dd8ffa49981",
+      "sha256": "0ce10dd986d685935c3e0e295984305f516085e30274db8419e891eb87192e98",
+      "size_bytes": 13285,
+      "lines": 198
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r2-evaltests": {
+      "git_blob_sha": "22537980cb4972fb301e1a1bd188e98762bf9fd3",
+      "sha256": "86f5e4fb3c0fb6706b93b3d3d298c47b5f441e48b44e92f3422bd59df7411da0",
+      "size_bytes": 3690,
+      "lines": 64
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r2-scripted": {
+      "git_blob_sha": "e440d24d18d29955a474abe70ad45b02c1309b7c",
+      "sha256": "0bb432f2640667b7a48a255c9d69f9631e3d6ac52be08484ac75eba51907652e",
+      "size_bytes": 9055,
+      "lines": 176
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r2-preservation": {
+      "git_blob_sha": "6696f4e58c260ead17424435b919cbfb76639c6c",
+      "sha256": "dbd27dab859993fba24036e1124b328cea5a4403a1d3746e6d814c82db6988a3",
+      "size_bytes": 7207,
+      "lines": 134
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r2-longcontext": {
+      "git_blob_sha": "0468834818e067f7a9cf24331e2e9cbef1aa5068",
+      "sha256": "18b463378ca72a6d332cb4765365e171bcc414a91859e31f057f2c96e8b5f7b0",
+      "size_bytes": 15752,
+      "lines": 231
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r2-preflight": {
+      "git_blob_sha": "da55b753a9e9c53d98be7b965a11c60a7fbbb739",
+      "sha256": "2cdf87366047cb7b4d129c9b530a2447f1dc4e51e2308cc7a1e3645d2390a190",
+      "size_bytes": 7178,
+      "lines": 152
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r2-source-preservation": {
+      "git_blob_sha": "6cede8109bf7dd73573d52d735ec677c28ecbaeb",
+      "sha256": "c4570c209e7959e028bed0583a88edcaa29b306ab321c8923b6e82f3e1be8849",
+      "size_bytes": 4722,
+      "lines": 106
+    },
+    "docs/evidence/AITHER_R7C1_V2_R2_SCENARIOS.json": {
+      "git_blob_sha": "3b113da57f65241d907298a608b7970ae4ee53ad",
+      "sha256": "297b51b0fb3ff15507e7db322b7d850e55bdac2834ab8967a1f03e8cdc8a622b",
+      "size_bytes": 55021,
+      "lines": 3233
+    }
+  },
+  "gates": {
+    "scenario_specific_relevance_count": "50/50",
+    "same_domain_irrelevance_tests": 200,
+    "same_domain_irrelevance_pass": 200,
+    "relevant_negative_tests": 118,
+    "relevant_negative_pass": 118,
+    "operation_dimension_executable_tests": 82,
+    "operation_dimension_executable_pass": 82,
+    "significant_fields_silently_ignored": 0,
+    "wildcard_tests": 6,
+    "wildcard_pass": 6,
+    "provenance_assert_tests": 10,
+    "provenance_assert_pass": 10,
+    "unrevealed_valid_id_credit": 0,
+    "fabricated_id_credit": 0,
+    "source_semantic_preservation": "73/73",
+    "false_evidence_leaks": 0,
+    "evaluator_r2_pass": "700/700",
+    "preflight_r2_pass": "23/23",
+    "long_context_scripted": "13/13",
+    "long_context_adversarial": "FAILS AS EXPECTED",
+    "scripted_positive_FULL": "50/50 (TASK_SUCCESS 100%, CREDITED 100%)",
+    "scripted_positive_ROUTED": "50/50 (TASK_SUCCESS 100%)",
+    "negative_A": "IRRELEVANT 100%, TASK_SUCCESS 0%",
+    "negative_B": "FALSE_POSITIVE_REVEALS 0",
+    "negative_C": "TASK_SUCCESS 0%, CREDITED 0%",
+    "negative_D": "TASK_SUCCESS 0%, UNREVEALED 73",
+    "negative_E": "FALSE_POSITIVE_REVEALS 0",
+    "negative_F": "IRRELEVANT 100%, TASK_SUCCESS 0%"
+  }
+}

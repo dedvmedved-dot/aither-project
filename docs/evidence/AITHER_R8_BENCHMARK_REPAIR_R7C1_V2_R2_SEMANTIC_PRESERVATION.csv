@@ -1,0 +1,12 @@
+scenario_id,source_prompt,source_semantic_namespace,converted_namespace,source_object,converted_object,PASS_FAIL,rationale
+K8S-01,Pod web in prod is CrashLoopBackOff. Diagnose.,prod,prod,pods,pods,PASS,prompt namespace semantics
+K8S-01,Pod web in prod is CrashLoopBackOff. Diagnose.,prod,prod,web,web,PASS,prompt namespace semantics
+K8S-01,Pod web in prod is CrashLoopBackOff. Diagnose.,prod,prod,web,web,PASS,prompt namespace semantics
+K8S-02,Pod api stuck in Pending. Diagnose.,default,default,pods,pods,PASS,prompt namespace semantics
+K8S-02,Pod api stuck in Pending. Diagnose.,default,default,api,api,PASS,prompt namespace semantics
+K8S-03,"Deployment rollout failing, ImagePullBackOff.",default,default,svc,svc,PASS,prompt namespace semantics
+K8S-04,Pod worker OOMKilled repeatedly. Diagnose.,default,default,worker,worker,PASS,prompt namespace semantics
+K8S-06,Pod mounting PVC stuck in ContainerCreating.,default,default,db,db,PASS,prompt namespace semantics
+K8S-07,Pod liveness probe failing. Diagnose.,default,default,web,web,PASS,prompt namespace semantics
+K8S-07,Pod liveness probe failing. Diagnose.,default,default,web,web,PASS,prompt namespace semantics
+K8S-08,Pod stuck Terminating. Diagnose.,default,default,web,web,PASS,prompt namespace semantics

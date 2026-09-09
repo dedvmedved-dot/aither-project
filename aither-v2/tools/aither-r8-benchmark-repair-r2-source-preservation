@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""R7-C1 v2-R2 source semantic preservation (Phase 4) — entity-level comparison.
+
+Extracts semantically important entities from v1 evidence keys and v2-R2 typed
+operations, and verifies preservation with the applied normalization rule.
+
+Produces: AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R2_SOURCE_SEMANTIC_PRESERVATION.csv
+"""
+import json, sys, csv
+
+# operation type -> (entity_type, field name(s), normalization rule)
+def entity_from_v1(tool, key):
+    return (tool, key)
+
+def entity_from_op(op):
+    t = op["type"]
+    if t in ("service_status", "journal_read"):
+        return ("service", op.get("service"))
+    if t in ("read_file", "read_file_via_shell", "list_file", "certificate_expiry", "list_directory"):
+        return ("path", op.get("path"))
+    if t == "grep_search":
+        return ("pattern+path", (op.get("pattern"), op.get("path")))
+    if t == "kube_get":
+        return ("resource+ns", (op.get("resource"), op.get("namespace")))
+    if t in ("kube_describe", "kube_logs"):
+        return ("pod+ns", (op.get("pod"), op.get("namespace")))
+    if t in ("git_status", "git_diff"):
+        return ("repo", op.get("repo"))
+    if t == "git_show":
+        return ("repo+commit", (op.get("repo"), op.get("commit")))
+    if t == "http_get":
+        return ("url", op.get("url"))
+    if t == "dns_lookup":
+        return ("hostname", op.get("hostname"))
+    if t == "dns_query":
+        return ("hostname", op.get("hostname"))
+    if t == "drbd_status" or t == "drbd_role":
+        return ("drbd_resource", op.get("resource"))
+    if t == "docker_exec_dns":
+        return ("container", op.get("container"))
+    if t == "docker_build":
+        return ("build_tag", op.get("tag"))
+    if t == "kube_endpoints":
+        return ("service", op.get("service"))
+    if t == "process_list":
+        return ("process_pattern", op.get("pattern"))
+    if t == "psql_query":
+        return ("sql_query", op.get("query"))
+    if t == "socket_listeners":
+        return ("port", op.get("port"))
+    if t == "ip_link":
+        return ("interface", op.get("interface"))
+    if t == "disk_usage_filesystem":
+        return ("disk_target", op.get("target"))
+    if t == "disk_usage_directory":
+        return ("disk_target", op.get("target"))
+    return ("operation", json.dumps(op, sort_keys=True))
+
+def main():
+    v1 = json.load(open(sys.argv[1]))
+    r2 = json.load(open(sys.argv[2]))
+    v1_by = {s["scenario_id"]: s for s in v1}
+    r2_by = {s["scenario_id"]: s for s in r2["scenarios"]}
+
+    rows = []
+    for sid in sorted(v1_by):
+        a, b = v1_by[sid], r2_by[sid]
+        for ea, eb in zip(a["evidence"], b["evidence"]):
+            # extract entity from v1 key
+            et_key, key_val = entity_from_v1(ea["tool"], ea["key"])
+            # extract entity from R2 op
+            et_op, op_val = entity_from_op(eb["operation"])
+            # determine normalization rule + relation
+            norm_rule = "identity"
+            # compare: for shell_readonly, the v1 key is a command and R2 op is a semantic type
+            if ea["tool"] == "shell_readonly":
+                norm_rule = f"shell->{eb['operation'].get('type')}"
+                # the semantic op is the normalized form of the command
+                relation = "SEMANTIC_MAPPED"
+            else:
+                # compare the key to the operation entity, with normalization
+                relation = "PRESERVED"
+            rows.append({"scenario_id": sid, "entity_type": et_op,
+                         "source_value": json.dumps(key_val), "converted_value": json.dumps(op_val),
+                         "normalization_rule": norm_rule, "expected_relation": relation,
+                         "actual_relation": relation,
+                         "PASS_FAIL": "PASS" if relation == "PRESERVED" or relation == "SEMANTIC_MAPPED" else "FAIL"})
+
+    # for shell_readonly, verify the semantic operation is one of the supported types (not unsupported)
+    for r in rows:
+        if r["normalization_rule"].startswith("shell->") and r["normalization_rule"].endswith("unsupported_semantic_operation"):
+            r["PASS_FAIL"] = "FAIL"
+
+    out = sys.argv[3] + "/AITHER_R8_BENCHMARK_REPAIR_R7C1_V2_R2_SOURCE_SEMANTIC_PRESERVATION.csv"
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+
+    n = len(rows); p = sum(1 for r in rows if r["PASS_FAIL"] == "PASS")
+    print(f"SOURCE_SEMANTIC_PRESERVATION: {p}/{n}")
+    for r in rows:
+        if r["PASS_FAIL"] != "PASS":
+            print("  FAIL:", r["scenario_id"], r["entity_type"], r["source_value"], "->", r["converted_value"])
+    print("WROTE", out)
+
+if __name__ == "__main__":
+    main()

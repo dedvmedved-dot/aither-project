@@ -1,0 +1,119 @@
+scenario_id,rule,tool,args,expected,actual,PASS
+LIN-01,"{""type"": ""socket_listeners"", ""port"": ""ANY""}",shell_readonly,"{""command"": ""ss -ltnp | grep ':ANY'""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-01,"{""type"": ""process_list"", ""pattern"": ""nginx""}",shell_readonly,"{""command"": ""ps aux | grep nginx""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-01,"{""type"": ""read_file"", ""path"": ""etc/nginx/nginx.conf""}",read_file,"{""path"": ""/etc/nginx/nginx.conf""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-02,"{""type"": ""list_directory"", ""path"": ""var""}",list_directory,"{""path"": ""/var""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-02,"{""type"": ""list_directory"", ""path"": ""var/log""}",list_directory,"{""path"": ""/var/log""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-02,"{""type"": ""disk_usage_filesystem"", ""target"": ""ANY""}",shell_readonly,"{""command"": ""df -h ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-02,"{""type"": ""disk_usage_directory"", ""target"": ""ANY"", ""depth"": 1}",shell_readonly,"{""command"": ""du -sh ANY/*""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-03,"{""type"": ""list_directory"", ""path"": ""data""}",list_directory,"{""path"": ""/data""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-03,"{""type"": ""read_file"", ""path"": ""var/spool/cron""}",read_file,"{""path"": ""/var/spool/cron""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-04,"{""type"": ""process_list"", ""pattern"": ""app""}",shell_readonly,"{""command"": ""ps aux | grep app""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-04,"{""type"": ""journal_read"", ""service"": ""kernel""}",journalctl_read,"{""service"": ""kernel""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-04,"{""type"": ""read_file"", ""path"": ""app/app.conf""}",read_file,"{""path"": ""/app/app.conf""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-05,"{""type"": ""process_list"", ""pattern"": ""worker""}",shell_readonly,"{""command"": ""ps aux | grep worker""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+LIN-05,"{""type"": ""read_file"", ""path"": ""app/worker.py""}",read_file,"{""path"": ""/app/worker.py""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-01,"{""type"": ""dns_query"", ""hostname"": ""ANY""}",shell_readonly,"{""command"": ""dig ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-01,"{""type"": ""read_file"", ""path"": ""etc/resolv.conf""}",read_file,"{""path"": ""/etc/resolv.conf""}",RELEVANT,RELEVANT_REVEAL,PASS
+NET-01,"{""type"": ""read_file_via_shell"", ""path"": ""etc/resolv.conf""}",shell_readonly,"{""command"": ""cat etc/resolv.conf""}",RELEVANT,RELEVANT_REVEAL,PASS
+NET-02,"{""type"": ""certificate_expiry"", ""path"": ""ANY""}",shell_readonly,"{""command"": ""openssl x509 -enddate -noout -in ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-02,"{""type"": ""read_file"", ""path"": ""etc/ssl/cert.pem""}",read_file,"{""path"": ""/etc/ssl/cert.pem""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-02,"{""type"": ""http_get"", ""url"": ""https://svc.example.com""}",http_get,"{""url"": ""https://svc.example.com""}",RELEVANT,RELEVANT_REVEAL,PASS
+NET-03,"{""type"": ""dns_query"", ""hostname"": ""ANY""}",shell_readonly,"{""command"": ""dig ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-03,"{""type"": ""dns_lookup"", ""hostname"": ""svc.example.com""}",dns_lookup,"{""hostname"": ""svc.example.com""}",RELEVANT,RELEVANT_REVEAL,PASS
+NET-04,"{""type"": ""dns_query"", ""hostname"": ""ANY""}",shell_readonly,"{""command"": ""dig ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-04,"{""type"": ""read_file"", ""path"": ""etc/hosts""}",read_file,"{""path"": ""/etc/hosts""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-05,"{""type"": ""socket_listeners"", ""port"": ""ANY""}",shell_readonly,"{""command"": ""ss -ltnp | grep ':ANY'""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-05,"{""type"": ""process_list"", ""pattern"": ""*""}",shell_readonly,"{""command"": ""ps aux""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+NET-05,"{""type"": ""http_get"", ""url"": ""http://app.internal""}",http_get,"{""url"": ""http://app.internal""}",RELEVANT,RELEVANT_REVEAL,PASS
+K8S-01,"{""type"": ""kube_get"", ""resource"": ""nodes"", ""namespace"": ""prod""}",kubectl_get,"{""resource"": ""nodes"", ""namespace"": ""prod""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-01,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""prod""}",kubectl_get,"{""resource"": ""pods"", ""namespace"": ""prod""}",RELEVANT,RELEVANT_REVEAL,PASS
+K8S-01,"{""type"": ""process_list"", ""pattern"": ""web""}",shell_readonly,"{""command"": ""ps aux | grep web""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-02,"{""type"": ""kube_get"", ""resource"": ""nodes"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""nodes"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-02,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""pods"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+K8S-03,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""pods"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-03,"{""type"": ""read_file"", ""path"": ""deploy/app.yaml""}",read_file,"{""path"": ""/deploy/app.yaml""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-04,"{""type"": ""kube_logs"", ""pod"": ""worker"", ""namespace"": ""default""}",kubectl_logs,"{""pod"": ""worker"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-04,"{""type"": ""kube_get"", ""resource"": ""nodes"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""nodes"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-04,"{""type"": ""process_list"", ""pattern"": ""worker""}",shell_readonly,"{""command"": ""ps aux | grep worker""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-05,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""pods"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-05,"{""type"": ""kube_endpoints"", ""service"": ""backend""}",shell_readonly,"{""command"": ""kubectl get endpoints backend""}",RELEVANT,RELEVANT_REVEAL,PASS
+K8S-06,"{""type"": ""kube_get"", ""resource"": ""pvc"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""pvc"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-07,"{""type"": ""kube_logs"", ""pod"": ""web"", ""namespace"": ""default""}",kubectl_logs,"{""pod"": ""web"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+K8S-07,"{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""default""}",kubectl_describe,"{""pod"": ""web"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+K8S-07,"{""type"": ""socket_listeners"", ""port"": ""ANY""}",shell_readonly,"{""command"": ""ss -ltnp | grep ':ANY'""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+K8S-08,"{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""default""}",kubectl_describe,"{""pod"": ""web"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+K8S-08,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""pods"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-01,"{""type"": ""kube_get"", ""resource"": ""nodes"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""nodes"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-01,"{""type"": ""process_list"", ""pattern"": ""*""}",shell_readonly,"{""command"": ""ps aux""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-02,"{""type"": ""process_list"", ""pattern"": ""docker""}",shell_readonly,"{""command"": ""ps aux | grep docker""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-02,"{""type"": ""journal_read"", ""service"": ""docker""}",journalctl_read,"{""service"": ""docker""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-03,"{""type"": ""docker_exec_dns"", ""container"": ""app"", ""host"": ""ANY""}",shell_readonly,"{""command"": ""docker exec app nslookup""}",RELEVANT,RELEVANT_REVEAL,PASS
+CON-03,"{""type"": ""dns_query"", ""hostname"": ""ANY""}",shell_readonly,"{""command"": ""dig ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-03,"{""type"": ""read_file"", ""path"": ""etc/resolv.conf""}",read_file,"{""path"": ""/etc/resolv.conf""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-04,"{""type"": ""disk_usage_filesystem"", ""target"": ""ANY""}",shell_readonly,"{""command"": ""df -h ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CON-04,"{""type"": ""process_list"", ""pattern"": ""docker""}",shell_readonly,"{""command"": ""ps aux | grep docker""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-01,"{""type"": ""disk_usage_filesystem"", ""target"": ""ANY""}",shell_readonly,"{""command"": ""df -h ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-01,"{""type"": ""disk_usage_directory"", ""target"": ""ANY"", ""depth"": 1}",shell_readonly,"{""command"": ""du -sh ANY/*""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-02,"{""type"": ""ceph_osd_tree""}",shell_readonly,"{""command"": ""ceph osd tree""}",RELEVANT,RELEVANT_REVEAL,PASS
+STO-02,"{""type"": ""ceph_osd_df""}",shell_readonly,"{""command"": ""ceph osd df""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-02,"{""type"": ""ceph_pg_stat""}",shell_readonly,"{""command"": ""ceph pg stat""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-02,"{""type"": ""ceph_health_detail""}",shell_readonly,"{""command"": ""ceph health detail""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-03,"{""type"": ""ceph_pg_dump""}",shell_readonly,"{""command"": ""ceph pg dump""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-03,"{""type"": ""ceph_osd_df""}",shell_readonly,"{""command"": ""ceph osd df""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-03,"{""type"": ""ceph_status""}",shell_readonly,"{""command"": ""ceph -s""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-04,"{""type"": ""drbd_role"", ""resource"": ""r0""}",shell_readonly,"{""command"": ""drbdadm role r0""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-05,"{""type"": ""drbd_role"", ""resource"": ""r0""}",shell_readonly,"{""command"": ""drbdadm role r0""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+STO-06,"{""type"": ""mounts""}",shell_readonly,"{""command"": ""mount""}",RELEVANT,RELEVANT_REVEAL,PASS
+STO-06,"{""type"": ""kube_describe"", ""pod"": ""app"", ""namespace"": ""default""}",kubectl_describe,"{""pod"": ""app"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+VIR-01,"{""type"": ""read_file"", ""path"": ""etc/libvirt/qemu/vm.xml""}",read_file,"{""path"": ""/etc/libvirt/qemu/vm.xml""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+VIR-01,"{""type"": ""lscpu""}",shell_readonly,"{""command"": ""lscpu""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+VIR-02,"{""type"": ""read_file"", ""path"": ""etc/libvirt/qemu/vm.xml""}",read_file,"{""path"": ""/etc/libvirt/qemu/vm.xml""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+VIR-02,"{""type"": ""journal_read"", ""service"": ""libvirtd""}",journalctl_read,"{""service"": ""libvirtd""}",RELEVANT,RELEVANT_REVEAL,PASS
+VIR-03,"{""type"": ""ip_link"", ""interface"": ""ANY""}",shell_readonly,"{""command"": ""ip -s link show ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+VIR-03,"{""type"": ""read_file"", ""path"": ""etc/network/interfaces""}",read_file,"{""path"": ""/etc/network/interfaces""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+GIT-01,"{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""ANY""}",git_show,"{""repo"": ""app"", ""commit"": ""ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+GIT-01,"{""type"": ""git_status"", ""repo"": ""app""}",git_status,"{""repo"": ""app""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+GIT-02,"{""type"": ""git_diff"", ""repo"": ""app""}",git_diff,"{""repo"": ""app""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+GIT-02,"{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""ANY""}",git_show,"{""repo"": ""app"", ""commit"": ""ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CI-01,"{""type"": ""docker_build"", ""tag"": ""app"", ""path"": "".""}",shell_readonly,"{""command"": ""docker build -t app .""}",RELEVANT,RELEVANT_REVEAL,PASS
+CI-01,"{""type"": ""read_file"", ""path"": ""app/requirements.txt""}",read_file,"{""path"": ""/app/requirements.txt""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CI-02,"{""type"": ""process_list"", ""pattern"": ""pytest""}",shell_readonly,"{""command"": ""ps aux | grep pytest""}",RELEVANT,RELEVANT_REVEAL,PASS
+CI-02,"{""type"": ""read_file"", ""path"": ""tests/test_download.py""}",read_file,"{""path"": ""/tests/test_download.py""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CI-03,"{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""ANY""}",git_show,"{""repo"": ""app"", ""commit"": ""ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+CI-03,"{""type"": ""git_status"", ""repo"": ""app""}",git_status,"{""repo"": ""app""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+COD-01,"{""type"": ""list_file"", ""path"": ""etc/app/config""}",shell_readonly,"{""command"": ""ls -l etc/app/config""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+COD-01,"{""type"": ""id""}",shell_readonly,"{""command"": ""id""}",RELEVANT,RELEVANT_REVEAL,PASS
+COD-02,"{""type"": ""grep_search"", ""pattern"": ""env"", ""path"": ""app.py""}",grep_search,"{""pattern"": ""env"", ""path"": ""app.py""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+COD-02,"{""type"": ""read_file"", ""path"": ""app.py""}",read_file,"{""path"": ""/app.py""}",RELEVANT,RELEVANT_REVEAL,PASS
+COD-03,"{""type"": ""list_directory"", ""path"": "".""}",list_directory,"{""path"": ""/.""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+COD-03,"{""type"": ""read_file"", ""path"": ""pod.json""}",read_file,"{""path"": ""/pod.json""}",RELEVANT,RELEVANT_REVEAL,PASS
+COD-04,"{""type"": ""grep_search"", ""pattern"": ""copy"", ""path"": ""playbook.yml""}",grep_search,"{""pattern"": ""copy"", ""path"": ""playbook.yml""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+COD-04,"{""type"": ""read_file"", ""path"": ""playbook.yml""}",read_file,"{""path"": ""/playbook.yml""}",RELEVANT,RELEVANT_REVEAL,PASS
+COD-05,"{""type"": ""grep_search"", ""pattern"": ""port"", ""path"": ""config.json""}",grep_search,"{""pattern"": ""port"", ""path"": ""config.json""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+COD-05,"{""type"": ""read_file"", ""path"": ""config.json""}",read_file,"{""path"": ""/config.json""}",RELEVANT,RELEVANT_REVEAL,PASS
+COD-06,"{""type"": ""grep_search"", ""pattern"": ""replicas"", ""path"": ""values.yaml""}",grep_search,"{""pattern"": ""replicas"", ""path"": ""values.yaml""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+COD-06,"{""type"": ""read_file"", ""path"": ""values.yaml""}",read_file,"{""path"": ""/values.yaml""}",RELEVANT,RELEVANT_REVEAL,PASS
+SEC-01,"{""type"": ""journal_read"", ""service"": ""sshd""}",journalctl_read,"{""service"": ""sshd""}",RELEVANT,RELEVANT_REVEAL,PASS
+SEC-01,"{""type"": ""process_list"", ""pattern"": ""sshd""}",shell_readonly,"{""command"": ""ps aux | grep sshd""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+SEC-01,"{""type"": ""read_file"", ""path"": ""etc/ssh/sshd_config""}",read_file,"{""path"": ""/etc/ssh/sshd_config""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+SEC-02,"{""type"": ""kube_describe"", ""pod"": ""app"", ""namespace"": ""default""}",kubectl_describe,"{""pod"": ""app"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+SEC-02,"{""type"": ""read_file"", ""path"": ""deploy/app.yaml""}",read_file,"{""path"": ""/deploy/app.yaml""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+SEC-03,"{""type"": ""http_get"", ""url"": ""http://app:8080/admin""}",http_get,"{""url"": ""http://app:8080/admin""}",RELEVANT,RELEVANT_REVEAL,PASS
+SEC-03,"{""type"": ""socket_listeners"", ""port"": ""ANY""}",shell_readonly,"{""command"": ""ss -ltnp | grep ':ANY'""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+SEC-04,"{""type"": ""grep_search"", ""pattern"": ""api_key"", ""path"": ""config.yaml""}",grep_search,"{""pattern"": ""api_key"", ""path"": ""config.yaml""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+SEC-04,"{""type"": ""list_directory"", ""path"": "".""}",list_directory,"{""path"": ""/.""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+SEC-04,"{""type"": ""read_file"", ""path"": ""config.yaml""}",read_file,"{""path"": ""/config.yaml""}",RELEVANT,RELEVANT_REVEAL,PASS
+X-01,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}",kubectl_get,"{""resource"": ""pods"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-01,"{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""default""}",kubectl_describe,"{""pod"": ""web"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-01,"{""type"": ""dns_lookup"", ""hostname"": ""db.internal""}",dns_lookup,"{""hostname"": ""db.internal""}",RELEVANT,RELEVANT_REVEAL,PASS
+X-01,"{""type"": ""socket_listeners"", ""port"": 5432}",shell_readonly,"{""command"": ""ss -ltnp | grep ':5432'""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-02,"{""type"": ""certificate_expiry"", ""path"": ""ANY""}",shell_readonly,"{""command"": ""openssl x509 -enddate -noout -in ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-02,"{""type"": ""http_get"", ""url"": ""https://app""}",http_get,"{""url"": ""https://app""}",RELEVANT,RELEVANT_REVEAL,PASS
+X-02,"{""type"": ""kube_logs"", ""pod"": ""app"", ""namespace"": ""default""}",kubectl_logs,"{""pod"": ""app"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+X-03,"{""type"": ""disk_usage_filesystem"", ""target"": ""ANY""}",shell_readonly,"{""command"": ""df -h ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-03,"{""type"": ""disk_usage_directory"", ""target"": ""ANY"", ""depth"": 1}",shell_readonly,"{""command"": ""du -sh ANY/*""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-03,"{""type"": ""kube_logs"", ""pod"": ""db"", ""namespace"": ""default""}",kubectl_logs,"{""pod"": ""db"", ""namespace"": ""default""}",RELEVANT,RELEVANT_REVEAL,PASS
+X-04,"{""type"": ""dns_query"", ""hostname"": ""ANY""}",shell_readonly,"{""command"": ""dig ANY""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-04,"{""type"": ""read_file"", ""path"": ""etc/resolv.conf""}",read_file,"{""path"": ""/etc/resolv.conf""}",RELEVANT,RELEVANT_NEGATIVE,PASS
+X-04,"{""type"": ""kube_logs"", ""pod"": ""app"", ""namespace"": ""default""}",kubectl_logs,"{""pod"": ""app"", ""namespace"": ""default""}",RELEVANT,RELEVANT_NEGATIVE,PASS

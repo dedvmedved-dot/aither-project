@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""Convert R7-C1 v1 scenarios -> v2 (typed semantic operations). One-shot converter."""
+import json, sys, re
+from importlib.machinery import SourceFileLoader
+
+HARNESS = "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r1"
+h = SourceFileLoader("v2r1", HARNESS).load_module()
+
+# R1-3: no silent default namespace. Extract explicit namespace from prompt, else
+# fall back to a documented normative map, else "default" only when truly unspecified.
+_STATE_KEYWORDS = {"pending", "terminating", "containercreating", "imagepullbackoff",
+                   "oomkilled", "crashloopbackoff", "running", "failed", "ready",
+                   "notready", "completed", "unknown", "waiting", "succeeded"}
+_NAMESPACE_MAP = {
+    "K8S-01": "prod",  # "Pod web in prod is CrashLoopBackOff"
+}
+
+def extract_namespace(scenario_id, prompt):
+    if scenario_id in _NAMESPACE_MAP:
+        return _NAMESPACE_MAP[scenario_id]
+    m = re.search(r'\bin\s+([a-z][a-z0-9-]{0,15})\b', prompt.lower())
+    if m:
+        tok = m.group(1)
+        if tok not in _STATE_KEYWORDS:
+            return tok
+    return "default"
+
+# ---------------------------------------------------------------------------
+# R2-1 scenario-specific relevance rules (typed ops; '*' = explicit wildcard).
+# These are the "justified extension diagnostics" beyond the evidence operations.
+# ---------------------------------------------------------------------------
+RELEVANCE_RULES = {
+    "LIN-01": [{"type":"socket_listeners","port":"ANY"}, {"type":"process_list","pattern":"nginx"},
+               {"type":"read_file","path":"etc/nginx/nginx.conf"}],
+    "LIN-02": [{"type":"list_directory","path":"var"}, {"type":"list_directory","path":"var/log"},
+               {"type":"disk_usage_filesystem","target":"ANY"}, {"type":"disk_usage_directory","target":"ANY","depth":1}],
+    "LIN-03": [{"type":"list_directory","path":"data"}, {"type":"read_file","path":"var/spool/cron"}],
+    "LIN-04": [{"type":"process_list","pattern":"app"}, {"type":"journal_read","service":"kernel"},
+               {"type":"read_file","path":"app/app.conf"}],
+    "LIN-05": [{"type":"process_list","pattern":"worker"}, {"type":"read_file","path":"app/worker.py"}],
+    "NET-01": [{"type":"dns_query","hostname":"ANY"}, {"type":"read_file","path":"etc/resolv.conf"},
+               {"type":"read_file_via_shell","path":"etc/resolv.conf"}],
+    "NET-02": [{"type":"certificate_expiry","path":"ANY"}, {"type":"read_file","path":"etc/ssl/cert.pem"},
+               {"type":"http_get","url":"https://svc.example.com"}],
+    "NET-03": [{"type":"dns_query","hostname":"ANY"}, {"type":"dns_lookup","hostname":"svc.example.com"}],
+    "NET-04": [{"type":"dns_query","hostname":"ANY"}, {"type":"read_file","path":"etc/hosts"}],
+    "NET-05": [{"type":"socket_listeners","port":"ANY"}, {"type":"process_list","pattern":"*"},
+               {"type":"http_get","url":"http://app.internal"}],
+    "K8S-01": [{"type":"kube_get","resource":"nodes","namespace":"prod"},
+               {"type":"kube_get","resource":"pods","namespace":"prod"},
+               {"type":"process_list","pattern":"web"}],
+    "K8S-02": [{"type":"kube_get","resource":"nodes","namespace":"default"},
+               {"type":"kube_get","resource":"pods","namespace":"default"}],
+    "K8S-03": [{"type":"kube_get","resource":"pods","namespace":"default"},
+               {"type":"read_file","path":"deploy/app.yaml"}],
+    "K8S-04": [{"type":"kube_logs","pod":"worker","namespace":"default"},
+               {"type":"kube_get","resource":"nodes","namespace":"default"},
+               {"type":"process_list","pattern":"worker"}],
+    "K8S-05": [{"type":"kube_get","resource":"pods","namespace":"default"},
+               {"type":"kube_endpoints","service":"backend"}],
+    "K8S-06": [{"type":"kube_get","resource":"pvc","namespace":"default"}],
+    "K8S-07": [{"type":"kube_logs","pod":"web","namespace":"default"},
+               {"type":"kube_describe","pod":"web","namespace":"default"},
+               {"type":"socket_listeners","port":"ANY"}],
+    "K8S-08": [{"type":"kube_describe","pod":"web","namespace":"default"},
+               {"type":"kube_get","resource":"pods","namespace":"default"}],
+    "CON-01": [{"type":"kube_get","resource":"nodes","namespace":"default"},
+               {"type":"process_list","pattern":"*"}],
+    "CON-02": [{"type":"process_list","pattern":"docker"}, {"type":"journal_read","service":"docker"}],
+    "CON-03": [{"type":"docker_exec_dns","container":"app","host":"ANY"}, {"type":"dns_query","hostname":"ANY"},
+               {"type":"read_file","path":"etc/resolv.conf"}],
+    "CON-04": [{"type":"disk_usage_filesystem","target":"ANY"}, {"type":"process_list","pattern":"docker"}],
+    "STO-01": [{"type":"disk_usage_filesystem","target":"ANY"}, {"type":"disk_usage_directory","target":"ANY","depth":1}],
+    "STO-02": [{"type":"ceph_osd_tree"}, {"type":"ceph_osd_df"}, {"type":"ceph_pg_stat"}, {"type":"ceph_health_detail"}],
+    "STO-03": [{"type":"ceph_pg_dump"}, {"type":"ceph_osd_df"}, {"type":"ceph_status"}],
+    "STO-04": [{"type":"drbd_role","resource":"r0"}],
+    "STO-05": [{"type":"drbd_role","resource":"r0"}],
+    "STO-06": [{"type":"mounts"}, {"type":"kube_describe","pod":"app","namespace":"default"}],
+    "VIR-01": [{"type":"read_file","path":"etc/libvirt/qemu/vm.xml"}, {"type":"lscpu"}],
+    "VIR-02": [{"type":"read_file","path":"etc/libvirt/qemu/vm.xml"}, {"type":"journal_read","service":"libvirtd"}],
+    "VIR-03": [{"type":"ip_link","interface":"ANY"}, {"type":"read_file","path":"etc/network/interfaces"}],
+    "GIT-01": [{"type":"git_show","repo":"app","commit":"ANY"}, {"type":"git_status","repo":"app"}],
+    "GIT-02": [{"type":"git_diff","repo":"app"}, {"type":"git_show","repo":"app","commit":"ANY"}],
+    "CI-01": [{"type":"docker_build","tag":"app","path":"."}, {"type":"read_file","path":"app/requirements.txt"}],
+    "CI-02": [{"type":"process_list","pattern":"pytest"}, {"type":"read_file","path":"tests/test_download.py"}],
+    "CI-03": [{"type":"git_show","repo":"app","commit":"ANY"}, {"type":"git_status","repo":"app"}],
+    "COD-01": [{"type":"list_file","path":"etc/app/config"}, {"type":"id"}],
+    "COD-02": [{"type":"grep_search","pattern":"env","path":"app.py"}, {"type":"read_file","path":"app.py"}],
+    "COD-03": [{"type":"list_directory","path":"."}, {"type":"read_file","path":"pod.json"}],
+    "COD-04": [{"type":"grep_search","pattern":"copy","path":"playbook.yml"}, {"type":"read_file","path":"playbook.yml"}],
+    "COD-05": [{"type":"grep_search","pattern":"port","path":"config.json"}, {"type":"read_file","path":"config.json"}],
+    "COD-06": [{"type":"grep_search","pattern":"replicas","path":"values.yaml"}, {"type":"read_file","path":"values.yaml"}],
+    "SEC-01": [{"type":"journal_read","service":"sshd"}, {"type":"process_list","pattern":"sshd"},
+               {"type":"read_file","path":"etc/ssh/sshd_config"}],
+    "SEC-02": [{"type":"kube_describe","pod":"app","namespace":"default"}, {"type":"read_file","path":"deploy/app.yaml"}],
+    "SEC-03": [{"type":"http_get","url":"http://app:8080/admin"}, {"type":"socket_listeners","port":"ANY"}],
+    "SEC-04": [{"type":"grep_search","pattern":"api_key","path":"config.yaml"},
+               {"type":"list_directory","path":"."}, {"type":"read_file","path":"config.yaml"}],
+    "X-01": [{"type":"kube_get","resource":"pods","namespace":"default"},
+             {"type":"kube_describe","pod":"web","namespace":"default"},
+             {"type":"dns_lookup","hostname":"db.internal"}, {"type":"socket_listeners","port":5432}],
+    "X-02": [{"type":"certificate_expiry","path":"ANY"}, {"type":"http_get","url":"https://app"},
+             {"type":"kube_logs","pod":"app","namespace":"default"}],
+    "X-03": [{"type":"disk_usage_filesystem","target":"ANY"}, {"type":"disk_usage_directory","target":"ANY","depth":1},
+             {"type":"kube_logs","pod":"db","namespace":"default"}],
+    "X-04": [{"type":"dns_query","hostname":"ANY"}, {"type":"read_file","path":"etc/resolv.conf"},
+             {"type":"kube_logs","pod":"app","namespace":"default"}],
+}
+
+def convert(tool, key, text, ns="default"):
+    if tool == "systemctl_status":
+        return {"type": "service_status", "service": h.norm_service(key)}
+    if tool == "journalctl_read":
+        return {"type": "journal_read", "service": h.norm_service(key)}
+    if tool == "kubectl_get":
+        return {"type": "kube_get", "resource": h.norm_resource(key), "namespace": ns}
+    if tool == "kubectl_describe":
+        return {"type": "kube_describe", "pod": h.norm_pod(key), "namespace": ns}
+    if tool == "kubectl_logs":
+        return {"type": "kube_logs", "pod": h.norm_pod(key), "namespace": ns}
+    if tool == "git_status":
+        return {"type": "git_status", "repo": h.norm_repo(key)}
+    if tool == "git_diff":
+        return {"type": "git_diff", "repo": h.norm_repo(key)}
+    if tool == "git_show":
+        repo, commit = key.split("|", 1)
+        return {"type": "git_show", "repo": h.norm_repo(repo), "commit": commit.lower()}
+    if tool == "http_get":
+        return {"type": "http_get", "url": h.norm_url(key)}
+    if tool == "dns_lookup":
+        return {"type": "dns_lookup", "hostname": h.norm_hostname(key)}
+    if tool == "read_file":
+        return {"type": "read_file", "path": h.norm_path(key)}
+    if tool == "shell_readonly":
+        op = h._shell_parse(key)
+        if op is None or op["type"] == "unsupported_semantic_operation":
+            raise ValueError(f"cannot convert shell key {key!r}")
+        # "df -h" (all filesystems) -> derive specific target from evidence text
+        if op["type"] == "disk_usage_filesystem" and op.get("target") == "*":
+            first = (text or "").strip().split()[0] if text and text.strip() else ""
+            if first.startswith("/"):
+                op["target"] = first.rstrip(":%").strip()
+        return op
+    raise ValueError(f"unknown tool {tool}")
+
+def main():
+    v1 = json.load(open(sys.argv[1]))
+    out_scenarios = []
+    errors = []
+    for sc in v1:
+        ns = extract_namespace(sc["scenario_id"], sc["user_prompt"])
+        ev = []
+        for e in sc["evidence"]:
+            try:
+                op = convert(e["tool"], e["key"], e.get("text", ""), ns)
+            except Exception as ex:
+                errors.append((sc["scenario_id"], e["id"], str(ex)))
+                op = {"type": "unsupported_semantic_operation", "command": e["key"]}
+            ev.append({"id": e["id"], "tool": e["tool"], "operation": op,
+                       "result": {"text": e.get("text", "")}})
+        out_sc = {
+            "scenario_id": sc["scenario_id"], "domain": sc.get("domain", ""),
+            "user_prompt": sc["user_prompt"], "evidence": ev,
+            "root_concepts": sc["root_concepts"], "rejected": sc.get("rejected", []),
+            "required_evidence": sc["required_evidence"],
+            "causal_evidence": sc.get("causal_evidence", []),
+            "remediation_class": sc["remediation_class"], "prohibited": sc.get("prohibited", []),
+            "groups": sc.get("groups", []), "difficulty": sc.get("difficulty", 1),
+            "expected_min_useful_calls": sc.get("expected_min_useful_calls", 2),
+        }
+        out_sc["relevance_rules"] = RELEVANCE_RULES.get(sc["scenario_id"], [])
+        out_scenarios.append(out_sc)
+    json.dump({"schema_version": "2-r2", "scenarios": out_scenarios},
+              open(sys.argv[2], "w"), indent=1, ensure_ascii=False)
+    print(f"converted {len(out_scenarios)} scenarios")
+    print(f"errors: {len(errors)}")
+    for e in errors:
+        print("  ERR", e)
+
+if __name__ == "__main__":
+    main()
