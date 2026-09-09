@@ -1,0 +1,8 @@
+{
+  "task": "AITHER-HERMES-R8-BENCHMARK-REPAIR-R7C1-V2-R3",
+  "converter_executable": "YES",
+  "converter_reproducible": "YES",
+  "converter_output_sha256": "d4fe03ca1d21312135afa43934f370ce5bfe6d5654c45afd41d081a920bf00aa",
+  "committed_scenarios_sha256": "d4fe03ca1d21312135afa43934f370ce5bfe6d5654c45afd41d081a920bf00aa",
+  "converter_output_sha_match": "YES"
+}

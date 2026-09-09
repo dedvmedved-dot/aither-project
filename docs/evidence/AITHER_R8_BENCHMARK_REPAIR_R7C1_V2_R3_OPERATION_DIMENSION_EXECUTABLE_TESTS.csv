@@ -1,0 +1,83 @@
+operation_type,test_case,mutated_field,evidence_value,caller_value,wildcard_mode,expected_match,actual_match,PASS
+read_file,exact_match,,"{""type"": ""read_file"", ""path"": ""app.py""}","{""type"": ""read_file"", ""path"": ""app.py""}",no,True,True,PASS
+read_file,mutate_path,path,"{""type"": ""read_file"", ""path"": ""app.py""}","{""type"": ""read_file"", ""path"": ""other.py""}",no,False,False,PASS
+service_status,exact_match,,"{""type"": ""service_status"", ""service"": ""nginx""}","{""type"": ""service_status"", ""service"": ""nginx""}",no,True,True,PASS
+service_status,mutate_service,service,"{""type"": ""service_status"", ""service"": ""nginx""}","{""type"": ""service_status"", ""service"": ""apache""}",no,False,False,PASS
+journal_read,exact_match,,"{""type"": ""journal_read"", ""service"": ""nginx""}","{""type"": ""journal_read"", ""service"": ""nginx""}",no,True,True,PASS
+journal_read,mutate_service,service,"{""type"": ""journal_read"", ""service"": ""nginx""}","{""type"": ""journal_read"", ""service"": ""apache""}",no,False,False,PASS
+kube_get,exact_match,,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}","{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}",no,True,True,PASS
+kube_get,mutate_resource,resource,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}","{""type"": ""kube_get"", ""resource"": ""nodes"", ""namespace"": ""default""}",no,False,False,PASS
+kube_get,mutate_namespace,namespace,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""default""}","{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""kube-system""}",no,False,False,PASS
+kube_describe,exact_match,,"{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""default""}","{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""default""}",no,True,True,PASS
+kube_describe,mutate_pod,pod,"{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""default""}","{""type"": ""kube_describe"", ""pod"": ""db"", ""namespace"": ""default""}",no,False,False,PASS
+kube_describe,mutate_namespace,namespace,"{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""default""}","{""type"": ""kube_describe"", ""pod"": ""web"", ""namespace"": ""kube-system""}",no,False,False,PASS
+kube_logs,exact_match,,"{""type"": ""kube_logs"", ""pod"": ""web"", ""namespace"": ""default""}","{""type"": ""kube_logs"", ""pod"": ""web"", ""namespace"": ""default""}",no,True,True,PASS
+kube_logs,mutate_pod,pod,"{""type"": ""kube_logs"", ""pod"": ""web"", ""namespace"": ""default""}","{""type"": ""kube_logs"", ""pod"": ""db"", ""namespace"": ""default""}",no,False,False,PASS
+kube_logs,mutate_namespace,namespace,"{""type"": ""kube_logs"", ""pod"": ""web"", ""namespace"": ""default""}","{""type"": ""kube_logs"", ""pod"": ""web"", ""namespace"": ""kube-system""}",no,False,False,PASS
+git_status,exact_match,,"{""type"": ""git_status"", ""repo"": ""app""}","{""type"": ""git_status"", ""repo"": ""app""}",no,True,True,PASS
+git_status,mutate_repo,repo,"{""type"": ""git_status"", ""repo"": ""app""}","{""type"": ""git_status"", ""repo"": ""other""}",no,False,False,PASS
+git_diff,exact_match,,"{""type"": ""git_diff"", ""repo"": ""app""}","{""type"": ""git_diff"", ""repo"": ""app""}",no,True,True,PASS
+git_diff,mutate_repo,repo,"{""type"": ""git_diff"", ""repo"": ""app""}","{""type"": ""git_diff"", ""repo"": ""other""}",no,False,False,PASS
+git_show,exact_match,,"{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""abc""}","{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""abc""}",no,True,True,PASS
+git_show,mutate_repo,repo,"{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""abc""}","{""type"": ""git_show"", ""repo"": ""other"", ""commit"": ""abc""}",no,False,False,PASS
+git_show,mutate_commit,commit,"{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""abc""}","{""type"": ""git_show"", ""repo"": ""app"", ""commit"": ""xyz""}",no,False,False,PASS
+http_get,exact_match,,"{""type"": ""http_get"", ""url"": ""https://x.example.com""}","{""type"": ""http_get"", ""url"": ""https://x.example.com""}",no,True,True,PASS
+http_get,mutate_url,url,"{""type"": ""http_get"", ""url"": ""https://x.example.com""}","{""type"": ""http_get"", ""url"": ""https://y.example.com""}",no,False,False,PASS
+dns_lookup,exact_match,,"{""type"": ""dns_lookup"", ""hostname"": ""x.com""}","{""type"": ""dns_lookup"", ""hostname"": ""x.com""}",no,True,True,PASS
+dns_lookup,mutate_hostname,hostname,"{""type"": ""dns_lookup"", ""hostname"": ""x.com""}","{""type"": ""dns_lookup"", ""hostname"": ""y.com""}",no,False,False,PASS
+dns_query,exact_match,,"{""type"": ""dns_query"", ""hostname"": ""x.com""}","{""type"": ""dns_query"", ""hostname"": ""x.com""}",no,True,True,PASS
+dns_query,mutate_hostname,hostname,"{""type"": ""dns_query"", ""hostname"": ""x.com""}","{""type"": ""dns_query"", ""hostname"": ""y.com""}",no,False,False,PASS
+drbd_status,exact_match,,"{""type"": ""drbd_status"", ""resource"": ""r0""}","{""type"": ""drbd_status"", ""resource"": ""r0""}",no,True,True,PASS
+drbd_status,mutate_resource,resource,"{""type"": ""drbd_status"", ""resource"": ""r0""}","{""type"": ""drbd_status"", ""resource"": ""r1""}",no,False,False,PASS
+drbd_role,exact_match,,"{""type"": ""drbd_role"", ""resource"": ""r0""}","{""type"": ""drbd_role"", ""resource"": ""r0""}",no,True,True,PASS
+drbd_role,mutate_resource,resource,"{""type"": ""drbd_role"", ""resource"": ""r0""}","{""type"": ""drbd_role"", ""resource"": ""r1""}",no,False,False,PASS
+docker_exec_dns,exact_match,,"{""type"": ""docker_exec_dns"", ""container"": ""app"", ""host"": ""db.internal""}","{""type"": ""docker_exec_dns"", ""container"": ""app"", ""host"": ""db.internal""}",no,True,True,PASS
+docker_exec_dns,mutate_container,container,"{""type"": ""docker_exec_dns"", ""container"": ""app"", ""host"": ""db.internal""}","{""type"": ""docker_exec_dns"", ""container"": ""other"", ""host"": ""db.internal""}",no,False,False,PASS
+docker_exec_dns,mutate_host,host,"{""type"": ""docker_exec_dns"", ""container"": ""app"", ""host"": ""db.internal""}","{""type"": ""docker_exec_dns"", ""container"": ""app"", ""host"": ""other.internal""}",no,False,False,PASS
+docker_build,exact_match,,"{""type"": ""docker_build"", ""tag"": ""app"", ""path"": "".""}","{""type"": ""docker_build"", ""tag"": ""app"", ""path"": "".""}",no,True,True,PASS
+docker_build,mutate_tag,tag,"{""type"": ""docker_build"", ""tag"": ""app"", ""path"": "".""}","{""type"": ""docker_build"", ""tag"": ""other"", ""path"": "".""}",no,False,False,PASS
+docker_build,mutate_path,path,"{""type"": ""docker_build"", ""tag"": ""app"", ""path"": "".""}","{""type"": ""docker_build"", ""tag"": ""app"", ""path"": ""/elsewhere""}",no,False,False,PASS
+kube_endpoints,exact_match,,"{""type"": ""kube_endpoints"", ""service"": ""backend""}","{""type"": ""kube_endpoints"", ""service"": ""backend""}",no,True,True,PASS
+kube_endpoints,mutate_service,service,"{""type"": ""kube_endpoints"", ""service"": ""backend""}","{""type"": ""kube_endpoints"", ""service"": ""other""}",no,False,False,PASS
+process_list,exact_match,,"{""type"": ""process_list"", ""pattern"": ""nginx""}","{""type"": ""process_list"", ""pattern"": ""nginx""}",no,True,True,PASS
+process_list,mutate_pattern,pattern,"{""type"": ""process_list"", ""pattern"": ""nginx""}","{""type"": ""process_list"", ""pattern"": ""postgresql""}",no,False,False,PASS
+psql_query,exact_match,,"{""type"": ""psql_query"", ""query"": ""select state,count(*) from pg_stat_activity group by state""}","{""type"": ""psql_query"", ""query"": ""select state,count(*) from pg_stat_activity group by state""}",no,True,True,PASS
+psql_query,mutate_query,query,"{""type"": ""psql_query"", ""query"": ""select state,count(*) from pg_stat_activity group by state""}","{""type"": ""psql_query"", ""query"": ""select * from users""}",no,False,False,PASS
+certificate_expiry,exact_match,,"{""type"": ""certificate_expiry"", ""path"": ""etc/ssl/cert.pem""}","{""type"": ""certificate_expiry"", ""path"": ""etc/ssl/cert.pem""}",no,True,True,PASS
+certificate_expiry,mutate_path,path,"{""type"": ""certificate_expiry"", ""path"": ""etc/ssl/cert.pem""}","{""type"": ""certificate_expiry"", ""path"": ""other/cert.pem""}",no,False,False,PASS
+disk_usage_filesystem,exact_match,,"{""type"": ""disk_usage_filesystem"", ""target"": ""/var""}","{""type"": ""disk_usage_filesystem"", ""target"": ""/var""}",no,True,True,PASS
+disk_usage_filesystem,mutate_target,target,"{""type"": ""disk_usage_filesystem"", ""target"": ""/var""}","{""type"": ""disk_usage_filesystem"", ""target"": ""/mnt""}",no,False,False,PASS
+disk_usage_directory,exact_match,,"{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 1}","{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 1}",no,True,True,PASS
+disk_usage_directory,mutate_target,target,"{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 1}","{""type"": ""disk_usage_directory"", ""target"": ""/tmp"", ""depth"": 1}",no,False,False,PASS
+disk_usage_directory,mutate_depth,depth,"{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 1}","{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 2}",no,False,False,PASS
+socket_listeners,exact_match,,"{""type"": ""socket_listeners"", ""port"": 80}","{""type"": ""socket_listeners"", ""port"": 80}",no,True,True,PASS
+socket_listeners,mutate_port,port,"{""type"": ""socket_listeners"", ""port"": 80}","{""type"": ""socket_listeners"", ""port"": 443}",no,False,False,PASS
+ip_link,exact_match,,"{""type"": ""ip_link"", ""interface"": ""eth1""}","{""type"": ""ip_link"", ""interface"": ""eth1""}",no,True,True,PASS
+ip_link,mutate_interface,interface,"{""type"": ""ip_link"", ""interface"": ""eth1""}","{""type"": ""ip_link"", ""interface"": ""eth2""}",no,False,False,PASS
+list_directory,exact_match,,"{""type"": ""list_directory"", ""path"": ""var/log""}","{""type"": ""list_directory"", ""path"": ""var/log""}",no,True,True,PASS
+list_directory,mutate_path,path,"{""type"": ""list_directory"", ""path"": ""var/log""}","{""type"": ""list_directory"", ""path"": ""var/tmp""}",no,False,False,PASS
+grep_search,exact_match,,"{""type"": ""grep_search"", ""pattern"": ""error"", ""path"": ""var/log""}","{""type"": ""grep_search"", ""pattern"": ""error"", ""path"": ""var/log""}",no,True,True,PASS
+grep_search,mutate_pattern,pattern,"{""type"": ""grep_search"", ""pattern"": ""error"", ""path"": ""var/log""}","{""type"": ""grep_search"", ""pattern"": ""warn"", ""path"": ""var/log""}",no,False,False,PASS
+grep_search,mutate_path,path,"{""type"": ""grep_search"", ""pattern"": ""error"", ""path"": ""var/log""}","{""type"": ""grep_search"", ""pattern"": ""error"", ""path"": ""var/tmp""}",no,False,False,PASS
+read_file_via_shell,exact_match,,"{""type"": ""read_file_via_shell"", ""path"": ""etc/hosts""}","{""type"": ""read_file_via_shell"", ""path"": ""etc/hosts""}",no,True,True,PASS
+read_file_via_shell,mutate_path,path,"{""type"": ""read_file_via_shell"", ""path"": ""etc/hosts""}","{""type"": ""read_file_via_shell"", ""path"": ""etc/other""}",no,False,False,PASS
+list_file,exact_match,,"{""type"": ""list_file"", ""path"": ""etc/app/config""}","{""type"": ""list_file"", ""path"": ""etc/app/config""}",no,True,True,PASS
+list_file,mutate_path,path,"{""type"": ""list_file"", ""path"": ""etc/app/config""}","{""type"": ""list_file"", ""path"": ""etc/other""}",no,False,False,PASS
+http_get_via_shell,exact_match,,"{""type"": ""http_get_via_shell"", ""url"": ""https://x.example.com""}","{""type"": ""http_get_via_shell"", ""url"": ""https://x.example.com""}",no,True,True,PASS
+http_get_via_shell,mutate_url,url,"{""type"": ""http_get_via_shell"", ""url"": ""https://x.example.com""}","{""type"": ""http_get_via_shell"", ""url"": ""https://y.example.com""}",no,False,False,PASS
+crontab_list,exact_match,,"{""type"": ""crontab_list""}","{""type"": ""crontab_list""}",no,True,True,PASS
+ceph_status,exact_match,,"{""type"": ""ceph_status""}","{""type"": ""ceph_status""}",no,True,True,PASS
+ceph_osd_tree,exact_match,,"{""type"": ""ceph_osd_tree""}","{""type"": ""ceph_osd_tree""}",no,True,True,PASS
+ceph_osd_df,exact_match,,"{""type"": ""ceph_osd_df""}","{""type"": ""ceph_osd_df""}",no,True,True,PASS
+ceph_pg_stat,exact_match,,"{""type"": ""ceph_pg_stat""}","{""type"": ""ceph_pg_stat""}",no,True,True,PASS
+ceph_pg_dump,exact_match,,"{""type"": ""ceph_pg_dump""}","{""type"": ""ceph_pg_dump""}",no,True,True,PASS
+ceph_health_detail,exact_match,,"{""type"": ""ceph_health_detail""}","{""type"": ""ceph_health_detail""}",no,True,True,PASS
+docker_images,exact_match,,"{""type"": ""docker_images""}","{""type"": ""docker_images""}",no,True,True,PASS
+mounts,exact_match,,"{""type"": ""mounts""}","{""type"": ""mounts""}",no,True,True,PASS
+id,exact_match,,"{""type"": ""id""}","{""type"": ""id""}",no,True,True,PASS
+lscpu,exact_match,,"{""type"": ""lscpu""}","{""type"": ""lscpu""}",no,True,True,PASS
+nvidia_smi,exact_match,,"{""type"": ""nvidia_smi""}","{""type"": ""nvidia_smi""}",no,True,True,PASS
+kube_get_alt_ns,exact_match,,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""prod""}","{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""prod""}",no,True,True,PASS
+kube_get_alt_ns,mutate_namespace,namespace,"{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""prod""}","{""type"": ""kube_get"", ""resource"": ""pods"", ""namespace"": ""staging""}",no,False,False,PASS
+disk_usage_depth,exact_match,,"{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 1}","{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 1}",no,True,True,PASS
+disk_usage_depth,mutate_depth,depth,"{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 1}","{""type"": ""disk_usage_directory"", ""target"": ""/var"", ""depth"": 2}",no,False,False,PASS

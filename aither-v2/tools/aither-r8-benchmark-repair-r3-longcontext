@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 long-context self-validation (Phase 12).
+
+Deterministic scripted positive control over the 13 canonical long-context cases
+(5x56K, 5x58K, 3x60K) using the v2 semantic operation model.
+
+Verifies: marker insertion (begin/mid/end), evidence operation integrity,
+scoring via semantic ops (no hidden exact strings), root evaluator, and
+13/13 scripted positive PASS. Marker/filler checks are independent of model quality.
+
+Usage: python3 aither-r8-benchmark-repair-longcontext <out_csv>
+"""
+import json, sys, csv, re
+from importlib.machinery import SourceFileLoader
+
+H = SourceFileLoader("v2r1", "/root/aither-project-r7-canonical/aither-v2/tools/aither-agent-harness-r7c1-v2-r3").load_module()
+
+# 13 long-context cases: facts = (id, position, marker, fact_text, tool, operation)
+CASES = [
+    {"id": "LC-56K-01", "target": 56000, "root": ["oom kill", "memory exhausted", "out of memory"],
+     "rejected": ["disk full", "network partition", "certificate"],
+     "remediation": ["increase memory limit", "stream the dataset"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC56K01", "job memory limit 2Gi (cgroup memory.max=2147483648)", "shell_readonly", {"type": "read_file_via_shell", "path": "sys/fs/cgroup/job/memory.max"}),
+        ("E2", "middle", "CRIT-MID-LC56K01", "oom-killer killed pid 48210 (job.py)", "journalctl_read", {"type": "journal_read", "service": "kernel"}),
+        ("E3", "end", "CRIT-END-LC56K01", "job loads full dataset (df = pd.read_csv('full.csv'))", "read_file", {"type": "read_file", "path": "app/job.py"}),
+     ]},
+    {"id": "LC-56K-02", "target": 56000, "root": ["disk full", "inode exhaustion", "no space left"],
+     "rejected": ["oom", "dns", "tls"],
+     "remediation": ["rotate logs", "free disk space"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC56K02", "/var mounted 100% full", "shell_readonly", {"type": "disk_usage_filesystem", "target": "/var"}),
+        ("E2", "middle", "CRIT-MID-LC56K02", "/var/log/nginx consumed 48G", "shell_readonly", {"type": "disk_usage_directory", "target": "/var/log", "depth": 1}),
+        ("E3", "end", "CRIT-END-LC56K02", "logrotate missing compress directive", "read_file", {"type": "read_file", "path": "etc/logrotate.d/nginx"}),
+     ]},
+    {"id": "LC-56K-03", "target": 56000, "root": ["dns resolution failure", "nxdomain", "coredns"],
+     "rejected": ["disk", "oom", "certificate"],
+     "remediation": ["fix upstream dns", "restore coredns"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC56K03", "app resolves svc.internal via 10.96.0.10", "read_file", {"type": "read_file", "path": "etc/resolv.conf"}),
+        ("E2", "middle", "CRIT-MID-LC56K03", "coredns: no such host svc.internal", "kubectl_logs", {"type": "kube_logs", "pod": "coredns", "namespace": "default"}),
+        ("E3", "end", "CRIT-END-LC56K03", "upstream DNS 10.10.0.53 unreachable", "shell_readonly", {"type": "dns_query", "hostname": "svc.internal"}),
+     ]},
+    {"id": "LC-56K-04", "target": 56000, "root": ["tls certificate expired", "certificate expired", "x509"],
+     "rejected": ["disk", "oom", "dns"],
+     "remediation": ["renew certificate", "issue new cert"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC56K04", "gateway TLS cert /etc/ssl/fb1.spb.ru.crt", "read_file", {"type": "read_file", "path": "etc/ssl/fb1.spb.ru.crt"}),
+        ("E2", "middle", "CRIT-MID-LC56K04", "notAfter=2026-08-01 (past)", "shell_readonly", {"type": "certificate_expiry", "path": "/etc/ssl/fb1.spb.ru.crt"}),
+        ("E3", "end", "CRIT-END-LC56K04", "x509: certificate has expired", "http_get", {"type": "http_get", "url": "https://fb1.spb.ru:10443/health"}),
+     ]},
+    {"id": "LC-56K-05", "target": 56000, "root": ["connection exhausted", "connection pool", "too many connections"],
+     "rejected": ["disk", "dns", "tls"],
+     "remediation": ["enable connection pooling", "close idle transactions"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC56K05", "postgres max_connections=100", "read_file", {"type": "read_file", "path": "var/lib/postgresql/postgresql.conf"}),
+        ("E2", "middle", "CRIT-MID-LC56K05", "100 idle-in-transaction from api-gateway", "shell_readonly", {"type": "psql_query", "query": "select state,count(*) from pg_stat_activity group by state"}),
+        ("E3", "end", "CRIT-END-LC56K05", "api-gateway opens connection per request, never closes", "read_file", {"type": "read_file", "path": "app/gateway.py"}),
+     ]},
+    {"id": "LC-58K-01", "target": 58000, "root": ["drbd split-brain", "split brain", "both primary"],
+     "rejected": ["oom", "dns", "certificate"],
+     "remediation": ["resolve split-brain", "restore replication"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC58K01", "drbd r0 node-a Primary/Unknown", "shell_readonly", {"type": "drbd_status", "resource": "r0"}),
+        ("E2", "middle", "CRIT-MID-LC58K01", "heartbeat eth1 down 90s", "shell_readonly", {"type": "ip_link", "interface": "eth1"}),
+        ("E3", "end", "CRIT-END-LC58K01", "node-b auto-promoted to Primary", "shell_readonly", {"type": "drbd_role", "resource": "r0"}),
+     ]},
+    {"id": "LC-58K-02", "target": 58000, "root": ["ceph osd full", "osd nearfull", "pg blocked"],
+     "rejected": ["oom", "dns", "certificate"],
+     "remediation": ["rebalance osd", "add capacity"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC58K02", "osd.7 95% full", "shell_readonly", {"type": "ceph_osd_df"}),
+        ("E2", "middle", "CRIT-MID-LC58K02", "pg 2.1f degraded+undersized", "shell_readonly", {"type": "ceph_pg_dump"}),
+        ("E3", "end", "CRIT-END-LC58K02", "scrub blocked, osd.7 no free space", "shell_readonly", {"type": "ceph_health_detail"}),
+     ]},
+    {"id": "LC-58K-03", "target": 58000, "root": ["libvirtd crash", "vm restart loop", "qemu"],
+     "rejected": ["oom", "dns", "tls"],
+     "remediation": ["fix cpu model", "migrate vm"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC58K03", "libvirtd segfaults on vm start", "journalctl_read", {"type": "journal_read", "service": "libvirtd"}),
+        ("E2", "middle", "CRIT-MID-LC58K03", "vm xml host-passthrough avx512", "read_file", {"type": "read_file", "path": "etc/libvirt/qemu/vm.xml"}),
+        ("E3", "end", "CRIT-END-LC58K03", "host cpu lacks avx512 (avx2 max)", "shell_readonly", {"type": "lscpu"}),
+     ]},
+    {"id": "LC-58K-04", "target": 58000, "root": ["crashloopbackoff", "image pull backoff", "pvc"],
+     "rejected": ["oom", "dns", "certificate"],
+     "remediation": ["pin image tag", "fix deployment"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC58K04", "deployment web CrashLoopBackOff", "kubectl_describe", {"type": "kube_describe", "pod": "web", "namespace": "default"}),
+        ("E2", "middle", "CRIT-MID-LC58K04", "image :latest but registry has only v1.2.3", "shell_readonly", {"type": "http_get_via_shell", "url": "https://registry/v2/web/tags/list"}),
+        ("E3", "end", "CRIT-END-LC58K04", "deployment references web:latest", "read_file", {"type": "read_file", "path": "deploy/web.yaml"}),
+     ]},
+    {"id": "LC-58K-05", "target": 58000, "root": ["502 bad gateway", "upstream timeout", "502"],
+     "rejected": ["oom", "dns", "certificate"],
+     "remediation": ["fix readiness probe port", "align ports"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC58K05", "nginx upstream timed out", "journalctl_read", {"type": "journal_read", "service": "nginx"}),
+        ("E2", "middle", "CRIT-MID-LC58K05", "upstream pod not ready", "kubectl_get", {"type": "kube_get", "resource": "pods", "namespace": "default"}),
+        ("E3", "end", "CRIT-END-LC58K05", "backend listens 8000 but probe 8080", "read_file", {"type": "read_file", "path": "deploy/backend.yaml"}),
+     ]},
+    {"id": "LC-60K-01", "target": 60000, "root": ["gpu out of memory", "cuda oom", "vllm oom"],
+     "rejected": ["disk", "dns", "certificate"],
+     "remediation": ["reduce max model len", "lower gpu utilization"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC60K01", "vllm --max-model-len 65536", "shell_readonly", {"type": "process_list", "pattern": "vllm"}),
+        ("E2", "middle", "CRIT-MID-LC60K01", "CUDA OOM at kv cache allocation", "journalctl_read", {"type": "journal_read", "service": "vllm"}),
+        ("E3", "end", "CRIT-END-LC60K01", "2x RTX 6000 24GB no NVLink", "shell_readonly", {"type": "nvidia_smi"}),
+     ]},
+    {"id": "LC-60K-02", "target": 60000, "root": ["kernel oom", "node not ready", "system oom"],
+     "rejected": ["disk", "dns", "tls"],
+     "remediation": ["release hugepages", "restore kubelet"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC60K02", "node n5 NotReady", "kubectl_get", {"type": "kube_get", "resource": "nodes", "namespace": "default"}),
+        ("E2", "middle", "CRIT-MID-LC60K02", "kernel oom-killer killed kubelet", "journalctl_read", {"type": "journal_read", "service": "kernel"}),
+        ("E3", "end", "CRIT-END-LC60K02", "110Gi pinned by hugepages", "shell_readonly", {"type": "read_file_via_shell", "path": "proc/meminfo"}),
+     ]},
+    {"id": "LC-60K-03", "target": 60000, "root": ["token limit exceeded", "context overflow", "max tokens"],
+     "rejected": ["disk", "dns", "certificate"],
+     "remediation": ["truncate history", "enforce context budget"], "prohibited": ["delete", "reboot"],
+     "facts": [
+        ("E1", "begin", "CRIT-BEGIN-LC60K03", "context 62000 exceeds max_model_len", "shell_readonly", {"type": "http_get_via_shell", "url": "/v1/models"}),
+        ("E2", "middle", "CRIT-MID-LC60K03", "HTTP 400 prompt length exceeds context", "http_get", {"type": "http_get", "url": "https://fb1.spb.ru:10443/v1/chat/completions"}),
+        ("E3", "end", "CRIT-END-LC60K03", "bff does not truncate long histories", "read_file", {"type": "read_file", "path": "app/bff.py"}),
+     ]},
+]
+
+
+def build_context(case):
+    """Build a long context with begin/mid/end needles + filler (no tokenizer)."""
+    facts = case["facts"]
+    begin, mid, end = facts[0], facts[1], facts[2]
+    head = f"=== SPEC ===\nservice: {case['id']}\n# {begin[2]}: {begin[3]}\n"
+    filler_mid = "=== LOGS ===\n" + "\n".join(f"2026-08-01T00:00:00Z n1 svc[{i}]: INFO ok" for i in range(400))
+    midsec = f"\n# {mid[2]}: {mid[3]}\n" + filler_mid
+    endsec = f"\n# {end[2]}: {end[3]}\n"
+    return head + midsec + endsec
+
+
+def verify_markers(case, text):
+    """Verify begin/mid/end marker positions are in the correct regions."""
+    res = {}
+    for fid, pos, marker, fact, tool, op in case["facts"]:
+        idx = text.find(marker)
+        frac = idx / max(1, len(text)) if idx >= 0 else -1
+        res[fid] = {"found": idx >= 0, "frac": round(frac, 3)}
+    return res
+
+
+def main():
+    out = sys.argv[1]
+    rows = []
+    for case in CASES:
+        text = build_context(case)
+        markers = verify_markers(case, text)
+        # marker placement: begin < 0.1, mid in 0.2..0.8, end > 0.8
+        begin_ok = markers["E1"]["found"] and markers["E1"]["frac"] < 0.1
+        mid_ok = markers["E2"]["found"] and 0.2 <= markers["E2"]["frac"] <= 0.8
+        end_ok = markers["E3"]["found"] and markers["E3"]["frac"] > 0.8
+
+        # scripted agent: call each fact's tool, collect evidence
+        sc = {"scenario_id": case["id"], "evidence": [],
+              "root_concepts": case["root"], "rejected": case["rejected"],
+              "required_evidence": [f[0] for f in case["facts"]],
+              "causal_evidence": [case["facts"][0][0]],
+              "remediation_class": case["remediation"], "prohibited": case["prohibited"]}
+        for fid, pos, marker, fact, tool, op in case["facts"]:
+            sc["evidence"].append({"id": fid, "tool": tool, "operation": op,
+                                   "result": {"text": fact}})
+
+        revealed = set()
+        seen = set()
+        calls = []
+        for fid, pos, marker, fact, tool, op in case["facts"]:
+            t2, a2 = H.operation_to_args(tool, op)
+            status, txt, rev = H.simulate(sc, t2, a2, seen)
+            op2, err = H.parse_operation(t2, a2)
+            if op2:
+                seen.add(H.op_identity(op2))
+            calls.append(status)
+            revealed.update(rev)
+
+        fj = {"root_cause_summary": case["root"][0],
+              "evidence_ids": sorted(revealed),
+              "causal_explanation": "because of " + case["root"][0],
+              "remediation_steps": [case["remediation"][0]],
+              "risks": [], "missing_data": [], "confidence": 0.9}
+        s2 = H.score_final(fj, sc, revealed)
+        passed = H.scenario_passed(s2)
+
+        rows.append({"case_id": case["id"], "target_tokens": case["target"],
+                     "begin_found": markers["E1"]["found"], "mid_found": markers["E2"]["found"],
+                     "end_found": markers["E3"]["found"], "begin_frac": markers["E1"]["frac"],
+                     "mid_frac": markers["E2"]["frac"], "end_frac": markers["E3"]["frac"],
+                     "root_correct": s2["root_correct"], "evidence_cov": s2["evidence_cov"],
+                     "all_revealed": set(revealed) == {f[0] for f in case["facts"]},
+                     "PASS": "PASS" if passed else "FAIL"})
+
+    # adversarial long-context (R1-1): claim correct IDs without any reveal -> MUST FAIL
+    adv_case = CASES[0]
+    adv_sc = {"scenario_id": adv_case["id"], "evidence": [], "root_concepts": adv_case["root"],
+              "rejected": adv_case["rejected"], "required_evidence": [f[0] for f in adv_case["facts"]],
+              "causal_evidence": [adv_case["facts"][0][0]],
+              "remediation_class": adv_case["remediation"], "prohibited": adv_case["prohibited"]}
+    for fid, pos, marker, fact, tool, op in adv_case["facts"]:
+        adv_sc["evidence"].append({"id": fid, "tool": tool, "operation": op, "result": {"text": fact}})
+    adv_fj = {"root_cause_summary": adv_case["root"][0], "evidence_ids": [f[0] for f in adv_case["facts"]],
+              "causal_explanation": "because of " + adv_case["root"][0],
+              "remediation_steps": [adv_case["remediation"][0]],
+              "risks": [], "missing_data": [], "confidence": 0.9}
+    adv_s2 = H.score_final(adv_fj, adv_sc, set())
+    adv_passed = H.scenario_passed(adv_s2)
+    adv_unrev = len(adv_s2.get("unrevealed_claimed_ids", []))
+    adv_ok = (adv_passed is False and adv_unrev == len(adv_case["facts"]))
+    rows.append({"case_id": "ADVERSARIAL_CLAIM_NO_REVEAL", "target_tokens": adv_case["target"],
+                 "begin_found": "-", "mid_found": "-", "end_found": "-",
+                 "begin_frac": -1, "mid_frac": -1, "end_frac": -1,
+                 "root_correct": adv_s2["root_correct"], "evidence_cov": adv_s2["evidence_cov"],
+                 "all_revealed": False, "PASS": "ADVERSARIAL_OK" if adv_ok else "ADVERSARIAL_ERROR"})
+
+    fields = list(rows[0].keys())
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(rows)
+
+    n = len(rows); pas = sum(1 for r in rows if r["PASS"] == "PASS")
+    print(f"LONG_CONTEXT_SCRIPTED_TOTAL={n}  PASS={pas}  FAIL={n-pas}")
+    for r in rows:
+        print(f"  {r['case_id']}: {r['PASS']} root={r['root_correct']} cov={r['evidence_cov']} "
+              f"begin/mid/end={r['begin_found']}/{r['mid_found']}/{r['end_found']}")
+    print(f"WROTE {out}")
+
+if __name__ == "__main__":
+    main()

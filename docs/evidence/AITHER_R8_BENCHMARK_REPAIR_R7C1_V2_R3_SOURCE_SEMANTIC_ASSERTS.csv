@@ -1,0 +1,74 @@
+scenario_id,evidence_id,source_tool,source_key,expected_operation,actual_operation,normalization_rule,expected_match,actual_match,PASS_FAIL
+CI-01,E1,shell_readonly,docker build -t app .,"{""path"": ""."", ""tag"": ""app"", ""type"": ""docker_build""}","{""path"": ""."", ""tag"": ""app"", ""type"": ""docker_build""}",semantic-identity,True,True,PASS
+CI-02,E1,shell_readonly,ps aux | grep pytest,"{""pattern"": ""pytest"", ""type"": ""process_list""}","{""pattern"": ""pytest"", ""type"": ""process_list""}",semantic-identity,True,True,PASS
+CI-03,E1,git_diff,app,"{""repo"": ""app"", ""type"": ""git_diff""}","{""repo"": ""app"", ""type"": ""git_diff""}",semantic-identity,True,True,PASS
+COD-01,E1,shell_readonly,ls -l /etc/app/config,"{""path"": ""/etc/app/config"", ""type"": ""list_file""}","{""path"": ""/etc/app/config"", ""type"": ""list_file""}",semantic-identity,True,True,PASS
+COD-01,E2,shell_readonly,id,"{""type"": ""id""}","{""type"": ""id""}",semantic-identity,True,True,PASS
+COD-02,E1,read_file,app.py,"{""path"": ""app.py"", ""type"": ""read_file""}","{""path"": ""app.py"", ""type"": ""read_file""}",semantic-identity,True,True,PASS
+COD-03,E1,read_file,pod.json,"{""path"": ""pod.json"", ""type"": ""read_file""}","{""path"": ""pod.json"", ""type"": ""read_file""}",semantic-identity,True,True,PASS
+COD-04,E1,read_file,playbook.yml,"{""path"": ""playbook.yml"", ""type"": ""read_file""}","{""path"": ""playbook.yml"", ""type"": ""read_file""}",semantic-identity,True,True,PASS
+COD-05,E1,read_file,config.json,"{""path"": ""config.json"", ""type"": ""read_file""}","{""path"": ""config.json"", ""type"": ""read_file""}",semantic-identity,True,True,PASS
+COD-06,E1,read_file,values.yaml,"{""path"": ""values.yaml"", ""type"": ""read_file""}","{""path"": ""values.yaml"", ""type"": ""read_file""}",semantic-identity,True,True,PASS
+CON-01,E1,kubectl_logs,worker,"{""namespace"": ""default"", ""pod"": ""worker"", ""type"": ""kube_logs""}","{""namespace"": ""default"", ""pod"": ""worker"", ""type"": ""kube_logs""}",semantic-identity,True,True,PASS
+CON-02,E1,systemctl_status,docker,"{""service"": ""docker"", ""type"": ""service_status""}","{""service"": ""docker"", ""type"": ""service_status""}",semantic-identity,True,True,PASS
+CON-03,E1,shell_readonly,docker exec app nslookup,"{""container"": ""app"", ""host"": ""*"", ""type"": ""docker_exec_dns""}","{""container"": ""app"", ""host"": ""*"", ""type"": ""docker_exec_dns""}",semantic-identity,True,True,PASS
+CON-04,E1,shell_readonly,docker images,"{""type"": ""docker_images""}","{""type"": ""docker_images""}",semantic-identity,True,True,PASS
+GIT-01,E1,git_diff,app,"{""repo"": ""app"", ""type"": ""git_diff""}","{""repo"": ""app"", ""type"": ""git_diff""}",semantic-identity,True,True,PASS
+GIT-01,E2,git_show,app|abc123,"{""commit"": ""abc123"", ""repo"": ""app"", ""type"": ""git_show""}","{""commit"": ""abc123"", ""repo"": ""app"", ""type"": ""git_show""}",semantic-identity,True,True,PASS
+GIT-02,E1,git_status,app,"{""repo"": ""app"", ""type"": ""git_status""}","{""repo"": ""app"", ""type"": ""git_status""}",semantic-identity,True,True,PASS
+K8S-01,E1,kubectl_get,pods,"{""namespace"": ""prod"", ""resource"": ""pods"", ""type"": ""kube_get""}","{""namespace"": ""prod"", ""resource"": ""pods"", ""type"": ""kube_get""}",semantic-identity,True,True,PASS
+K8S-01,E2,kubectl_describe,web,"{""namespace"": ""prod"", ""pod"": ""web"", ""type"": ""kube_describe""}","{""namespace"": ""prod"", ""pod"": ""web"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+K8S-01,E3,kubectl_logs,web,"{""namespace"": ""prod"", ""pod"": ""web"", ""type"": ""kube_logs""}","{""namespace"": ""prod"", ""pod"": ""web"", ""type"": ""kube_logs""}",semantic-identity,True,True,PASS
+K8S-02,E1,kubectl_get,pods,"{""namespace"": ""default"", ""resource"": ""pods"", ""type"": ""kube_get""}","{""namespace"": ""default"", ""resource"": ""pods"", ""type"": ""kube_get""}",semantic-identity,True,True,PASS
+K8S-02,E2,kubectl_describe,api,"{""namespace"": ""default"", ""pod"": ""api"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""api"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+K8S-03,E1,kubectl_describe,svc,"{""namespace"": ""default"", ""pod"": ""svc"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""svc"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+K8S-04,E1,kubectl_describe,worker,"{""namespace"": ""default"", ""pod"": ""worker"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""worker"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+K8S-05,E1,shell_readonly,kubectl get endpoints backend,"{""service"": ""backend"", ""type"": ""kube_endpoints""}","{""service"": ""backend"", ""type"": ""kube_endpoints""}",semantic-identity,True,True,PASS
+K8S-06,E1,kubectl_describe,db,"{""namespace"": ""default"", ""pod"": ""db"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""db"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+K8S-07,E1,kubectl_describe,web,"{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+K8S-07,E2,kubectl_logs,web,"{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_logs""}","{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_logs""}",semantic-identity,True,True,PASS
+K8S-08,E1,kubectl_describe,web,"{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+LIN-01,E1,systemctl_status,nginx,"{""service"": ""nginx"", ""type"": ""service_status""}","{""service"": ""nginx"", ""type"": ""service_status""}",semantic-identity,True,True,PASS
+LIN-01,E2,journalctl_read,nginx,"{""service"": ""nginx"", ""type"": ""journal_read""}","{""service"": ""nginx"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+LIN-02,E1,shell_readonly,df -h,"{""target"": ""/var"", ""type"": ""disk_usage_filesystem""}","{""target"": ""/var"", ""type"": ""disk_usage_filesystem""}",semantic-identity,True,True,PASS
+LIN-02,E2,shell_readonly,du -sh /var/*,"{""depth"": 1, ""target"": ""/var"", ""type"": ""disk_usage_directory""}","{""depth"": 1, ""target"": ""/var"", ""type"": ""disk_usage_directory""}",semantic-identity,True,True,PASS
+LIN-03,E1,shell_readonly,crontab -l,"{""type"": ""crontab_list""}","{""type"": ""crontab_list""}",semantic-identity,True,True,PASS
+LIN-03,E2,read_file,opt/backup.sh,"{""path"": ""opt/backup.sh"", ""type"": ""read_file""}","{""path"": ""opt/backup.sh"", ""type"": ""read_file""}",semantic-identity,True,True,PASS
+LIN-03,E3,journalctl_read,cron,"{""service"": ""cron"", ""type"": ""journal_read""}","{""service"": ""cron"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+LIN-04,E1,systemctl_status,app,"{""service"": ""app"", ""type"": ""service_status""}","{""service"": ""app"", ""type"": ""service_status""}",semantic-identity,True,True,PASS
+LIN-04,E2,journalctl_read,app,"{""service"": ""app"", ""type"": ""journal_read""}","{""service"": ""app"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+LIN-05,E1,systemctl_status,worker,"{""service"": ""worker"", ""type"": ""service_status""}","{""service"": ""worker"", ""type"": ""service_status""}",semantic-identity,True,True,PASS
+LIN-05,E2,journalctl_read,worker,"{""service"": ""worker"", ""type"": ""journal_read""}","{""service"": ""worker"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+NET-01,E1,dns_lookup,api.internal.example.com,"{""hostname"": ""api.internal.example.com"", ""type"": ""dns_lookup""}","{""hostname"": ""api.internal.example.com"", ""type"": ""dns_lookup""}",semantic-identity,True,True,PASS
+NET-01,E2,shell_readonly,cat /etc/resolv.conf,"{""path"": ""etc/resolv.conf"", ""type"": ""read_file_via_shell""}","{""path"": ""etc/resolv.conf"", ""type"": ""read_file_via_shell""}",semantic-identity,True,True,PASS
+NET-02,E1,http_get,https://svc.example.com,"{""type"": ""http_get"", ""url"": ""https://svc.example.com""}","{""type"": ""http_get"", ""url"": ""https://svc.example.com""}",semantic-identity,True,True,PASS
+NET-02,E2,shell_readonly,openssl x509 -enddate -noout -in /etc/ssl/cert.pem,"{""path"": ""/etc/ssl/cert.pem"", ""type"": ""certificate_expiry""}","{""path"": ""/etc/ssl/cert.pem"", ""type"": ""certificate_expiry""}",semantic-identity,True,True,PASS
+NET-03,E1,http_get,https://svc.example.com,"{""type"": ""http_get"", ""url"": ""https://svc.example.com""}","{""type"": ""http_get"", ""url"": ""https://svc.example.com""}",semantic-identity,True,True,PASS
+NET-03,E2,dns_lookup,svc.example.com,"{""hostname"": ""svc.example.com"", ""type"": ""dns_lookup""}","{""hostname"": ""svc.example.com"", ""type"": ""dns_lookup""}",semantic-identity,True,True,PASS
+NET-04,E1,dns_lookup,db.internal,"{""hostname"": ""db.internal"", ""type"": ""dns_lookup""}","{""hostname"": ""db.internal"", ""type"": ""dns_lookup""}",semantic-identity,True,True,PASS
+NET-05,E1,http_get,http://app.internal,"{""type"": ""http_get"", ""url"": ""http://app.internal""}","{""type"": ""http_get"", ""url"": ""http://app.internal""}",semantic-identity,True,True,PASS
+NET-05,E2,http_get,http://upstream:8080,"{""type"": ""http_get"", ""url"": ""http://upstream:8080""}","{""type"": ""http_get"", ""url"": ""http://upstream:8080""}",semantic-identity,True,True,PASS
+SEC-01,E1,journalctl_read,sshd,"{""service"": ""sshd"", ""type"": ""journal_read""}","{""service"": ""sshd"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+SEC-02,E1,kubectl_describe,app,"{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+SEC-03,E1,http_get,http://app:8080/admin,"{""type"": ""http_get"", ""url"": ""http://app:8080/admin""}","{""type"": ""http_get"", ""url"": ""http://app:8080/admin""}",semantic-identity,True,True,PASS
+SEC-04,E1,read_file,config.yaml,"{""path"": ""config.yaml"", ""type"": ""read_file""}","{""path"": ""config.yaml"", ""type"": ""read_file""}",semantic-identity,True,True,PASS
+STO-01,E1,shell_readonly,df -h /mnt/logs,"{""target"": ""/mnt/logs"", ""type"": ""disk_usage_filesystem""}","{""target"": ""/mnt/logs"", ""type"": ""disk_usage_filesystem""}",semantic-identity,True,True,PASS
+STO-02,E1,shell_readonly,ceph -s,"{""type"": ""ceph_status""}","{""type"": ""ceph_status""}",semantic-identity,True,True,PASS
+STO-02,E2,shell_readonly,ceph osd tree,"{""type"": ""ceph_osd_tree""}","{""type"": ""ceph_osd_tree""}",semantic-identity,True,True,PASS
+STO-03,E1,shell_readonly,ceph pg stat,"{""type"": ""ceph_pg_stat""}","{""type"": ""ceph_pg_stat""}",semantic-identity,True,True,PASS
+STO-04,E1,shell_readonly,drbdadm status r0,"{""resource"": ""r0"", ""type"": ""drbd_status""}","{""resource"": ""r0"", ""type"": ""drbd_status""}",semantic-identity,True,True,PASS
+STO-05,E1,shell_readonly,drbdadm status r0,"{""resource"": ""r0"", ""type"": ""drbd_status""}","{""resource"": ""r0"", ""type"": ""drbd_status""}",semantic-identity,True,True,PASS
+STO-06,E1,shell_readonly,mount,"{""type"": ""mounts""}","{""type"": ""mounts""}",semantic-identity,True,True,PASS
+STO-06,E2,kubectl_describe,app,"{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_describe""}","{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_describe""}",semantic-identity,True,True,PASS
+VIR-01,E1,journalctl_read,libvirtd,"{""service"": ""libvirtd"", ""type"": ""journal_read""}","{""service"": ""libvirtd"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+VIR-02,E1,journalctl_read,libvirtd,"{""service"": ""libvirtd"", ""type"": ""journal_read""}","{""service"": ""libvirtd"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+VIR-03,E1,shell_readonly,ip link,"{""interface"": ""*"", ""type"": ""ip_link""}","{""interface"": ""*"", ""type"": ""ip_link""}",semantic-identity,True,True,PASS
+VIR-03,E2,journalctl_read,libvirtd,"{""service"": ""libvirtd"", ""type"": ""journal_read""}","{""service"": ""libvirtd"", ""type"": ""journal_read""}",semantic-identity,True,True,PASS
+X-01,E1,kubectl_logs,web,"{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_logs""}","{""namespace"": ""default"", ""pod"": ""web"", ""type"": ""kube_logs""}",semantic-identity,True,True,PASS
+X-01,E2,dns_lookup,db.internal,"{""hostname"": ""db.internal"", ""type"": ""dns_lookup""}","{""hostname"": ""db.internal"", ""type"": ""dns_lookup""}",semantic-identity,True,True,PASS
+X-02,E1,http_get,https://app,"{""type"": ""http_get"", ""url"": ""https://app""}","{""type"": ""http_get"", ""url"": ""https://app""}",semantic-identity,True,True,PASS
+X-02,E2,kubectl_logs,app,"{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_logs""}","{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_logs""}",semantic-identity,True,True,PASS
+X-03,E1,shell_readonly,df -h,"{""target"": ""/var/lib"", ""type"": ""disk_usage_filesystem""}","{""target"": ""/var/lib"", ""type"": ""disk_usage_filesystem""}",semantic-identity,True,True,PASS
+X-03,E2,kubectl_logs,db,"{""namespace"": ""default"", ""pod"": ""db"", ""type"": ""kube_logs""}","{""namespace"": ""default"", ""pod"": ""db"", ""type"": ""kube_logs""}",semantic-identity,True,True,PASS
+X-04,E1,kubectl_logs,app,"{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_logs""}","{""namespace"": ""default"", ""pod"": ""app"", ""type"": ""kube_logs""}",semantic-identity,True,True,PASS
+X-04,E2,dns_lookup,svc.internal,"{""hostname"": ""svc.internal"", ""type"": ""dns_lookup""}","{""hostname"": ""svc.internal"", ""type"": ""dns_lookup""}",semantic-identity,True,True,PASS

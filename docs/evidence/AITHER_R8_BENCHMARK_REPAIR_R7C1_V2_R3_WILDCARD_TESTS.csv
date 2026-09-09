@@ -1,0 +1,7 @@
+operation_type,evidence,caller,expected_match,actual_match,PASS
+socket_listeners,port=80,port=None,True,True,PASS
+socket_listeners,port=80,port=443,False,False,PASS
+docker_exec_dns,host=*,host=db.internal,True,True,PASS
+docker_exec_dns,host=db.internal,host=other.internal,False,False,PASS
+docker_build,path=*,path=/x,True,True,PASS
+disk_usage_filesystem,target=/var,target=*,True,True,PASS

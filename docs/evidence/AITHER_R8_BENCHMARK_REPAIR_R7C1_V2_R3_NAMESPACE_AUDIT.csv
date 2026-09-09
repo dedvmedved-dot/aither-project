@@ -1,0 +1,17 @@
+scenario_id,prompt,namespace_source,expected_namespace,converted_namespace,ambiguity,PASS_FAIL
+K8S-01,Pod web in prod is CrashLoopBackOff. Diagnose.,map,prod,prod,none,PASS
+K8S-01,Pod web in prod is CrashLoopBackOff. Diagnose.,map,prod,prod,none,PASS
+K8S-01,Pod web in prod is CrashLoopBackOff. Diagnose.,map,prod,prod,none,PASS
+K8S-02,Pod api stuck in Pending. Diagnose.,default,default,default,none,PASS
+K8S-02,Pod api stuck in Pending. Diagnose.,default,default,default,none,PASS
+K8S-03,"Deployment rollout failing, ImagePullBackOff.",default,default,default,none,PASS
+K8S-04,Pod worker OOMKilled repeatedly. Diagnose.,default,default,default,none,PASS
+K8S-06,Pod mounting PVC stuck in ContainerCreating.,default,default,default,none,PASS
+K8S-07,Pod liveness probe failing. Diagnose.,default,default,default,none,PASS
+K8S-07,Pod liveness probe failing. Diagnose.,default,default,default,none,PASS
+K8S-08,Pod stuck Terminating. Diagnose.,default,default,default,none,PASS
+CON-01,Container exits 137 after heavy load. Diagnose.,default,default,default,none,PASS
+X-01,K8s pod crash + DB connection refused. Diagnose.,default,default,default,none,PASS
+X-02,TLS expiry + deployment failing.,default,default,default,none,PASS
+X-03,Disk full causing DB write failures.,default,default,default,none,PASS
+X-04,DNS resolution fails in k8s pod.,default,default,default,none,PASS
