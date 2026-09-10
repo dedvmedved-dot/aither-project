@@ -1,0 +1,7 @@
+test,code,expected_detected,actual_detected,PASS
+case1_repo_default,"REPO = ""/root/aither-project-r7-canonical""",True,True,PASS
+case2_abs_sourceloader,"SourceFileLoader(""x"", ""/root/aither-project-r7-canonical/x"")",True,True,PASS
+case3_abs_open,"open(""/root/aither-project-r7-canonical/x"")",True,True,PASS
+case4_abs_subprocess,"subprocess.run([""/root/aither-project-r7-canonical/x""])",True,True,PASS
+case5_signature_list,"FORBIDDEN = [""/root/aither-project-r7-canonical"", ""/root/""]",False,False,PASS
+case6_script_relative,_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)),False,False,PASS

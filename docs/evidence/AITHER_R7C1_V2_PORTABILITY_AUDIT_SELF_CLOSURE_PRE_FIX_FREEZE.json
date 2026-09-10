@@ -1,0 +1,80 @@
+{
+  "task": "AITHER-HERMES-R7C1-V2-PORTABILITY-AUDIT-SELF-CLOSURE",
+  "baseline_sha": "290ecee374b21926bc2188522cc5afe66d263235",
+  "portability_audit_self_closure_pre_fix_frozen": "YES",
+  "generated_at_utc": "2026-09-09T23:25:11.468198Z",
+  "artifacts": {
+    "aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1": {
+      "git_blob_sha": "8c3adad6474b95ccf7657294625fa8ecc0cc230d",
+      "sha256": "e3975d8fd606fdfd7b290bcb91e0ccff45a9d3f354c61af1f9591588eca93caa",
+      "size_bytes": 37195,
+      "lines": 784
+    },
+    "aither-v2/tools/aither-r7c1-v2-r3-r1-scenario-converter": {
+      "git_blob_sha": "7349143256903c142b8ddc5b4c50e11e2850bcdd",
+      "sha256": "6b064d07c52cf1d0b4e6700b4c70c1b14272bb2d57401e3962958d1f7ea329a7",
+      "size_bytes": 12705,
+      "lines": 198
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-con03": {
+      "git_blob_sha": "76f5bae4cad8887ae5217191ccc9640d283c0f70",
+      "sha256": "49749a140f9964e19a65b7f009a85ef00456bbe5315bde71a10add17f7e2681a",
+      "size_bytes": 2648,
+      "lines": 58
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-evaltests": {
+      "git_blob_sha": "e1e932fd8318217a32b43ac3ee0d60426e4b18f2",
+      "sha256": "94f73b58f5ee6e9ece42d1c3e6e85cc573fc3fdac2fd93c901d8433d800c93b6",
+      "size_bytes": 3731,
+      "lines": 65
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-longcontext": {
+      "git_blob_sha": "0707f68fa41398604607f17c7704e0eed2385a19",
+      "sha256": "5752152dcf40b0dda5c370a5dedd7b258ed88da638e5c43c602309e82eb98dd0",
+      "size_bytes": 15793,
+      "lines": 232
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-opdim": {
+      "git_blob_sha": "2d10ce478c43e70fca0dab82fe21140aa9abf153",
+      "sha256": "d642452edcc98573538586a94e531c8bcc9cba28b7331c2763727479ebed4421",
+      "size_bytes": 13341,
+      "lines": 199
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-portability-audit": {
+      "git_blob_sha": "689767069854f5bf55c4ffc626830849f2e6e378",
+      "sha256": "8b338e9420c09818aea2702dd045a94d180322fd24313309371bae3988783f9e",
+      "size_bytes": 6127,
+      "lines": 99
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-portability-check": {
+      "git_blob_sha": "98df00224ba80e04753fab59f4c965b608812047",
+      "sha256": "6b95b96c9fe40040d1d624ce59768eb224f71886a515e5f2b6bfef67c5fc8b7b",
+      "size_bytes": 1979,
+      "lines": 47
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-preflight": {
+      "git_blob_sha": "da55b753a9e9c53d98be7b965a11c60a7fbbb739",
+      "sha256": "2cdf87366047cb7b4d129c9b530a2447f1dc4e51e2308cc7a1e3645d2390a190",
+      "size_bytes": 7178,
+      "lines": 152
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-scripted": {
+      "git_blob_sha": "ca2debb418f26dd0879d88dee553b162d92af12d",
+      "sha256": "89d3d7e1cac6c1f927d46ad8b52f685394524c6135597aa4e4cc1e3c2d3dfffe",
+      "size_bytes": 10008,
+      "lines": 191
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-tests": {
+      "git_blob_sha": "5046c6697248728ce8b2a257a1abec879b7bac37",
+      "sha256": "420c09f38dfd0197d52aab68c4844d0282a2360ea5a4cd1d442a0f016a6960ad",
+      "size_bytes": 12322,
+      "lines": 200
+    },
+    "docs/evidence/AITHER_R7C1_V2_R3_R1_SCENARIOS.json": {
+      "git_blob_sha": "96d606578f3fefbafafc26c4ebb623bbf803c51f",
+      "sha256": "5d9d7245e46b337a2f689477ece266e560b56a05c4b9669cdf52b9a041dd3cb5",
+      "size_bytes": 55051,
+      "lines": 3227
+    }
+  }
+}

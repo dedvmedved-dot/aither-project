@@ -1,0 +1,3 @@
+tool,cwd,exit_code,expected_exit_code,PASS_FAIL
+portability-audit,/tmp,0,0,PASS
+portability-check,/tmp,0,0,PASS

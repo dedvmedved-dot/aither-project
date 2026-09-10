@@ -1,0 +1,14 @@
+file,imports_harness,path_resolution_mode,forbidden_runtime_dep,cwd_dependency,PASS_FAIL
+aither-agent-harness-r7c1-v2-r3-r1,NO,n/a,NO,NO,PASS
+aither-r7c1-v2-r3-r1-scenario-converter,YES,script-relative,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-con03,YES,script-relative,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-evaltests,YES,script-relative,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-longcontext,YES,script-relative,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-opdim,YES,script-relative,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-portability-audit,YES,script-relative,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-portability-check,NO,n/a,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-preflight,NO,n/a,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-scripted,YES,script-relative,NO,NO,PASS
+aither-r8-benchmark-repair-r3-r1-tests,YES,script-relative,NO,NO,PASS
+aither-r7c1-v2-r3-r1-scenario-converter,YES,script-relative,NO,NO,PASS
+aither-agent-harness-r7c1-v2-r3-r1,NO,n/a,NO,NO,PASS

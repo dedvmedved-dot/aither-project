@@ -1,47 +1,126 @@
 #!/usr/bin/env python3
-"""R7-C1 v2-R3-R1 portability checker — scans the benchmark package for forbidden
-absolute runtime path references.
+"""R7-C1 v2 portability checker — AST-based forbidden runtime path dependency scan.
 
-Forbidden: /root/aither-project-r7-canonical, /root/, hard-coded checkout paths.
-Historical pre-fix freeze evidence (docs/evidence/*_PRE_FIX_FREEZE.json) is excluded.
+Distinguishes allowed search-signature literals (e.g. FORBIDDEN = ["/root/..."])
+from forbidden runtime dependencies (REPO=..., SourceFileLoader(..., open(...,
+Path(...), subprocess.run([...])). No whole-file exclusions; the checker scans
+itself and the audit tooling too.
 
-Usage: python3 aither-r8-benchmark-repair-r3-r1-portability-check <out_txt>
+Usage:
+  python3 aither-r8-benchmark-repair-r3-r1-portability-check <out_txt>
+  python3 aither-r8-benchmark-repair-r3-r1-portability-check selftest <out_csv>
 """
-import os, sys, glob, re
+import os, sys, glob, ast
 
 FORBIDDEN = ["/root/aither-project-r7-canonical", "/root/"]
+_SIGNATURE_NAMES = {"FORBIDDEN", "FORBIDDEN_PATTERNS", "PATTERNS", "SIGNATURES",
+                    "SIGNATURE", "ALLOWED_SIGNATURES", "SEARCH_SIGNATURES",
+                    "SEARCH_PATTERNS", "FORBIDDEN_SIGNATURES",
+                    "cases", "test_cases", "CASES", "TESTS", "EXAMPLES"}
 
-def main():
-    tools_dir = os.path.dirname(os.path.abspath(__file__))
-    # scan only the R3-R1 benchmark tools (not evidence freeze artifacts)
+def _script_dir():
+    return os.path.dirname(os.path.abspath(__file__))
+
+def _repo_root():
+    # script-relative: <repo>/aither-v2/tools -> <repo>
+    return os.path.abspath(os.path.join(_script_dir(), "..", ".."))
+
+def find_forbidden_runtime_deps(path):
+    """AST scan: return list of (lineno, text) forbidden runtime path deps.
+
+    A string constant containing a forbidden path is ALLOWED only when it is:
+      - the module docstring, or
+      - inside a signature/data list/tuple/set/dict assigned to an allowlisted name.
+    Otherwise it is a forbidden runtime dependency."""
+    try:
+        with open(path) as f:
+            src = f.read()
+    except OSError:
+        return []
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return []
+    allowed_linenos = set()
+    # module docstring
+    if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant) \
+       and isinstance(tree.body[0].value.value, str):
+        allowed_linenos.add(tree.body[0].lineno)
+    # signature / data list assignments
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name) and tgt.id in _SIGNATURE_NAMES:
+                    if isinstance(node.value, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
+                        for sub in ast.walk(node.value):
+                            if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                                allowed_linenos.add(sub.lineno)
+    deps = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            s = node.value
+            if any(p in s for p in FORBIDDEN):
+                if node.lineno in allowed_linenos:
+                    continue  # signature/data/docstring literal (allowed)
+                deps.append((node.lineno, s))
+    return deps
+
+def scan_tools():
+    tools_dir = os.path.join(_repo_root(), "aither-v2", "tools")
     files = sorted(glob.glob(os.path.join(tools_dir, "aither-*r3-r1*")))
-    self_name = os.path.basename(__file__)
-    # exclude the checker itself (it defines the FORBIDDEN list, not a runtime harness path)
-    files = [f for f in files if os.path.basename(f) != self_name]
-    # exclude the checker itself and the preflight (no harness import) — but scan all for completeness
+    files.append(os.path.join(tools_dir, "aither-r7c1-v2-r3-r1-scenario-converter"))
+    files = [f for f in files if not f.endswith(".pyc")]
+    return files
+
+def scan(out):
+    files = scan_tools()
     scanned = 0
     matches = []
     for f in files:
-        if f.endswith(".pyc"):
-            continue
         scanned += 1
-        with open(f) as fh:
-            for i, line in enumerate(fh, 1):
-                for pat in FORBIDDEN:
-                    if pat in line:
-                        matches.append((os.path.basename(f), i, line.strip()))
-    total_matches = len(matches)
-    out = sys.argv[1] if len(sys.argv) > 1 else "/tmp/portability_scan.txt"
-    with open(out, "w") as f:
-        f.write(f"SCANNED_FILES={scanned}\n")
-        f.write(f"FORBIDDEN_MATCHES={total_matches}\n")
+        for lineno, text in find_forbidden_runtime_deps(f):
+            matches.append((os.path.basename(f), lineno, text))
+    with open(out, "w") as fh:
+        fh.write(f"SCANNED_FILES={scanned}\n")
+        fh.write(f"FORBIDDEN_RUNTIME_DEPENDENCIES={len(matches)}\n")
         for m in matches:
-            f.write(f"{m[0]}:{m[1]}: {m[2]}\n")
-        f.write(f"PASS_FAIL={'PASS' if total_matches == 0 else 'FAIL'}\n")
-    print(f"SCANNED_FILES={scanned}  FORBIDDEN_MATCHES={total_matches}  "
-          f"{'PASS' if total_matches == 0 else 'FAIL'}")
+            fh.write(f"{m[0]}:{m[1]}: {m[2]}\n")
+        fh.write(f"PASS_FAIL={'PASS' if not matches else 'FAIL'}\n")
+    print(f"SCANNED_FILES={scanned}  FORBIDDEN_RUNTIME_DEPENDENCIES={len(matches)}  "
+          f"{'PASS' if not matches else 'FAIL'}")
     for m in matches:
         print(f"  {m[0]}:{m[1]}: {m[2]}")
 
+def selftest(out):
+    cases = [
+        ("case1_repo_default", 'REPO = "/root/aither-project-r7-canonical"', True),
+        ("case2_abs_sourceloader", 'SourceFileLoader("x", "/root/aither-project-r7-canonical/x")', True),
+        ("case3_abs_open", 'open("/root/aither-project-r7-canonical/x")', True),
+        ("case4_abs_subprocess", 'subprocess.run(["/root/aither-project-r7-canonical/x"])', True),
+        ("case5_signature_list", 'FORBIDDEN = ["/root/aither-project-r7-canonical", "/root/"]', False),
+        ("case6_script_relative", '_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))', False),
+    ]
+    import csv
+    rows = []
+    for name, code, expect_detected in cases:
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+            f.write(code); tmp = f.name
+        deps = find_forbidden_runtime_deps(tmp)
+        detected = len(deps) > 0
+        ok = (detected == expect_detected)
+        rows.append({"test": name, "code": code, "expected_detected": expect_detected,
+                     "actual_detected": detected, "PASS": "PASS" if ok else "FAIL"})
+        os.unlink(tmp)
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+    print(f"CHECKER_SELFTEST={sum(1 for r in rows if r['PASS']=='PASS')}/{len(rows)}")
+    for r in rows:
+        if r["PASS"] != "PASS":
+            print("  FAIL:", r["test"])
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "selftest":
+        selftest(sys.argv[2] if len(sys.argv) > 2 else "/tmp/selftest.csv")
+    else:
+        scan(sys.argv[1] if len(sys.argv) > 1 else "/tmp/scan.txt")
