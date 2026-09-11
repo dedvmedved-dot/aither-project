@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Qwen3.8 control live long-context runner — runs the 13 frozen long-context cases
+(5x56K, 5x58K, 3x60K) against the live model. Uses the frozen simulator/evaluator and
+the frozen CASES (facts + markers). Builds the real token-based context via the
+Qwen3.8 tokenizer.
+
+Run with the transformers venv: /root/aither-venv/bin/python
+"""
+import os, json, sys, csv, time, re, random, urllib.request, urllib.error
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("bench", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
+LC = SourceFileLoader("lc", os.path.join(_SCRIPT_DIR, "aither-r8-benchmark-repair-r3-r1-longcontext")).load_module()
+
+from transformers import AutoTokenizer
+TOK = AutoTokenizer.from_pretrained("/data/models/Qwen3.8-27B-FP8", trust_remote_code=True)
+
+BASE = os.environ.get("CONTROL_BASE", "http://127.0.0.1:18000")
+MODEL = os.environ.get("CONTROL_MODEL", "qwen3.8-27b")
+KEY = open("/tmp/aither_qwen38_api_key.txt").read().strip()
+
+def nt(text):
+    return len(TOK.encode(text))
+
+LOG_TMPL = ["{ts} {host} {svc}[{pid}]: {lvl} {msg}",
+            "{ts} {host} kernel: {msg}",
+            "{ts} {host} systemd[1]: {svc}.service: {state}",
+            "{ts} {host} {svc}: request path={path} status={code} lat={lat}ms",
+            "{ts} {host} audit: type={typ} user={usr} res={res}"]
+MSG_POOL = ["connection reset by peer", "read timeout after 30000ms", "cache miss for key",
+            "garbage collection completed", "health check passed", "replica lag",
+            "queue depth", "flush completed", "checkpoint written", "gc completed",
+            "tls handshake ok", "dns resolve ok", "probe ok", "metric scrape ok",
+            "lease renewed", "heartbeat ok"]
+CONFIG_LINES = ["  {k} = {v}", "  {k}: {v}", "  --{k}={v}", "  {k} = \"{v}\""]
+KEYVALS = [("max_connections","200"),("timeout_ms","30000"),("replicas","3"),("cache_size","512Mi"),
+           ("log_level","info"),("retry_count","5"),("pool_size","10"),("keepalive","60"),
+           ("buffer_size","4096"),("threads","8"),("backlog","128")]
+
+def _filler(target_tokens, seed):
+    rng = random.Random(seed)
+    out = []; total = 0
+    while total < target_tokens:
+        ts = "2026-08-%02dT%02d:%02d:%02dZ" % (rng.randint(1,28), rng.randint(0,23), rng.randint(0,59), rng.randint(0,59))
+        host = "n%d.aither.local" % rng.randint(1,8)
+        svc = rng.choice(["api-gateway","identity","bff","portal","inference","ceph-mon","ceph-osd","drbd","kubelet","coredns","vllm","nginx"])
+        if rng.random() < 0.75:
+            t = rng.choice(LOG_TMPL)
+            msg = rng.choice(MSG_POOL)
+            line = t.format(ts=ts, host=host, svc=svc, pid=rng.randint(1000,65000),
+                            lvl=rng.choice(["INFO","DEBUG","WARN"]), msg=msg,
+                            state=rng.choice(["started","stopped","reloaded","active (running)"]),
+                            path=rng.choice(["/v1/chat/completions","/health","/api/v1/chat","/v1/models"]),
+                            code=rng.choice(["200","201","204","401","502"]), lat=rng.randint(1,999),
+                            typ=rng.choice(["EXECVE","OPEN","CONNECT"]), usr=rng.choice(["root","codex","1000"]),
+                            res=rng.choice(["success","denied","success"]))
+        else:
+            k, v = rng.choice(KEYVALS)
+            line = rng.choice(CONFIG_LINES).format(k=k, v=v)
+        out.append(line); total += nt(line) + 1
+    return "\n".join(out)
+
+def build_context(case, seed):
+    begin, mid, end = case["facts"][0], case["facts"][1], case["facts"][2]
+    begin_needle = ("=== SPECIFICATION ===\nservice: %s\n# %s: %s   # critical-fact (begin)\n"
+                    % (case["id"], begin[2], begin[3]))
+    mid_needle = ("# %s: %s   # critical-fact (middle)\n" % (mid[2], mid[3]))
+    end_needle = ("# %s: %s   # critical-fact (end)\n" % (end[2], end[3]))
+    head = begin_needle + "\n=== CONFIGURATION / LOG HISTORY ===\n" + _filler(int(case["target"] * 0.47), seed)
+    midsec = mid_needle + "\n=== LOG HISTORY / DISTRACTORS ===\n" + _filler(int(case["target"] * 0.47), seed + 1)
+    used = nt(head) + nt(midsec) + nt(end_needle)
+    deficit = case["target"] - used
+    if deficit > 0:
+        midsec = midsec + "\n" + _filler(deficit + 40, seed + 2)
+    return head + midsec + end_needle
+
+def call(messages, tools=None, mt=512):
+    p = {"model": MODEL, "messages": messages, "max_tokens": mt, "temperature": 0.0,
+         "top_p": 1.0, "chat_template_kwargs": {"enable_thinking": False}}
+    if tools: p["tools"] = tools
+    req = urllib.request.Request(BASE + "/v1/chat/completions", data=json.dumps(p).encode(),
+                                 headers={"Content-Type":"application/json", "Authorization":"Bearer "+KEY})
+    t0 = time.time()
+    try:
+        resp = json.loads(urllib.request.urlopen(req, timeout=900).read().decode())
+        c = resp["choices"][0]
+        return c.get("message", {}), c.get("finish_reason"), 200, round(time.time()-t0,1), resp.get("usage",{})
+    except urllib.error.HTTPError as e:
+        return None, None, e.code, round(time.time()-t0,1), {}
+    except Exception as e:
+        return None, None, -1, round(time.time()-t0,1), {}
+
+def run_case(case, run_id):
+    text = build_context(case, hash(case["id"]) & 0xffff)
+    actual_tokens = nt(text)
+    # markers
+    markers = {}
+    for fid, pos, marker, fact, tool, op in case["facts"]:
+        idx = text.find(marker)
+        frac = idx / max(1, len(text)) if idx >= 0 else -1
+        markers[fid] = {"found": idx >= 0, "frac": round(frac, 3)}
+    # evidence
+    sc = {"scenario_id": case["id"], "evidence": [],
+          "root_concepts": case["root"], "rejected": case["rejected"],
+          "required_evidence": [f[0] for f in case["facts"]],
+          "causal_evidence": [case["facts"][0][0]],
+          "remediation_class": case["remediation"], "prohibited": case["prohibited"]}
+    for fid, pos, marker, fact, tool, op in case["facts"]:
+        sc["evidence"].append({"id": fid, "tool": tool, "operation": op, "result": {"text": fact}})
+
+    sys_msg = ("You are a senior DevOps engineer investigating a production incident. The following long context "
+               "contains specifications, configurations, logs, history and distractors. Three critical facts are "
+               "embedded at the BEGINNING, MIDDLE and END of the context. Use read-only tools to verify evidence, "
+               "then produce the final diagnosis JSON.")
+    msgs = [{"role": "system", "content": sys_msg + "\n\n" + text},
+            {"role": "user", "content": "Diagnose the root cause of the production incident described in the provided context. Use read-only tools to gather evidence, then output the final diagnosis JSON."}]
+    seen = set(); revealed = set(); ledger = []
+    for rnd in range(5):
+        m, fr, status, lat, usage = call(msgs, tools=H.TOOL_DEFS, mt=512)
+        if status != 200 or m is None:
+            ledger.append({"round": rnd+1, "event": "http_error", "status": status}); break
+        tcs = m.get("tool_calls") or []
+        ledger.append({"round": rnd+1, "event": "assistant", "finish_reason": fr, "tool_calls": tcs, "latency_s": lat})
+        if not tcs: break
+        msgs.append({"role": "assistant", "content": m.get("content"), "tool_calls": tcs})
+        for tc in tcs:
+            fn = tc.get("function", {}); name = fn.get("name",""); args_str = fn.get("arguments","")
+            try: args = json.loads(args_str)
+            except Exception: args = {}
+            status2, txt, rev = H.simulate(sc, name, args, seen)
+            op, err = H.parse_operation(name, args)
+            if op: seen.add(H.op_identity(op))
+            revealed.update(rev)
+            ledger.append({"round": rnd+1, "event": "tool", "tool": name, "raw_args": args_str, "sim_status": status2, "revealed_ids": rev})
+            msgs.append({"role": "tool", "tool_call_id": tc.get("id","0"), "content": json.dumps({"status": status2, "result": txt})})
+        if len(revealed) >= len(sc["required_evidence"]): break
+
+    concl = ("Output ONLY valid JSON with keys: root_cause_summary, evidence_ids, causal_explanation, "
+             "remediation_steps, risks, missing_data, confidence.\n"
+             "Original task: Diagnose the root cause of the production incident.\n"
+             f"Evidence discovered (ids): {', '.join(sorted(revealed)) if revealed else '(none)'}")
+    m3, fr3, status3, lat3, usage3 = call([{"role":"system","content":"Output only valid JSON."},
+                                           {"role":"user","content":concl}], mt=1024)
+    raw = re.sub(r"```json|```","",(m3 or {}).get("content") or "").strip()
+    try: fj = json.loads(raw)
+    except Exception: fj = None
+    s2 = H.score_final(fj, sc, revealed)
+    passed = H.scenario_passed(s2)
+    return {"case_id": case["id"], "target_tokens": case["target"], "actual_tokens": actual_tokens,
+            "markers": markers, "revealed": sorted(revealed), "final_json": fj, "score": s2,
+            "passed": passed, "ledger": ledger, "duration_s": round(lat3,1) if lat3 else None}
+
+def main():
+    out = sys.argv[1] if len(sys.argv) > 1 else "docs/evidence/AITHER_R8_QWEN38_CONTROL_R7C1_V2_LONG_CONTEXT_LIVE.csv"
+    rows = []
+    for case in LC.CASES:
+        t0 = time.time()
+        r = run_case(case, "lc")
+        dur = round(time.time() - t0, 1)
+        s2 = r["score"]
+        rows.append({"case_id": case["id"], "target_tokens": case["target"], "actual_tokens": r["actual_tokens"],
+                     "begin_found": r["markers"]["E1"]["found"], "mid_found": r["markers"]["E2"]["found"],
+                     "end_found": r["markers"]["E3"]["found"], "root_correct": s2.get("root_correct"),
+                     "evidence_cov": s2.get("evidence_cov"), "passed": r["passed"], "duration_s": dur})
+        print(f"[{case['id']}] tokens={r['actual_tokens']} root={s2.get('root_correct')} cov={s2.get('evidence_cov')} "
+              f"{'PASS' if r['passed'] else 'FAIL'} dur={dur}s", flush=True)
+        with open(out, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+    n = len(rows); p = sum(1 for r in rows if r["passed"])
+    print(f"LONG_CONTEXT={p}/{n} PASS")
+
+if __name__ == "__main__":
+    main()

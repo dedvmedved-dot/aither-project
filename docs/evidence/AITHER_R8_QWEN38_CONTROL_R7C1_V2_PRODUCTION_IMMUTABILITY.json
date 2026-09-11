@@ -1,0 +1,15 @@
+{
+  "task": "AITHER-HERMES-R8-QWEN38-CONTROL-RUN-FROZEN-R7C1-V2",
+  "captured_at_utc": "2026-09-10T21:12:32.370330Z",
+  "QWEN38_PRODUCTION_UNCHANGED": "YES",
+  "N8_UNCHANGED": "YES",
+  "ROUTING_UNCHANGED": "YES",
+  "AGENT_UNCHANGED": "YES",
+  "details": {
+    "image": "vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+    "replicas": "1",
+    "restarts": "0",
+    "node": "bootsmam-k8s-clnt01-n7-gpu",
+    "n8": "vllm-qwen3-32b-awq-59bd8f7d75-zzj9g Running"
+  }
+}

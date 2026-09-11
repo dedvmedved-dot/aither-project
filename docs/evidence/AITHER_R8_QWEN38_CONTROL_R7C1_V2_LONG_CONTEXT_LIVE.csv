@@ -1,0 +1,14 @@
+case_id,target_tokens,actual_tokens,begin_found,mid_found,end_found,root_correct,evidence_cov,passed,duration_s
+LC-56K-01,56000,56054,True,True,True,False,0.0,False,2152.1
+LC-56K-02,56000,56041,True,True,True,False,0.67,False,2130.4
+LC-56K-03,56000,56067,True,True,True,False,0.0,False,2130.7
+LC-56K-04,56000,56075,True,True,True,False,0.33,False,2157.6
+LC-56K-05,56000,56052,True,True,True,False,0.0,False,2160.2
+LC-58K-01,58000,58045,True,True,True,False,0.0,False,1422.4
+LC-58K-02,58000,58059,True,True,True,False,0.0,False,2272.7
+LC-58K-03,58000,58049,True,True,True,False,0.33,False,2272.7
+LC-58K-04,58000,58042,True,True,True,False,0.0,False,2285.2
+LC-58K-05,58000,58073,True,True,True,False,0.67,False,2315.4
+LC-60K-01,60000,60045,True,True,True,False,0.67,False,2435.3
+LC-60K-02,60000,60072,True,True,True,False,0.67,False,2433.9
+LC-60K-03,60000,60043,True,True,True,False,0.0,False,2464.6

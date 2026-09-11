@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""Qwen3.8 control live runner — orchestrates the FROZEN R7-C1 v2 benchmark against the
+live production Qwen3.8 endpoint. Does NOT alter benchmark semantics (simulator/evaluator
+are the frozen harness; this wrapper only adds the HTTP model call + multi-turn loop).
+
+Usage:
+  python3 aither-qwen38-control-live-runner <scenarios.json> <full|routed> <out_dir> <run_id>
+"""
+import os, json, sys, csv, time, urllib.request, urllib.error
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("bench", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r1")).load_module()
+
+BASE = os.environ.get("CONTROL_BASE", "http://127.0.0.1:18000")
+MODEL = os.environ.get("CONTROL_MODEL", "qwen3.8-27b")
+KEY = os.environ.get("CONTROL_KEY", "")
+if not KEY and os.path.exists("/tmp/aither_qwen38_api_key.txt"):
+    KEY = open("/tmp/aither_qwen38_api_key.txt").read().strip()
+
+SYS_MSG = ("DevOps responder. Use only provided read-only tools. Do not repeat calls. "
+           "When evidence is sufficient, give a final diagnosis.")
+FINAL_SYS = "Output only valid JSON."
+
+def call(messages, tools=None, mt=512, run_id="", scen_id=""):
+    p = {"model": MODEL, "messages": messages, "max_tokens": mt, "temperature": 0.0,
+         "top_p": 1.0, "chat_template_kwargs": {"enable_thinking": False}}
+    if tools:
+        p["tools"] = tools
+    req_data = json.dumps(p).encode()
+    hdrs = {"Content-Type": "application/json"}
+    if KEY:
+        hdrs["Authorization"] = "Bearer " + KEY
+    req = urllib.request.Request(BASE + "/v1/chat/completions", data=req_data, headers=hdrs)
+    t0 = time.time()
+    try:
+        resp = json.loads(urllib.request.urlopen(req, timeout=600).read().decode())
+        lat = time.time() - t0
+        c = resp["choices"][0]
+        msg = c.get("message", {})
+        fr = c.get("finish_reason")
+        usage = resp.get("usage", {})
+        status = 200
+    except urllib.error.HTTPError as e:
+        lat = time.time() - t0
+        body = e.read().decode()[:500]
+        msg, fr, usage, status = None, None, {}, e.code
+        print(f"  HTTP {e.code} {body[:200]}", file=sys.stderr)
+    except Exception as e:
+        lat = time.time() - t0
+        msg, fr, usage, status = None, None, {}, -1
+        print(f"  ERR {e}", file=sys.stderr)
+    return msg, fr, status, round(lat, 2), usage
+
+
+def run_scenario(sc, mode, run_id):
+    if mode == "routed":
+        groups = H.route_p0(sc["user_prompt"])
+        tools = [H.TOOL_DEF_BY_NAME[n] for g in groups for n in H.GROUPS[g]]
+    else:
+        tools = H.TOOL_DEFS
+
+    msgs = [{"role": "system", "content": SYS_MSG}, {"role": "user", "content": sc["user_prompt"]}]
+    seen = set(); revealed = set()
+    ledger = []
+    no_new_streak = 0
+    final_json = None
+    s2 = None
+
+    for rnd in range(12):
+        m, fr, status, lat, usage = call(msgs, tools=tools, mt=512, run_id=run_id, scen_id=sc["scenario_id"])
+        if status != 200 or m is None:
+            ledger.append({"round": rnd + 1, "event": "http_error", "http_status": status})
+            break
+        tcs = m.get("tool_calls") or []
+        ledger.append({"round": rnd + 1, "event": "assistant", "finish_reason": fr,
+                       "content": m.get("content"), "tool_calls": tcs,
+                       "latency_s": lat, "usage": usage})
+        if not tcs:
+            break
+        msgs.append({"role": "assistant", "content": m.get("content"), "tool_calls": tcs})
+        new_info = False
+        for tc in tcs:
+            fn = tc.get("function", {})
+            name = fn.get("name", ""); args_str = fn.get("arguments", "")
+            try:
+                args = json.loads(args_str)
+            except Exception:
+                args = {}
+            status2, text, rev = H.simulate(sc, name, args, seen)
+            op, err = H.parse_operation(name, args)
+            if op:
+                seen.add(H.op_identity(op))
+            revealed.update(rev)
+            if rev:
+                new_info = True
+            ledger.append({"round": rnd + 1, "event": "tool", "tool": name, "raw_args": args_str,
+                           "sim_status": status2, "revealed_ids": rev})
+            msgs.append({"role": "tool", "tool_call_id": tc.get("id", "0"),
+                         "content": json.dumps({"status": status2, "result": text})})
+        if not new_info:
+            no_new_streak += 1
+        else:
+            no_new_streak = 0
+        if no_new_streak >= 3:
+            break
+
+    # final synthesis
+    ev_text = "\n".join(f"- {e['id']}: {e.get('result',{}).get('text','')}"
+                        for e in sc["evidence"] if e["id"] in revealed)
+    concl = ("Output ONLY valid JSON with keys: root_cause_summary, evidence_ids, causal_explanation, "
+             "remediation_steps, risks, missing_data, confidence.\n"
+             f"Original task: {sc['user_prompt']}\n\nEvidence discovered:\n{ev_text if ev_text else '(none)'}")
+    m3, fr3, status3, lat3, usage3 = call([{"role": "system", "content": FINAL_SYS},
+                                           {"role": "user", "content": concl}], mt=1024,
+                                          run_id=run_id, scen_id=sc["scenario_id"])
+    ledger.append({"round": "final", "event": "final", "finish_reason": fr3,
+                   "content": (m3 or {}).get("content"), "latency_s": lat3, "usage": usage3,
+                   "http_status": status3})
+    raw = (m3 or {}).get("content") or ""
+    import re
+    raw = re.sub(r"```json|```", "", raw).strip()
+    try:
+        final_json = json.loads(raw)
+    except Exception:
+        final_json = None
+    s2 = H.score_final(final_json, sc, revealed)
+    return {"scenario_id": sc["scenario_id"], "revealed": sorted(revealed),
+            "final_json": final_json, "score": s2, "ledger": ledger,
+            "passed": H.scenario_passed(s2)}
+
+
+def main():
+    scs = json.load(open(sys.argv[1]))["scenarios"]
+    mode = sys.argv[2]
+    out_dir = sys.argv[3]
+    run_id = sys.argv[4] if len(sys.argv) > 4 else "run"
+    os.makedirs(out_dir, exist_ok=True)
+    raw_path = os.path.join(out_dir, f"AITHER_R8_QWEN38_CONTROL_R7C1_V2_{mode.upper()}_RAW_LEDGER.jsonl")
+    sum_path = os.path.join(out_dir, f"AITHER_R8_QWEN38_CONTROL_R7C1_V2_{mode.upper()}_SUMMARY.csv")
+
+    raw_f = open(raw_path, "w")
+    sum_rows = []
+    for i, sc in enumerate(scs):
+        rid = f"{run_id}_{sc['scenario_id']}"
+        t0 = time.time()
+        r = run_scenario(sc, mode, rid)
+        dur = round(time.time() - t0, 1)
+        s2 = r["score"]
+        sum_rows.append({"scenario_id": sc["scenario_id"], "run_id": rid, "mode": mode,
+                         "passed": r["passed"], "root_correct": s2.get("root_correct"),
+                         "evidence_cov": s2.get("evidence_cov"), "causal": s2.get("causal_correct"),
+                         "remediation": s2.get("remediation_ok"), "prohibited": s2.get("prohibited"),
+                         "schema_valid": s2.get("schema_valid"),
+                         "credited": ",".join(s2.get("credited_evidence_ids", [])),
+                         "unrevealed_claimed": ",".join(s2.get("unrevealed_claimed_ids", [])),
+                         "fabricated": ",".join(s2.get("fabricated_claimed_ids", [])),
+                         "duration_s": dur})
+        raw_f.write(json.dumps({"run_id": rid, "scenario_id": sc["scenario_id"], "mode": mode,
+                                "result": r, "duration_s": dur}) + "\n")
+        raw_f.flush()
+        print(f"[{i+1}/{len(scs)}] {sc['scenario_id']} {'PASS' if r['passed'] else 'FAIL'} "
+              f"root={s2.get('root_correct')} cov={s2.get('evidence_cov')} dur={dur}s", flush=True)
+    raw_f.close()
+
+    with open(sum_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(sum_rows[0].keys())); w.writeheader(); w.writerows(sum_rows)
+
+    n = len(sum_rows)
+    succ = 100 * sum(1 for r in sum_rows if r["passed"]) / n
+    root = 100 * sum(1 for r in sum_rows if r["root_correct"]) / n
+    disc = 100 * sum(r["evidence_cov"] for r in sum_rows) / n
+    schema = 100 * sum(1 for r in sum_rows if r["schema_valid"]) / n
+    print(f"=== {mode.upper()} SUMMARY ({n} scenarios) ===")
+    print(f"TASK_SUCCESS={succ:.1f}% ROOT_CAUSE={root:.1f}% EVIDENCE_DISCOVERY={disc:.1f}% SCHEMA={schema:.1f}%")
+
+if __name__ == "__main__":
+    main()

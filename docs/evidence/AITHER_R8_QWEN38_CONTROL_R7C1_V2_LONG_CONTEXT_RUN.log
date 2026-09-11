@@ -1,0 +1,15 @@
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+[LC-56K-01] tokens=56054 root=False cov=0.0 FAIL dur=2152.1s
+[LC-56K-02] tokens=56041 root=False cov=0.67 FAIL dur=2130.4s
+[LC-56K-03] tokens=56067 root=False cov=0.0 FAIL dur=2130.7s
+[LC-56K-04] tokens=56075 root=False cov=0.33 FAIL dur=2157.6s
+[LC-56K-05] tokens=56052 root=False cov=0.0 FAIL dur=2160.2s
+[LC-58K-01] tokens=58045 root=False cov=0.0 FAIL dur=1422.4s
+[LC-58K-02] tokens=58059 root=False cov=0.0 FAIL dur=2272.7s
+[LC-58K-03] tokens=58049 root=False cov=0.33 FAIL dur=2272.7s
+[LC-58K-04] tokens=58042 root=False cov=0.0 FAIL dur=2285.2s
+[LC-58K-05] tokens=58073 root=False cov=0.67 FAIL dur=2315.4s
+[LC-60K-01] tokens=60045 root=False cov=0.67 FAIL dur=2435.3s
+[LC-60K-02] tokens=60072 root=False cov=0.67 FAIL dur=2433.9s
+[LC-60K-03] tokens=60043 root=False cov=0.0 FAIL dur=2464.6s
+LONG_CONTEXT=0/13 PASS
