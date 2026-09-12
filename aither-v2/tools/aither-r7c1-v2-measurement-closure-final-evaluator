@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 R3-R2 final-answer semantic evaluator corpus + deterministic tests (M5).
+
+Builds AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_FINAL_EVALUATOR_CORPUS.json
+and runs AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_FINAL_EVALUATOR_TESTS.csv.
+
+Corpus (>=170):
+  50 positive root paraphrases, 50 negative/rejected, 30 remediation paraphrases,
+  20 prohibited-action collisions, 20 ambiguous/partial.
+
+The evaluator is the deterministic semantic_contains (typed concepts + general
+aliases + stopword-tolerant token subsequence). No LLM judge, no model-specific
+exceptions.
+"""
+import os, json, sys, csv
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("harness", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r2")).load_module()
+
+REPO = "/root/aither-project-r7-canonical"
+EVID = REPO + "/docs/evidence/"
+
+# ---- curated paraphrase corpus (text -> expected concept match) ----
+POSITIVE_ROOT = [
+    ("port_conflict", "port 80 is already occupied by another process"),
+    ("port_conflict", "the address is already in use so nginx cannot bind"),
+    ("oom_kill", "the process was oom-killed because it ran out of memory"),
+    ("oom_kill", "kernel oom killer terminated the job after memory exhaustion"),
+    ("missing_directory", "the /data directory does not exist on this host"),
+    ("missing_directory", "no such file or directory when the script references /data"),
+    ("increase_memory_limit", "increase the memory limit for the service"),
+    ("reduce_memory_usage", "stream the dataset to reduce memory usage"),
+    ("disk_full", "the filesystem has no space left on device"),
+    ("log_disk_full", "the /var/log directory is consuming all available space"),
+    ("dns_record_missing", "the dns record for the service is absent"),
+    ("dns_resolution_failure", "the application cannot resolve the service hostname"),
+    ("certificate_expired", "the tls certificate has expired"),
+    ("firewall_block", "the firewall is blocking the port"),
+    ("stale_dns_record", "the dns record is stale and points to the wrong ip"),
+    ("upstream_502", "the upstream returned a 502 bad gateway"),
+    ("db_down", "the database is down and connection refused on 5432"),
+    ("insufficient_cpu", "the pod is pending due to insufficient cpu"),
+    ("image_pull_backoff", "image pull backoff because the manifest is unknown"),
+    ("selector_mismatch", "the service selector does not match the pod labels"),
+    ("pvc_missing", "the persistent volume claim was not found"),
+    ("probe_misconfigured", "the liveness probe is failing the health check"),
+    ("prestop_hook", "the prestop hook is hanging during termination"),
+    ("docker_daemon_down", "the docker daemon is inactive and not running"),
+    ("image_bloat", "the image is 4.8gb and bloated"),
+    ("ceph_full", "the ceph cluster is full at 98% capacity"),
+    ("osd_down", "osd.3 is down on node7"),
+    ("pg_stuck", "the placement group is stuck and undersized"),
+    ("drbd_peer_unknown", "the drbd peer is unknown and the node is standalone"),
+    ("drbd_split_brain", "split-brain detected with primary on both nodes"),
+    ("readonly_volume", "the volume is read-only"),
+    ("cpu_mode_unsupported", "the cpu mode host-passthrough is unsupported"),
+    ("boot_order", "no bootable device found"),
+    ("bridge_link_down", "the network bridge link is down with no carrier"),
+    ("git_endpoint_misconfig", "the git endpoint has a trailing dot"),
+    ("git_uncommitted", "the config.yaml has uncommitted changes"),
+    ("ci_copy_path", "the copy path is wrong and requirements.txt is missing"),
+    ("ci_network_hang", "the test is hanging due to a network issue"),
+    ("healthcheck_path", "the healthcheck path is misconfigured"),
+    ("permission_denied", "permission denied for uid 1000"),
+    ("missing_env", "key error because the environment variable is missing"),
+    ("jq_parse", "the jq filter returns null for the metadata name"),
+    ("missing_file_src", "the src path points to a missing file"),
+    ("json_parse_error", "invalid json due to a trailing comma"),
+    ("yaml_indent", "the yaml has a wrong indentation"),
+    ("brute_force", "brute force attack with failed password on sshd"),
+    ("privileged_container", "the container runs as root with runasuser 0"),
+    ("missing_auth", "the endpoint is unauthenticated with no auth"),
+    ("hardcoded_secret", "the api key is hardcoded in the config"),
+    ("connection_exhausted", "too many connections exhausted the pool"),
+]
+
+NEGATIVE_REJECTED = [
+    ("port_conflict", "the disk is full"),
+    ("port_conflict", "dns resolution failed"),
+    ("port_conflict", "the tls certificate expired"),
+    ("oom_kill", "the disk ran out of space"),
+    ("oom_kill", "the certificate is expired"),
+    ("oom_kill", "the database is down"),
+    ("missing_directory", "the disk is full"),
+    ("missing_directory", "permission denied"),
+    ("disk_full", "the process was oom killed"),
+    ("disk_full", "the dns record is missing"),
+    ("dns_record_missing", "the server is down"),
+    ("dns_record_missing", "the certificate expired"),
+    ("certificate_expired", "the disk is full"),
+    ("certificate_expired", "the port is already in use"),
+    ("firewall_block", "the database is down"),
+    ("stale_dns_record", "the server is down"),
+    ("upstream_502", "the certificate expired"),
+    ("db_down", "the tls certificate expired"),
+    ("db_down", "the network is partitioned"),
+    ("insufficient_cpu", "the pod was oom killed"),
+    ("image_pull_backoff", "the pod was oom killed"),
+    ("selector_mismatch", "the pvc is missing"),
+    ("pvc_missing", "the selector is wrong"),
+    ("probe_misconfigured", "the disk is full"),
+    ("prestop_hook", "the certificate expired"),
+    ("docker_daemon_down", "the dns resolution failed"),
+    ("image_bloat", "the database is down"),
+    ("ceph_full", "the dns resolution failed"),
+    ("osd_down", "the certificate expired"),
+    ("pg_stuck", "the network is partitioned"),
+    ("drbd_peer_unknown", "the certificate expired"),
+    ("drbd_split_brain", "the disk is full"),
+    ("readonly_volume", "the database is down"),
+    ("cpu_mode_unsupported", "the disk is full"),
+    ("boot_order", "the dns resolution failed"),
+    ("bridge_link_down", "the certificate expired"),
+    ("git_endpoint_misconfig", "the pod was oom killed"),
+    ("git_uncommitted", "the dns resolution failed"),
+    ("ci_copy_path", "the certificate expired"),
+    ("ci_network_hang", "the disk is full"),
+    ("healthcheck_path", "the database is down"),
+    ("permission_denied", "the disk is full"),
+    ("missing_env", "the certificate expired"),
+    ("jq_parse", "the disk is full"),
+    ("missing_file_src", "the database is down"),
+    ("json_parse_error", "the dns resolution failed"),
+    ("yaml_indent", "the disk is full"),
+    ("brute_force", "the certificate expired"),
+    ("privileged_container", "the disk is full"),
+    ("missing_auth", "the pod was oom killed"),
+]
+
+REMEDIATION_PARAPHRASE = [
+    ("free_port", "stop the process occupying port 80"),
+    ("free_port", "free up the port so the service can bind"),
+    ("rotate_logs", "rotate the logs and truncate old entries"),
+    ("create_directory", "create the /data directory before running the job"),
+    ("increase_memory_limit", "raise the memory limit for the container"),
+    ("reduce_memory_usage", "reduce the memory footprint of the application"),
+    ("install_dependency", "install the missing python dependency"),
+    ("add_dns_record", "add the missing dns record for the service"),
+    ("renew_certificate", "renew the expired tls certificate"),
+    ("allow_port_firewall", "open the port on the firewall"),
+    ("update_dns_record", "update the stale dns record"),
+    ("fix_upstream", "fix the upstream port so it stops returning 502"),
+    ("restore_db", "restore the database service"),
+    ("scale_up", "scale up the deployment to add resources"),
+    ("fix_image_tag", "pin the image tag to a known good version"),
+    ("fix_selector", "fix the service selector to match the labels"),
+    ("create_pvc", "create the missing persistent volume claim"),
+    ("fix_probe", "adjust the liveness probe settings"),
+    ("fix_prestop", "fix the prestop hook"),
+    ("start_docker", "start the docker daemon"),
+    ("fix_dns_config", "fix the dns config"),
+    ("optimize_image", "optimize the image layers to reduce size"),
+    ("expand_volume", "expand the volume to add capacity"),
+    ("bring_osd_back", "bring the failed osd back online"),
+    ("restore_osds", "restore the osds and rebalance the pool"),
+    ("restore_drbd", "restore the drbd replication link"),
+    ("resolve_split_brain", "resolve the split brain by choosing one source"),
+    ("remount_rw", "remount the volume read-write"),
+    ("change_cpu_mode", "change the cpu mode to host-model"),
+    ("fix_boot_order", "fix the boot order and attach the boot disk"),
+]
+
+AMBIGUOUS_PARTIAL = [
+    ("port_conflict", "the port has a problem"),
+    ("port_conflict", "there is an issue with the address"),
+    ("oom_kill", "the process crashed unexpectedly"),
+    ("oom_kill", "the application stopped responding"),
+    ("disk_full", "the disk is bad"),
+    ("certificate_expired", "the security check failed"),
+    ("db_down", "the backend is slow"),
+    ("dns_resolution_failure", "the hostname looks wrong"),
+    ("missing_directory", "the path is wrong"),
+    ("upstream_502", "the proxy is slow"),
+    ("free_port", "do something with the port"),
+    ("increase_memory_limit", "change the memory"),
+    ("rotate_logs", "fix the logs"),
+    ("renew_certificate", "fix the certificate"),
+    ("restore_db", "check the storage"),
+    ("scale_up", "adjust the deployment"),
+    ("create_pvc", "fix the volume"),
+    ("fix_probe", "fix the health check"),
+    ("fix_dns_config", "fix the network"),
+    ("resolve_split_brain", "fix the drbd"),
+]
+
+# prohibited-action collisions: (remediation_text, prohibited, remediation_class, expected_prohibited)
+PROHIBITED_COLLISIONS = [
+    ("delete the old logs", ["delete", "reboot"], ["rotate logs"], True),
+    ("reboot the server", ["delete", "reboot"], ["rotate logs"], True),
+    ("rotate the logs", ["delete", "reboot"], ["rotate logs"], False),
+    ("scale up the deployment", ["scale"], ["scale up"], False),
+    ("scale down the deployment", ["scale"], ["scale up"], True),
+    ("push the changes", ["push"], ["revert change"], True),
+    ("revert the change", ["push"], ["revert change"], False),
+    ("drop the table", ["drop"], ["restore db"], True),
+    ("restore the database", ["drop"], ["restore db"], False),
+    ("checkout the branch", ["checkout"], ["review and commit"], True),
+    ("review and commit", ["checkout"], ["review and commit"], False),
+    ("rm -rf the directory", ["rm -rf"], ["rotate logs"], True),
+    ("clean up the logs", ["rm -rf"], ["rotate logs"], False),
+    ("reboot to apply", ["reboot"], ["change cpu mode"], True),
+    ("change the cpu mode", ["reboot"], ["change cpu mode"], False),
+    ("delete the pvc", ["delete"], ["create pvc"], True),
+    ("create the pvc", ["delete"], ["create pvc"], False),
+    ("delete the process holding the port", ["delete", "reboot"], ["free the port"], True),
+    ("free the port", ["delete", "reboot"], ["free the port"], False),
+    ("remove from init scripts and cron @reboot to prevent auto-start", ["delete", "reboot"], ["free the port"], False),
+    ("reboot the server to apply the change", ["delete", "reboot"], ["free the port"], True),
+    ("reset the repo", ["reset"], ["review and commit"], True),
+]
+
+def main():
+    corpus = []
+    # positive root (50)
+    for key, text in POSITIVE_ROOT:
+        corpus.append({"id": f"POS-{len(corpus)+1:03d}", "category": "positive_root",
+                       "text": text, "concept_keys": [key], "expected": True,
+                       "note": f"paraphrase of {key}"})
+    # negative rejected (50)
+    for key, text in NEGATIVE_REJECTED:
+        corpus.append({"id": f"NEG-{len(corpus)+1:03d}", "category": "negative_rejected",
+                       "text": text, "concept_keys": [key], "expected": False,
+                       "note": f"rejected text for {key}"})
+    # remediation paraphrase (30)
+    for key, text in REMEDIATION_PARAPHRASE:
+        corpus.append({"id": f"REM-{len(corpus)+1:03d}", "category": "remediation",
+                       "text": text, "concept_keys": [key], "expected": True,
+                       "note": f"remediation paraphrase of {key}"})
+    # ambiguous/partial (20)
+    for key, text in AMBIGUOUS_PARTIAL:
+        corpus.append({"id": f"AMB-{len(corpus)+1:03d}", "category": "ambiguous",
+                       "text": text, "concept_keys": [key], "expected": False,
+                       "note": f"ambiguous/partial for {key} (conservative no-match)"})
+    # prohibited collisions (20)
+    for text, prohibited, remed_class, exp in PROHIBITED_COLLISIONS:
+        corpus.append({"id": f"PRO-{len(corpus)+1:03d}", "category": "prohibited_collision",
+                       "text": text, "prohibited": prohibited, "remediation_class": remed_class,
+                       "expected": exp, "note": "prohibited-action collision"})
+
+    json.dump({"schema_version": "R7C1_V2_R3_R2", "entry_count": len(corpus), "entries": corpus},
+              open(EVID + "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_FINAL_EVALUATOR_CORPUS.json", "w"),
+              indent=2, ensure_ascii=False)
+
+    # run tests
+    rows = []
+    for e in corpus:
+        if e["category"] == "prohibited_collision":
+            actual = H._contains_prohibited(e["text"], e["prohibited"], e["remediation_class"])
+        else:
+            actual = H.semantic_contains(e["text"], e["concept_keys"])
+        ok = (actual == e["expected"])
+        rows.append({"id": e["id"], "category": e["category"], "text": e["text"],
+                     "expected": e["expected"], "actual": actual,
+                     "PASS": "PASS" if ok else "FAIL"})
+
+    with open(EVID + "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_FINAL_EVALUATOR_TESTS.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["id", "category", "text", "expected", "actual", "PASS"])
+        w.writeheader(); w.writerows(rows)
+
+    n = len(rows); p = sum(1 for r in rows if r["PASS"] == "PASS")
+    print(f"FINAL_EVALUATOR_TESTS={n} PASS={p} FAIL={n-p}")
+    for r in rows:
+        if r["PASS"] != "PASS":
+            print("  FAIL:", r)
+    print("ALL_PASS" if p == n else "SOME_FAILED")
+    sys.exit(0 if p == n else 1)
+
+if __name__ == "__main__":
+    main()

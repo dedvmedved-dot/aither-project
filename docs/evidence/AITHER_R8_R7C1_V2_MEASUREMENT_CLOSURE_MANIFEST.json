@@ -1,0 +1,189 @@
+{
+  "task": "AITHER-HERMES-R8-R7C1-V2-MEASUREMENT-CLOSURE",
+  "baseline_sha": "ef4b5425ec9907d9daf2447b4fa258c56d4fb4b5",
+  "generated_at_utc": "2026-09-12T11:14:29.732109Z",
+  "tools": {
+    "aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r2": {
+      "sha256": "0ca59f3e1f1f157e1e10f8790a89dcaee78331558251cc65da7c8dfc7d97523a",
+      "size": 61144
+    },
+    "aither-v2/tools/aither-r7c1-v2-r3-r2-scenario-converter": {
+      "sha256": "c214d1d2a3ac7cf8ba85c4e3356efce57adc47a576564ac7f15370384d99f8b1",
+      "size": 6333
+    },
+    "aither-v2/tools/aither-qwen38-control-live-runner-r3-r2": {
+      "sha256": "0b9eada8175e8306518edcb61fe2dc85d7adbbd110768122831334c460d54f5d",
+      "size": 9157
+    },
+    "aither-v2/tools/aither-qwen38-control-live-longcontext-r3-r2": {
+      "sha256": "9b589b293745e9875bd63d3113d9e73457e6085fbbe941d5317a3887ee1b5e3a",
+      "size": 12433
+    },
+    "aither-v2/tools/aither-qwen38-control-live-smoke-r3-r2": {
+      "sha256": "7313a176595918b3dfe3b68b1b7da0afafde54d05e10411e03f3e034d0a95d9c",
+      "size": 3358
+    },
+    "aither-v2/tools/aither-qwen38-control-metrics-r3-r2": {
+      "sha256": "1148cff67aa87c9e0bf4f7b831f49cc8c57c7c45b97618b18588eb428332af5a",
+      "size": 6487
+    },
+    "aither-v2/tools/aither-qwen38-control-postrun-r3-r2": {
+      "sha256": "7156426375612600d85fdad1145aedfbcf39561c25d8496dfbbe3e409de71546",
+      "size": 7597
+    },
+    "aither-v2/tools/aither-r7c1-v2-measurement-closure-tests": {
+      "sha256": "32b7d04df4bd89a6529e23df944ea00036ef8727c42b354410b0d942aed361f4",
+      "size": 18588
+    },
+    "aither-v2/tools/aither-r7c1-v2-measurement-closure-final-evaluator": {
+      "sha256": "42813924720a205a38e4ee29b11747fe4ffc3011c76480bd4db5c0a7cea48ac4",
+      "size": 14598
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r2-scripted": {
+      "sha256": "d0bed357108fe291a7711f7a6510caf621299abe2999edbd3f2f08c71f4b1ea2",
+      "size": 10008
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r2-tests": {
+      "sha256": "d3729be8675b8de42df44002ad226707aaa34833111858e8c7e8ec8d8433ad28",
+      "size": 12322
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r2-opdim": {
+      "sha256": "de7f9b167b822b0a0996e03d79edf838433e1d2f03ee976b18accdf59d178fd2",
+      "size": 13341
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r2-evaltests": {
+      "sha256": "6611e53afe62fd4cae0ad9273cc5cdd2d20b72d420aa2460c23673d7657ec5f1",
+      "size": 3731
+    }
+  },
+  "evidence": {
+    "AITHER_R7C1_V2_R3_R2_SCENARIOS.json": {
+      "sha256": "98ad899def7bab9c39290cf6caaca371ed89981a188c32cace8f71c909f131e0",
+      "size": 77591
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_BENCHMARK_IMMUTABILITY.json": {
+      "sha256": "8d336162a5be5663bff6135d948fc8d8c6b462905d5253a90decfb6b5dfa1ca7",
+      "size": 336
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_CHANGE_CATALOG.md": {
+      "sha256": "f57e11e98bf3c8f0a33c8c06837627a85a6e24ce00b2824761f633cc203898d2",
+      "size": 5076
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_DETERMINISTIC_VALIDATION_MANIFEST.json": {
+      "sha256": "2170aa6d595773915215da29f1beb29e32f8ffe27989e8ea5dd1a0715860da1d",
+      "size": 3398
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_ERROR_RECOVERY_CONTRACT.md": {
+      "sha256": "ad8c11bef16c34d25de2a5ab8384efc0d9466f86dba1765aec4f889d04037b42",
+      "size": 2382
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_ERROR_RECOVERY_UNIT_TESTS.csv": {
+      "sha256": "83671bc3036254f8043c7dcf7b8ffffb255f198dc4a2fdbd818ffc12d491cbf4",
+      "size": 911
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_FINAL_EVALUATOR_CORPUS.json": {
+      "sha256": "3008a710f7ffd155662ef60c88cd841c1e7e0f319f6a39b4ecf8449ec8a29f16",
+      "size": 45052
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_FINAL_EVALUATOR_TESTS.csv": {
+      "sha256": "209b78d08fedef924c96781c3a47b789a2cfc1f529aae8a773a26f38fa497ca4",
+      "size": 12276
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_LONG_CONTEXT_STATE_TESTS.csv": {
+      "sha256": "11cf68f32aa9a40e5e21cddca9ee7a2630dc5ac65f4be93b25631269f3ac0a11",
+      "size": 1868
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_MANIFEST.json": {
+      "sha256": "bb308f2ff56eb64a7b6e0079ab31dc79dbc4bdda1cde5a3316565091a859e792",
+      "size": 7980
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_METRIC_DEFINITIONS.md": {
+      "sha256": "d74b5bfe9e8d5959dec669ab81efc4b8af6aa0b6d163984e320e51ffd092690a",
+      "size": 2405
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_METRIC_TESTS.csv": {
+      "sha256": "6d89b93a0109209fe987e6242771171014a7be0dc69a9e7b1bd2c9c5e4620833",
+      "size": 1117
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_PRE_FIX_FREEZE.json": {
+      "sha256": "aece81642ec7801d14c9986617d1630f521068e152107417fc94bb916a10939d",
+      "size": 4999
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_PRODUCTION_IMMUTABILITY.json": {
+      "sha256": "cedcc05dee9cc571dae3ea958556f7f138cb77a47bf5f363d4e5b8730db340e7",
+      "size": 639
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_BEFORE_AFTER.csv": {
+      "sha256": "48888a2efb9f8d934a065d5840f300789322a7ddc3791a150214ebbe4ae398ef",
+      "size": 2892
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_ERROR_RECOVERY_LIVE.csv": {
+      "sha256": "8b6ba8c0ffd2a2cdf5701af9e4af66f12eb4e168ef2ef2573c5907924a9e439d",
+      "size": 5348
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_FULL_RAW_LEDGER.jsonl": {
+      "sha256": "a9291a8aecd13c15b8f5a22dd9344f737d9f36b13b5591ead7acc7145d335acc",
+      "size": 637937
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_FULL_SUMMARY.csv": {
+      "sha256": "e29beb8d7fb57b24249b35b398a85d13a80d3a9e8801a2cbb34c7af877a050c8",
+      "size": 3745
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_LIVE_SMOKE.csv": {
+      "sha256": "f7944fdbaf210403c97ed017eec98029d98aa270614d5dcd46cac1ae38562275",
+      "size": 430
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_LONG_CONTEXT_RAW.jsonl": {
+      "sha256": "0399efafaef880f1a18dbc8280ad828235e4a6c867b2343916aa1d38637dcb8f",
+      "size": 3352867
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_LONG_CONTEXT_SUMMARY.csv": {
+      "sha256": "5dbca63fa1a05b0c39f64e9c137eae0c24df6349f36bbb7a602b83bd2f58554e",
+      "size": 906
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_METRICS.csv": {
+      "sha256": "b92124536cbc418cadd1014a8d69cc02810ff0d199385d5c5339d5f5bcda1fb4",
+      "size": 602
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_METRICS.json": {
+      "sha256": "ebe5f7ae11f6fdf4614a06fcab4b3a2f4c1f49e2cf3a3b2bd553216ba0dc6075",
+      "size": 1420
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_PERFORMANCE.csv": {
+      "sha256": "5bd878c57ccbc24e91d4efc81a6a05ede0f8b6869b7dab06491ea90aac6676b5",
+      "size": 18456
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_RETRY_LEDGER.csv": {
+      "sha256": "6d813da4c9fe14286ae82409b1c300ff7b4d2ec45d7d84d5c3a202c70ba582b3",
+      "size": 2232
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_ROUTED_RAW_LEDGER.jsonl": {
+      "sha256": "82a22ebbb1691d83f228e26ef3ddb86158e046827e103065df57295e3de9da4f",
+      "size": 594779
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_ROUTED_SUMMARY.csv": {
+      "sha256": "b9aa2ef232e25868c22cb148f4475b604f380dc92dd1bc7bc406721fb30fe9b6",
+      "size": 3945
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_RUNTIME_IDENTITY.json": {
+      "sha256": "6546fe2833925ccfdcf758a192bfe35520df59e6e62bfeb721d1edd32b8be567",
+      "size": 798
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_SAFETY_AND_HALLUCINATION.csv": {
+      "sha256": "8182e39e9a23ef2e8a0198767dd61da8cf95eeace3f8c32431c2788472677fc2",
+      "size": 2557
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_RAW_LEDGER_STRUCTURE_TESTS.csv": {
+      "sha256": "30539868503ad35bd22f5a0d0087b9a482af4a1eb1fac2ad46b3eb94dff7f6c0",
+      "size": 475
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_REPORT.md": {
+      "sha256": "bad81ce6f5c7c248ceb632b9e5144047bf6bf19d9a7d95e3bd837d018fcbc21f",
+      "size": 5546
+    },
+    "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_SHELL_CONTRACT_TESTS.csv": {
+      "sha256": "a0930b23f48fb71ba5a30a0c6ced908cef330cf1089d265940e59ea68710bd97",
+      "size": 6946
+    }
+  }
+}

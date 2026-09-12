@@ -1,0 +1,20 @@
+{
+  "task": "AITHER-HERMES-R8-R7C1-V2-MEASUREMENT-CLOSURE-QWEN38-RERUN",
+  "captured_at_utc": "2026-09-11T22:52:49.859348Z",
+  "model_identifier": "qwen3.8-27b",
+  "max_model_len": 65536,
+  "owned_by": "vllm",
+  "root": "/model",
+  "runtime_name": "vLLM",
+  "runtime_version": "0.27.1",
+  "endpoint": "http://127.0.0.1:18000 (port-forward svc/vllm-qwen38-27b-fp8:8000)",
+  "image_digest": "sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+  "gpu_topology": "2x Quadro RTX 6000 24GB, no NVLink, node bootsmam-k8s-clnt01-n7-gpu",
+  "quantization": "FP8 (served --dtype half)",
+  "tool_call_parser": "qwen3_xml",
+  "temperature": 0.0,
+  "top_p": 1.0,
+  "max_output_tokens": "512 (investigation) / 1024 (final)",
+  "context_limit": 65536,
+  "runtime_identity_captured": "YES"
+}

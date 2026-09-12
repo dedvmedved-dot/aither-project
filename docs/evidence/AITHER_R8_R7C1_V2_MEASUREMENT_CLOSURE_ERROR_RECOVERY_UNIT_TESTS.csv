@@ -1,0 +1,13 @@
+test,has_error,blind_retry,valid_next_step,safe_stop,final_consistent,recovered,expected_recovered,PASS
+1_blind_retry,True,True,False,False,True,False,False,PASS
+2_exact_duplicate_no_error,False,False,False,True,True,False,True,PASS
+3_unrelated_pivot,True,False,False,False,True,False,False,PASS
+4_valid_alternate,True,False,True,False,True,True,True,PASS
+5_safe_stop,True,False,False,True,True,True,True,PASS
+6_unsupported_op_recovery,True,False,True,False,True,True,True,PASS
+7_schema_error_recovery,True,False,True,False,True,True,True,PASS
+8_relevant_negative_followup,True,False,True,False,True,True,True,PASS
+9_transport_error_recovery,True,False,False,True,True,True,True,PASS
+10_evidence_aware_followup,True,False,True,False,True,True,True,PASS
+11_retry_then_recover_still_fails,True,True,True,False,True,False,False,PASS
+12_no_final_incomplete,True,False,True,False,False,False,False,PASS

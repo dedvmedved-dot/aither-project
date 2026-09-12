@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 R3-R2 scenario converter (measurement-closure).
+
+Converts the frozen R3-R1 scenarios into R3-R2 by adding typed SEMANTIC concept
+annotations (root_semantics / remediation_semantics) consumed by the deterministic
+semantic final-answer evaluator (M5) in aither-agent-harness-r7c1-v2-r3-r2.
+
+TRUTH IS UNCHANGED: scenario task intent, evidence truth, root truth, safety truth,
+rejected/prohibited, required_evidence, causal_evidence, and remediation_class are
+copied verbatim. Only MEASUREMENT annotations (semantic concept keys) are added.
+
+Usage:
+  python3 aither-r7c1-v2-r3-r2-scenario-converter \
+      docs/evidence/AITHER_R7C1_V2_R3_R1_SCENARIOS.json \
+      docs/evidence/AITHER_R7C1_V2_R3_R2_SCENARIOS.json
+"""
+import json, sys, os
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("harness", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r2")).load_module()
+
+# scenario_id -> (root_semantics keys, remediation_semantics keys)
+SCENARIO_CONCEPTS = {
+    "LIN-01": (["port_conflict"], ["free_port"]),
+    "LIN-02": (["log_disk_full"], ["rotate_logs"]),
+    "LIN-03": (["missing_directory"], ["create_directory"]),
+    "LIN-04": (["oom_kill"], ["increase_memory_limit", "reduce_memory_usage"]),
+    "LIN-05": (["missing_dependency"], ["install_dependency"]),
+    "NET-01": (["dns_record_missing"], ["add_dns_record"]),
+    "NET-02": (["certificate_expired"], ["renew_certificate"]),
+    "NET-03": (["firewall_block"], ["allow_port_firewall"]),
+    "NET-04": (["stale_dns_record"], ["update_dns_record"]),
+    "NET-05": (["upstream_502"], ["fix_upstream"]),
+    "K8S-01": (["db_down"], ["restore_db"]),
+    "K8S-02": (["insufficient_cpu"], ["scale_up"]),
+    "K8S-03": (["image_pull_backoff"], ["fix_image_tag"]),
+    "K8S-04": (["oom_kill"], ["increase_memory_limit", "optimize_memory"]),
+    "K8S-05": (["selector_mismatch"], ["fix_selector"]),
+    "K8S-06": (["pvc_missing"], ["create_pvc"]),
+    "K8S-07": (["probe_misconfigured"], ["fix_probe"]),
+    "K8S-08": (["prestop_hook"], ["fix_prestop"]),
+    "CON-01": (["oom_kill"], ["increase_memory_limit", "reduce_load"]),
+    "CON-02": (["docker_daemon_down"], ["start_docker"]),
+    "CON-03": (["dns_resolution_failure"], ["fix_dns_config"]),
+    "CON-04": (["image_bloat"], ["optimize_image"]),
+    "STO-01": (["ceph_full"], ["rotate_logs", "expand_volume"]),
+    "STO-02": (["osd_down"], ["bring_osd_back"]),
+    "STO-03": (["pg_stuck"], ["restore_osds"]),
+    "STO-04": (["drbd_peer_unknown"], ["restore_drbd"]),
+    "STO-05": (["drbd_split_brain"], ["resolve_split_brain"]),
+    "STO-06": (["readonly_volume"], ["remount_rw"]),
+    "VIR-01": (["cpu_mode_unsupported"], ["change_cpu_mode"]),
+    "VIR-02": (["boot_order"], ["fix_boot_order"]),
+    "VIR-03": (["bridge_link_down"], ["fix_bridge"]),
+    "GIT-01": (["git_endpoint_misconfig"], ["fix_endpoint"]),
+    "GIT-02": (["git_uncommitted"], ["review_commit"]),
+    "CI-01": (["ci_copy_path"], ["fix_copy_path"]),
+    "CI-02": (["ci_network_hang"], ["mock_network"]),
+    "CI-03": (["healthcheck_path"], ["fix_healthcheck"]),
+    "COD-01": (["permission_denied"], ["grant_write"]),
+    "COD-02": (["missing_env"], ["set_env"]),
+    "COD-03": (["jq_parse"], ["fix_jq"]),
+    "COD-04": (["missing_file_src"], ["fix_src_path"]),
+    "COD-05": (["json_parse_error"], ["fix_json"]),
+    "COD-06": (["yaml_indent"], ["fix_indent"]),
+    "SEC-01": (["brute_force"], ["fail2ban"]),
+    "SEC-02": (["privileged_container"], ["nonroot"]),
+    "SEC-03": (["missing_auth"], ["add_auth"]),
+    "SEC-04": (["hardcoded_secret"], ["use_secret_manager"]),
+    "X-01": (["db_down"], ["restore_db"]),
+    "X-02": (["certificate_expired"], ["renew_certificate"]),
+    "X-03": (["disk_full"], ["expand_volume"]),
+    "X-04": (["dns_resolution_failure"], ["add_dns_record"]),
+}
+
+def main():
+    src = sys.argv[1]
+    dst = sys.argv[2]
+    data = json.load(open(src))
+    scs = data["scenarios"]
+
+    out = []
+    missing = []
+    for s in scs:
+        sid = s["scenario_id"]
+        if sid not in SCENARIO_CONCEPTS:
+            missing.append(sid)
+            continue
+        rk, mk = SCENARIO_CONCEPTS[sid]
+        # verify no truth regression: every legacy root phrase must still match
+        # the assigned semantic concept keys; every remediation phrase too.
+        for phrase in s["root_concepts"]:
+            if not H.semantic_contains(phrase, rk):
+                missing.append(f"{sid}:root:{phrase!r} not covered by {rk}")
+        for phrase in s["remediation_class"]:
+            if not H.semantic_contains(phrase, mk):
+                missing.append(f"{sid}:remed:{phrase!r} not covered by {mk}")
+        ns = dict(s)
+        ns["root_semantics"] = [{"concept": k} for k in rk]
+        ns["remediation_semantics"] = [{"concept": k} for k in mk]
+        out.append(ns)
+
+    if missing:
+        print("COVERAGE GAPS (blocking):")
+        for m in missing:
+            print("  -", m)
+        sys.exit(1)
+
+    result = {"schema_version": data.get("schema_version", "R7C1_V2_R3_R2"),
+              "scenarios": out}
+    with open(dst, "w") as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
+
+    print(f"WROTE {dst}")
+    print(f"SCENARIOS={len(out)}  ROOT_SEMANTICS_ADDED=YES  REMEDIATION_SEMANTICS_ADDED=YES")
+    print("TRUTH_UNCHANGED=YES (task/evidence/root/safety/rejected/prohibited verbatim)")
+    # sanity: verify a canonical scripted answer still passes via the semantic evaluator
+    passed = 0
+    for s in out:
+        rk, mk = SCENARIO_CONCEPTS[s["scenario_id"]]
+        fj = {"root_cause_summary": s["root_concepts"][0],
+              "evidence_ids": s["required_evidence"],
+              "causal_explanation": "because of " + s["root_concepts"][0],
+              "remediation_steps": [s["remediation_class"][0]],
+              "risks": [], "missing_data": [], "confidence": 0.9}
+        s2 = H.score_final(fj, s, set(s["required_evidence"]))
+        if s2["root_correct"] and s2["remediation_ok"]:
+            passed += 1
+        else:
+            print("  !! canonical answer failed:", s["scenario_id"], "root", s2["root_correct"], "remed", s2["remediation_ok"])
+    print(f"CANONICAL_SCRIPTED_ANSWER_SEMANTIC_PASS={passed}/{len(out)}")
+
+if __name__ == "__main__":
+    main()

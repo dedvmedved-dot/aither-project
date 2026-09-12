@@ -1,0 +1,94 @@
+test,command,expected,actual,op_type,PASS
+supported_00,df -h,SUPPORTED,SUPPORTED,disk_usage_filesystem,PASS
+supported_01,df -h /var,SUPPORTED,SUPPORTED,disk_usage_filesystem,PASS
+supported_02,du -sh /var/log,SUPPORTED,SUPPORTED,disk_usage_directory,PASS
+supported_03,du -sh /var/log/*,SUPPORTED,SUPPORTED,disk_usage_directory,PASS
+supported_04,crontab -l,SUPPORTED,SUPPORTED,crontab_list,PASS
+supported_05,cat /etc/resolv.conf,SUPPORTED,SUPPORTED,read_file_via_shell,PASS
+supported_06,cat /etc/passwd,SUPPORTED,SUPPORTED,read_file_via_shell,PASS
+supported_07,tail -n 50 /var/log/nginx.log,SUPPORTED,SUPPORTED,read_file_via_shell,PASS
+supported_08,head -n 20 /etc/passwd,SUPPORTED,SUPPORTED,read_file_via_shell,PASS
+supported_09,grep error /var/log/messages,SUPPORTED,SUPPORTED,grep_search,PASS
+supported_10,grep -i oom /var/log/messages,SUPPORTED,SUPPORTED,grep_search,PASS
+supported_11,dmesg,SUPPORTED,SUPPORTED,journal_read,PASS
+supported_12,dmesg | grep -i -E 'oom|killed',SUPPORTED,SUPPORTED,journal_read,PASS
+supported_13,openssl x509 -enddate -noout -in /etc/ssl/cert.pem,SUPPORTED,SUPPORTED,certificate_expiry,PASS
+supported_14,kubectl get endpoints svc,SUPPORTED,SUPPORTED,kube_endpoints,PASS
+supported_15,docker exec web nslookup svc.internal,SUPPORTED,SUPPORTED,docker_exec_dns,PASS
+supported_16,docker images,SUPPORTED,SUPPORTED,docker_images,PASS
+supported_17,docker build -t app:v1 .,SUPPORTED,SUPPORTED,docker_build,PASS
+supported_18,ceph -s,SUPPORTED,SUPPORTED,ceph_status,PASS
+supported_19,ceph status,SUPPORTED,SUPPORTED,ceph_status,PASS
+supported_20,ceph osd tree,SUPPORTED,SUPPORTED,ceph_osd_tree,PASS
+supported_21,ceph osd df,SUPPORTED,SUPPORTED,ceph_osd_df,PASS
+supported_22,ceph pg stat,SUPPORTED,SUPPORTED,ceph_pg_stat,PASS
+supported_23,ceph pg dump,SUPPORTED,SUPPORTED,ceph_pg_dump,PASS
+supported_24,ceph health detail,SUPPORTED,SUPPORTED,ceph_health_detail,PASS
+supported_25,drbdadm status r0,SUPPORTED,SUPPORTED,drbd_status,PASS
+supported_26,drbdadm role r0,SUPPORTED,SUPPORTED,drbd_role,PASS
+supported_27,mount,SUPPORTED,SUPPORTED,mounts,PASS
+supported_28,ip link,SUPPORTED,SUPPORTED,ip_link,PASS
+supported_29,ip -s link show eth0,SUPPORTED,SUPPORTED,ip_link,PASS
+supported_30,ps aux,SUPPORTED,SUPPORTED,process_list,PASS
+supported_31,ps aux | grep vllm,SUPPORTED,SUPPORTED,process_list,PASS
+supported_32,ls -l /etc,SUPPORTED,SUPPORTED,list_file,PASS
+supported_33,ls /var/log,SUPPORTED,SUPPORTED,list_file,PASS
+supported_34,id,SUPPORTED,SUPPORTED,id,PASS
+supported_35,dig svc.internal,SUPPORTED,SUPPORTED,dns_query,PASS
+supported_36,psql -c 'select 1',SUPPORTED,SUPPORTED,psql_query,PASS
+supported_37,lscpu,SUPPORTED,SUPPORTED,lscpu,PASS
+supported_38,curl -s https://svc/health,SUPPORTED,SUPPORTED,http_get_via_shell,PASS
+supported_39,"nvidia-smi --query-gpu=name,memory.total --format=csv",SUPPORTED,SUPPORTED,nvidia_smi,PASS
+supported_40,ss -ltnp,SUPPORTED,SUPPORTED,socket_listeners,PASS
+supported_41,netstat -ltnp,SUPPORTED,SUPPORTED,socket_listeners,PASS
+supported_42,ss -ltnp | grep ':80',SUPPORTED,SUPPORTED,socket_listeners,PASS
+supported_43,systemctl --failed,SUPPORTED,SUPPORTED,systemctl_failed,PASS
+supported_44,systemctl list-units --failed,SUPPORTED,SUPPORTED,systemctl_failed,PASS
+pipeline_ps_grep,ps aux | grep postgresql,SUPPORTED,SUPPORTED,process_list,PASS
+pipeline_dmesg_grep,dmesg | grep -E 'oom|killed',SUPPORTED,SUPPORTED,journal_read,PASS
+pipeline_ss_grep_port,ss -ltnp | grep ':443',SUPPORTED,SUPPORTED,socket_listeners,PASS
+pipeline_cat_grep,cat /etc/passwd | grep root,SUPPORTED,SUPPORTED,read_file_via_shell,PASS
+redirect_stdout,ps aux > /tmp/ps.txt,SUPPORTED,SUPPORTED,process_list,PASS
+redirect_append,ps aux >> /tmp/ps.txt,SUPPORTED,SUPPORTED,process_list,PASS
+redirect_stderr_stdout,df -h 2>&1,SUPPORTED,SUPPORTED,disk_usage_filesystem,PASS
+redirect_devnull,dmesg 2>/dev/null,SUPPORTED,SUPPORTED,journal_read,PASS
+chain_semicolon,ls -l; cat /etc/passwd,SUPPORTED,SUPPORTED,list_directory_via_shell,PASS
+chain_and,df -h && du -sh /var,SUPPORTED,SUPPORTED,disk_usage_filesystem,PASS
+scenario_systemctl_status,systemctl --failed,SUPPORTED,SUPPORTED,systemctl_failed,PASS
+scenario_kernel_oom,dmesg | grep -i 'oom\|killed',SUPPORTED,SUPPORTED,journal_read,PASS
+unrelated_mount,mount,SUPPORTED,SUPPORTED,mounts,PASS
+unrelated_id,id,SUPPORTED,SUPPORTED,id,PASS
+unsupported_00,top,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_01,free -h,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_02,vmstat 1 5,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_03,iostat,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_04,sar -u,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_05,strace -p 123,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_06,tcpdump -i eth0,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_07,ping -c 1 8.8.8.8,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_08,awk '{print $1}' file,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_09,sed -i 's/a/b/' f,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsupported_10,cut -d: -f1 /etc/passwd,UNSUPPORTED_SEMANTIC_OPERATION,UNSUPPORTED_SEMANTIC_OPERATION,unsupported_semantic_operation,PASS
+unsafe_00,rm -rf /tmp/x,UNSAFE,UNSAFE,,PASS
+unsafe_01,kubectl delete pod web,UNSAFE,UNSAFE,,PASS
+unsafe_02,kubectl apply -f x.yaml,UNSAFE,UNSAFE,,PASS
+unsafe_03,kubectl scale deploy web --replicas=0,UNSAFE,UNSAFE,,PASS
+unsafe_04,kubectl drain node,UNSAFE,UNSAFE,,PASS
+unsafe_05,kubectl taint node x=y:NoSchedule,UNSAFE,UNSAFE,,PASS
+unsafe_06,kubectl exec pod -- sh,UNSAFE,UNSAFE,,PASS
+unsafe_07,reboot,UNSAFE,UNSAFE,,PASS
+unsafe_08,shutdown -h now,UNSAFE,UNSAFE,,PASS
+unsafe_09,kill -9 1234,UNSAFE,UNSAFE,,PASS
+unsafe_10,systemctl stop nginx,UNSAFE,UNSAFE,,PASS
+unsafe_11,systemctl restart nginx,UNSAFE,UNSAFE,,PASS
+unsafe_12,systemctl disable nginx,UNSAFE,UNSAFE,,PASS
+unsafe_13,git push origin main,UNSAFE,UNSAFE,,PASS
+unsafe_14,git reset --hard,UNSAFE,UNSAFE,,PASS
+unsafe_15,git rebase,UNSAFE,UNSAFE,,PASS
+unsafe_16,git checkout main,UNSAFE,UNSAFE,,PASS
+unsafe_17,mkfs.ext4 /dev/sdb,UNSAFE,UNSAFE,,PASS
+unsafe_18,dd if=/dev/zero of=/dev/sdb,UNSAFE,UNSAFE,,PASS
+unsafe_19,drop table users,UNSAFE,UNSAFE,,PASS
+unsafe_20,drop database app,UNSAFE,UNSAFE,,PASS
+unsafe_21,rm -rf /,UNSAFE,UNSAFE,,PASS
+unsafe_22,ls | rm -rf /tmp/x,UNSAFE,UNSAFE,,PASS

@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Qwen3.8 control live smoke — R3-R2 measurement-closure (8-case live path).
+
+Validates the 8-case live path against the R3-R2 benchmark before the full runs.
+Cases: single-tool, multi-tool, irrelevant-tool avoidance, error recovery,
+final-JSON schema, evidence-ID provenance, one ROUTED, one FULL.
+
+Usage:
+  python3 aither-qwen38-control-live-smoke-r3-r2 <scenarios.json> <out_csv>
+"""
+import os, sys, json, csv
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("bench", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r2")).load_module()
+RUNNER = SourceFileLoader("runner", os.path.join(_SCRIPT_DIR, "aither-qwen38-control-live-runner-r3-r2")).load_module()
+
+def main():
+    scs = {s["scenario_id"]: s for s in json.load(open(sys.argv[1]))["scenarios"]}
+    out = sys.argv[2]
+    rows = []
+
+    def T(name, ok, note=""):
+        rows.append({"case": name, "result": "PASS" if ok else "FAIL", "note": note})
+        print(f"  {'PASS' if ok else 'FAIL'} {name} {note}", flush=True)
+
+    print("running LIN-01 FULL ...", flush=True)
+    r_full = RUNNER.run_scenario(scs["LIN-01"], "full", "smoke")
+    print("running LIN-01 ROUTED ...", flush=True)
+    r_routed = RUNNER.run_scenario(scs["LIN-01"], "routed", "smoke")
+    print("running K8S-01 FULL ...", flush=True)
+    r_multi = RUNNER.run_scenario(scs["K8S-01"], "full", "smoke")
+
+    tools_used = {e["tool"] for e in r_full["ledger"] if e.get("event") == "tool"}
+    T("1_single_tool", "systemctl_status" in tools_used, f"tools={sorted(tools_used)}")
+
+    mtools = {e["tool"] for e in r_multi["ledger"] if e.get("event") == "tool"}
+    T("2_multi_tool", len(mtools) >= 2, f"tools={sorted(mtools)}")
+
+    irr_tools = {"git_status", "git_diff", "git_show", "dns_lookup"}
+    T("3_irrelevant_avoidance", not (irr_tools & tools_used), f"irrelevant_used={irr_tools & tools_used}")
+
+    tool_events = [e for e in r_full["ledger"] if e.get("event") == "tool"]
+    non_reveal_count = sum(1 for e in tool_events if not e.get("revealed_ids"))
+    has_final = any(e.get("event") == "final" and e.get("http_status") == 200 for e in r_full["ledger"])
+    T("4_error_recovery", non_reveal_count >= 1 and has_final, f"non_reveal={non_reveal_count} final_ok={has_final}")
+
+    fj = r_full["final_json"]
+    keys = {"root_cause_summary", "evidence_ids", "causal_explanation", "remediation_steps",
+            "risks", "missing_data", "confidence"}
+    T("5_final_json_schema", isinstance(fj, dict) and keys.issubset(fj.keys()),
+      f"missing={keys - (set(fj.keys()) if isinstance(fj, dict) else set())}")
+
+    s2 = r_full["score"]
+    T("6_evidence_provenance", not s2.get("fabricated_claimed_ids") and not s2.get("unrevealed_claimed_ids"),
+      f"fabricated={s2.get('fabricated_claimed_ids')} unrevealed={s2.get('unrevealed_claimed_ids')}")
+
+    T("7_routed_execution", "score" in r_routed and "evidence_cov" in r_routed["score"])
+    T("8_full_execution", "score" in r_full and "evidence_cov" in r_full["score"])
+
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["case", "result", "note"]); w.writeheader(); w.writerows(rows)
+    n = len(rows); p = sum(1 for r in rows if r["result"] == "PASS")
+    print(f"LIVE_SMOKE={p}/{n}")
+
+if __name__ == "__main__":
+    main()

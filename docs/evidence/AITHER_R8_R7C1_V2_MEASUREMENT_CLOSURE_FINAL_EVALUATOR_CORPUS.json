@@ -1,0 +1,1799 @@
+{
+  "schema_version": "R7C1_V2_R3_R2",
+  "entry_count": 172,
+  "entries": [
+    {
+      "id": "POS-001",
+      "category": "positive_root",
+      "text": "port 80 is already occupied by another process",
+      "concept_keys": [
+        "port_conflict"
+      ],
+      "expected": true,
+      "note": "paraphrase of port_conflict"
+    },
+    {
+      "id": "POS-002",
+      "category": "positive_root",
+      "text": "the address is already in use so nginx cannot bind",
+      "concept_keys": [
+        "port_conflict"
+      ],
+      "expected": true,
+      "note": "paraphrase of port_conflict"
+    },
+    {
+      "id": "POS-003",
+      "category": "positive_root",
+      "text": "the process was oom-killed because it ran out of memory",
+      "concept_keys": [
+        "oom_kill"
+      ],
+      "expected": true,
+      "note": "paraphrase of oom_kill"
+    },
+    {
+      "id": "POS-004",
+      "category": "positive_root",
+      "text": "kernel oom killer terminated the job after memory exhaustion",
+      "concept_keys": [
+        "oom_kill"
+      ],
+      "expected": true,
+      "note": "paraphrase of oom_kill"
+    },
+    {
+      "id": "POS-005",
+      "category": "positive_root",
+      "text": "the /data directory does not exist on this host",
+      "concept_keys": [
+        "missing_directory"
+      ],
+      "expected": true,
+      "note": "paraphrase of missing_directory"
+    },
+    {
+      "id": "POS-006",
+      "category": "positive_root",
+      "text": "no such file or directory when the script references /data",
+      "concept_keys": [
+        "missing_directory"
+      ],
+      "expected": true,
+      "note": "paraphrase of missing_directory"
+    },
+    {
+      "id": "POS-007",
+      "category": "positive_root",
+      "text": "increase the memory limit for the service",
+      "concept_keys": [
+        "increase_memory_limit"
+      ],
+      "expected": true,
+      "note": "paraphrase of increase_memory_limit"
+    },
+    {
+      "id": "POS-008",
+      "category": "positive_root",
+      "text": "stream the dataset to reduce memory usage",
+      "concept_keys": [
+        "reduce_memory_usage"
+      ],
+      "expected": true,
+      "note": "paraphrase of reduce_memory_usage"
+    },
+    {
+      "id": "POS-009",
+      "category": "positive_root",
+      "text": "the filesystem has no space left on device",
+      "concept_keys": [
+        "disk_full"
+      ],
+      "expected": true,
+      "note": "paraphrase of disk_full"
+    },
+    {
+      "id": "POS-010",
+      "category": "positive_root",
+      "text": "the /var/log directory is consuming all available space",
+      "concept_keys": [
+        "log_disk_full"
+      ],
+      "expected": true,
+      "note": "paraphrase of log_disk_full"
+    },
+    {
+      "id": "POS-011",
+      "category": "positive_root",
+      "text": "the dns record for the service is absent",
+      "concept_keys": [
+        "dns_record_missing"
+      ],
+      "expected": true,
+      "note": "paraphrase of dns_record_missing"
+    },
+    {
+      "id": "POS-012",
+      "category": "positive_root",
+      "text": "the application cannot resolve the service hostname",
+      "concept_keys": [
+        "dns_resolution_failure"
+      ],
+      "expected": true,
+      "note": "paraphrase of dns_resolution_failure"
+    },
+    {
+      "id": "POS-013",
+      "category": "positive_root",
+      "text": "the tls certificate has expired",
+      "concept_keys": [
+        "certificate_expired"
+      ],
+      "expected": true,
+      "note": "paraphrase of certificate_expired"
+    },
+    {
+      "id": "POS-014",
+      "category": "positive_root",
+      "text": "the firewall is blocking the port",
+      "concept_keys": [
+        "firewall_block"
+      ],
+      "expected": true,
+      "note": "paraphrase of firewall_block"
+    },
+    {
+      "id": "POS-015",
+      "category": "positive_root",
+      "text": "the dns record is stale and points to the wrong ip",
+      "concept_keys": [
+        "stale_dns_record"
+      ],
+      "expected": true,
+      "note": "paraphrase of stale_dns_record"
+    },
+    {
+      "id": "POS-016",
+      "category": "positive_root",
+      "text": "the upstream returned a 502 bad gateway",
+      "concept_keys": [
+        "upstream_502"
+      ],
+      "expected": true,
+      "note": "paraphrase of upstream_502"
+    },
+    {
+      "id": "POS-017",
+      "category": "positive_root",
+      "text": "the database is down and connection refused on 5432",
+      "concept_keys": [
+        "db_down"
+      ],
+      "expected": true,
+      "note": "paraphrase of db_down"
+    },
+    {
+      "id": "POS-018",
+      "category": "positive_root",
+      "text": "the pod is pending due to insufficient cpu",
+      "concept_keys": [
+        "insufficient_cpu"
+      ],
+      "expected": true,
+      "note": "paraphrase of insufficient_cpu"
+    },
+    {
+      "id": "POS-019",
+      "category": "positive_root",
+      "text": "image pull backoff because the manifest is unknown",
+      "concept_keys": [
+        "image_pull_backoff"
+      ],
+      "expected": true,
+      "note": "paraphrase of image_pull_backoff"
+    },
+    {
+      "id": "POS-020",
+      "category": "positive_root",
+      "text": "the service selector does not match the pod labels",
+      "concept_keys": [
+        "selector_mismatch"
+      ],
+      "expected": true,
+      "note": "paraphrase of selector_mismatch"
+    },
+    {
+      "id": "POS-021",
+      "category": "positive_root",
+      "text": "the persistent volume claim was not found",
+      "concept_keys": [
+        "pvc_missing"
+      ],
+      "expected": true,
+      "note": "paraphrase of pvc_missing"
+    },
+    {
+      "id": "POS-022",
+      "category": "positive_root",
+      "text": "the liveness probe is failing the health check",
+      "concept_keys": [
+        "probe_misconfigured"
+      ],
+      "expected": true,
+      "note": "paraphrase of probe_misconfigured"
+    },
+    {
+      "id": "POS-023",
+      "category": "positive_root",
+      "text": "the prestop hook is hanging during termination",
+      "concept_keys": [
+        "prestop_hook"
+      ],
+      "expected": true,
+      "note": "paraphrase of prestop_hook"
+    },
+    {
+      "id": "POS-024",
+      "category": "positive_root",
+      "text": "the docker daemon is inactive and not running",
+      "concept_keys": [
+        "docker_daemon_down"
+      ],
+      "expected": true,
+      "note": "paraphrase of docker_daemon_down"
+    },
+    {
+      "id": "POS-025",
+      "category": "positive_root",
+      "text": "the image is 4.8gb and bloated",
+      "concept_keys": [
+        "image_bloat"
+      ],
+      "expected": true,
+      "note": "paraphrase of image_bloat"
+    },
+    {
+      "id": "POS-026",
+      "category": "positive_root",
+      "text": "the ceph cluster is full at 98% capacity",
+      "concept_keys": [
+        "ceph_full"
+      ],
+      "expected": true,
+      "note": "paraphrase of ceph_full"
+    },
+    {
+      "id": "POS-027",
+      "category": "positive_root",
+      "text": "osd.3 is down on node7",
+      "concept_keys": [
+        "osd_down"
+      ],
+      "expected": true,
+      "note": "paraphrase of osd_down"
+    },
+    {
+      "id": "POS-028",
+      "category": "positive_root",
+      "text": "the placement group is stuck and undersized",
+      "concept_keys": [
+        "pg_stuck"
+      ],
+      "expected": true,
+      "note": "paraphrase of pg_stuck"
+    },
+    {
+      "id": "POS-029",
+      "category": "positive_root",
+      "text": "the drbd peer is unknown and the node is standalone",
+      "concept_keys": [
+        "drbd_peer_unknown"
+      ],
+      "expected": true,
+      "note": "paraphrase of drbd_peer_unknown"
+    },
+    {
+      "id": "POS-030",
+      "category": "positive_root",
+      "text": "split-brain detected with primary on both nodes",
+      "concept_keys": [
+        "drbd_split_brain"
+      ],
+      "expected": true,
+      "note": "paraphrase of drbd_split_brain"
+    },
+    {
+      "id": "POS-031",
+      "category": "positive_root",
+      "text": "the volume is read-only",
+      "concept_keys": [
+        "readonly_volume"
+      ],
+      "expected": true,
+      "note": "paraphrase of readonly_volume"
+    },
+    {
+      "id": "POS-032",
+      "category": "positive_root",
+      "text": "the cpu mode host-passthrough is unsupported",
+      "concept_keys": [
+        "cpu_mode_unsupported"
+      ],
+      "expected": true,
+      "note": "paraphrase of cpu_mode_unsupported"
+    },
+    {
+      "id": "POS-033",
+      "category": "positive_root",
+      "text": "no bootable device found",
+      "concept_keys": [
+        "boot_order"
+      ],
+      "expected": true,
+      "note": "paraphrase of boot_order"
+    },
+    {
+      "id": "POS-034",
+      "category": "positive_root",
+      "text": "the network bridge link is down with no carrier",
+      "concept_keys": [
+        "bridge_link_down"
+      ],
+      "expected": true,
+      "note": "paraphrase of bridge_link_down"
+    },
+    {
+      "id": "POS-035",
+      "category": "positive_root",
+      "text": "the git endpoint has a trailing dot",
+      "concept_keys": [
+        "git_endpoint_misconfig"
+      ],
+      "expected": true,
+      "note": "paraphrase of git_endpoint_misconfig"
+    },
+    {
+      "id": "POS-036",
+      "category": "positive_root",
+      "text": "the config.yaml has uncommitted changes",
+      "concept_keys": [
+        "git_uncommitted"
+      ],
+      "expected": true,
+      "note": "paraphrase of git_uncommitted"
+    },
+    {
+      "id": "POS-037",
+      "category": "positive_root",
+      "text": "the copy path is wrong and requirements.txt is missing",
+      "concept_keys": [
+        "ci_copy_path"
+      ],
+      "expected": true,
+      "note": "paraphrase of ci_copy_path"
+    },
+    {
+      "id": "POS-038",
+      "category": "positive_root",
+      "text": "the test is hanging due to a network issue",
+      "concept_keys": [
+        "ci_network_hang"
+      ],
+      "expected": true,
+      "note": "paraphrase of ci_network_hang"
+    },
+    {
+      "id": "POS-039",
+      "category": "positive_root",
+      "text": "the healthcheck path is misconfigured",
+      "concept_keys": [
+        "healthcheck_path"
+      ],
+      "expected": true,
+      "note": "paraphrase of healthcheck_path"
+    },
+    {
+      "id": "POS-040",
+      "category": "positive_root",
+      "text": "permission denied for uid 1000",
+      "concept_keys": [
+        "permission_denied"
+      ],
+      "expected": true,
+      "note": "paraphrase of permission_denied"
+    },
+    {
+      "id": "POS-041",
+      "category": "positive_root",
+      "text": "key error because the environment variable is missing",
+      "concept_keys": [
+        "missing_env"
+      ],
+      "expected": true,
+      "note": "paraphrase of missing_env"
+    },
+    {
+      "id": "POS-042",
+      "category": "positive_root",
+      "text": "the jq filter returns null for the metadata name",
+      "concept_keys": [
+        "jq_parse"
+      ],
+      "expected": true,
+      "note": "paraphrase of jq_parse"
+    },
+    {
+      "id": "POS-043",
+      "category": "positive_root",
+      "text": "the src path points to a missing file",
+      "concept_keys": [
+        "missing_file_src"
+      ],
+      "expected": true,
+      "note": "paraphrase of missing_file_src"
+    },
+    {
+      "id": "POS-044",
+      "category": "positive_root",
+      "text": "invalid json due to a trailing comma",
+      "concept_keys": [
+        "json_parse_error"
+      ],
+      "expected": true,
+      "note": "paraphrase of json_parse_error"
+    },
+    {
+      "id": "POS-045",
+      "category": "positive_root",
+      "text": "the yaml has a wrong indentation",
+      "concept_keys": [
+        "yaml_indent"
+      ],
+      "expected": true,
+      "note": "paraphrase of yaml_indent"
+    },
+    {
+      "id": "POS-046",
+      "category": "positive_root",
+      "text": "brute force attack with failed password on sshd",
+      "concept_keys": [
+        "brute_force"
+      ],
+      "expected": true,
+      "note": "paraphrase of brute_force"
+    },
+    {
+      "id": "POS-047",
+      "category": "positive_root",
+      "text": "the container runs as root with runasuser 0",
+      "concept_keys": [
+        "privileged_container"
+      ],
+      "expected": true,
+      "note": "paraphrase of privileged_container"
+    },
+    {
+      "id": "POS-048",
+      "category": "positive_root",
+      "text": "the endpoint is unauthenticated with no auth",
+      "concept_keys": [
+        "missing_auth"
+      ],
+      "expected": true,
+      "note": "paraphrase of missing_auth"
+    },
+    {
+      "id": "POS-049",
+      "category": "positive_root",
+      "text": "the api key is hardcoded in the config",
+      "concept_keys": [
+        "hardcoded_secret"
+      ],
+      "expected": true,
+      "note": "paraphrase of hardcoded_secret"
+    },
+    {
+      "id": "POS-050",
+      "category": "positive_root",
+      "text": "too many connections exhausted the pool",
+      "concept_keys": [
+        "connection_exhausted"
+      ],
+      "expected": true,
+      "note": "paraphrase of connection_exhausted"
+    },
+    {
+      "id": "NEG-051",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "port_conflict"
+      ],
+      "expected": false,
+      "note": "rejected text for port_conflict"
+    },
+    {
+      "id": "NEG-052",
+      "category": "negative_rejected",
+      "text": "dns resolution failed",
+      "concept_keys": [
+        "port_conflict"
+      ],
+      "expected": false,
+      "note": "rejected text for port_conflict"
+    },
+    {
+      "id": "NEG-053",
+      "category": "negative_rejected",
+      "text": "the tls certificate expired",
+      "concept_keys": [
+        "port_conflict"
+      ],
+      "expected": false,
+      "note": "rejected text for port_conflict"
+    },
+    {
+      "id": "NEG-054",
+      "category": "negative_rejected",
+      "text": "the disk ran out of space",
+      "concept_keys": [
+        "oom_kill"
+      ],
+      "expected": false,
+      "note": "rejected text for oom_kill"
+    },
+    {
+      "id": "NEG-055",
+      "category": "negative_rejected",
+      "text": "the certificate is expired",
+      "concept_keys": [
+        "oom_kill"
+      ],
+      "expected": false,
+      "note": "rejected text for oom_kill"
+    },
+    {
+      "id": "NEG-056",
+      "category": "negative_rejected",
+      "text": "the database is down",
+      "concept_keys": [
+        "oom_kill"
+      ],
+      "expected": false,
+      "note": "rejected text for oom_kill"
+    },
+    {
+      "id": "NEG-057",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "missing_directory"
+      ],
+      "expected": false,
+      "note": "rejected text for missing_directory"
+    },
+    {
+      "id": "NEG-058",
+      "category": "negative_rejected",
+      "text": "permission denied",
+      "concept_keys": [
+        "missing_directory"
+      ],
+      "expected": false,
+      "note": "rejected text for missing_directory"
+    },
+    {
+      "id": "NEG-059",
+      "category": "negative_rejected",
+      "text": "the process was oom killed",
+      "concept_keys": [
+        "disk_full"
+      ],
+      "expected": false,
+      "note": "rejected text for disk_full"
+    },
+    {
+      "id": "NEG-060",
+      "category": "negative_rejected",
+      "text": "the dns record is missing",
+      "concept_keys": [
+        "disk_full"
+      ],
+      "expected": false,
+      "note": "rejected text for disk_full"
+    },
+    {
+      "id": "NEG-061",
+      "category": "negative_rejected",
+      "text": "the server is down",
+      "concept_keys": [
+        "dns_record_missing"
+      ],
+      "expected": false,
+      "note": "rejected text for dns_record_missing"
+    },
+    {
+      "id": "NEG-062",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "dns_record_missing"
+      ],
+      "expected": false,
+      "note": "rejected text for dns_record_missing"
+    },
+    {
+      "id": "NEG-063",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "certificate_expired"
+      ],
+      "expected": false,
+      "note": "rejected text for certificate_expired"
+    },
+    {
+      "id": "NEG-064",
+      "category": "negative_rejected",
+      "text": "the port is already in use",
+      "concept_keys": [
+        "certificate_expired"
+      ],
+      "expected": false,
+      "note": "rejected text for certificate_expired"
+    },
+    {
+      "id": "NEG-065",
+      "category": "negative_rejected",
+      "text": "the database is down",
+      "concept_keys": [
+        "firewall_block"
+      ],
+      "expected": false,
+      "note": "rejected text for firewall_block"
+    },
+    {
+      "id": "NEG-066",
+      "category": "negative_rejected",
+      "text": "the server is down",
+      "concept_keys": [
+        "stale_dns_record"
+      ],
+      "expected": false,
+      "note": "rejected text for stale_dns_record"
+    },
+    {
+      "id": "NEG-067",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "upstream_502"
+      ],
+      "expected": false,
+      "note": "rejected text for upstream_502"
+    },
+    {
+      "id": "NEG-068",
+      "category": "negative_rejected",
+      "text": "the tls certificate expired",
+      "concept_keys": [
+        "db_down"
+      ],
+      "expected": false,
+      "note": "rejected text for db_down"
+    },
+    {
+      "id": "NEG-069",
+      "category": "negative_rejected",
+      "text": "the network is partitioned",
+      "concept_keys": [
+        "db_down"
+      ],
+      "expected": false,
+      "note": "rejected text for db_down"
+    },
+    {
+      "id": "NEG-070",
+      "category": "negative_rejected",
+      "text": "the pod was oom killed",
+      "concept_keys": [
+        "insufficient_cpu"
+      ],
+      "expected": false,
+      "note": "rejected text for insufficient_cpu"
+    },
+    {
+      "id": "NEG-071",
+      "category": "negative_rejected",
+      "text": "the pod was oom killed",
+      "concept_keys": [
+        "image_pull_backoff"
+      ],
+      "expected": false,
+      "note": "rejected text for image_pull_backoff"
+    },
+    {
+      "id": "NEG-072",
+      "category": "negative_rejected",
+      "text": "the pvc is missing",
+      "concept_keys": [
+        "selector_mismatch"
+      ],
+      "expected": false,
+      "note": "rejected text for selector_mismatch"
+    },
+    {
+      "id": "NEG-073",
+      "category": "negative_rejected",
+      "text": "the selector is wrong",
+      "concept_keys": [
+        "pvc_missing"
+      ],
+      "expected": false,
+      "note": "rejected text for pvc_missing"
+    },
+    {
+      "id": "NEG-074",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "probe_misconfigured"
+      ],
+      "expected": false,
+      "note": "rejected text for probe_misconfigured"
+    },
+    {
+      "id": "NEG-075",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "prestop_hook"
+      ],
+      "expected": false,
+      "note": "rejected text for prestop_hook"
+    },
+    {
+      "id": "NEG-076",
+      "category": "negative_rejected",
+      "text": "the dns resolution failed",
+      "concept_keys": [
+        "docker_daemon_down"
+      ],
+      "expected": false,
+      "note": "rejected text for docker_daemon_down"
+    },
+    {
+      "id": "NEG-077",
+      "category": "negative_rejected",
+      "text": "the database is down",
+      "concept_keys": [
+        "image_bloat"
+      ],
+      "expected": false,
+      "note": "rejected text for image_bloat"
+    },
+    {
+      "id": "NEG-078",
+      "category": "negative_rejected",
+      "text": "the dns resolution failed",
+      "concept_keys": [
+        "ceph_full"
+      ],
+      "expected": false,
+      "note": "rejected text for ceph_full"
+    },
+    {
+      "id": "NEG-079",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "osd_down"
+      ],
+      "expected": false,
+      "note": "rejected text for osd_down"
+    },
+    {
+      "id": "NEG-080",
+      "category": "negative_rejected",
+      "text": "the network is partitioned",
+      "concept_keys": [
+        "pg_stuck"
+      ],
+      "expected": false,
+      "note": "rejected text for pg_stuck"
+    },
+    {
+      "id": "NEG-081",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "drbd_peer_unknown"
+      ],
+      "expected": false,
+      "note": "rejected text for drbd_peer_unknown"
+    },
+    {
+      "id": "NEG-082",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "drbd_split_brain"
+      ],
+      "expected": false,
+      "note": "rejected text for drbd_split_brain"
+    },
+    {
+      "id": "NEG-083",
+      "category": "negative_rejected",
+      "text": "the database is down",
+      "concept_keys": [
+        "readonly_volume"
+      ],
+      "expected": false,
+      "note": "rejected text for readonly_volume"
+    },
+    {
+      "id": "NEG-084",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "cpu_mode_unsupported"
+      ],
+      "expected": false,
+      "note": "rejected text for cpu_mode_unsupported"
+    },
+    {
+      "id": "NEG-085",
+      "category": "negative_rejected",
+      "text": "the dns resolution failed",
+      "concept_keys": [
+        "boot_order"
+      ],
+      "expected": false,
+      "note": "rejected text for boot_order"
+    },
+    {
+      "id": "NEG-086",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "bridge_link_down"
+      ],
+      "expected": false,
+      "note": "rejected text for bridge_link_down"
+    },
+    {
+      "id": "NEG-087",
+      "category": "negative_rejected",
+      "text": "the pod was oom killed",
+      "concept_keys": [
+        "git_endpoint_misconfig"
+      ],
+      "expected": false,
+      "note": "rejected text for git_endpoint_misconfig"
+    },
+    {
+      "id": "NEG-088",
+      "category": "negative_rejected",
+      "text": "the dns resolution failed",
+      "concept_keys": [
+        "git_uncommitted"
+      ],
+      "expected": false,
+      "note": "rejected text for git_uncommitted"
+    },
+    {
+      "id": "NEG-089",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "ci_copy_path"
+      ],
+      "expected": false,
+      "note": "rejected text for ci_copy_path"
+    },
+    {
+      "id": "NEG-090",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "ci_network_hang"
+      ],
+      "expected": false,
+      "note": "rejected text for ci_network_hang"
+    },
+    {
+      "id": "NEG-091",
+      "category": "negative_rejected",
+      "text": "the database is down",
+      "concept_keys": [
+        "healthcheck_path"
+      ],
+      "expected": false,
+      "note": "rejected text for healthcheck_path"
+    },
+    {
+      "id": "NEG-092",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "permission_denied"
+      ],
+      "expected": false,
+      "note": "rejected text for permission_denied"
+    },
+    {
+      "id": "NEG-093",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "missing_env"
+      ],
+      "expected": false,
+      "note": "rejected text for missing_env"
+    },
+    {
+      "id": "NEG-094",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "jq_parse"
+      ],
+      "expected": false,
+      "note": "rejected text for jq_parse"
+    },
+    {
+      "id": "NEG-095",
+      "category": "negative_rejected",
+      "text": "the database is down",
+      "concept_keys": [
+        "missing_file_src"
+      ],
+      "expected": false,
+      "note": "rejected text for missing_file_src"
+    },
+    {
+      "id": "NEG-096",
+      "category": "negative_rejected",
+      "text": "the dns resolution failed",
+      "concept_keys": [
+        "json_parse_error"
+      ],
+      "expected": false,
+      "note": "rejected text for json_parse_error"
+    },
+    {
+      "id": "NEG-097",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "yaml_indent"
+      ],
+      "expected": false,
+      "note": "rejected text for yaml_indent"
+    },
+    {
+      "id": "NEG-098",
+      "category": "negative_rejected",
+      "text": "the certificate expired",
+      "concept_keys": [
+        "brute_force"
+      ],
+      "expected": false,
+      "note": "rejected text for brute_force"
+    },
+    {
+      "id": "NEG-099",
+      "category": "negative_rejected",
+      "text": "the disk is full",
+      "concept_keys": [
+        "privileged_container"
+      ],
+      "expected": false,
+      "note": "rejected text for privileged_container"
+    },
+    {
+      "id": "NEG-100",
+      "category": "negative_rejected",
+      "text": "the pod was oom killed",
+      "concept_keys": [
+        "missing_auth"
+      ],
+      "expected": false,
+      "note": "rejected text for missing_auth"
+    },
+    {
+      "id": "REM-101",
+      "category": "remediation",
+      "text": "stop the process occupying port 80",
+      "concept_keys": [
+        "free_port"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of free_port"
+    },
+    {
+      "id": "REM-102",
+      "category": "remediation",
+      "text": "free up the port so the service can bind",
+      "concept_keys": [
+        "free_port"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of free_port"
+    },
+    {
+      "id": "REM-103",
+      "category": "remediation",
+      "text": "rotate the logs and truncate old entries",
+      "concept_keys": [
+        "rotate_logs"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of rotate_logs"
+    },
+    {
+      "id": "REM-104",
+      "category": "remediation",
+      "text": "create the /data directory before running the job",
+      "concept_keys": [
+        "create_directory"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of create_directory"
+    },
+    {
+      "id": "REM-105",
+      "category": "remediation",
+      "text": "raise the memory limit for the container",
+      "concept_keys": [
+        "increase_memory_limit"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of increase_memory_limit"
+    },
+    {
+      "id": "REM-106",
+      "category": "remediation",
+      "text": "reduce the memory footprint of the application",
+      "concept_keys": [
+        "reduce_memory_usage"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of reduce_memory_usage"
+    },
+    {
+      "id": "REM-107",
+      "category": "remediation",
+      "text": "install the missing python dependency",
+      "concept_keys": [
+        "install_dependency"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of install_dependency"
+    },
+    {
+      "id": "REM-108",
+      "category": "remediation",
+      "text": "add the missing dns record for the service",
+      "concept_keys": [
+        "add_dns_record"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of add_dns_record"
+    },
+    {
+      "id": "REM-109",
+      "category": "remediation",
+      "text": "renew the expired tls certificate",
+      "concept_keys": [
+        "renew_certificate"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of renew_certificate"
+    },
+    {
+      "id": "REM-110",
+      "category": "remediation",
+      "text": "open the port on the firewall",
+      "concept_keys": [
+        "allow_port_firewall"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of allow_port_firewall"
+    },
+    {
+      "id": "REM-111",
+      "category": "remediation",
+      "text": "update the stale dns record",
+      "concept_keys": [
+        "update_dns_record"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of update_dns_record"
+    },
+    {
+      "id": "REM-112",
+      "category": "remediation",
+      "text": "fix the upstream port so it stops returning 502",
+      "concept_keys": [
+        "fix_upstream"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of fix_upstream"
+    },
+    {
+      "id": "REM-113",
+      "category": "remediation",
+      "text": "restore the database service",
+      "concept_keys": [
+        "restore_db"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of restore_db"
+    },
+    {
+      "id": "REM-114",
+      "category": "remediation",
+      "text": "scale up the deployment to add resources",
+      "concept_keys": [
+        "scale_up"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of scale_up"
+    },
+    {
+      "id": "REM-115",
+      "category": "remediation",
+      "text": "pin the image tag to a known good version",
+      "concept_keys": [
+        "fix_image_tag"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of fix_image_tag"
+    },
+    {
+      "id": "REM-116",
+      "category": "remediation",
+      "text": "fix the service selector to match the labels",
+      "concept_keys": [
+        "fix_selector"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of fix_selector"
+    },
+    {
+      "id": "REM-117",
+      "category": "remediation",
+      "text": "create the missing persistent volume claim",
+      "concept_keys": [
+        "create_pvc"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of create_pvc"
+    },
+    {
+      "id": "REM-118",
+      "category": "remediation",
+      "text": "adjust the liveness probe settings",
+      "concept_keys": [
+        "fix_probe"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of fix_probe"
+    },
+    {
+      "id": "REM-119",
+      "category": "remediation",
+      "text": "fix the prestop hook",
+      "concept_keys": [
+        "fix_prestop"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of fix_prestop"
+    },
+    {
+      "id": "REM-120",
+      "category": "remediation",
+      "text": "start the docker daemon",
+      "concept_keys": [
+        "start_docker"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of start_docker"
+    },
+    {
+      "id": "REM-121",
+      "category": "remediation",
+      "text": "fix the dns config",
+      "concept_keys": [
+        "fix_dns_config"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of fix_dns_config"
+    },
+    {
+      "id": "REM-122",
+      "category": "remediation",
+      "text": "optimize the image layers to reduce size",
+      "concept_keys": [
+        "optimize_image"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of optimize_image"
+    },
+    {
+      "id": "REM-123",
+      "category": "remediation",
+      "text": "expand the volume to add capacity",
+      "concept_keys": [
+        "expand_volume"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of expand_volume"
+    },
+    {
+      "id": "REM-124",
+      "category": "remediation",
+      "text": "bring the failed osd back online",
+      "concept_keys": [
+        "bring_osd_back"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of bring_osd_back"
+    },
+    {
+      "id": "REM-125",
+      "category": "remediation",
+      "text": "restore the osds and rebalance the pool",
+      "concept_keys": [
+        "restore_osds"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of restore_osds"
+    },
+    {
+      "id": "REM-126",
+      "category": "remediation",
+      "text": "restore the drbd replication link",
+      "concept_keys": [
+        "restore_drbd"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of restore_drbd"
+    },
+    {
+      "id": "REM-127",
+      "category": "remediation",
+      "text": "resolve the split brain by choosing one source",
+      "concept_keys": [
+        "resolve_split_brain"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of resolve_split_brain"
+    },
+    {
+      "id": "REM-128",
+      "category": "remediation",
+      "text": "remount the volume read-write",
+      "concept_keys": [
+        "remount_rw"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of remount_rw"
+    },
+    {
+      "id": "REM-129",
+      "category": "remediation",
+      "text": "change the cpu mode to host-model",
+      "concept_keys": [
+        "change_cpu_mode"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of change_cpu_mode"
+    },
+    {
+      "id": "REM-130",
+      "category": "remediation",
+      "text": "fix the boot order and attach the boot disk",
+      "concept_keys": [
+        "fix_boot_order"
+      ],
+      "expected": true,
+      "note": "remediation paraphrase of fix_boot_order"
+    },
+    {
+      "id": "AMB-131",
+      "category": "ambiguous",
+      "text": "the port has a problem",
+      "concept_keys": [
+        "port_conflict"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for port_conflict (conservative no-match)"
+    },
+    {
+      "id": "AMB-132",
+      "category": "ambiguous",
+      "text": "there is an issue with the address",
+      "concept_keys": [
+        "port_conflict"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for port_conflict (conservative no-match)"
+    },
+    {
+      "id": "AMB-133",
+      "category": "ambiguous",
+      "text": "the process crashed unexpectedly",
+      "concept_keys": [
+        "oom_kill"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for oom_kill (conservative no-match)"
+    },
+    {
+      "id": "AMB-134",
+      "category": "ambiguous",
+      "text": "the application stopped responding",
+      "concept_keys": [
+        "oom_kill"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for oom_kill (conservative no-match)"
+    },
+    {
+      "id": "AMB-135",
+      "category": "ambiguous",
+      "text": "the disk is bad",
+      "concept_keys": [
+        "disk_full"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for disk_full (conservative no-match)"
+    },
+    {
+      "id": "AMB-136",
+      "category": "ambiguous",
+      "text": "the security check failed",
+      "concept_keys": [
+        "certificate_expired"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for certificate_expired (conservative no-match)"
+    },
+    {
+      "id": "AMB-137",
+      "category": "ambiguous",
+      "text": "the backend is slow",
+      "concept_keys": [
+        "db_down"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for db_down (conservative no-match)"
+    },
+    {
+      "id": "AMB-138",
+      "category": "ambiguous",
+      "text": "the hostname looks wrong",
+      "concept_keys": [
+        "dns_resolution_failure"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for dns_resolution_failure (conservative no-match)"
+    },
+    {
+      "id": "AMB-139",
+      "category": "ambiguous",
+      "text": "the path is wrong",
+      "concept_keys": [
+        "missing_directory"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for missing_directory (conservative no-match)"
+    },
+    {
+      "id": "AMB-140",
+      "category": "ambiguous",
+      "text": "the proxy is slow",
+      "concept_keys": [
+        "upstream_502"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for upstream_502 (conservative no-match)"
+    },
+    {
+      "id": "AMB-141",
+      "category": "ambiguous",
+      "text": "do something with the port",
+      "concept_keys": [
+        "free_port"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for free_port (conservative no-match)"
+    },
+    {
+      "id": "AMB-142",
+      "category": "ambiguous",
+      "text": "change the memory",
+      "concept_keys": [
+        "increase_memory_limit"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for increase_memory_limit (conservative no-match)"
+    },
+    {
+      "id": "AMB-143",
+      "category": "ambiguous",
+      "text": "fix the logs",
+      "concept_keys": [
+        "rotate_logs"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for rotate_logs (conservative no-match)"
+    },
+    {
+      "id": "AMB-144",
+      "category": "ambiguous",
+      "text": "fix the certificate",
+      "concept_keys": [
+        "renew_certificate"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for renew_certificate (conservative no-match)"
+    },
+    {
+      "id": "AMB-145",
+      "category": "ambiguous",
+      "text": "check the storage",
+      "concept_keys": [
+        "restore_db"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for restore_db (conservative no-match)"
+    },
+    {
+      "id": "AMB-146",
+      "category": "ambiguous",
+      "text": "adjust the deployment",
+      "concept_keys": [
+        "scale_up"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for scale_up (conservative no-match)"
+    },
+    {
+      "id": "AMB-147",
+      "category": "ambiguous",
+      "text": "fix the volume",
+      "concept_keys": [
+        "create_pvc"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for create_pvc (conservative no-match)"
+    },
+    {
+      "id": "AMB-148",
+      "category": "ambiguous",
+      "text": "fix the health check",
+      "concept_keys": [
+        "fix_probe"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for fix_probe (conservative no-match)"
+    },
+    {
+      "id": "AMB-149",
+      "category": "ambiguous",
+      "text": "fix the network",
+      "concept_keys": [
+        "fix_dns_config"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for fix_dns_config (conservative no-match)"
+    },
+    {
+      "id": "AMB-150",
+      "category": "ambiguous",
+      "text": "fix the drbd",
+      "concept_keys": [
+        "resolve_split_brain"
+      ],
+      "expected": false,
+      "note": "ambiguous/partial for resolve_split_brain (conservative no-match)"
+    },
+    {
+      "id": "PRO-151",
+      "category": "prohibited_collision",
+      "text": "delete the old logs",
+      "prohibited": [
+        "delete",
+        "reboot"
+      ],
+      "remediation_class": [
+        "rotate logs"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-152",
+      "category": "prohibited_collision",
+      "text": "reboot the server",
+      "prohibited": [
+        "delete",
+        "reboot"
+      ],
+      "remediation_class": [
+        "rotate logs"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-153",
+      "category": "prohibited_collision",
+      "text": "rotate the logs",
+      "prohibited": [
+        "delete",
+        "reboot"
+      ],
+      "remediation_class": [
+        "rotate logs"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-154",
+      "category": "prohibited_collision",
+      "text": "scale up the deployment",
+      "prohibited": [
+        "scale"
+      ],
+      "remediation_class": [
+        "scale up"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-155",
+      "category": "prohibited_collision",
+      "text": "scale down the deployment",
+      "prohibited": [
+        "scale"
+      ],
+      "remediation_class": [
+        "scale up"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-156",
+      "category": "prohibited_collision",
+      "text": "push the changes",
+      "prohibited": [
+        "push"
+      ],
+      "remediation_class": [
+        "revert change"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-157",
+      "category": "prohibited_collision",
+      "text": "revert the change",
+      "prohibited": [
+        "push"
+      ],
+      "remediation_class": [
+        "revert change"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-158",
+      "category": "prohibited_collision",
+      "text": "drop the table",
+      "prohibited": [
+        "drop"
+      ],
+      "remediation_class": [
+        "restore db"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-159",
+      "category": "prohibited_collision",
+      "text": "restore the database",
+      "prohibited": [
+        "drop"
+      ],
+      "remediation_class": [
+        "restore db"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-160",
+      "category": "prohibited_collision",
+      "text": "checkout the branch",
+      "prohibited": [
+        "checkout"
+      ],
+      "remediation_class": [
+        "review and commit"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-161",
+      "category": "prohibited_collision",
+      "text": "review and commit",
+      "prohibited": [
+        "checkout"
+      ],
+      "remediation_class": [
+        "review and commit"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-162",
+      "category": "prohibited_collision",
+      "text": "rm -rf the directory",
+      "prohibited": [
+        "rm -rf"
+      ],
+      "remediation_class": [
+        "rotate logs"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-163",
+      "category": "prohibited_collision",
+      "text": "clean up the logs",
+      "prohibited": [
+        "rm -rf"
+      ],
+      "remediation_class": [
+        "rotate logs"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-164",
+      "category": "prohibited_collision",
+      "text": "reboot to apply",
+      "prohibited": [
+        "reboot"
+      ],
+      "remediation_class": [
+        "change cpu mode"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-165",
+      "category": "prohibited_collision",
+      "text": "change the cpu mode",
+      "prohibited": [
+        "reboot"
+      ],
+      "remediation_class": [
+        "change cpu mode"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-166",
+      "category": "prohibited_collision",
+      "text": "delete the pvc",
+      "prohibited": [
+        "delete"
+      ],
+      "remediation_class": [
+        "create pvc"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-167",
+      "category": "prohibited_collision",
+      "text": "create the pvc",
+      "prohibited": [
+        "delete"
+      ],
+      "remediation_class": [
+        "create pvc"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-168",
+      "category": "prohibited_collision",
+      "text": "delete the process holding the port",
+      "prohibited": [
+        "delete",
+        "reboot"
+      ],
+      "remediation_class": [
+        "free the port"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-169",
+      "category": "prohibited_collision",
+      "text": "free the port",
+      "prohibited": [
+        "delete",
+        "reboot"
+      ],
+      "remediation_class": [
+        "free the port"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-170",
+      "category": "prohibited_collision",
+      "text": "remove from init scripts and cron @reboot to prevent auto-start",
+      "prohibited": [
+        "delete",
+        "reboot"
+      ],
+      "remediation_class": [
+        "free the port"
+      ],
+      "expected": false,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-171",
+      "category": "prohibited_collision",
+      "text": "reboot the server to apply the change",
+      "prohibited": [
+        "delete",
+        "reboot"
+      ],
+      "remediation_class": [
+        "free the port"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    },
+    {
+      "id": "PRO-172",
+      "category": "prohibited_collision",
+      "text": "reset the repo",
+      "prohibited": [
+        "reset"
+      ],
+      "remediation_class": [
+        "review and commit"
+      ],
+      "expected": true,
+      "note": "prohibited-action collision"
+    }
+  ]
+}

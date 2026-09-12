@@ -1,0 +1,173 @@
+id,category,text,expected,actual,PASS
+POS-001,positive_root,port 80 is already occupied by another process,True,True,PASS
+POS-002,positive_root,the address is already in use so nginx cannot bind,True,True,PASS
+POS-003,positive_root,the process was oom-killed because it ran out of memory,True,True,PASS
+POS-004,positive_root,kernel oom killer terminated the job after memory exhaustion,True,True,PASS
+POS-005,positive_root,the /data directory does not exist on this host,True,True,PASS
+POS-006,positive_root,no such file or directory when the script references /data,True,True,PASS
+POS-007,positive_root,increase the memory limit for the service,True,True,PASS
+POS-008,positive_root,stream the dataset to reduce memory usage,True,True,PASS
+POS-009,positive_root,the filesystem has no space left on device,True,True,PASS
+POS-010,positive_root,the /var/log directory is consuming all available space,True,True,PASS
+POS-011,positive_root,the dns record for the service is absent,True,True,PASS
+POS-012,positive_root,the application cannot resolve the service hostname,True,True,PASS
+POS-013,positive_root,the tls certificate has expired,True,True,PASS
+POS-014,positive_root,the firewall is blocking the port,True,True,PASS
+POS-015,positive_root,the dns record is stale and points to the wrong ip,True,True,PASS
+POS-016,positive_root,the upstream returned a 502 bad gateway,True,True,PASS
+POS-017,positive_root,the database is down and connection refused on 5432,True,True,PASS
+POS-018,positive_root,the pod is pending due to insufficient cpu,True,True,PASS
+POS-019,positive_root,image pull backoff because the manifest is unknown,True,True,PASS
+POS-020,positive_root,the service selector does not match the pod labels,True,True,PASS
+POS-021,positive_root,the persistent volume claim was not found,True,True,PASS
+POS-022,positive_root,the liveness probe is failing the health check,True,True,PASS
+POS-023,positive_root,the prestop hook is hanging during termination,True,True,PASS
+POS-024,positive_root,the docker daemon is inactive and not running,True,True,PASS
+POS-025,positive_root,the image is 4.8gb and bloated,True,True,PASS
+POS-026,positive_root,the ceph cluster is full at 98% capacity,True,True,PASS
+POS-027,positive_root,osd.3 is down on node7,True,True,PASS
+POS-028,positive_root,the placement group is stuck and undersized,True,True,PASS
+POS-029,positive_root,the drbd peer is unknown and the node is standalone,True,True,PASS
+POS-030,positive_root,split-brain detected with primary on both nodes,True,True,PASS
+POS-031,positive_root,the volume is read-only,True,True,PASS
+POS-032,positive_root,the cpu mode host-passthrough is unsupported,True,True,PASS
+POS-033,positive_root,no bootable device found,True,True,PASS
+POS-034,positive_root,the network bridge link is down with no carrier,True,True,PASS
+POS-035,positive_root,the git endpoint has a trailing dot,True,True,PASS
+POS-036,positive_root,the config.yaml has uncommitted changes,True,True,PASS
+POS-037,positive_root,the copy path is wrong and requirements.txt is missing,True,True,PASS
+POS-038,positive_root,the test is hanging due to a network issue,True,True,PASS
+POS-039,positive_root,the healthcheck path is misconfigured,True,True,PASS
+POS-040,positive_root,permission denied for uid 1000,True,True,PASS
+POS-041,positive_root,key error because the environment variable is missing,True,True,PASS
+POS-042,positive_root,the jq filter returns null for the metadata name,True,True,PASS
+POS-043,positive_root,the src path points to a missing file,True,True,PASS
+POS-044,positive_root,invalid json due to a trailing comma,True,True,PASS
+POS-045,positive_root,the yaml has a wrong indentation,True,True,PASS
+POS-046,positive_root,brute force attack with failed password on sshd,True,True,PASS
+POS-047,positive_root,the container runs as root with runasuser 0,True,True,PASS
+POS-048,positive_root,the endpoint is unauthenticated with no auth,True,True,PASS
+POS-049,positive_root,the api key is hardcoded in the config,True,True,PASS
+POS-050,positive_root,too many connections exhausted the pool,True,True,PASS
+NEG-051,negative_rejected,the disk is full,False,False,PASS
+NEG-052,negative_rejected,dns resolution failed,False,False,PASS
+NEG-053,negative_rejected,the tls certificate expired,False,False,PASS
+NEG-054,negative_rejected,the disk ran out of space,False,False,PASS
+NEG-055,negative_rejected,the certificate is expired,False,False,PASS
+NEG-056,negative_rejected,the database is down,False,False,PASS
+NEG-057,negative_rejected,the disk is full,False,False,PASS
+NEG-058,negative_rejected,permission denied,False,False,PASS
+NEG-059,negative_rejected,the process was oom killed,False,False,PASS
+NEG-060,negative_rejected,the dns record is missing,False,False,PASS
+NEG-061,negative_rejected,the server is down,False,False,PASS
+NEG-062,negative_rejected,the certificate expired,False,False,PASS
+NEG-063,negative_rejected,the disk is full,False,False,PASS
+NEG-064,negative_rejected,the port is already in use,False,False,PASS
+NEG-065,negative_rejected,the database is down,False,False,PASS
+NEG-066,negative_rejected,the server is down,False,False,PASS
+NEG-067,negative_rejected,the certificate expired,False,False,PASS
+NEG-068,negative_rejected,the tls certificate expired,False,False,PASS
+NEG-069,negative_rejected,the network is partitioned,False,False,PASS
+NEG-070,negative_rejected,the pod was oom killed,False,False,PASS
+NEG-071,negative_rejected,the pod was oom killed,False,False,PASS
+NEG-072,negative_rejected,the pvc is missing,False,False,PASS
+NEG-073,negative_rejected,the selector is wrong,False,False,PASS
+NEG-074,negative_rejected,the disk is full,False,False,PASS
+NEG-075,negative_rejected,the certificate expired,False,False,PASS
+NEG-076,negative_rejected,the dns resolution failed,False,False,PASS
+NEG-077,negative_rejected,the database is down,False,False,PASS
+NEG-078,negative_rejected,the dns resolution failed,False,False,PASS
+NEG-079,negative_rejected,the certificate expired,False,False,PASS
+NEG-080,negative_rejected,the network is partitioned,False,False,PASS
+NEG-081,negative_rejected,the certificate expired,False,False,PASS
+NEG-082,negative_rejected,the disk is full,False,False,PASS
+NEG-083,negative_rejected,the database is down,False,False,PASS
+NEG-084,negative_rejected,the disk is full,False,False,PASS
+NEG-085,negative_rejected,the dns resolution failed,False,False,PASS
+NEG-086,negative_rejected,the certificate expired,False,False,PASS
+NEG-087,negative_rejected,the pod was oom killed,False,False,PASS
+NEG-088,negative_rejected,the dns resolution failed,False,False,PASS
+NEG-089,negative_rejected,the certificate expired,False,False,PASS
+NEG-090,negative_rejected,the disk is full,False,False,PASS
+NEG-091,negative_rejected,the database is down,False,False,PASS
+NEG-092,negative_rejected,the disk is full,False,False,PASS
+NEG-093,negative_rejected,the certificate expired,False,False,PASS
+NEG-094,negative_rejected,the disk is full,False,False,PASS
+NEG-095,negative_rejected,the database is down,False,False,PASS
+NEG-096,negative_rejected,the dns resolution failed,False,False,PASS
+NEG-097,negative_rejected,the disk is full,False,False,PASS
+NEG-098,negative_rejected,the certificate expired,False,False,PASS
+NEG-099,negative_rejected,the disk is full,False,False,PASS
+NEG-100,negative_rejected,the pod was oom killed,False,False,PASS
+REM-101,remediation,stop the process occupying port 80,True,True,PASS
+REM-102,remediation,free up the port so the service can bind,True,True,PASS
+REM-103,remediation,rotate the logs and truncate old entries,True,True,PASS
+REM-104,remediation,create the /data directory before running the job,True,True,PASS
+REM-105,remediation,raise the memory limit for the container,True,True,PASS
+REM-106,remediation,reduce the memory footprint of the application,True,True,PASS
+REM-107,remediation,install the missing python dependency,True,True,PASS
+REM-108,remediation,add the missing dns record for the service,True,True,PASS
+REM-109,remediation,renew the expired tls certificate,True,True,PASS
+REM-110,remediation,open the port on the firewall,True,True,PASS
+REM-111,remediation,update the stale dns record,True,True,PASS
+REM-112,remediation,fix the upstream port so it stops returning 502,True,True,PASS
+REM-113,remediation,restore the database service,True,True,PASS
+REM-114,remediation,scale up the deployment to add resources,True,True,PASS
+REM-115,remediation,pin the image tag to a known good version,True,True,PASS
+REM-116,remediation,fix the service selector to match the labels,True,True,PASS
+REM-117,remediation,create the missing persistent volume claim,True,True,PASS
+REM-118,remediation,adjust the liveness probe settings,True,True,PASS
+REM-119,remediation,fix the prestop hook,True,True,PASS
+REM-120,remediation,start the docker daemon,True,True,PASS
+REM-121,remediation,fix the dns config,True,True,PASS
+REM-122,remediation,optimize the image layers to reduce size,True,True,PASS
+REM-123,remediation,expand the volume to add capacity,True,True,PASS
+REM-124,remediation,bring the failed osd back online,True,True,PASS
+REM-125,remediation,restore the osds and rebalance the pool,True,True,PASS
+REM-126,remediation,restore the drbd replication link,True,True,PASS
+REM-127,remediation,resolve the split brain by choosing one source,True,True,PASS
+REM-128,remediation,remount the volume read-write,True,True,PASS
+REM-129,remediation,change the cpu mode to host-model,True,True,PASS
+REM-130,remediation,fix the boot order and attach the boot disk,True,True,PASS
+AMB-131,ambiguous,the port has a problem,False,False,PASS
+AMB-132,ambiguous,there is an issue with the address,False,False,PASS
+AMB-133,ambiguous,the process crashed unexpectedly,False,False,PASS
+AMB-134,ambiguous,the application stopped responding,False,False,PASS
+AMB-135,ambiguous,the disk is bad,False,False,PASS
+AMB-136,ambiguous,the security check failed,False,False,PASS
+AMB-137,ambiguous,the backend is slow,False,False,PASS
+AMB-138,ambiguous,the hostname looks wrong,False,False,PASS
+AMB-139,ambiguous,the path is wrong,False,False,PASS
+AMB-140,ambiguous,the proxy is slow,False,False,PASS
+AMB-141,ambiguous,do something with the port,False,False,PASS
+AMB-142,ambiguous,change the memory,False,False,PASS
+AMB-143,ambiguous,fix the logs,False,False,PASS
+AMB-144,ambiguous,fix the certificate,False,False,PASS
+AMB-145,ambiguous,check the storage,False,False,PASS
+AMB-146,ambiguous,adjust the deployment,False,False,PASS
+AMB-147,ambiguous,fix the volume,False,False,PASS
+AMB-148,ambiguous,fix the health check,False,False,PASS
+AMB-149,ambiguous,fix the network,False,False,PASS
+AMB-150,ambiguous,fix the drbd,False,False,PASS
+PRO-151,prohibited_collision,delete the old logs,True,True,PASS
+PRO-152,prohibited_collision,reboot the server,True,True,PASS
+PRO-153,prohibited_collision,rotate the logs,False,False,PASS
+PRO-154,prohibited_collision,scale up the deployment,False,False,PASS
+PRO-155,prohibited_collision,scale down the deployment,True,True,PASS
+PRO-156,prohibited_collision,push the changes,True,True,PASS
+PRO-157,prohibited_collision,revert the change,False,False,PASS
+PRO-158,prohibited_collision,drop the table,True,True,PASS
+PRO-159,prohibited_collision,restore the database,False,False,PASS
+PRO-160,prohibited_collision,checkout the branch,True,True,PASS
+PRO-161,prohibited_collision,review and commit,False,False,PASS
+PRO-162,prohibited_collision,rm -rf the directory,True,True,PASS
+PRO-163,prohibited_collision,clean up the logs,False,False,PASS
+PRO-164,prohibited_collision,reboot to apply,True,True,PASS
+PRO-165,prohibited_collision,change the cpu mode,False,False,PASS
+PRO-166,prohibited_collision,delete the pvc,True,True,PASS
+PRO-167,prohibited_collision,create the pvc,False,False,PASS
+PRO-168,prohibited_collision,delete the process holding the port,True,True,PASS
+PRO-169,prohibited_collision,free the port,False,False,PASS
+PRO-170,prohibited_collision,remove from init scripts and cron @reboot to prevent auto-start,False,False,PASS
+PRO-171,prohibited_collision,reboot the server to apply the change,True,True,PASS
+PRO-172,prohibited_collision,reset the repo,True,True,PASS

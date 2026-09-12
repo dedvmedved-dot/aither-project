@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""R7-C1 v2-R1 evaluator tests (Phase 10) — explicit revealed/claimed, provenance-enforced."""
+import json, sys, csv, os
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("r1", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r2")).load_module()
+
+def main():
+    r1 = json.load(open(sys.argv[1]))
+    out = sys.argv[2]
+    rows = []
+
+    for sc in r1["scenarios"]:
+        req = sc["required_evidence"]
+        valid = {e["id"] for e in sc["evidence"]}
+        root = sc["root_concepts"][0]
+        rejected = sc["rejected"][0] if sc["rejected"] else "unrelated cause"
+        rem = sc["remediation_class"][0] if sc["remediation_class"] else "fix"
+
+        def good(claimed, revealed, root_c=root, causal="because of " + root, remed=[rem]):
+            return {"root_cause_summary": root_c, "evidence_ids": claimed,
+                    "causal_explanation": causal, "remediation_steps": remed,
+                    "risks": [], "missing_data": [], "confidence": 0.9}
+
+        # each case: (name, final_json_or_None, revealed, expected_passed, expected_fabricated, expected_unrevealed)
+        cases = [
+            ("1_correct", good(req, req), req, True, 0, 0),
+            ("2_claim_none_revealed", good(req, req), [], False, 0, len(req)),
+            ("3_revealed_no_claim", good([], req), req, False, 0, 0),
+            ("4_fabricated", good(["FAKE"], req), req, False, 1, 0),
+            ("5_partial_reveal_full_claim", good(req, req), req[:-1], False, 0, 1 if len(req) >= 1 else 0),
+            ("6_partial_claim_full_reveal", good(req[:-1], req), req, False, 0, 0),
+            ("7_wrong_root", good(req, req, root_c=rejected), req, False, 0, 0),
+            ("8_wrong_causality", good(req, req, causal="for no reason"), req, False, 0, 0),
+            ("9_prohibited_remediation", good(req, req, remed=["rm -rf /"]), req, False, 0, 0),
+            ("10_malformed", None, req, False, 0, 0),
+            ("11_duplicate_ids", good(req + req[:1], req), req, True, 0, 0),
+            ("12_extra_valid_revealed", good(req, req + ["EXTRA"]), req, True, 0, 0),
+            ("13_extra_fabricated", good(req + ["FAKE"], req), req, True, 1, 0),
+            ("14_rejected_root", good(req, req, root_c=rejected), req, False, 0, 0),
+        ]
+        for name, fj, revealed, exp_passed, exp_fab, exp_unrev in cases:
+            s2 = H.score_final(fj, sc, revealed)
+            passed = H.scenario_passed(s2)
+            fab = len(s2.get("fabricated_claimed_ids", []))
+            unrev = len(s2.get("unrevealed_claimed_ids", []))
+            ok = (passed == exp_passed and fab == exp_fab and unrev == exp_unrev)
+            rows.append({"scenario": sc["scenario_id"], "case": name,
+                         "expected_passed": exp_passed, "actual_passed": passed,
+                         "expected_fabricated": exp_fab, "actual_fabricated": fab,
+                         "expected_unrevealed": exp_unrev, "actual_unrevealed": unrev,
+                         "credited": ",".join(s2.get("credited_evidence_ids", [])),
+                         "PASS": "PASS" if ok else "FAIL"})
+            if not ok:
+                print(f"FAIL {sc['scenario_id']}/{name}: passed={passed}(exp {exp_passed}) fab={fab}(exp {exp_fab}) unrev={unrev}(exp {exp_unrev})", file=sys.stderr)
+
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+    total = len(rows); passed = sum(1 for r in rows if r["PASS"] == "PASS")
+    print(f"EVALUATOR_R1_TESTS={total}  PASS={passed}  FAIL={total-passed}")
+    print(f"WROTE {out}")
+
+if __name__ == "__main__":
+    main()

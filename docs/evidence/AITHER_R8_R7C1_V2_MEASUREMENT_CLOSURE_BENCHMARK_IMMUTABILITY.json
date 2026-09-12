@@ -1,0 +1,8 @@
+{
+  "task": "AITHER-HERMES-R8-R7C1-V2-MEASUREMENT-CLOSURE",
+  "baseline_sha": "ef4b5425ec9907d9daf2447b4fa258c56d4fb4b5",
+  "R3_R1_HISTORICAL_ARTIFACTS_UNCHANGED": "YES",
+  "changed_frozen_artifacts": [],
+  "frozen_artifact_count": 11,
+  "note": "New R3-R2 artifacts are separate versioned files; historical R3-R1 files are untouched"
+}

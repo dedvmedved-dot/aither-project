@@ -1,0 +1,9 @@
+case,result,note
+1_single_tool,PASS,"tools=['journalctl_read', 'shell_readonly', 'systemctl_status']"
+2_multi_tool,PASS,"tools=['kubectl_describe', 'kubectl_get', 'kubectl_logs']"
+3_irrelevant_avoidance,PASS,irrelevant_used=set()
+4_error_recovery,PASS,non_reveal=5 final_ok=True
+5_final_json_schema,PASS,missing=set()
+6_evidence_provenance,PASS,fabricated=[] unrevealed=[]
+7_routed_execution,PASS,
+8_full_execution,PASS,

@@ -1,0 +1,8 @@
+test,expected,actual,PASS
+full_record_valid,VALID,VALID,PASS
+routed_record_valid,VALID,VALID,PASS
+longcontext_record_valid,VALID,VALID,PASS
+missing_result,INVALID,INVALID:record missing ['result'],PASS
+missing_messages,INVALID,INVALID:record missing ['messages'],PASS
+detached_final_messages,INVALID,INVALID:final_messages does not extend messages (M7 detached finalization),PASS
+tool_event_missing_result_text,INVALID,INVALID:tool event missing ['result_text'],PASS

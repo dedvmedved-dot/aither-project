@@ -1,0 +1,13 @@
+test,statuses,expected,actual,PASS
+1_reveal_only,RELEVANT_REVEAL,precision=1.0,precision=1.0,PASS
+2_relevant_negative_only,RELEVANT_NEGATIVE,precision=1.0 (REL_NEG counted),precision=1.0,PASS
+3_reveal_plus_relevant_negative,"RELEVANT_REVEAL,RELEVANT_NEGATIVE",relevant=2 precision=1.0,relevant=2 precision=1.0,PASS
+4_irrelevant_only,IRRELEVANT,precision=0.0 irr=1,precision=0.0 irr=1,PASS
+5_duplicate_after_reveal,"RELEVANT_REVEAL,DUPLICATE",dup_rate=0.5 precision=1.0 (dup excluded),dup_rate=0.5 precision=1.0,PASS
+6_unsupported,UNSUPPORTED_SEMANTIC_OPERATION,unsup=1 unsup_rate=1.0,unsup=1 unsup_rate=1.0,PASS
+7_unsafe,UNSAFE,unsafe=1,unsafe=1,PASS
+8_malformed,MALFORMED,malformed=1,malformed=1,PASS
+9_mixed,"RELEVANT_REVEAL,RELEVANT_NEGATIVE,IRRELEVANT,DUPLICATE",precision=2/3 relevant=2,precision=0.6667 relevant=2,PASS
+10_zero_call,(empty),total=0 precision=0.0 (no div-by-zero),total=0 precision=0.0,PASS
+11_relevant_negative_counted_flag,RELEVANT_NEGATIVE,rel_neg=1 relevant=1,rel_neg=1 relevant=1,PASS
+12_irrelevant_rate,"RELEVANT_REVEAL,IRRELEVANT,IRRELEVANT",irr_rate=2/3,irr_rate=0.6667,PASS

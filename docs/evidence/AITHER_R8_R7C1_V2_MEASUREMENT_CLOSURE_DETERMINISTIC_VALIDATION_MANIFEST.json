@@ -1,0 +1,141 @@
+{
+  "task": "AITHER-HERMES-R8-R7C1-V2-MEASUREMENT-CLOSURE",
+  "baseline_sha": "ef4b5425ec9907d9daf2447b4fa258c56d4fb4b5",
+  "deterministic_validation_pass": "YES",
+  "gates": {
+    "final_evaluator": {
+      "tests": 172,
+      "pass": 172,
+      "pass_pct": 100.0,
+      "PASS_100": "YES",
+      "minimum": 170
+    },
+    "metric": {
+      "tests": 12,
+      "pass": 12,
+      "pass_pct": 100.0,
+      "PASS_100": "YES",
+      "minimum": 10
+    },
+    "error_recovery": {
+      "tests": 12,
+      "pass": 12,
+      "pass_pct": 100.0,
+      "PASS_100": "YES",
+      "minimum": 10
+    },
+    "shell_contract": {
+      "tests": 93,
+      "pass": 93,
+      "pass_pct": 100.0,
+      "PASS_100": "YES",
+      "minimum": 60
+    },
+    "long_context_state": {
+      "tests": 27,
+      "pass": 27,
+      "pass_pct": 100.0,
+      "PASS_100": "YES",
+      "minimum": null
+    },
+    "raw_ledger_structure": {
+      "tests": 7,
+      "pass": 7,
+      "pass_pct": 100.0,
+      "PASS_100": "YES",
+      "minimum": null
+    },
+    "scripted_positive_control": {
+      "tests": 50,
+      "pass": 50,
+      "pass_pct": 100.0,
+      "PASS_100": "YES"
+    },
+    "operation_dimension": {
+      "tests": 415,
+      "pass": 415,
+      "pass_pct": 100.0,
+      "PASS_100": "YES"
+    },
+    "preflight": {
+      "tests": 23,
+      "pass": 23,
+      "pass_pct": 100.0,
+      "PASS_100": "YES"
+    },
+    "portability": {
+      "tests": 6,
+      "pass": 6,
+      "pass_pct": 100.0,
+      "PASS_100": "YES"
+    }
+  },
+  "qwen38_rerun": {
+    "LIVE_SMOKE": "8/8",
+    "FULL": {
+      "scenarios": 50,
+      "TASK_SUCCESS": 22.0,
+      "ROOT_CAUSE": 48.0,
+      "EVIDENCE_DISCOVERY": 29.3,
+      "SCHEMA_VALID": 94.0,
+      "CAUSAL": 26.0,
+      "REMEDIATION": 38.0,
+      "PROHIBITED": 2,
+      "TOTAL_TOOL_CALLS": 307,
+      "RELEVANT_REVEAL": 25,
+      "RELEVANT_NEGATIVE": 16,
+      "RELEVANT_CALLS": 41,
+      "TOOL_PRECISION": 14.9,
+      "TOOL_RECALL": 32.9,
+      "TOOL_F1": 20.5,
+      "IRRELEVANT_CALL_RATE": 68.1,
+      "DUPLICATE_CALL_RATE": 10.1,
+      "UNSUPPORTED_CALL_RATE": 15.3,
+      "UNSAFE": 0,
+      "MALFORMED": 0,
+      "UNKNOWN_TOOL": 0,
+      "SCHEMA_INVALID": 0,
+      "UNSUPPORTED": 47,
+      "FABRICATED": 0,
+      "UNREVEALED_CLAIMED": 0,
+      "RELEVANT_NEGATIVE_COUNTED_AS_RELEVANT": "YES"
+    },
+    "ROUTED": {
+      "scenarios": 50,
+      "TASK_SUCCESS": 14.0,
+      "ROOT_CAUSE": 58.0,
+      "EVIDENCE_DISCOVERY": 32.0,
+      "SCHEMA_VALID": 100.0,
+      "CAUSAL": 28.0,
+      "REMEDIATION": 34.0,
+      "PROHIBITED": 3,
+      "TOTAL_TOOL_CALLS": 268,
+      "RELEVANT_REVEAL": 28,
+      "RELEVANT_NEGATIVE": 13,
+      "RELEVANT_CALLS": 41,
+      "TOOL_PRECISION": 16.5,
+      "TOOL_RECALL": 37.0,
+      "TOOL_F1": 22.9,
+      "IRRELEVANT_CALL_RATE": 72.2,
+      "DUPLICATE_CALL_RATE": 7.5,
+      "UNSUPPORTED_CALL_RATE": 10.4,
+      "UNSAFE": 0,
+      "MALFORMED": 0,
+      "UNKNOWN_TOOL": 0,
+      "SCHEMA_INVALID": 0,
+      "UNSUPPORTED": 28,
+      "FABRICATED": 0,
+      "UNREVEALED_CLAIMED": 0,
+      "RELEVANT_NEGATIVE_COUNTED_AS_RELEVANT": "YES"
+    },
+    "ERROR_RECOVERY": "35.9%",
+    "LONG_CONTEXT": "0/13 PASS (10/13 root_correct=True)",
+    "HALLUCINATED_EVIDENCE": 0,
+    "UNSAFE_ACTIONS": 0,
+    "HTTP_5XX": 0
+  },
+  "proposed_classification": {
+    "measurement": "PROPOSED_R7C1_V2_MEASUREMENT_CLOSURE_VALIDATED",
+    "qwen38": "PROPOSED_QWEN38_CONTROL_FAILED_QUALITY"
+  }
+}

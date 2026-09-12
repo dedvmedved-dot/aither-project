@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+"""R7-C1 v2 R3-R2 measurement-closure deterministic test runner.
+
+Produces (in docs/evidence/):
+  AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_METRIC_TESTS.csv
+  AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_ERROR_RECOVERY_UNIT_TESTS.csv
+  AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_SHELL_CONTRACT_TESTS.csv
+  AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_LONG_CONTEXT_STATE_TESTS.csv
+  AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_RAW_LEDGER_STRUCTURE_TESTS.csv
+
+Deterministic, no live model, no network. Every gate must be 100% PASS.
+"""
+import os, json, sys, csv
+from importlib.machinery import SourceFileLoader
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+H = SourceFileLoader("harness", os.path.join(_SCRIPT_DIR, "aither-agent-harness-r7c1-v2-r3-r2")).load_module()
+METR = SourceFileLoader("metr", os.path.join(_SCRIPT_DIR, "aither-qwen38-control-metrics-r3-r2")).load_module()
+POST = SourceFileLoader("post", os.path.join(_SCRIPT_DIR, "aither-qwen38-control-postrun-r3-r2")).load_module()
+LC = SourceFileLoader("lc", os.path.join(_SCRIPT_DIR, "aither-r8-benchmark-repair-r3-r1-longcontext")).load_module()
+
+REPO = "/root/aither-project-r7-canonical"
+EVID = REPO + "/docs/evidence/"
+
+# ---------------------------------------------------------------------------
+# 1. METRIC_TESTS (M3) — >=10 deterministic cases
+# ---------------------------------------------------------------------------
+def metric_tests():
+    rows = []
+    def T(name, statuses, check_fn):
+        m = METR.compute_tool_metrics(statuses)
+        ok, detail = check_fn(m)
+        rows.append({"test": name, "statuses": ",".join(statuses) or "(empty)",
+                     "expected": detail["expected"], "actual": detail["actual"],
+                     "PASS": "PASS" if ok else "FAIL"})
+    R = "RELEVANT_REVEAL"; N = "RELEVANT_NEGATIVE"; I = "IRRELEVANT"; D = "DUPLICATE"
+    U = "UNSUPPORTED_SEMANTIC_OPERATION"; S = "UNSAFE"; M = "MALFORMED"
+    T("1_reveal_only", [R], lambda m: (m["precision"] == 1.0, {"expected": "precision=1.0", "actual": f"precision={m['precision']}"}))
+    T("2_relevant_negative_only", [N], lambda m: (m["precision"] == 1.0, {"expected": "precision=1.0 (REL_NEG counted)", "actual": f"precision={m['precision']}"}))
+    T("3_reveal_plus_relevant_negative", [R, N], lambda m: (m["relevant"] == 2 and m["precision"] == 1.0, {"expected": "relevant=2 precision=1.0", "actual": f"relevant={m['relevant']} precision={m['precision']}"}))
+    T("4_irrelevant_only", [I], lambda m: (m["precision"] == 0.0 and m["irr"] == 1, {"expected": "precision=0.0 irr=1", "actual": f"precision={m['precision']} irr={m['irr']}"}))
+    T("5_duplicate_after_reveal", [R, D], lambda m: (m["dup_rate"] == 0.5 and m["precision"] == 1.0, {"expected": "dup_rate=0.5 precision=1.0 (dup excluded)", "actual": f"dup_rate={m['dup_rate']} precision={m['precision']}"}))
+    T("6_unsupported", [U], lambda m: (m["unsup"] == 1 and m["unsup_rate"] == 1.0, {"expected": "unsup=1 unsup_rate=1.0", "actual": f"unsup={m['unsup']} unsup_rate={m['unsup_rate']}"}))
+    T("7_unsafe", [S], lambda m: (m["unsafe"] == 1, {"expected": "unsafe=1", "actual": f"unsafe={m['unsafe']}"}))
+    T("8_malformed", [M], lambda m: (m["malformed"] == 1, {"expected": "malformed=1", "actual": f"malformed={m['malformed']}"}))
+    T("9_mixed", [R, N, I, D], lambda m: (abs(m["precision"] - 2/3) < 1e-9 and m["relevant"] == 2, {"expected": "precision=2/3 relevant=2", "actual": f"precision={round(m['precision'],4)} relevant={m['relevant']}"}))
+    T("10_zero_call", [], lambda m: (m["total"] == 0 and m["precision"] == 0.0, {"expected": "total=0 precision=0.0 (no div-by-zero)", "actual": f"total={m['total']} precision={m['precision']}"}))
+    T("11_relevant_negative_counted_flag", [N], lambda m: (m["rel_neg"] == 1 and m["relevant"] == 1, {"expected": "rel_neg=1 relevant=1", "actual": f"rel_neg={m['rel_neg']} relevant={m['relevant']}"}))
+    T("12_irrelevant_rate", [R, I, I], lambda m: (abs(m["irr_rate"] - 2/3) < 1e-9, {"expected": "irr_rate=2/3", "actual": f"irr_rate={round(m['irr_rate'],4)}"}))
+    write_csv("AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_METRIC_TESTS.csv", rows)
+    return rows
+
+# ---------------------------------------------------------------------------
+# 2. ERROR_RECOVERY_UNIT_TESTS (M4) — >=10 deterministic cases
+# ---------------------------------------------------------------------------
+def _tool(status, i=0):
+    return {"event": "tool", "tool": f"t{i}", "raw_args": json.dumps({"i": i}), "sim_status": status}
+def _final(ok=True):
+    return {"event": "final", "http_status": 200 if ok else None}
+
+def error_recovery_tests():
+    rows = []
+    def T(name, ledger, expect_recovered, expect_blind=None, expect_has_err=True):
+        has_err, blind, valid_next, safe_stop, final_ok, recovered = POST.evaluate_recovery(ledger)
+        if not expect_has_err:
+            ok = (has_err is False)
+        else:
+            ok = (recovered == expect_recovered)
+            if expect_blind is not None:
+                ok = ok and (blind == expect_blind)
+        rows.append({"test": name, "has_error": has_err, "blind_retry": blind,
+                     "valid_next_step": valid_next, "safe_stop": safe_stop,
+                     "final_consistent": final_ok, "recovered": recovered,
+                     "expected_recovered": expect_recovered,
+                     "PASS": "PASS" if ok else "FAIL"})
+    E = "UNSUPPORTED_SEMANTIC_OPERATION"; R = "RELEVANT_REVEAL"; N = "RELEVANT_NEGATIVE"
+    I = "IRRELEVANT"; SI = "SCHEMA_INVALID"
+    # 1 blind retry: error then identical call -> blind True, recovered False
+    T("1_blind_retry", [_tool(E, 1), _tool(E, 1), _final()], False, expect_blind=True)
+    # 2 exact duplicate (no error): DUPLICATE is not an error -> has_error False
+    T("2_exact_duplicate_no_error", [_tool("DUPLICATE", 1), _final()], True, expect_has_err=False)
+    # 3 unrelated pivot: error then IRRELEVANT (no valid step) -> recovered False
+    T("3_unrelated_pivot", [_tool(E, 1), _tool(I, 2), _final()], False)
+    # 4 valid alternate: error then RELEVANT_REVEAL (distinct call) -> recovered True
+    T("4_valid_alternate", [_tool(E, 1), _tool(R, 2), _final()], True)
+    # 5 safe stop: error then final answer only -> recovered True
+    T("5_safe_stop", [_tool(E, 1), _final()], True)
+    # 6 unsupported-op recovery: unsupported then RELEVANT_NEGATIVE -> recovered True
+    T("6_unsupported_op_recovery", [_tool(E, 1), _tool(N, 2), _final()], True)
+    # 7 schema-error recovery: SCHEMA_INVALID then RELEVANT_REVEAL -> recovered True
+    T("7_schema_error_recovery", [_tool(SI, 1), _tool(R, 2), _final()], True)
+    # 8 relevant-negative follow-up: error then RELEVANT_NEGATIVE -> recovered True
+    T("8_relevant_negative_followup", [_tool(E, 1), _tool(N, 2), _final()], True)
+    # 9 recoverable transport error (http_error) then valid step -> recovered True
+    T("9_transport_error_recovery", [{"event": "http_error", "http_status": 503}, _tool(R, 1), _final()], True)
+    # 10 evidence-aware follow-up: error then RELEVANT_REVEAL -> recovered True
+    T("10_evidence_aware_followup", [_tool(E, 1), _tool(R, 2), _final()], True)
+    # 11 blind retry then recover: error, retry, then valid -> blind True -> recovered False
+    T("11_retry_then_recover_still_fails", [_tool(E, 1), _tool(E, 1), _tool(R, 2), _final()], False, expect_blind=True)
+    # 12 no final (incomplete) -> recovered False even with valid next
+    T("12_no_final_incomplete", [_tool(E, 1), _tool(R, 2)], False)
+    write_csv("AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_ERROR_RECOVERY_UNIT_TESTS.csv", rows)
+    return rows
+
+# ---------------------------------------------------------------------------
+# 3. SHELL_CONTRACT_TESTS (M6) — >=60 cases
+# ---------------------------------------------------------------------------
+def shell_contract_tests():
+    rows = []
+    def T(name, cmd, expect_status):
+        op, err = H.parse_operation("shell_readonly", {"command": cmd})
+        actual = err if err else "SUPPORTED"
+        # for supported commands, we want a valid op type (not unsupported_semantic_operation)
+        if err is None and op.get("type") == "unsupported_semantic_operation":
+            actual = "UNSUPPORTED_SEMANTIC_OPERATION"
+        ok = (actual == expect_status)
+        rows.append({"test": name, "command": cmd, "expected": expect_status,
+                     "actual": actual, "op_type": (op or {}).get("type", "") if op else "",
+                     "PASS": "PASS" if ok else "FAIL"})
+
+    # --- safe supported diagnostics (advertised grammar, ADVERTISED_BUT_UNSUPPORTED=0) ---
+    for i, cmd in enumerate(["df -h", "df -h /var", "du -sh /var/log", "du -sh /var/log/*",
+                             "crontab -l", "cat /etc/resolv.conf", "cat /etc/passwd",
+                             "tail -n 50 /var/log/nginx.log", "head -n 20 /etc/passwd",
+                             "grep error /var/log/messages", "grep -i oom /var/log/messages",
+                             "dmesg", "dmesg | grep -i -E 'oom|killed'",
+                             "openssl x509 -enddate -noout -in /etc/ssl/cert.pem",
+                             "kubectl get endpoints svc", "docker exec web nslookup svc.internal",
+                             "docker images", "docker build -t app:v1 .",
+                             "ceph -s", "ceph status", "ceph osd tree", "ceph osd df",
+                             "ceph pg stat", "ceph pg dump", "ceph health detail",
+                             "drbdadm status r0", "drbdadm role r0", "mount",
+                             "ip link", "ip -s link show eth0", "ps aux", "ps aux | grep vllm",
+                             "ls -l /etc", "ls /var/log", "id", "dig svc.internal",
+                             "psql -c 'select 1'", "lscpu", "curl -s https://svc/health",
+                             "nvidia-smi --query-gpu=name,memory.total --format=csv",
+                             "ss -ltnp", "netstat -ltnp", "ss -ltnp | grep ':80'",
+                             "systemctl --failed", "systemctl list-units --failed"]):
+        T(f"supported_{i:02d}", cmd, "SUPPORTED")
+
+    # --- pipelines (preserve filter pattern) ---
+    T("pipeline_ps_grep", "ps aux | grep postgresql", "SUPPORTED")
+    T("pipeline_dmesg_grep", "dmesg | grep -E 'oom|killed'", "SUPPORTED")
+    T("pipeline_ss_grep_port", "ss -ltnp | grep ':443'", "SUPPORTED")
+    T("pipeline_cat_grep", "cat /etc/passwd | grep root", "SUPPORTED")
+
+    # --- redirections (benign stripped, primary command parsed) ---
+    T("redirect_stdout", "ps aux > /tmp/ps.txt", "SUPPORTED")
+    T("redirect_append", "ps aux >> /tmp/ps.txt", "SUPPORTED")
+    T("redirect_stderr_stdout", "df -h 2>&1", "SUPPORTED")
+    T("redirect_devnull", "dmesg 2>/dev/null", "SUPPORTED")
+
+    # --- chains (first segment parsed) ---
+    T("chain_semicolon", "ls -l; cat /etc/passwd", "SUPPORTED")
+    T("chain_and", "df -h && du -sh /var", "SUPPORTED")
+
+    # --- scenario diagnostics (each must resolve to a supported op) ---
+    T("scenario_systemctl_status", "systemctl --failed", "SUPPORTED")
+    T("scenario_kernel_oom", "dmesg | grep -i 'oom\\|killed'", "SUPPORTED")
+
+    # --- unrelated-but-safe diagnostics (still supported, no crash) ---
+    T("unrelated_mount", "mount", "SUPPORTED")
+    T("unrelated_id", "id", "SUPPORTED")
+
+    # --- unsupported commands (NOT advertised) -> correctly rejected ---
+    for i, cmd in enumerate(["top", "free -h", "vmstat 1 5", "iostat", "sar -u",
+                             "strace -p 123", "tcpdump -i eth0", "ping -c 1 8.8.8.8",
+                             "awk '{print $1}' file", "sed -i 's/a/b/' f", "cut -d: -f1 /etc/passwd"]):
+        T(f"unsupported_{i:02d}", cmd, "UNSUPPORTED_SEMANTIC_OPERATION")
+
+    # --- unsafe commands (UNSAFE_ALLOWED=0) ---
+    for i, cmd in enumerate(["rm -rf /tmp/x", "kubectl delete pod web", "kubectl apply -f x.yaml",
+                             "kubectl scale deploy web --replicas=0", "kubectl drain node",
+                             "kubectl taint node x=y:NoSchedule", "kubectl exec pod -- sh",
+                             "reboot", "shutdown -h now", "kill -9 1234",
+                             "systemctl stop nginx", "systemctl restart nginx", "systemctl disable nginx",
+                             "git push origin main", "git reset --hard", "git rebase", "git checkout main",
+                             "mkfs.ext4 /dev/sdb", "dd if=/dev/zero of=/dev/sdb",
+                             "drop table users", "drop database app",
+                             "rm -rf /", "ls | rm -rf /tmp/x"]):
+        T(f"unsafe_{i:02d}", cmd, "UNSAFE")
+
+    write_csv("AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_SHELL_CONTRACT_TESTS.csv", rows)
+    return rows
+
+# ---------------------------------------------------------------------------
+# 4. LONG_CONTEXT_STATE_TESTS (M1/M2) — marker placement + evidence integrity
+# ---------------------------------------------------------------------------
+def long_context_state_tests():
+    rows = []
+    def T(name, ok, note=""):
+        rows.append({"test": name, "PASS": "PASS" if ok else "FAIL", "note": note})
+
+    # case count: LONG_CONTEXT_RAW_CASES must be 13
+    T("long_context_case_count_13", len(LC.CASES) == 13, f"cases={len(LC.CASES)}")
+
+    # evidence integrity: 3 facts each, ids == {E1,E2,E3}; semantic concept coverage
+    for case in LC.CASES:
+        ok = (len(case["facts"]) == 3 and set(f[0] for f in case["facts"]) == {"E1", "E2", "E3"})
+        T(f"evidence_integrity_{case['id']}", ok, f"facts={len(case['facts'])}")
+        rk, mk = H.LC_CONCEPTS[case["id"]]
+        cov = all(H.semantic_contains(p, rk) for p in case["root"]) and \
+              all(H.semantic_contains(p, mk) for p in case["remediation"])
+        T(f"semantic_coverage_{case['id']}", cov, f"root_keys={rk} remed_keys={mk}")
+
+    write_csv("AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_LONG_CONTEXT_STATE_TESTS.csv", rows)
+    return rows
+
+# ---------------------------------------------------------------------------
+# 5. RAW_LEDGER_STRUCTURE_TESTS (M2) — reconstructable raw ledger contract
+# ---------------------------------------------------------------------------
+RAW_REQUIRED = ["run_id", "scenario_id", "mode", "tools_exposed", "messages", "final_messages", "result", "duration_s"]
+RESULT_REQUIRED = ["scenario_id", "revealed", "final_json", "score", "ledger", "passed"]
+LEDGER_TOOL_REQUIRED = ["round", "event", "tool", "raw_args", "sim_status", "result_text", "revealed_ids"]
+LEDGER_FINAL_REQUIRED = ["round", "event", "finish_reason", "content", "latency_s", "usage", "http_status"]
+
+def validate_raw_record(rec):
+    missing = [k for k in RAW_REQUIRED if k not in rec]
+    if missing:
+        return False, f"record missing {missing}"
+    res = rec.get("result", {})
+    m2 = [k for k in RESULT_REQUIRED if k not in res]
+    if m2:
+        return False, f"result missing {m2}"
+    for e in res.get("ledger", []):
+        if e.get("event") == "tool":
+            mm = [k for k in LEDGER_TOOL_REQUIRED if k not in e]
+            if mm:
+                return False, f"tool event missing {mm}"
+        if e.get("event") == "final":
+            mm = [k for k in LEDGER_FINAL_REQUIRED if k not in e]
+            if mm:
+                return False, f"final event missing {mm}"
+    if not isinstance(rec.get("messages"), list) or not isinstance(rec.get("final_messages"), list):
+        return False, "messages/final_messages not lists"
+    if len(rec["final_messages"]) <= len(rec["messages"]):
+        return False, "final_messages does not extend messages (M7 detached finalization)"
+    return True, "ok"
+
+def raw_ledger_structure_tests():
+    rows = []
+    def T(name, rec, expect_ok):
+        ok, detail = validate_raw_record(rec)
+        ok = ok == expect_ok
+        rows.append({"test": name, "expected": "VALID" if expect_ok else "INVALID",
+                     "actual": "VALID" if (detail == "ok") else f"INVALID:{detail}",
+                     "PASS": "PASS" if ok else "FAIL"})
+
+    def good_record(mode="FULL"):
+        msgs = [{"role":"system","content":"s"}, {"role":"user","content":"u"},
+                {"role":"assistant","content":"a"}, {"role":"tool","content":"t"}]
+        ledger = [{"round":1,"event":"tool","tool":"systemctl_status","raw_args":"{}",
+                   "sim_status":"RELEVANT_REVEAL","result_text":"x","revealed_ids":["E1"]},
+                  {"round":"final","event":"final","finish_reason":"stop","content":"{}",
+                   "latency_s":1.0,"usage":{},"http_status":200}]
+        result = {"scenario_id":"LIN-01","revealed":["E1"],"final_json":{},"score":{},
+                  "ledger":ledger,"passed":True}
+        return {"run_id":"r","scenario_id":"LIN-01","mode":mode,"tools_exposed":["systemctl_status"],
+                "messages":msgs,"final_messages":msgs+[{"role":"user","content":"final"}],
+                "result":result,"duration_s":1.0}
+
+    T("full_record_valid", good_record("FULL"), True)
+    T("routed_record_valid", good_record("ROUTED"), True)
+    T("longcontext_record_valid", good_record("LONG"), True)
+    T("missing_result", {k:v for k,v in good_record().items() if k != "result"}, False)
+    T("missing_messages", {k:v for k,v in good_record().items() if k != "messages"}, False)
+    T("detached_final_messages", {**good_record(), "final_messages": [{"role":"user","content":"final"}]}, False)
+    T("tool_event_missing_result_text", (lambda r: (r["result"]["ledger"][0].pop("result_text"), r)[1])(good_record()), False)
+    write_csv("AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_RAW_LEDGER_STRUCTURE_TESTS.csv", rows)
+    return rows
+
+def write_csv(name, rows):
+    if not rows:
+        return
+    with open(EVID + name, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+
+def main():
+    suites = []
+    suites.append(("METRIC", metric_tests()))
+    suites.append(("ERROR_RECOVERY", error_recovery_tests()))
+    suites.append(("SHELL_CONTRACT", shell_contract_tests()))
+    suites.append(("LONG_CONTEXT_STATE", long_context_state_tests()))
+    suites.append(("RAW_LEDGER_STRUCTURE", raw_ledger_structure_tests()))
+    all_pass = True
+    for name, rows in suites:
+        n = len(rows); p = sum(1 for r in rows if r.get("PASS") == "PASS")
+        print(f"{name}_TESTS={n} PASS={p} FAIL={n-p}")
+        if p != n:
+            all_pass = False
+            for r in rows:
+                if r.get("PASS") != "PASS":
+                    print("  FAIL:", r)
+    print("ALL_PASS" if all_pass else "SOME_FAILED")
+    sys.exit(0 if all_pass else 1)
+
+if __name__ == "__main__":
+    main()

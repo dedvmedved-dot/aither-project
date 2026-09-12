@@ -1,0 +1,28 @@
+test,PASS,note
+long_context_case_count_13,PASS,cases=13
+evidence_integrity_LC-56K-01,PASS,facts=3
+semantic_coverage_LC-56K-01,PASS,"root_keys=['oom_kill'] remed_keys=['increase_memory_limit', 'reduce_memory_usage']"
+evidence_integrity_LC-56K-02,PASS,facts=3
+semantic_coverage_LC-56K-02,PASS,"root_keys=['disk_full'] remed_keys=['rotate_logs', 'expand_volume']"
+evidence_integrity_LC-56K-03,PASS,facts=3
+semantic_coverage_LC-56K-03,PASS,root_keys=['dns_resolution_failure'] remed_keys=['fix_dns_config']
+evidence_integrity_LC-56K-04,PASS,facts=3
+semantic_coverage_LC-56K-04,PASS,root_keys=['certificate_expired'] remed_keys=['renew_certificate']
+evidence_integrity_LC-56K-05,PASS,facts=3
+semantic_coverage_LC-56K-05,PASS,root_keys=['connection_exhausted'] remed_keys=['enable_pooling']
+evidence_integrity_LC-58K-01,PASS,facts=3
+semantic_coverage_LC-58K-01,PASS,root_keys=['drbd_split_brain'] remed_keys=['resolve_split_brain']
+evidence_integrity_LC-58K-02,PASS,facts=3
+semantic_coverage_LC-58K-02,PASS,root_keys=['ceph_full'] remed_keys=['rebalance_osd']
+evidence_integrity_LC-58K-03,PASS,facts=3
+semantic_coverage_LC-58K-03,PASS,root_keys=['libvirtd_crash'] remed_keys=['fix_cpu_model']
+evidence_integrity_LC-58K-04,PASS,facts=3
+semantic_coverage_LC-58K-04,PASS,root_keys=['crashloop'] remed_keys=['fix_image_tag']
+evidence_integrity_LC-58K-05,PASS,facts=3
+semantic_coverage_LC-58K-05,PASS,root_keys=['upstream_502'] remed_keys=['fix_probe']
+evidence_integrity_LC-60K-01,PASS,facts=3
+semantic_coverage_LC-60K-01,PASS,root_keys=['oom_kill'] remed_keys=['reduce_max_model_len']
+evidence_integrity_LC-60K-02,PASS,facts=3
+semantic_coverage_LC-60K-02,PASS,root_keys=['oom_kill'] remed_keys=['release_hugepages']
+evidence_integrity_LC-60K-03,PASS,facts=3
+semantic_coverage_LC-60K-03,PASS,root_keys=['token_limit'] remed_keys=['truncate_history']

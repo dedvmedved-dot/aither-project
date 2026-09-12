@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Qwen3.8 control metrics — R3-R2 measurement-closure (M3 fix).
+
+Computes the frozen hard-gate metrics over the MEASUREMENT_CLOSURE run ledgers.
+
+M3 FIX: TOOL_PRECISION counts RELEVANT_NEGATIVE as a relevant diagnostic call:
+    relevant_calls = RELEVANT_REVEAL + RELEVANT_NEGATIVE
+    TOOL_PRECISION = relevant_calls / (total_calls - duplicate_calls)
+Separately reports: semantic tool precision, evidence recall, irrelevant rate,
+duplicate rate, unsupported rate.
+
+Usage:
+  python3 aither-qwen38-control-metrics-r3-r2 [evidence_dir]
+"""
+import os, json, sys, csv
+
+REPO = "/root/aither-project-r7-canonical"
+DEFAULT_EVID = REPO + "/docs/evidence/"
+P = "AITHER_R8_R7C1_V2_MEASUREMENT_CLOSURE_QWEN38_"
+
+def load_ledger(path):
+    rows = []
+    if not os.path.exists(path):
+        return rows
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
+
+def compute_tool_metrics(statuses):
+    """M3 pure metric computation from a list of tool-call statuses.
+
+    relevant_calls = RELEVANT_REVEAL + RELEVANT_NEGATIVE (M3 fix).
+    Returns a dict of counts/rates (0..1 fractions) used by summarize() and the
+    deterministic METRIC_TESTS."""
+    total = len(statuses)
+    reveal = sum(1 for s in statuses if s == "RELEVANT_REVEAL")
+    rel_neg = sum(1 for s in statuses if s == "RELEVANT_NEGATIVE")
+    dup = sum(1 for s in statuses if s == "DUPLICATE")
+    irr = sum(1 for s in statuses if s == "IRRELEVANT")
+    unsafe = sum(1 for s in statuses if s == "UNSAFE")
+    malformed = sum(1 for s in statuses if s == "MALFORMED")
+    unknown = sum(1 for s in statuses if s == "UNKNOWN_TOOL")
+    schema_inv = sum(1 for s in statuses if s == "SCHEMA_INVALID")
+    unsup = sum(1 for s in statuses if s == "UNSUPPORTED_SEMANTIC_OPERATION")
+
+    relevant = reveal + rel_neg
+    nondup = total - dup
+    precision = relevant / nondup if nondup else 0.0
+    irr_rate = irr / nondup if nondup else 0.0
+    dup_rate = dup / total if total else 0.0
+    unsup_rate = unsup / total if total else 0.0
+    return {"total": total, "reveal": reveal, "rel_neg": rel_neg, "relevant": relevant,
+            "dup": dup, "irr": irr, "unsafe": unsafe, "malformed": malformed,
+            "unknown": unknown, "schema_inv": schema_inv, "unsup": unsup,
+            "precision": precision, "irr_rate": irr_rate, "dup_rate": dup_rate,
+            "unsup_rate": unsup_rate}
+
+def summarize(prefix, scens, scen_by, evid):
+    sum_path = evid + f"{P}{prefix}_SUMMARY.csv"
+    led_path = evid + f"{P}{prefix}_RAW_LEDGER.jsonl"
+    sum_rows = list(csv.DictReader(open(sum_path)))
+    ledger = load_ledger(led_path)
+    n = len(sum_rows)
+    if n == 0:
+        return None
+
+    task_success = 100 * sum(1 for r in sum_rows if r["passed"] == "True") / n
+    root = 100 * sum(1 for r in sum_rows if r["root_correct"] == "True") / n
+    ev_disc = 100 * sum(float(r["evidence_cov"]) for r in sum_rows) / n
+    schema = 100 * sum(1 for r in sum_rows if r["schema_valid"] == "True") / n
+    causal = 100 * sum(1 for r in sum_rows if r["causal"] == "True") / n
+    remed = 100 * sum(1 for r in sum_rows if r["remediation"] == "True") / n
+    prohib = sum(1 for r in sum_rows if r["prohibited"] == "True")
+
+    statuses = []
+    for rec in ledger:
+        for e in rec["result"]["ledger"]:
+            if e.get("event") == "tool":
+                statuses.append(e.get("sim_status"))
+    m = compute_tool_metrics(statuses)
+    total = m["total"]; reveal = m["reveal"]; rel_neg = m["rel_neg"]; relevant = m["relevant"]
+    dup = m["dup"]; irr = m["irr"]; unsafe = m["unsafe"]; malformed = m["malformed"]
+    unknown = m["unknown"]; schema_inv = m["schema_inv"]; unsup = m["unsup"]
+    precision = m["precision"]
+
+    # evidence recall: discovered required evidence / total required
+    total_req = sum(len(set(s["required_evidence"])) for s in scens)
+    disc_req = sum(len(set(scen_by[rec["scenario_id"]]["required_evidence"]) & set(rec["result"]["revealed"]))
+                   for rec in ledger)
+    recall = disc_req / total_req if total_req else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+
+    irr_rate = m["irr_rate"]; dup_rate = m["dup_rate"]; unsup_rate = m["unsup_rate"]
+
+    fabricated = 0; unrevealed = 0
+    for rec in ledger:
+        s2 = rec["result"]["score"]
+        fabricated += len(s2.get("fabricated_claimed_ids", []))
+        unrevealed += len(s2.get("unrevealed_claimed_ids", []))
+
+    return {"scenarios": n, "TASK_SUCCESS": round(task_success, 1), "ROOT_CAUSE": round(root, 1),
+            "EVIDENCE_DISCOVERY": round(ev_disc, 1), "SCHEMA_VALID": round(schema, 1),
+            "CAUSAL": round(causal, 1), "REMEDIATION": round(remed, 1), "PROHIBITED": prohib,
+            "TOTAL_TOOL_CALLS": total,
+            "RELEVANT_REVEAL": reveal, "RELEVANT_NEGATIVE": rel_neg, "RELEVANT_CALLS": relevant,
+            "TOOL_PRECISION": round(100 * precision, 1),
+            "TOOL_RECALL": round(100 * recall, 1),
+            "TOOL_F1": round(100 * f1, 1),
+            "IRRELEVANT_CALL_RATE": round(100 * irr_rate, 1),
+            "DUPLICATE_CALL_RATE": round(100 * dup_rate, 1),
+            "UNSUPPORTED_CALL_RATE": round(100 * unsup_rate, 1),
+            "UNSAFE": unsafe, "MALFORMED": malformed, "UNKNOWN_TOOL": unknown,
+            "SCHEMA_INVALID": schema_inv, "UNSUPPORTED": unsup,
+            "FABRICATED": fabricated, "UNREVEALED_CLAIMED": unrevealed,
+            "RELEVANT_NEGATIVE_COUNTED_AS_RELEVANT": "YES"}
+
+def main():
+    evid = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_EVID
+    if not evid.endswith("/"):
+        evid += "/"
+    scen_path = evid + "AITHER_R7C1_V2_R3_R2_SCENARIOS.json"
+    scens = json.load(open(scen_path))["scenarios"]
+    scen_by = {s["scenario_id"]: s for s in scens}
+
+    full = summarize("FULL", scens, scen_by, evid)
+    routed = summarize("ROUTED", scens, scen_by, evid)
+    out = {"FULL": full, "ROUTED": routed}
+    json.dump(out, open(evid + f"{P}METRICS.json", "w"), indent=2)
+    with open(evid + f"{P}METRICS.csv", "w", newline="") as f:
+        fields = ["profile"] + list(full.keys())
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerow({"profile": "FULL", **{k: v for k, v in full.items()}})
+        w.writerow({"profile": "ROUTED", **{k: v for k, v in routed.items()}})
+    print(json.dumps(out, indent=2))
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,29 @@
+metric,mode,old_value,old_validity_status,corrected_value,delta,interpretation
+TASK_SUCCESS,FULL,4.0,INVALID (measurement defects M1-M7),22.0,18.0,improved (measurement corrected)
+ROOT_CAUSE,FULL,48.0,INVALID (measurement defects M1-M7),48.0,0.0,unchanged
+EVIDENCE_DISCOVERY,FULL,27.0,INVALID (measurement defects M1-M7),29.3,2.3,improved (measurement corrected)
+SCHEMA_VALID,FULL,100.0,INVALID (measurement defects M1-M7),94.0,-6.0,—
+CAUSAL,FULL,22.0,INVALID (measurement defects M1-M7),26.0,4.0,improved (measurement corrected)
+REMEDIATION,FULL,12.0,INVALID (measurement defects M1-M7),38.0,26.0,improved (measurement corrected)
+PROHIBITED,FULL,1,INVALID (measurement defects M1-M7),2,1,changed
+TOOL_PRECISION,FULL,9.8,INVALID (measurement defects M1-M7),14.9,5.1,improved (measurement corrected)
+TOOL_RECALL,FULL,35.6,INVALID (measurement defects M1-M7),32.9,-2.7,changed
+TOOL_F1,FULL,15.4,INVALID (measurement defects M1-M7),20.5,5.1,improved (measurement corrected)
+IRRELEVANT_CALL_RATE,FULL,61.1,INVALID (measurement defects M1-M7),68.1,7.0,changed
+DUPLICATE_CALL_RATE,FULL,12.3,INVALID (measurement defects M1-M7),10.1,-2.2,reduced (measurement corrected)
+UNSUPPORTED,FULL,63,INVALID (measurement defects M1-M7),47,-16,reduced (measurement corrected)
+TASK_SUCCESS,ROUTED,4.0,INVALID (measurement defects M1-M7),14.0,10.0,improved (measurement corrected)
+ROOT_CAUSE,ROUTED,46.0,INVALID (measurement defects M1-M7),58.0,12.0,improved (measurement corrected)
+EVIDENCE_DISCOVERY,ROUTED,22.0,INVALID (measurement defects M1-M7),32.0,10.0,improved (measurement corrected)
+SCHEMA_VALID,ROUTED,100.0,INVALID (measurement defects M1-M7),100.0,0.0,—
+CAUSAL,ROUTED,20.0,INVALID (measurement defects M1-M7),28.0,8.0,improved (measurement corrected)
+REMEDIATION,ROUTED,14.0,INVALID (measurement defects M1-M7),34.0,20.0,improved (measurement corrected)
+PROHIBITED,ROUTED,1,INVALID (measurement defects M1-M7),3,2,changed
+TOOL_PRECISION,ROUTED,8.8,INVALID (measurement defects M1-M7),16.5,7.7,improved (measurement corrected)
+TOOL_RECALL,ROUTED,27.4,INVALID (measurement defects M1-M7),37.0,9.6,improved (measurement corrected)
+TOOL_F1,ROUTED,13.4,INVALID (measurement defects M1-M7),22.9,9.5,improved (measurement corrected)
+IRRELEVANT_CALL_RATE,ROUTED,72.6,INVALID (measurement defects M1-M7),72.2,-0.4,reduced (measurement corrected)
+DUPLICATE_CALL_RATE,ROUTED,9.6,INVALID (measurement defects M1-M7),7.5,-2.1,reduced (measurement corrected)
+UNSUPPORTED,ROUTED,30,INVALID (measurement defects M1-M7),28,-2,reduced (measurement corrected)
+ERROR_RECOVERY,FULL+ROUTED,15.6,"INVALID (naive formula, M4)",35.9,20.3,improved (M4 contract)
+LONG_CONTEXT_TOTAL,ALL,0/13 PASS (root all False),"INVALID (detached finalization + false negatives, M1/M2/M5)",0/13 PASS (10/13 root=True),root 0->10/13,root cause now measured correctly (M5); evidence discovery still below gate

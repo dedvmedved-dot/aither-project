@@ -1,0 +1,87 @@
+{
+  "task": "AITHER-HERMES-R8-R7C1-V2-MEASUREMENT-CLOSURE",
+  "phase": "PRE_FIX_FREEZE",
+  "captured_at_utc": "2026-09-11T22:12:05.958818Z",
+  "baseline_sha": "ef4b5425ec9907d9daf2447b4fa258c56d4fb4b5",
+  "expected_baseline_sha": "ef4b5425ec9907d9daf2447b4fa258c56d4fb4b5",
+  "worktree_clean": true,
+  "frozen_files": {
+    "aither-v2/tools/aither-agent-harness-r7c1-v2-r3-r1": {
+      "sha256": "e3975d8fd606fdfd7b290bcb91e0ccff45a9d3f354c61af1f9591588eca93caa",
+      "git_blob_sha": "8c3adad6474b95ccf7657294625fa8ecc0cc230d",
+      "size": 37195
+    },
+    "docs/evidence/AITHER_R7C1_V2_R3_R1_SCENARIOS.json": {
+      "sha256": "5d9d7245e46b337a2f689477ece266e560b56a05c4b9669cdf52b9a041dd3cb5",
+      "git_blob_sha": "96d606578f3fefbafafc26c4ebb623bbf803c51f",
+      "size": 55051
+    },
+    "aither-v2/tools/aither-qwen38-control-live-runner": {
+      "sha256": "cee4fac0665828ff04e1222b6f16633227f5cf7d0f0d8eaa68517a3beae37447",
+      "git_blob_sha": "8d2b83ad289d2540b6366885c380b94754e3e140",
+      "size": 8383
+    },
+    "aither-v2/tools/aither-qwen38-control-live-longcontext": {
+      "sha256": "10e638543ee6d0ef64bd037cbd24e6e2845be7873bc26623db641f5a1037e518",
+      "git_blob_sha": "0c938d8564635541adfc9734a26cfd55947458a3",
+      "size": 10377
+    },
+    "aither-v2/tools/aither-qwen38-control-live-smoke": {
+      "sha256": "5fbde1bd19a84c761a6bb540cc1ecf4fa749bd7df79ff8ece3e716f8ecfa8d5b",
+      "git_blob_sha": "0167fdd9a9d1fa1b2d4bb8b5dc97e37d4d4821c8",
+      "size": 3871
+    },
+    "aither-v2/tools/aither-qwen38-control-metrics": {
+      "sha256": "da7d3b6b152481e4ed8fd14609a1ceee614c7e6bd651aaaa6dc89ac2ee8238e0",
+      "git_blob_sha": "1bcada948ed8d0262d0df4b49c5511a6e0f7a2d4",
+      "size": 4567
+    },
+    "aither-v2/tools/aither-qwen38-control-postrun": {
+      "sha256": "d7234dbadff3d246db6dca78eb9b0481a00478b8944fea6edf96aab7aa66f005",
+      "git_blob_sha": "785680f5e9c988ffc88d51837fe66ac52b09e74e",
+      "size": 5370
+    },
+    "aither-v2/tools/aither-r8-benchmark-repair-r3-r1-longcontext": {
+      "sha256": "5752152dcf40b0dda5c370a5dedd7b258ed88da638e5c43c602309e82eb98dd0",
+      "git_blob_sha": "0707f68fa41398604607f17c7704e0eed2385a19",
+      "size": 15793
+    }
+  },
+  "agent_hashes": {
+    ".agent/ACCEPTANCE_RULES.md": "316aa1d4247f5c74ce9c44d68bad2cc960baf97b30d4403f81698510ea10bf16",
+    ".agent/CANARY_RESULT.md": "51ce28cc7f4deddfdbf7e710635247dcf42b7b207c9909502b1d96c21e89cb9c",
+    ".agent/CURRENT_TASK.json": "2bb5649a04a18e6ab8ac00e4e122145bd79bd33b1bbf0d637431f71325f569f5",
+    ".agent/CURRENT_TASK.md": "4e8ca86d563eade6f023c9374936800259523822e7502f5f9777f6555d7313b8",
+    ".agent/EXECUTION_RESULT.json": "a17fe164dc4f7baefe54925c22e8e52a852f8dc4380c28ab511f4b19d9fc4b4c",
+    ".agent/GOVERNANCE.md": "16c514778547f5a7c06a89e83fca820bac8b6460e76dd23625bccef15e405d79",
+    ".agent/PROJECT_STATE.md": "847044f5924d59f1dab2a6b178ce3298cbad3c3396042b82f9f7376aaa002705",
+    ".agent/codex_observer.py": "f298540902838cc4e73019fe87dd943d605ca2be7c4aa7357626a638a3b2d25e",
+    ".agent/hermes_observer.py": "e3b68143991703704c4c12a9c25f3fa3db1f9092142be0a503a7270eefdef2c4",
+    ".agent/host_task_runner.py": "9d090f3ce19961487f118fbc145b7a413367a2aef6372764056cf682857330be",
+    ".agent/install_host_runner.sh": "0551e6ae31a989d930669528034f0872f7fbdd766cd724659ed19283f6ba7e4e",
+    ".agent/runner_live.py": "d86220c94dccddb7b92a02167b7faa8da2956316009ceb9dfb1bb701ec692f5a",
+    ".agent/systemd/aither-codex-runner.service.in": "e9d9f1ec6589952f8ff3688e733b54d4f145287ff1675c47437b7080927955bb",
+    ".agent/systemd/aither-codex-runner.timer": "aadb6cd60afea7ce6cba4eb2052332be21d2332bf2cef0368a8b57d8fed10718",
+    ".agent/systemd_runner.py": "4705824737efa52d318eb017517e510b425a236e825f0ca4793572b7872eea3b",
+    ".agent/tests/test_hermes_observer.py": "80a846681b56f85e9f550ae169c88cc308ffa8ccdf5c221afccc9d3cca870644",
+    ".agent/tests/test_host_task_runner.py": "d0f02ade1a14f860f9c83fb93b552c0d6cd4a7fc30fbfd328c3112593847f4ea",
+    ".agent/tests/test_live_observability.py": "394e5a3b0a61527211b625da06307c5f4fc2052a70b8909dcc1948046ebc90ca",
+    ".agent/tests/test_validate_task_scope.py": "122d5ba4f99f54889f745cb91f92d1998f0a64df1982f6ea6bc14b35c2ed930f",
+    ".agent/validate_task_scope.py": "a04be692ef848f6b7d5db39fba0f47cbb65b996a94b31acb3d4b8088467fd47e"
+  },
+  "production_identity": {
+    "endpoint": "http://127.0.0.1:18000 (port-forward svc/vllm-qwen38-27b-fp8:8000)",
+    "model_identifier": "qwen3.8-27b",
+    "max_model_len": 65536,
+    "runtime": "vLLM",
+    "runtime_version": "0.27.1",
+    "image_digest": "sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+    "gpu_topology": "2x Quadro RTX 6000 24GB, no NVLink, node bootsmam-k8s-clnt01-n7-gpu",
+    "quantization": "FP8",
+    "tool_call_parser": "qwen3_xml",
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "captured_from": "ef4b5425 RUNTIME_IDENTITY.json + live /v1/models probe"
+  },
+  "MEASUREMENT_CLOSURE_PRE_FIX_FROZEN": "YES"
+}
